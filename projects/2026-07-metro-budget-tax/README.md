@@ -12,13 +12,13 @@ npm run dev
 ```
 
 Dev server URL includes the Pages base path:  
-`http://localhost:5173/tuchel-general/metro-budget-tax/`
+`http://localhost:5173/tuchel-general/tax/`
 
 ### Live site
 
 After merge to `main`, GitHub Actions deploys to:
 
-**https://tuchel.github.io/tuchel-general/metro-budget-tax/**
+**https://tuchel.github.io/tuchel-general/tax/**
 
 Root `https://tuchel.github.io/tuchel-general/` redirects there. Manual redeploy: Actions → “Deploy Metro Budget & Tax Explorer” → Run workflow.
 ### Rebuild data
