@@ -1,7 +1,28 @@
 # Metro Budget & Tax Explorer — Project Plan
 
-**Status:** plan only (no build yet)  
+**Status:** Phase 0 complete + Phase 1 vertical slice live in `web/`  
 **Goal:** A rich, interactive infographic web page that lets anyone explore **effective local budget (spending) and tax per person** across every US metropolitan area — and actually learn what those numbers mean.
+
+### Run the app
+
+```bash
+cd projects/2026-07-metro-budget-tax/web
+npm install
+npm run dev
+```
+
+### Rebuild data
+
+```bash
+# Place Census individual-unit zip + delineation/pop/geo under raw/ (see pipeline)
+pip install -r pipeline/requirements.txt
+python3 pipeline/build_metros.py
+python3 pipeline/build_geojson.py
+# copy artifacts into the web public folder
+cp data/metros_web.json data/cbsa_metros.geojson web/public/data/
+```
+
+Phase 0 audit (FY2022): CBSA rollup recovers **~$862B** of the published **~$894B** US local tax total (~96%). See `data/audit.md`.
 
 This plan is the build bible for the project. Implementation should follow it unless a later note supersedes it.
 
