@@ -1,6 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
-import { classIndex, quantileBreaks, sequentialColor } from '../lib/color'
-import { formatMetric, metricValue, type MetricKey, type Metro } from '../lib/types'
+import {
+  CHOROPLETH_CLASS_COLORS,
+  CHOROPLETH_CLASS_LABELS,
+  classColor,
+  classIndex,
+  classRanges,
+  quantileBreaks,
+} from '../lib/color'
+import {
+  formatMetric,
+  metricLabel,
+  metricValue,
+  money,
+  pct,
+  type MetricKey,
+  type Metro,
+} from '../lib/types'
 
 interface Props {
   metros: Metro[]
@@ -22,8 +37,8 @@ type Feature = {
 type FeatureCollection = { type: 'FeatureCollection'; features: Feature[] }
 
 function project([lon, lat]: number[]): [number, number] {
-  const x = ((lon + 125) / 58) * 960
-  const y = ((50 - lat) / 26) * 520
+  const x = ((lon + 125) / 58) * 1100
+  const y = ((50 - lat) / 26) * 580
   return [x, y]
 }
 
@@ -45,6 +60,12 @@ function featurePath(f: Feature): string {
   return (f.geometry.coordinates as number[][][][])
     .map((poly) => poly.map(ringPath).join(' '))
     .join(' ')
+}
+
+function formatBreak(v: number, metric: MetricKey): string {
+  if (metric === 'tax_as_share_of_personal_income') return pct(v)
+  if (Math.abs(v) >= 1000) return money(v)
+  return money(v, 0)
 }
 
 let geoCache: FeatureCollection | null = null
@@ -87,7 +108,7 @@ export function MetroMap({ metros, metric, selected, onSelect, includeState = fa
   }, [metros, metric, includeState])
 
   const breaks = useMemo(() => quantileBreaks(values, 5), [values])
-  const colors = [0, 0.25, 0.5, 0.75, 1].map(sequentialColor)
+  const ranges = useMemo(() => classRanges(values, breaks), [values, breaks])
 
   const tipId = hover ?? selected
   const tipMetro = tipId ? byCbsa.get(tipId) : null
@@ -95,12 +116,12 @@ export function MetroMap({ metros, metric, selected, onSelect, includeState = fa
   return (
     <div className="map-shell svg-map">
       <svg
-        viewBox="0 0 960 560"
+        viewBox="0 0 1100 620"
         role="img"
         aria-label="US core-based statistical areas choropleth"
         className="map-canvas-svg"
       >
-        <rect width="960" height="560" fill="rgba(255,255,255,0.35)" />
+        <rect width="1100" height="620" fill="rgba(255,255,255,0.45)" />
         {geo?.features.map((f) => {
           const cbsa = String(f.properties.cbsa).padStart(5, '0')
           const metro = byCbsa.get(cbsa)
@@ -113,10 +134,10 @@ export function MetroMap({ metros, metric, selected, onSelect, includeState = fa
             <path
               key={cbsa}
               d={featurePath(f)}
-              fill={colors[idx]}
-              stroke={active ? '#8a4b12' : '#1a1f24'}
-              strokeOpacity={active ? 1 : 0.18}
-              strokeWidth={active ? 1.6 : 0.3}
+              fill={classColor(idx)}
+              stroke={active ? '#1a1f24' : '#f7f4ee'}
+              strokeOpacity={active ? 1 : 0.85}
+              strokeWidth={active ? 1.8 : 0.45}
               style={{ cursor: 'pointer' }}
               onMouseEnter={() => setHover(cbsa)}
               onMouseLeave={() => setHover(null)}
@@ -129,18 +150,30 @@ export function MetroMap({ metros, metric, selected, onSelect, includeState = fa
           )
         })}
       </svg>
-      <div className="map-legend">
-        <span className="legend-title">Relative {metric.replaceAll('_', ' ')}</span>
-        <div className="legend-ramp">
-          {colors.map((c) => (
-            <span key={c} style={{ background: c }} />
-          ))}
+
+      <div className="map-legend" aria-label="Choropleth legend">
+        <div className="legend-head">
+          <span className="legend-title">{metricLabel(metric, includeState)}</span>
+          <span className="legend-note">Quintiles · low → high</span>
         </div>
-        <div className="legend-ends">
-          <span>Lower</span>
-          <span>Higher</span>
-        </div>
+        <ol className="legend-classes">
+          {CHOROPLETH_CLASS_COLORS.map((color, i) => {
+            const range = ranges[i]
+            return (
+              <li key={color}>
+                <span className="legend-swatch" style={{ background: color }} aria-hidden />
+                <span className="legend-class-label">{CHOROPLETH_CLASS_LABELS[i]}</span>
+                <span className="legend-range mono">
+                  {range
+                    ? `${formatBreak(range.lo, metric)} – ${formatBreak(range.hi, metric)}`
+                    : '—'}
+                </span>
+              </li>
+            )
+          })}
+        </ol>
       </div>
+
       {tipMetro && (
         <div className="map-tip mono">
           <strong>{tipMetro.name}</strong>
