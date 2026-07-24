@@ -37,6 +37,7 @@ export interface UrlState {
   compare: string[]
   metric: string | null
   micros: boolean
+  stateAlloc: boolean
 }
 
 export function readUrlState(): UrlState {
@@ -50,6 +51,7 @@ export function readUrlState(): UrlState {
     compare,
     metric: params.get('metric'),
     micros: params.get('micros') === '1',
+    stateAlloc: params.get('state') === '1',
   }
 }
 
@@ -58,6 +60,7 @@ export function writeUrlState(state: {
   compare: string[]
   metric: string
   micros: boolean
+  stateAlloc: boolean
 }) {
   const url = new URL(window.location.href)
   if (state.metro) url.searchParams.set('metro', state.metro)
@@ -67,5 +70,7 @@ export function writeUrlState(state: {
   url.searchParams.set('metric', state.metric)
   if (state.micros) url.searchParams.set('micros', '1')
   else url.searchParams.delete('micros')
+  if (state.stateAlloc) url.searchParams.set('state', '1')
+  else url.searchParams.delete('state')
   window.history.replaceState({}, '', url)
 }

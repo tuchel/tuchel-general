@@ -1,6 +1,6 @@
 # Metro Budget & Tax Explorer — Project Plan
 
-**Status:** Phases 0–4 complete (full prototype)  
+**Status:** Phases 0–4 complete (full prototype) + Phase 3 extras (modeled state allocation, FiSC-style central city)  
 **Goal:** A rich, interactive infographic web page that lets anyone explore **effective local budget (spending) and tax per person** across every US metropolitan area — and actually learn what those numbers mean.
 
 ### Run the app
@@ -18,6 +18,7 @@ bash pipeline/download_raw.sh
 pip install -r pipeline/requirements.txt
 python3 pipeline/build_dataset.py
 python3 pipeline/build_geojson.py
+python3 pipeline/phase3_extras.py
 python3 pipeline/check_anchors.py
 cp data/metros_web.json data/cbsa_metros.geojson web/public/data/
 ```
@@ -26,7 +27,9 @@ cp data/metros_web.json data/cbsa_metros.geojson web/public/data/
 
 - FY2022 + FY2017 history, 387 metros (+ optional 538 micros)
 - Tax / spend / gap / tax-as-share-of-personal-income metrics
-- Scrollytelling chapters (tax≠spend, city-hall contrast, revenue, spend)
+- Optional modeled state tax/spend allocation (population-share within state)
+- FiSC-style central-city contrast (Census reconstruction; Lincoln list flag)
+- Scrollytelling chapters (tax≠spend, city-hall contrast, FiSC-style, revenue, spend)
 - Peer filters (region, population), compare tray (up to 4), rank table
 - BEA personal income join; city-hall-only contrast; floating TOC; KPI info-tips
 - Audit anchors (~96% recovery of published US local tax)
@@ -375,9 +378,9 @@ Voice: claim → definition → comparison → caveat. No adjectives without num
 - Multi-year sparklines
 - Tax / personal income
 - Optional micropolitans
-- Optional modeled state allocation (clearly labeled)
-- FiSC central-city contrast mode
-- Special-district allocation sensitivity toggle
+- **Modeled state allocation** (toggle; population-share within state; labeled modeled)
+- **FiSC-style central-city contrast** (Census reconstruction + Lincoln list flag; not official FiSC $)
+- Special-district allocation sensitivity toggle — deferred
 
 ### Phase 4 — Hardening
 

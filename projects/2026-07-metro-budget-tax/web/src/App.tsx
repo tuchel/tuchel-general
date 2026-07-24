@@ -40,12 +40,19 @@ export default function App() {
   const [selected, setSelected] = useState<string | null>(initial.metro)
   const [compare, setCompare] = useState<string[]>(initial.compare.slice(0, 4))
   const [includeMicros, setIncludeMicros] = useState(initial.micros)
+  const [includeState, setIncludeState] = useState(initial.stateAlloc)
   const [region, setRegion] = useState('all')
   const [popBand, setPopBand] = useState<PopBand>('all')
 
   useEffect(() => {
-    writeUrlState({ metro: selected, compare, metric, micros: includeMicros })
-  }, [selected, compare, metric, includeMicros])
+    writeUrlState({
+      metro: selected,
+      compare,
+      metric,
+      micros: includeMicros,
+      stateAlloc: includeState,
+    })
+  }, [selected, compare, metric, includeMicros, includeState])
 
   const filtered = useMemo(() => {
     if (!data) return []
@@ -63,13 +70,18 @@ export default function App() {
     ReturnType<typeof byCbsa.get>
   >[]
 
-  const medians = useMemo(
-    () => ({
-      tax: median(filtered.map((m) => m.tax_per_capita)),
-      spend: median(filtered.map((m) => m.spend_per_capita)),
-    }),
-    [filtered],
-  )
+  const medians = useMemo(() => {
+    const taxVals = filtered
+      .map((m) => (includeState ? m.local_plus_state_tax_per_capita : m.tax_per_capita))
+      .filter((v): v is number => v != null)
+    const spendVals = filtered
+      .map((m) => (includeState ? m.local_plus_state_spend_per_capita : m.spend_per_capita))
+      .filter((v): v is number => v != null)
+    return {
+      tax: median(taxVals),
+      spend: median(spendVals),
+    }
+  }, [filtered, includeState])
 
   function select(cbsa: string) {
     setSelected(cbsa)
@@ -118,6 +130,8 @@ export default function App() {
               onMetric={setMetric}
               includeMicros={includeMicros}
               onMicros={setIncludeMicros}
+              includeState={includeState}
+              onState={setIncludeState}
               region={region}
               onRegion={setRegion}
               popBand={popBand}
@@ -132,6 +146,7 @@ export default function App() {
               metric={metric}
               selected={selected}
               onSelect={select}
+              includeState={includeState}
             />
           </div>
         </header>
@@ -141,6 +156,7 @@ export default function App() {
           fallback={fallbackMetro}
           nationalTaxMedian={medians.tax}
           nationalSpendMedian={medians.spend}
+          includeState={includeState}
         />
 
         <section className="detail-section">
@@ -150,6 +166,7 @@ export default function App() {
             nationalMedianSpend={medians.spend}
             onPin={pin}
             isPinned={selected ? compare.includes(selected) : false}
+            includeState={includeState}
           />
           <div className="callout">
             <h2>National snapshot</h2>
@@ -182,6 +199,7 @@ export default function App() {
             onSelect={select}
             xKey={metric === 'tax_as_share_of_personal_income' ? 'tax_as_share_of_personal_income' : 'tax_per_capita'}
             yKey="spend_per_capita"
+            includeState={includeState}
           />
         </section>
 
@@ -189,6 +207,7 @@ export default function App() {
           pinned={pinned}
           onUnpin={(cbsa) => setCompare((p) => p.filter((c) => c !== cbsa))}
           onClear={() => setCompare([])}
+          includeState={includeState}
         />
 
         <section className="rank-section">
@@ -198,6 +217,7 @@ export default function App() {
             selected={selected}
             onSelect={select}
             onPin={pin}
+            includeState={includeState}
           />
         </section>
 

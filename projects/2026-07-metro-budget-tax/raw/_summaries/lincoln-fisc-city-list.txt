@@ -1,0 +1,216 @@
+# Lincoln Institute FiSC city list (FY 2021 report appendix), parsed from multi-column PDF text
+# Source: https://www.lincolninst.edu/app/uploads/legacy-files/pubfiles/fisc_full_database_2021.pdf
+# Format: ST|CityName
+# Used only for in_lincoln_fisc_list flags — FiSC-style dollars are Census-derived, not Lincoln published figures.
+AL|Birmingham
+AL|Gadsden
+AL|Mobile
+AL|Montgomery
+AK|Anchorage
+AK|Fairbanks
+AZ|Mesa
+AZ|Phoenix
+AZ|Tucson
+AR|Ft. Smith
+AR|Little Rock
+AR|Pine Bluff
+CA|Anaheim
+CA|Bakersfield
+CA|Fremont
+CA|Fresno
+CA|Huntington Beach
+CA|Long Beach
+CA|Los Angeles
+CA|Modesto
+CA|Oakland
+CA|Riverside
+CA|Sacramento
+CA|San Diego
+CA|San Francisco
+CA|San Jose
+CA|Santa Ana
+CA|Stockton
+CO|Aurora
+CO|Colorado Springs
+CO|Denver
+CT|Bridgeport
+CT|Hartford
+CT|New Haven
+DC|Washington
+DE|Dover
+DE|Wilmington
+FL|Ft. Lauderdale
+FL|Hialeah
+FL|Jacksonville
+FL|Miami
+FL|Orlando
+FL|St. Petersburg
+FL|Tallahassee
+FL|Tampa
+GA|Atlanta
+GA|Columbus
+GA|Savannah
+ID|Boise
+ID|Nampa
+IL|Aurora
+IL|Chicago
+IL|Decatur
+IL|East St. Louis
+IL|Rock Island
+IN|Anderson
+IN|East Chicago
+IN|Ft. Wayne
+IN|Gary
+IN|Hammond
+IN|Indianapolis
+IN|South Bend
+IN|Terre Haute
+IA|Cedar Rapids
+IA|Des Moines
+KS|Kansas City
+KS|Topeka
+KS|Wichita
+KY|Covington
+KY|Lexington
+KY|Louisville
+LA|Baton Rouge
+LA|New Orleans
+LA|Shreveport
+ME|Lewiston
+ME|Portland
+MD|Baltimore
+MD|Frederick
+MA|Boston
+MA|Fall River
+MA|Holyoke
+MA|Lawrence
+MA|Lynn
+MA|New Bedford
+MA|Pittsfield
+MA|Springfield
+MA|Worcester
+MI|Bay City
+MI|Dearborn
+MI|Dearborn Heights
+MI|Detroit
+MI|Flint
+MI|Grand Rapids
+MI|Hamtramck
+MI|Jackson
+MI|Lincoln Park
+MI|Pontiac
+MI|Roseville
+MI|Saginaw
+MI|Taylor
+MI|Warren
+MN|Duluth
+MN|Minneapolis
+MN|St. Paul
+MS|Gulfport
+MS|Jackson
+MO|Kansas City
+MO|St. Joseph
+MO|St. Louis
+MO|University City
+MT|Billings
+MT|Missoula
+NE|Lincoln
+NE|Omaha
+NV|Las Vegas
+NV|Reno
+NH|Manchester
+NH|Nashua
+NJ|Atlantic City
+NJ|Bayonne
+NJ|Camden
+NJ|Trenton
+NM|Albuquerque
+NM|Las Cruces
+NY|Albany
+NY|Binghamton
+NY|Buffalo
+NY|New York
+NY|Niagara Falls
+NY|Rochester
+NY|Rome
+NY|Schenectady
+NY|Syracuse
+NY|Troy
+NY|Utica
+NY|Yonkers
+NC|Charlotte
+NC|Durham
+NC|Greensboro
+NC|Raleigh
+ND|Bismarck
+ND|Fargo
+OH|Akron
+OH|Canton
+OH|Cincinnati
+OH|Cleveland Heights
+OH|Cleveland
+OH|Columbus
+OH|Dayton
+OH|Euclid
+OH|Lima
+OH|Springfield
+OH|Toledo
+OH|Warren
+OH|Youngstown
+OK|Oklahoma City
+OK|Tulsa
+OR|Eugene
+OR|Portland
+OR|Salem
+PA|Altoona
+PA|Chester
+PA|Erie
+PA|Harrisburg
+PA|Johnstown
+PA|McKeesport
+PA|Philadelphia
+PA|Pittsburgh
+PA|Reading
+PA|Scranton
+PA|Wilkes-Barre
+PA|York
+RI|Providence
+RI|Warwick
+SC|Charleston
+SC|Columbia
+SD|Rapid City
+SD|Sioux Falls
+TN|Chattanooga
+TN|Knoxville
+TN|Memphis
+TN|Nashville
+TX|Arlington
+TX|Austin
+TX|Corpus Christi
+TX|Dallas
+TX|El Paso
+TX|Ft. Worth
+TX|Galveston
+TX|Garland
+TX|Houston
+TX|Lubbock
+TX|San Antonio
+UT|Provo
+UT|Salt Lake City
+VT|Burlington
+VT|Rutland
+VA|Chesapeake
+VA|Danville
+VA|Norfolk
+VA|Richmond
+VA|Virginia Beach
+WA|Seattle
+WA|Spokane
+WA|Tacoma
+WV|Charleston
+WV|Huntington
+WV|Wheeling
+WI|Madison
+WI|Milwaukee
+WY|Casper
+WY|Cheyenne

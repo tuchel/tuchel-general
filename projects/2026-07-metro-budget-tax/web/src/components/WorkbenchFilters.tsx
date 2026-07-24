@@ -6,6 +6,8 @@ interface Props {
   onMetric: (m: MetricKey) => void
   includeMicros: boolean
   onMicros: (v: boolean) => void
+  includeState: boolean
+  onState: (v: boolean) => void
   region: string
   onRegion: (r: string) => void
   popBand: PopBand
@@ -18,6 +20,8 @@ export function WorkbenchFilters({
   onMetric,
   includeMicros,
   onMicros,
+  includeState,
+  onState,
   region,
   onRegion,
   popBand,
@@ -71,8 +75,22 @@ export function WorkbenchFilters({
           />
           Include micropolitan areas
         </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={includeState}
+            onChange={(e) => onState(e.target.checked)}
+          />
+          Include modeled state allocation
+        </label>
         <span className="filter-count mono">{count.toLocaleString()} areas</span>
       </div>
+      {includeState && (
+        <p className="modeled-banner">
+          Modeled overlay: state government tax and spend allocated by each CBSA’s share of state
+          population. Not a Census metro tabulation — local figures remain the default.
+        </p>
+      )}
     </div>
   )
 }

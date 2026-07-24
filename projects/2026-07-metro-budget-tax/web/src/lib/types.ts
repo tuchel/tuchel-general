@@ -43,6 +43,27 @@ export interface Metro {
   spend_composition: SpendComposition
   revenue_stack_per_capita: Record<string, number>
   history: HistoryPoint[]
+  /** Modeled: state gov tax allocated by CBSA share of state population */
+  modeled_state_tax_per_capita?: number | null
+  modeled_state_spend_per_capita?: number | null
+  local_plus_state_tax_per_capita?: number | null
+  local_plus_state_spend_per_capita?: number | null
+  local_plus_state_gap_per_capita?: number | null
+  state_allocation_method?: string
+  fisc_style?: FiscStyle | null
+}
+
+export interface FiscStyle {
+  central_city_name: string
+  central_city_population: number
+  county_fips: string
+  city_share_of_county_population: number
+  tax_per_capita: number
+  spend_per_capita: number
+  city_only_tax_per_capita: number
+  city_only_spend_per_capita: number
+  in_lincoln_fisc_list: boolean
+  method: string
 }
 
 export interface Dataset {
@@ -61,6 +82,8 @@ export interface Dataset {
     sum_spend_metropolitan_only: number
     tax_recovery_vs_published: number
     notes: string[]
+    n_fisc_style?: number
+    n_lincoln_fisc_name_match?: number
   }
   metros: Metro[]
 }
@@ -99,16 +122,37 @@ export function people(n: number): string {
   return n.toLocaleString('en-US')
 }
 
-export function metricValue(m: Metro, key: MetricKey): number | null {
+export function metricValue(
+  m: Metro,
+  key: MetricKey,
+  opts?: { includeState?: boolean },
+): number | null {
+  if (opts?.includeState) {
+    if (key === 'tax_per_capita') return m.local_plus_state_tax_per_capita ?? null
+    if (key === 'spend_per_capita') return m.local_plus_state_spend_per_capita ?? null
+    if (key === 'gap_per_capita') return m.local_plus_state_gap_per_capita ?? null
+  }
   if (key === 'tax_as_share_of_personal_income') return m.tax_as_share_of_personal_income
   return m[key]
 }
 
-export function formatMetric(m: Metro, key: MetricKey): string {
-  const v = metricValue(m, key)
+export function formatMetric(
+  m: Metro,
+  key: MetricKey,
+  opts?: { includeState?: boolean },
+): string {
+  const v = metricValue(m, key, opts)
   if (v == null) return '—'
   if (key === 'tax_as_share_of_personal_income') return pct(v)
   return money(v)
+}
+
+export function metricLabel(key: MetricKey, includeState = false): string {
+  if (!includeState) return METRIC_LABELS[key]
+  if (key === 'tax_per_capita') return 'Local+state tax / person (modeled)'
+  if (key === 'spend_per_capita') return 'Local+state spend / person (modeled)'
+  if (key === 'gap_per_capita') return 'Local+state gap / person (modeled)'
+  return METRIC_LABELS[key]
 }
 
 export function inPopBand(pop: number, band: PopBand): boolean {

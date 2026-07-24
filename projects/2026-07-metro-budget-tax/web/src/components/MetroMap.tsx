@@ -7,6 +7,7 @@ interface Props {
   metric: MetricKey
   selected: string | null
   onSelect: (cbsa: string) => void
+  includeState?: boolean
 }
 
 type Feature = {
@@ -48,9 +49,10 @@ function featurePath(f: Feature): string {
 
 let geoCache: FeatureCollection | null = null
 
-export function MetroMap({ metros, metric, selected, onSelect }: Props) {
+export function MetroMap({ metros, metric, selected, onSelect, includeState = false }: Props) {
   const [geo, setGeo] = useState<FeatureCollection | null>(geoCache)
   const [hover, setHover] = useState<string | null>(null)
+  const opts = { includeState }
 
   useEffect(() => {
     if (geoCache) {
@@ -80,9 +82,9 @@ export function MetroMap({ metros, metric, selected, onSelect }: Props) {
 
   const values = useMemo(() => {
     return metros
-      .map((m) => metricValue(m, metric))
+      .map((m) => metricValue(m, metric, opts))
       .filter((v): v is number => v != null)
-  }, [metros, metric])
+  }, [metros, metric, includeState])
 
   const breaks = useMemo(() => quantileBreaks(values, 5), [values])
   const colors = [0, 0.25, 0.5, 0.75, 1].map(sequentialColor)
@@ -103,7 +105,7 @@ export function MetroMap({ metros, metric, selected, onSelect }: Props) {
           const cbsa = String(f.properties.cbsa).padStart(5, '0')
           const metro = byCbsa.get(cbsa)
           if (!metro) return null
-          const raw = metricValue(metro, metric)
+          const raw = metricValue(metro, metric, opts)
           if (raw == null) return null
           const idx = classIndex(raw, breaks)
           const active = cbsa === selected || cbsa === hover
@@ -121,7 +123,7 @@ export function MetroMap({ metros, metric, selected, onSelect }: Props) {
               onClick={() => onSelect(cbsa)}
             >
               <title>
-                {metro.name}: {formatMetric(metro, metric)}
+                {metro.name}: {formatMetric(metro, metric, opts)}
               </title>
             </path>
           )
@@ -142,7 +144,7 @@ export function MetroMap({ metros, metric, selected, onSelect }: Props) {
       {tipMetro && (
         <div className="map-tip mono">
           <strong>{tipMetro.name}</strong>
-          <span>{formatMetric(tipMetro, metric)}</span>
+          <span>{formatMetric(tipMetro, metric, opts)}</span>
         </div>
       )}
     </div>

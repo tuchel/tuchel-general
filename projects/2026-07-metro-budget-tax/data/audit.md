@@ -27,3 +27,5 @@
 - Personal income = BEA CAINC1 county personal income summed to CBSA (Line 1).
 - History includes FY2017 and FY2022 where both files were available.
 - Population = Census CBSA estimates; 2017 uses nearest available vintage year.
+- Modeled state allocation = state gov tax/spend × (CBSA population in state / state population); run via `pipeline/phase3_extras.py`.
+- FiSC-style = simplified Lincoln-style central-city standardization from Census units (municipal + city share of home-county overlays); per capita uses central-city population. Not official Lincoln FiSC published figures. FiSC-style computed for 916 CBSAs; 151 central cities match Lincoln FiSC list names.

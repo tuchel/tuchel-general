@@ -7,6 +7,7 @@ interface Props {
   onSelect: (cbsa: string) => void
   xKey?: MetricKey
   yKey?: MetricKey
+  includeState?: boolean
 }
 
 export function NationalScatter({
@@ -15,28 +16,30 @@ export function NationalScatter({
   onSelect,
   xKey = 'tax_per_capita',
   yKey = 'spend_per_capita',
+  includeState = false,
 }: Props) {
   const [hover, setHover] = useState<string | null>(null)
+  const opts = { includeState }
 
   const { points, xMax, yMax } = useMemo(() => {
     const usable = metros.filter(
-      (m) => metricValue(m, xKey) != null && metricValue(m, yKey) != null,
+      (m) => metricValue(m, xKey, opts) != null && metricValue(m, yKey, opts) != null,
     )
-    const xs = usable.map((m) => metricValue(m, xKey) as number)
-    const ys = usable.map((m) => metricValue(m, yKey) as number)
+    const xs = usable.map((m) => metricValue(m, xKey, opts) as number)
+    const ys = usable.map((m) => metricValue(m, yKey, opts) as number)
     const xMax = Math.max(...xs, 1)
     const yMax = Math.max(...ys, 1)
     const popMax = Math.max(...usable.map((m) => m.population), 1)
     const points = usable.map((m) => ({
       cbsa: m.cbsa,
       name: m.name,
-      x: metricValue(m, xKey) as number,
-      y: metricValue(m, yKey) as number,
+      x: metricValue(m, xKey, opts) as number,
+      y: metricValue(m, yKey, opts) as number,
       r: 3 + 10 * Math.sqrt(m.population / popMax),
       metro: m,
     }))
     return { points, xMax, yMax }
-  }, [metros, xKey, yKey])
+  }, [metros, xKey, yKey, includeState])
 
   const W = 720
   const H = 420
@@ -138,7 +141,7 @@ export function NationalScatter({
               onClick={() => onSelect(p.cbsa)}
             >
               <title>
-                {p.name}: {formatMetric(p.metro, xKey)} vs {formatMetric(p.metro, yKey)}
+                {p.name}: {formatMetric(p.metro, xKey, opts)} vs {formatMetric(p.metro, yKey, opts)}
               </title>
             </circle>
           )
@@ -148,7 +151,7 @@ export function NationalScatter({
         <div className="scatter-tip mono">
           <strong>{tip.name}</strong>
           <span>
-            {formatMetric(tip.metro, xKey)} · {formatMetric(tip.metro, yKey)}
+            {formatMetric(tip.metro, xKey, opts)} · {formatMetric(tip.metro, yKey, opts)}
           </span>
         </div>
       )}

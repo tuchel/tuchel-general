@@ -459,6 +459,21 @@
   margin-bottom: 0.3rem;
 }
 
+.modeled-banner {
+  margin: 0.65rem 0 0;
+  padding: 0.55rem 0.7rem;
+  border-left: 3px solid var(--accent, #0b5f6b);
+  background: rgba(11, 95, 107, 0.08);
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+  max-width: 42rem;
+}
+
+.contrast.modeled,
+.contrast.fisc {
+  border-top-style: solid;
+}
+
 .filter-count {
   margin-left: auto;
   color: var(--ink-muted);
