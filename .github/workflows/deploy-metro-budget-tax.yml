@@ -43,18 +43,33 @@ jobs:
       - name: Stage Pages artifact
         run: |
           SITE="${{ github.workspace }}/_site"
-          mkdir -p "$SITE/metro-budget-tax"
-          cp -a dist/. "$SITE/metro-budget-tax/"
+          mkdir -p "$SITE/tax" "$SITE/metro-budget-tax"
+          cp -a dist/. "$SITE/tax/"
+          # Keep old path working as a redirect
+          cat > "$SITE/metro-budget-tax/index.html" <<'HTML'
+          <!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8" />
+              <meta http-equiv="refresh" content="0; url=../tax/" />
+              <link rel="canonical" href="/tuchel-general/tax/" />
+              <title>Redirecting…</title>
+            </head>
+            <body>
+              <p>Moved to <a href="../tax/">/tax/</a>.</p>
+            </body>
+          </html>
+          HTML
           cat > "$SITE/index.html" <<'HTML'
           <!DOCTYPE html>
           <html lang="en">
             <head>
               <meta charset="utf-8" />
-              <meta http-equiv="refresh" content="0; url=metro-budget-tax/" />
+              <meta http-equiv="refresh" content="0; url=tax/" />
               <title>tuchel-general</title>
             </head>
             <body>
-              <p><a href="metro-budget-tax/">Metro Budget &amp; Tax Explorer</a></p>
+              <p><a href="tax/">Metro Budget &amp; Tax Explorer</a></p>
             </body>
           </html>
           HTML

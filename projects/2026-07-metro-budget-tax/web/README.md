@@ -7,8 +7,8 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173/tuchel-general/metro-budget-tax/` (Vite `base` matches GitHub Pages).
+Open `http://localhost:5173/tuchel-general/tax/` (Vite `base` matches GitHub Pages).
 
-**Live:** https://tuchel.github.io/tuchel-general/metro-budget-tax/
+**Live:** https://tuchel.github.io/tuchel-general/tax/
 
 Data files live in `public/data/` (`metros_web.json`, `cbsa_metros.geojson`), produced by `../pipeline/`.
