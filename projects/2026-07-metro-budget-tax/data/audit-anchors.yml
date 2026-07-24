@@ -1,0 +1,12 @@
+tax_recovery_vs_published:
+  value: 0.9643
+  tolerance: 0.05
+  expected_min: 0.9
+n_metropolitan:
+  value: 387
+  expected_min: 380
+nyc_tax_pc_order:
+  cbsa: '35620'
+  field: tax_per_capita
+  expected_min: 4000
+  expected_max: 10000

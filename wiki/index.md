@@ -6,9 +6,14 @@ Catalog of pages in this personal knowledge base. Keep thin; link out to long-fo
 
 - [log.md](log.md) — append-only chronological log
 
+## Projects
+
+- [Metro Budget & Tax Explorer](../projects/2026-07-metro-budget-tax/README.md) — plan for interactive MSA local spend/tax per person
+
 ## Concepts
 
-_None yet._
+- [Fiscally standardized local finance](concepts/fiscally-standardized-local-finance.md)
+- [Local tax collections vs incidence](concepts/local-tax-collections-vs-incidence.md)
 
 ## Entities
 

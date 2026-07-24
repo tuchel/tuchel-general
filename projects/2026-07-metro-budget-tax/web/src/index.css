@@ -1,0 +1,74 @@
+:root {
+  --ink: #1a1f24;
+  --ink-muted: #5c6670;
+  --paper: #f3efe6;
+  --paper-deep: #e7e0d2;
+  --line: #c9c0b0;
+  --accent: #0b5f6b;
+  --accent-soft: #d5e8eb;
+  --map-low: #e8f1f2;
+  --map-high: #0b5f6b;
+  --warn: #8a4b12;
+  --font-display: "Fraunces", "Times New Roman", serif;
+  --font-ui: "IBM Plex Sans", "Helvetica Neue", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  color: var(--ink);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #dff0f2 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, #f0e6d4 0%, transparent 50%),
+    var(--paper);
+  font-family: var(--font-ui);
+  line-height: 1.5;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  min-width: 320px;
+}
+
+a {
+  color: var(--accent);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 550;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}

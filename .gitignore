@@ -1,0 +1,10 @@
+# Large raw Census / geography extracts (re-download via pipeline notes)
+projects/2026-07-metro-budget-tax/raw/census/**/*.txt
+projects/2026-07-metro-budget-tax/raw/census/**/*.zip
+projects/2026-07-metro-budget-tax/raw/census/**/*.pdf
+projects/2026-07-metro-budget-tax/raw/census/**/*.xlsx
+projects/2026-07-metro-budget-tax/raw/geo/**
+!projects/2026-07-metro-budget-tax/raw/**/_summaries/**
+projects/2026-07-metro-budget-tax/web/node_modules/
+projects/2026-07-metro-budget-tax/web/dist/
+.DS_Store
