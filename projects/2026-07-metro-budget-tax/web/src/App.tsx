@@ -1,42 +1,85 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
+import { ChapterScroller } from './components/ChapterScroller'
+import { CompareTray } from './components/CompareTray'
+import { FloatingToc } from './components/InfoTip'
 import { MetroDetail } from './components/MetroDetail'
 import { MetroMap } from './components/MetroMap'
 import { MetroSearch } from './components/MetroSearch'
 import { NationalScatter } from './components/NationalScatter'
 import { RankTable } from './components/RankTable'
-import { readCbsaFromUrl, useMetroData, writeCbsaToUrl } from './lib/data'
-import { METRIC_LABELS, money, type MetricKey } from './lib/types'
+import { WorkbenchFilters } from './components/WorkbenchFilters'
+import { readUrlState, useMetroData, writeUrlState } from './lib/data'
+import {
+  inPopBand,
+  median,
+  money,
+  type MetricKey,
+  type PopBand,
+  METRIC_LABELS,
+} from './lib/types'
 
-function median(values: number[]): number {
-  const s = [...values].sort((a, b) => a - b)
-  const mid = Math.floor(s.length / 2)
-  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2
-}
+const TOC = [
+  { id: 'hero', label: 'Explore' },
+  { id: 'learn', label: 'Learn' },
+  { id: 'detail', label: 'Selected area' },
+  { id: 'compare-what', label: 'Compared to what' },
+  { id: 'compare', label: 'Compare tray' },
+  { id: 'table', label: 'Table' },
+  { id: 'methodology', label: 'Methodology' },
+]
 
 export default function App() {
   const { data, byCbsa, error, loading } = useMetroData()
-  const [metric, setMetric] = useState<MetricKey>('tax_per_capita')
-  const [selected, setSelected] = useState<string | null>(readCbsaFromUrl())
+  const initial = readUrlState()
+  const [metric, setMetric] = useState<MetricKey>(
+    initial.metric && initial.metric in METRIC_LABELS
+      ? (initial.metric as MetricKey)
+      : 'tax_per_capita',
+  )
+  const [selected, setSelected] = useState<string | null>(initial.metro)
+  const [compare, setCompare] = useState<string[]>(initial.compare.slice(0, 4))
+  const [includeMicros, setIncludeMicros] = useState(initial.micros)
+  const [region, setRegion] = useState('all')
+  const [popBand, setPopBand] = useState<PopBand>('all')
 
   useEffect(() => {
-    writeCbsaToUrl(selected)
-  }, [selected])
+    writeUrlState({ metro: selected, compare, metric, micros: includeMicros })
+  }, [selected, compare, metric, includeMicros])
 
-  const metros = data?.metros ?? []
+  const filtered = useMemo(() => {
+    if (!data) return []
+    return data.metros.filter((m) => {
+      if (!includeMicros && !m.is_metro) return false
+      if (region !== 'all' && m.region !== region) return false
+      if (!inPopBand(m.population, popBand)) return false
+      return true
+    })
+  }, [data, includeMicros, region, popBand])
+
   const selectedMetro = selected ? byCbsa.get(selected) ?? null : null
+  const fallbackMetro = filtered.find((m) => m.is_metro) ?? filtered[0] ?? null
+  const pinned = compare.map((c) => byCbsa.get(c)).filter(Boolean) as NonNullable<
+    ReturnType<typeof byCbsa.get>
+  >[]
 
   const medians = useMemo(
     () => ({
-      tax: median(metros.map((m) => m.tax_per_capita)),
-      spend: median(metros.map((m) => m.spend_per_capita)),
+      tax: median(filtered.map((m) => m.tax_per_capita)),
+      spend: median(filtered.map((m) => m.spend_per_capita)),
     }),
-    [metros],
+    [filtered],
   )
 
   function select(cbsa: string) {
     setSelected(cbsa)
-    document.getElementById('detail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
+
+  function pin(cbsa: string) {
+    setCompare((prev) => {
+      if (prev.includes(cbsa)) return prev
+      return [...prev, cbsa].slice(-4)
+    })
   }
 
   if (loading) {
@@ -47,112 +90,140 @@ export default function App() {
     )
   }
 
-  if (error || !data) {
+  if (error || !data || !fallbackMetro) {
     return (
       <main className="page">
-        <p className="error">Could not load data: {error}</p>
+        <p className="error">Could not load data: {error ?? 'empty'}</p>
       </main>
     )
   }
 
   return (
-    <main className="page">
-      <header className="hero">
-        <div className="hero-copy">
-          <p className="eyebrow">FY{data.meta.fiscal_year} · {data.audit.n_metropolitan} US metros</p>
-          <h1>What does your metro spend — and tax — per person?</h1>
-          <p className="hero-lede">
-            Local tax collections and direct general spending, rolled up across every overlapping
-            local government in each metropolitan area — not city hall alone.
-          </p>
-          <div className="metric-toggle" role="group" aria-label="Map metric">
-            {(Object.keys(METRIC_LABELS) as MetricKey[]).map((key) => (
-              <button
-                key={key}
-                type="button"
-                className={metric === key ? 'is-active' : undefined}
-                onClick={() => setMetric(key)}
-              >
-                {METRIC_LABELS[key]}
-              </button>
-            ))}
+    <div className="shell">
+      <FloatingToc items={TOC} />
+      <main className="page">
+        <header className="hero" id="hero">
+          <div className="hero-copy">
+            <p className="eyebrow">
+              FY{data.meta.fiscal_year} · {data.audit.n_metropolitan} metros
+              {includeMicros ? ` + ${data.audit.n_micropolitan} micros` : ''}
+            </p>
+            <h1>What does your metro spend — and tax — per person?</h1>
+            <p className="hero-lede">
+              Local tax collections and direct general spending, rolled up across every overlapping
+              local government — not city hall alone.
+            </p>
+            <WorkbenchFilters
+              metric={metric}
+              onMetric={setMetric}
+              includeMicros={includeMicros}
+              onMicros={setIncludeMicros}
+              region={region}
+              onRegion={setRegion}
+              popBand={popBand}
+              onPopBand={setPopBand}
+              count={filtered.length}
+            />
+            <MetroSearch metros={filtered} selected={selected} onSelect={select} />
           </div>
-          <MetroSearch metros={metros} selected={selected} onSelect={select} />
-        </div>
-        <div className="hero-visual">
-          <MetroMap
-            metros={metros}
+          <div className="hero-visual">
+            <MetroMap
+              metros={filtered}
+              metric={metric}
+              selected={selected}
+              onSelect={select}
+            />
+          </div>
+        </header>
+
+        <ChapterScroller
+          metro={selectedMetro}
+          fallback={fallbackMetro}
+          nationalTaxMedian={medians.tax}
+          nationalSpendMedian={medians.spend}
+        />
+
+        <section className="detail-section">
+          <MetroDetail
+            metro={selectedMetro}
+            nationalMedianTax={medians.tax}
+            nationalMedianSpend={medians.spend}
+            onPin={pin}
+            isPinned={selected ? compare.includes(selected) : false}
+          />
+          <div className="callout">
+            <h2>National snapshot</h2>
+            <p>
+              Across metros, local governments collected about{' '}
+              <strong className="mono">
+                ${(data.audit.sum_tax_metropolitan_only / 1e9).toFixed(0)}B
+              </strong>{' '}
+              in taxes and spent about{' '}
+              <strong className="mono">
+                ${(data.audit.sum_spend_metropolitan_only / 1e9).toFixed(0)}B
+              </strong>{' '}
+              on direct general functions in FY{data.meta.fiscal_year}. CBSA rollup recovers{' '}
+              <strong className="mono">
+                {(100 * data.audit.tax_recovery_vs_published).toFixed(1)}%
+              </strong>{' '}
+              of published US local tax.
+            </p>
+            <p>
+              Median in current filter — tax {money(medians.tax)}/person, spend{' '}
+              {money(medians.spend)}/person.
+            </p>
+          </div>
+        </section>
+
+        <section className="scatter-section">
+          <NationalScatter
+            metros={filtered}
+            selected={selected}
+            onSelect={select}
+            xKey={metric === 'tax_as_share_of_personal_income' ? 'tax_as_share_of_personal_income' : 'tax_per_capita'}
+            yKey="spend_per_capita"
+          />
+        </section>
+
+        <CompareTray
+          pinned={pinned}
+          onUnpin={(cbsa) => setCompare((p) => p.filter((c) => c !== cbsa))}
+          onClear={() => setCompare([])}
+        />
+
+        <section className="rank-section">
+          <RankTable
+            metros={filtered}
             metric={metric}
             selected={selected}
             onSelect={select}
+            onPin={pin}
           />
-        </div>
-      </header>
+        </section>
 
-      <section id="detail" className="detail-section">
-        <MetroDetail
-          metro={selectedMetro}
-          nationalMedianTax={medians.tax}
-          nationalMedianSpend={medians.spend}
-        />
-        <div className="callout">
-          <h2>Two numbers that are not the same</h2>
+        <section className="method" id="methodology">
+          <h2>Methodology</h2>
           <p>
-            Across these metros, local governments collected about{' '}
-            <strong className="mono">
-              ${(data.audit.sum_tax_metropolitan_only / 1e9).toFixed(0)}B
-            </strong>{' '}
-            in taxes and spent about{' '}
-            <strong className="mono">
-              ${(data.audit.sum_spend_metropolitan_only / 1e9).toFixed(0)}B
-            </strong>{' '}
-            on direct general functions in FY{data.meta.fiscal_year}. The gap is mostly charges,
-            miscellaneous own-source revenue, and transfers from state and federal governments — not
-            a metro “deficit” line item.
+            Source: U.S. Census Bureau individual-unit State & Local Government Finances files
+            (FY2017, FY2022), joined via embedded state/county FIPS to OMB July 2023 CBSA
+            delineations, divided by Census CBSA population estimates. Personal income from BEA
+            CAINC1 county personal income summed to CBSAs.
           </p>
-          <p>
-            Median metro tax / person: <span className="mono">{money(medians.tax)}</span>. Median
-            spend / person: <span className="mono">{money(medians.spend)}</span>.
+          <ul>
+            {data.audit.notes.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+          <p className="fineprint">
+            Definitions: {Object.values(data.meta.definitions).join(' ')}
           </p>
-        </div>
-      </section>
+        </section>
 
-      <section className="scatter-section">
-        <NationalScatter metros={metros} selected={selected} onSelect={select} />
-      </section>
-
-      <section className="rank-section">
-        <RankTable metros={metros} metric={metric} selected={selected} onSelect={select} />
-      </section>
-
-      <section className="method" id="methodology">
-        <h2>Methodology</h2>
-        <p>
-          Source: U.S. Census Bureau, 2022 Census of Governments / Annual Survey of State and Local
-          Government Finances individual-unit public-use file, joined via each unit’s embedded state
-          and county FIPS codes to OMB July 2023 CBSA delineations, divided by Census CBSA
-          population estimates for 2022.
-        </p>
-        <ul>
-          {data.audit.notes.map((n) => (
-            <li key={n}>{n}</li>
-          ))}
-        </ul>
-        <p>
-          Official published US local tax total for 2022 is about $894B; this CBSA rollup recovers
-          about $862B across metros and micros (rural non-CBSA areas and a few unmapped units explain
-          the gap).
-        </p>
-        <p className="fineprint">
-          Definitions: {data.meta.definitions.tax_per_capita}.{' '}
-          {data.meta.definitions.spend_per_capita}. {data.meta.definitions.gap_per_capita}.
-        </p>
-      </section>
-
-      <footer className="site-footer">
-        <span>Metro Budget & Tax Explorer</span>
-        <a href="#methodology">Methodology</a>
-      </footer>
-    </main>
+        <footer className="site-footer">
+          <span>Metro Budget & Tax Explorer</span>
+          <a href="#methodology">Methodology</a>
+        </footer>
+      </main>
+    </div>
   )
 }

@@ -1,23 +1,28 @@
 {
   "fiscal_year": 2022,
+  "years_in_history": [
+    2017,
+    2022
+  ],
   "n_cbsa_rows": 925,
   "n_metropolitan": 387,
   "n_micropolitan": 538,
-  "missing_population_cbsas": 10,
+  "metros_with_personal_income": 379,
   "sum_tax_all_cbsa": 862178979000,
   "sum_spend_all_cbsa": 1988133446000,
   "sum_tax_metropolitan_only": 810216483000,
   "sum_spend_metropolitan_only": 1838924198000,
-  "dat_rows": 1337591,
-  "local_rows": 1330465,
-  "mapped_rows": 986750,
+  "published_us_local_tax_2022": 894128023000,
+  "tax_recovery_vs_published": 0.9643,
   "notes": [
     "Taxes = sum of Census T* item codes for local gov types 1\u20135.",
     "Spend = direct general expenditure proxy (E*/F* excl. utilities/liquor + I89 + J19).",
     "Intergovernmental expenditure (L/M) excluded to avoid double-counting across units.",
     "Local-to-local IG revenue (D*) excluded from transfer totals for the same reason.",
-    "Special districts assigned wholly to GID home county CBSA.",
-    "Population = Census CBSA vintage estimate POPESTIMATE2022.",
-    "Amounts from Census file are in $1,000s; converted to dollars in this pipeline."
+    "Special districts assigned wholly to home-county CBSA.",
+    "City-hall contrast = municipal (type 2) units only \u2014 incomplete by design.",
+    "Personal income = BEA CAINC1 county personal income summed to CBSA (Line 1).",
+    "History includes FY2017 and FY2022 where both files were available.",
+    "Population = Census CBSA estimates; 2017 uses nearest available vintage year."
   ]
 }

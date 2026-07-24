@@ -32,14 +32,40 @@ export function useMetroData() {
   return { data, byCbsa, error, loading: !data && !error }
 }
 
-export function readCbsaFromUrl(): string | null {
-  const params = new URLSearchParams(window.location.search)
-  return params.get('metro')
+export interface UrlState {
+  metro: string | null
+  compare: string[]
+  metric: string | null
+  micros: boolean
 }
 
-export function writeCbsaToUrl(cbsa: string | null) {
+export function readUrlState(): UrlState {
+  const params = new URLSearchParams(window.location.search)
+  const compare = (params.get('compare') ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  return {
+    metro: params.get('metro'),
+    compare,
+    metric: params.get('metric'),
+    micros: params.get('micros') === '1',
+  }
+}
+
+export function writeUrlState(state: {
+  metro: string | null
+  compare: string[]
+  metric: string
+  micros: boolean
+}) {
   const url = new URL(window.location.href)
-  if (cbsa) url.searchParams.set('metro', cbsa)
+  if (state.metro) url.searchParams.set('metro', state.metro)
   else url.searchParams.delete('metro')
+  if (state.compare.length) url.searchParams.set('compare', state.compare.join(','))
+  else url.searchParams.delete('compare')
+  url.searchParams.set('metric', state.metric)
+  if (state.micros) url.searchParams.set('micros', '1')
+  else url.searchParams.delete('micros')
   window.history.replaceState({}, '', url)
 }

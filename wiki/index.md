@@ -12,7 +12,8 @@ Catalog of pages in this personal knowledge base. Keep thin; link out to long-fo
 
 ## Concepts
 
-_None yet._
+- [Fiscally standardized local finance](concepts/fiscally-standardized-local-finance.md)
+- [Local tax collections vs incidence](concepts/local-tax-collections-vs-incidence.md)
 
 ## Entities
 
