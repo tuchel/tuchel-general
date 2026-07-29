@@ -32,8 +32,10 @@ HUD cues: distance-to-Pad-7 while escorting; `CLIMB RIGHT →` / `BOARD FINCH �
 
 | Phase | Goal | Fun beat |
 |-------|------|----------|
-| **A** | **Thread every trajectory gate** | Precision shmup through cloud deck; gates = fuel/armor crumbs |
-| **B** | **Down STRATOS SERAPH · hold circularization** | Boss duel at the edge of space, then a short ring-burn coda to LEO |
+| **A** | **Thread every trajectory gate** | Precision shmup through cloud deck; gates labeled with NEAR/MID/FAR depth; next-gate HUD + depth-meter tick |
+| **B** | **Down STRATOS SERAPH · hold circularization** | Boss duel, then labeled CIRC rings ahead — match depth (W/S) to insert |
+
+Default progress: auto-scroll forward; player steers depth to the next marked gate/ring.
 
 ### Alternates (parked)
 
@@ -50,8 +52,10 @@ HUD cues: distance-to-Pad-7 while escorting; `CLIMB RIGHT →` / `BOARD FINCH �
 
 | Phase | Goal | Fun beat |
 |-------|------|----------|
-| **A** | **Sever the three regional spines** | Hunt marked spine sats; Repair Beetles try to knit them; formations punish out-of-order kills |
-| **B** | **Breach STAR MIND PRIME · rupture the core** | Arena unlocks after spines fall; EVA into the cavity for the kill |
+| **A** | **Sever the three regional spines** | Hunt marked spine sats (keep RIGHT); off-screen arrows + distance HUD |
+| **B** | **Breach STAR MIND PRIME · rupture the core** | Lit **Prime cavity** unlocks to the right after spines; enter to fight, then core rupture |
+
+Default progress direction is always **right** (same Metal Slug rule as L1).
 
 ### Alternates (parked)
 

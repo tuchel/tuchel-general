@@ -61,6 +61,14 @@ const GANTRY_START_X = 2560;
 /** Black Finch boarding deck */
 const BOARD_X = 3180;
 const BOARD_HOP = 168;
+/** L3 Prime cavity entry (walk-right after spines) */
+const PRIME_ARENA_X = 2100;
+
+function laneLabel(z: number): string {
+  if (z < 0.34) return "NEAR";
+  if (z < 0.66) return "MID";
+  return "FAR";
+}
 
 interface Actor {
   x: number;
@@ -264,6 +272,7 @@ export class Game {
   private truck: FuelTruck | null = null;
   private towerReady = false;
   private boardReady = false;
+  private primeArenaReady = false;
   private rescued = 0;
   private score = 0;
   private totalScore = 0;
@@ -419,6 +428,7 @@ export class Game {
     this.truck = null;
     this.towerReady = false;
     this.boardReady = false;
+    this.primeArenaReady = false;
     this.camLean = 0;
 
     if (id === 1) {
@@ -511,11 +521,11 @@ export class Game {
         goalB,
         goalPhase: 1,
         scroll: 0,
-        length: 2400,
+        length: 3000,
         platforms: [
-          { x: 500, z: 0.55, w: 140, hop: 0 },
-          { x: 1100, z: 0.35, w: 160, hop: 0 },
-          { x: 1800, z: 0.7, w: 150, hop: 0 },
+          { x: 500, z: 0.5, w: 160, hop: 0 },
+          { x: 1100, z: 0.5, w: 160, hop: 0 },
+          { x: 1700, z: 0.5, w: 160, hop: 0 },
         ],
         spawnIndex: 0,
         elapsed: 0,
@@ -529,8 +539,8 @@ export class Game {
         circNeeded: 0,
       };
       this.resetPlayer("eva");
-      this.spawnEnemy("spine", 720, 0.35, 20, 90);
-      this.spawnEnemy("spine", 1200, 0.65, 10, 90);
+      this.spawnEnemy("spine", 720, 0.3, 20, 90);
+      this.spawnEnemy("spine", 1200, 0.55, 10, 90);
       this.spawnEnemy("spine", 1750, 0.45, 30, 90);
     }
 
@@ -560,6 +570,14 @@ export class Game {
       { x: BOARD_X, z: 0.5, w: 200, hop: BOARD_HOP },
     );
     this.announce("NIX: Truck's on Pad 7 — keep RIGHT, climb the gantry!", 3.2);
+  }
+
+  private unlockPrimeArena() {
+    if (this.primeArenaReady) return;
+    this.primeArenaReady = true;
+    this.setGoalPhase2();
+    this.level.length = Math.max(this.level.length, 3000);
+    this.announce("NIX: Spines down — keep RIGHT into the Prime cavity!", 3.2);
   }
 
   private spawnEnemy(kind: string, x: number, z = 0.5, hop = 0, hp = 0) {
@@ -757,8 +775,7 @@ export class Game {
       this.level.spinesDown += 1;
       this.announce(`SPINE SEVERED ${this.level.spinesDown}/${this.level.spinesNeeded}`);
       if (this.level.spinesDown >= this.level.spinesNeeded) {
-        this.setGoalPhase2();
-        this.announce("NIX: Spines down — push to PRIME!", 2.5);
+        this.unlockPrimeArena();
       }
     }
     if (Math.random() < 0.22 && e.kind !== "spine") {
@@ -1059,6 +1076,7 @@ export class Game {
       if (!g.hit && this.level.scroll > g.x + 100) {
         g.x = this.level.scroll + 350 + Math.random() * 80;
         g.z = 0.2 + Math.random() * 0.6;
+        this.announce(`GATE REQUEUED · match ${laneLabel(g.z)}`, 1.6);
       }
     }
   }
@@ -1104,7 +1122,11 @@ export class Game {
       } else if (this.levelId === 2) {
         ready = this.level.goalPhase === 2 && this.level.gatesCleared >= this.gates.length;
       } else {
-        ready = this.level.goalPhase === 2 && this.level.spinesDown >= this.level.spinesNeeded;
+        // Enter Prime cavity by walking/flying right after spines fall
+        ready =
+          this.level.goalPhase === 2 &&
+          this.primeArenaReady &&
+          this.player.x > PRIME_ARENA_X;
       }
       if (ready) this.spawnBoss();
     }
@@ -1187,24 +1209,26 @@ export class Game {
           g.hit = true;
           this.level.gatesCleared++;
           this.scrap += 5;
-          this.announce(`GATE ${this.level.gatesCleared}/${this.gates.length}`);
+          this.announce(`GATE ${this.level.gatesCleared}/${this.gates.length} · ${laneLabel(g.z)}`);
           this.burst(this.player.x, this.player.z, this.player.hop, C.warn, 10);
           if (this.level.gatesCleared >= this.gates.length) {
             this.setGoalPhase2();
-            this.announce("NIX: Corridor clean — Seraph inbound!", 2.5);
+            this.announce("NIX: Corridor clean — SERAPH inbound ahead!", 2.8);
           }
         }
       }
       for (const ring of this.circRings) {
         if (
           !ring.hit &&
-          Math.abs(this.level.scroll - ring.x) < 50 &&
-          zOverlap(this.player.z, ring.z, 0.25)
+          Math.abs(this.level.scroll - ring.x) < 55 &&
+          zOverlap(this.player.z, ring.z, 0.3)
         ) {
           ring.hit = true;
           this.level.circCleared++;
           this.scrap += 6;
-          this.announce(`CIRC ${this.level.circCleared}/${this.level.circNeeded}`);
+          this.announce(
+            `CIRC ${this.level.circCleared}/${this.level.circNeeded} · ${laneLabel(ring.z)}`,
+          );
           this.burst(this.player.x, this.player.z, this.player.hop, C.cyan, 12);
           if (this.level.circCleared >= this.level.circNeeded) {
             this.mode = "clear";
@@ -1308,7 +1332,7 @@ export class Game {
                   { x: this.level.scroll + 680, z: 0.45, hit: false },
                 ];
                 this.level.circCleared = 0;
-                this.announce("NIX: Hold circularization burn!", 2.8);
+                this.announce("NIX: Hold circularization — thread the rings ahead!", 3.2);
                 this.mode = "play";
               } else if (this.levelId === 1) {
                 this.boardReady = true;
@@ -1623,6 +1647,189 @@ export class Game {
     }
   }
 
+  private renderEdgeCue(label: string, yFrac = 0.5, color: string = C.cyan) {
+    const ctx = this.ctx;
+    const pulse = 0.55 + 0.35 * Math.sin(this.frame * 0.14);
+    const y = H * yFrac;
+    ctx.fillStyle = color;
+    ctx.globalAlpha = pulse;
+    ctx.beginPath();
+    ctx.moveTo(W - 28, y);
+    ctx.lineTo(W - 8, y + 14);
+    ctx.lineTo(W - 28, y + 28);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = color;
+    ctx.font = "11px 'Share Tech Mono', monospace";
+    ctx.textAlign = "right";
+    ctx.fillText(label, W - 34, y + 16);
+    ctx.textAlign = "left";
+  }
+
+  /** Depth-meter tick target for the current objective */
+  private objectiveDepthZ(): number | null {
+    if (this.levelId === 2) {
+      if (this.level.goalPhase === 1) {
+        let next: { z: number; x: number } | null = null;
+        let best = Infinity;
+        for (const g of this.gates) {
+          if (g.hit) continue;
+          const d = g.x - this.level.scroll;
+          if (d < best) {
+            best = d;
+            next = g;
+          }
+        }
+        return next?.z ?? null;
+      }
+      if (this.level.bossDefeated) {
+        let next: { z: number; x: number } | null = null;
+        let best = Infinity;
+        for (const r of this.circRings) {
+          if (r.hit) continue;
+          const d = r.x - this.level.scroll;
+          if (d < best) {
+            best = d;
+            next = r;
+          }
+        }
+        return next?.z ?? null;
+      }
+      return this.boss && !this.boss.dead ? this.boss.z : null;
+    }
+    if (this.levelId === 3) {
+      if (this.level.goalPhase === 1) {
+        let next: Actor | null = null;
+        for (const e of this.enemies) {
+          if (e.dead || e.kind !== "spine") continue;
+          if (e.x >= this.player.x - 40 && e.x < (next?.x ?? Infinity)) next = e;
+        }
+        return next?.z ?? null;
+      }
+      if (this.boss && !this.boss.dead) return this.boss.z;
+      return 0.5;
+    }
+    if (this.levelId === 1 && this.truck && !this.truck.arrived) return this.truck.z;
+    return null;
+  }
+
+  /** L2: next-gate / Seraph / circ guidance */
+  private renderL2ObjectiveCues() {
+    const ctx = this.ctx;
+    if (this.level.goalPhase === 1) {
+      let next: { x: number; z: number; hit: boolean } | null = null;
+      let best = Infinity;
+      for (const g of this.gates) {
+        if (g.hit) continue;
+        const d = g.x - this.level.scroll;
+        if (d < best) {
+          best = d;
+          next = g;
+        }
+      }
+      if (next) {
+        const dist = Math.max(0, Math.floor(next.x - this.level.scroll));
+        ctx.fillStyle = C.warn;
+        ctx.font = "12px 'Share Tech Mono', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(
+          `NEXT GATE → ${dist}m · match ${laneLabel(next.z)} (W/S)`,
+          W / 2,
+          78,
+        );
+        ctx.textAlign = "left";
+      }
+    } else if (!this.level.bossSpawned) {
+      this.renderEdgeCue("SERAPH INBOUND →", 0.42, C.pad);
+    } else if (this.level.bossDefeated) {
+      let next: { x: number; z: number; hit: boolean } | null = null;
+      let best = Infinity;
+      for (const r of this.circRings) {
+        if (r.hit) continue;
+        const d = r.x - this.level.scroll;
+        if (d < best) {
+          best = d;
+          next = r;
+        }
+      }
+      if (next) {
+        const dist = Math.max(0, Math.floor(next.x - this.level.scroll));
+        ctx.fillStyle = C.cyan;
+        ctx.font = "12px 'Share Tech Mono', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(
+          `NEXT CIRC → ${dist}m · match ${laneLabel(next.z)} (W/S)`,
+          W / 2,
+          78,
+        );
+        ctx.textAlign = "left";
+      } else {
+        this.renderEdgeCue("CIRC RINGS AHEAD →", 0.45, C.cyan);
+      }
+    }
+  }
+
+  /** L3: spine hunt markers + Prime cavity destination */
+  private renderL3ObjectiveCues() {
+    const ctx = this.ctx;
+    if (this.level.goalPhase === 1) {
+      let next: Actor | null = null;
+      // Leftmost living spine at/ahead of the player (walk-right order)
+      for (const e of this.enemies) {
+        if (e.dead || e.kind !== "spine") continue;
+        if (e.x >= this.player.x - 40 && e.x < (next?.x ?? Infinity)) next = e;
+      }
+      if (next) {
+        const sp = project(next, this.stage);
+        const dist = Math.max(0, Math.floor(next.x - this.player.x));
+        if (sp.sx > W - 20 || sp.sx < -20) {
+          this.renderEdgeCue(`SPINE → ${dist}m · ${laneLabel(next.z)}`, 0.48, C.warn);
+        }
+        ctx.fillStyle = C.warn;
+        ctx.font = "12px 'Share Tech Mono', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(
+          `NEXT SPINE → ${dist}m · ${laneLabel(next.z)} · keep RIGHT`,
+          W / 2,
+          78,
+        );
+        ctx.textAlign = "left";
+      }
+    } else if (this.primeArenaReady && !this.level.bossSpawned) {
+      const cavity = project({ x: PRIME_ARENA_X, z: 0.5, hop: 40 }, this.stage);
+      const pulse = 0.5 + 0.5 * Math.sin(this.frame * 0.12);
+      if (cavity.sx > -40 && cavity.sx < W + 40) {
+        glow(ctx, cavity.sx, cavity.sy, 70 * cavity.scale, C.cyan, 0.25 + pulse * 0.25);
+        ctx.strokeStyle = C.cyan;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.ellipse(cavity.sx, cavity.sy, 55 * cavity.scale, 70 * cavity.scale, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = C.pad;
+        ctx.beginPath();
+        ctx.ellipse(cavity.sx, cavity.sy, 30 * cavity.scale, 40 * cavity.scale, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = C.bone;
+        ctx.font = "14px 'Black Ops One', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("PRIME CAVITY", cavity.sx, cavity.sy - 85 * cavity.scale);
+        ctx.fillStyle = C.warn;
+        ctx.font = "11px 'Share Tech Mono', monospace";
+        ctx.fillText("▼ ENTER →", cavity.sx, cavity.sy - 68 * cavity.scale);
+        ctx.textAlign = "left";
+      } else {
+        const dist = Math.max(0, Math.floor(PRIME_ARENA_X - this.player.x));
+        this.renderEdgeCue(`PRIME CAVITY → ${dist}m`, 0.48, C.cyan);
+      }
+      ctx.fillStyle = C.cyan;
+      ctx.font = "12px 'Share Tech Mono', monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("GOAL 2/2 — keep RIGHT into the cavity", W / 2, 78);
+      ctx.textAlign = "left";
+    }
+  }
+
   private renderActors() {
     const ctx = this.ctx;
     type DrawItem =
@@ -1701,6 +1908,13 @@ export class Game {
         const sp = project({ x: worldX, z: g.z, hop: 40 }, this.stage);
         if (item.circ) {
           drawCircRing(ctx, sp.sx, sp.sy, false);
+          const idx = this.circRings.indexOf(g) + 1;
+          ctx.fillStyle = C.cyan;
+          ctx.font = "11px 'Share Tech Mono', monospace";
+          ctx.textAlign = "center";
+          ctx.fillText(`CIRC ${idx} · ${laneLabel(g.z)}`, sp.sx, sp.sy - 36 * sp.scale);
+          ctx.textAlign = "left";
+          glow(ctx, sp.sx, sp.sy, 34 * sp.scale, C.cyan, 0.22);
         } else {
           blitSprite(ctx, art.sprite("gate"), sp.sx, sp.sy, { h: 120, scale: sp.scale }) ||
             (() => {
@@ -1709,6 +1923,11 @@ export class Game {
               ctx.strokeRect(sp.sx - 28 * sp.scale, sp.sy - 40 * sp.scale, 56 * sp.scale, 80 * sp.scale);
             })();
           glow(ctx, sp.sx, sp.sy, 30 * sp.scale, C.warn, 0.25);
+          ctx.fillStyle = C.warn;
+          ctx.font = "11px 'Share Tech Mono', monospace";
+          ctx.textAlign = "center";
+          ctx.fillText(`GATE · ${laneLabel(g.z)}`, sp.sx, sp.sy - 70 * sp.scale);
+          ctx.textAlign = "left";
         }
       } else if (item.kind === "enemy") {
         const e = item.ref;
@@ -1725,6 +1944,14 @@ export class Game {
         if (!ok) {
           if (e.kind === "spine") drawSpine(ctx, sp.sx, sp.sy, this.frame);
           else drawEnemy(ctx, e.kind, sp.sx, sp.sy, this.frame, e.facing);
+        }
+        if (e.kind === "spine" && !e.dead) {
+          ctx.fillStyle = C.warn;
+          ctx.font = "11px 'Share Tech Mono', monospace";
+          ctx.textAlign = "center";
+          ctx.fillText(`SPINE · ${laneLabel(e.z)}`, sp.sx, sp.sy - 55 * sp.scale);
+          ctx.textAlign = "left";
+          glow(ctx, sp.sx, sp.sy, 40 * sp.scale, C.warn, 0.2);
         }
       } else if (item.kind === "boss") {
         const boss = item.ref;
@@ -1819,6 +2046,12 @@ export class Game {
     ctx.fillStyle = "rgba(11,18,32,0.55)";
     ctx.fillRect(W - 28, 80, 14, 120);
     rr(ctx, W - 26, 82 + (1 - this.player.z) * 100, 10, 12, C.warn);
+    // Objective depth tick (next gate / circ / spine / cavity)
+    const objZ = this.objectiveDepthZ();
+    if (objZ !== null) {
+      ctx.fillStyle = C.cyan;
+      ctx.fillRect(W - 30, 82 + (1 - objZ) * 100 + 4, 18, 3);
+    }
     ctx.fillStyle = C.cyan;
     ctx.font = "9px monospace";
     ctx.fillText("NEAR", W - 42, 210);
@@ -1843,25 +2076,28 @@ export class Game {
     }
     if (this.levelId === 2) {
       ctx.fillStyle = C.warn;
-      ctx.fillText(
-        this.level.goalPhase === 1
-          ? `GATES ${this.level.gatesCleared}/${this.gates.length}`
-          : this.level.bossDefeated
-            ? `CIRC ${this.level.circCleared}/${this.level.circNeeded}`
-            : "SERAPH",
-        12,
-        54,
-      );
+      let line: string;
+      if (this.level.goalPhase === 1) {
+        line = `GATES ${this.level.gatesCleared}/${this.gates.length} · match depth (W/S)`;
+      } else if (!this.level.bossDefeated) {
+        line = this.level.bossSpawned ? "SERAPH · hold depth lane" : "SERAPH INBOUND →";
+      } else {
+        line = `CIRC ${this.level.circCleared}/${this.level.circNeeded} · rings ahead · match depth`;
+      }
+      ctx.fillText(line, 12, 54);
     }
     if (this.levelId === 3) {
       ctx.fillStyle = C.warn;
-      ctx.fillText(
-        this.level.goalPhase === 1
-          ? `SPINES ${this.level.spinesDown}/${this.level.spinesNeeded}`
-          : "PRIME ARENA",
-        12,
-        54,
-      );
+      let line: string;
+      if (this.level.goalPhase === 1) {
+        line = `SPINES ${this.level.spinesDown}/${this.level.spinesNeeded} · keep RIGHT`;
+      } else if (!this.level.bossSpawned) {
+        const dist = Math.max(0, Math.floor(PRIME_ARENA_X - this.player.x));
+        line = `PRIME CAVITY → ${dist}m · keep RIGHT`;
+      } else {
+        line = "PRIME · rupture the core";
+      }
+      ctx.fillText(line, 12, 54);
     }
 
     if (this.boss && !this.boss.dead) {
@@ -1915,6 +2151,12 @@ export class Game {
 
     this.renderBg();
     this.renderActors();
+    if (this.levelId === 2 && (this.mode === "play" || this.mode === "boss")) {
+      this.renderL2ObjectiveCues();
+    }
+    if (this.levelId === 3 && (this.mode === "play" || this.mode === "boss")) {
+      this.renderL3ObjectiveCues();
+    }
     const kind = this.levelId === 1 ? "pad" : this.levelId === 2 ? "sky" : "void";
     // Authored near-camera props for 2.5D cabinet depth
     if (this.levelId === 1) {
@@ -2006,20 +2248,20 @@ export class Game {
           ]
         : this.levelId === 2
           ? [
-              "ASCENT CORRIDOR — gates sit on depth lanes.",
-              "GOAL 1/2 — Thread EVERY gate (match Z + timing).",
-              "GOAL 2/2 — Kill SERAPH, then hold circ rings.",
-              "W/S dodge into/out of the plume corridor.",
+              "ASCENT CORRIDOR — auto-scroll; gates sit on depth lanes.",
+              "GOAL 1/2 — Thread EVERY gate (match NEAR/MID/FAR with W/S).",
+              "GOAL 2/2 — Kill SERAPH, then thread CIRC rings ahead.",
+              "Missed gates re-queue ahead. Depth meter shows the target lane.",
               "",
-              "Missed gates re-queue ahead. Still clear them all.",
+              "When in doubt: stay alive and match the next gate's depth.",
             ]
           : [
               "ORBITAL 2.5D — free-fly X / depth / hop.",
-              "GOAL 1/2 — Sever three spine nodes in depth space.",
-              "GOAL 2/2 — Breach PRIME. SPACE = thrust hop.",
-              "Repair Beetles knit spines — hunt them first.",
+              "GOAL 1/2 — Sever three marked spines (keep RIGHT to find them).",
+              "GOAL 2/2 — Fly RIGHT into the lit PRIME cavity, rupture the core.",
+              "Repair Beetles knit spines — hunt them first. SPACE = thrust.",
               "",
-              "Depth meter (right) shows near ↔ far.",
+              "When in doubt: keep moving RIGHT.",
             ];
     lines.forEach((ln, i) => ctx.fillText(ln, 110, 160 + i * 28));
     ctx.fillStyle = C.warn;
@@ -2037,7 +2279,14 @@ export class Game {
     ctx.fillStyle = C.bone;
     ctx.font = "14px 'Share Tech Mono', monospace";
     ctx.fillText(`SCORE ${this.score}   SCRAP ${this.scrap}`, W / 2, H / 2);
-    ctx.fillText("ENTER · continue", W / 2, H / 2 + 36);
+    const nextHint =
+      this.levelId === 3
+        ? "ENTER · final debrief"
+        : this.levelId === 1
+          ? "ENTER · fabricator → LAUNCH!"
+          : "ENTER · fabricator → ORBIT";
+    ctx.fillStyle = C.cyan;
+    ctx.fillText(nextHint, W / 2, H / 2 + 36);
     ctx.textAlign = "left";
   }
 
@@ -2056,6 +2305,7 @@ export class Game {
     ctx.fillStyle = C.warn;
     ctx.font = "14px 'Share Tech Mono', monospace";
     ctx.fillText(`AVAILABLE SCRAP: ${this.scrap}`, W / 2, 140);
+    const nextName = this.levelId === 1 ? "LAUNCH!" : this.levelId === 2 ? "ORBIT" : "VICTORY";
     const rows: { key: keyof Upgrades | "next"; label: string }[] = [
       { key: "damage", label: "DAMAGE" },
       { key: "fireRate", label: "FIRE RATE" },
@@ -2063,17 +2313,20 @@ export class Game {
       { key: "mag", label: "MAG SIZE" },
       { key: "special", label: "EMP CHARGES" },
       { key: "mobility", label: "MOBILITY" },
-      { key: "next", label: "▶ NEXT LEVEL" },
+      { key: "next", label: `▶ NEXT · ${nextName}` },
     ];
     rows.forEach((r, i) => {
       const sel = i === this.upgradeIndex;
       const y = 190 + i * 36;
       const cost = r.key === "next" ? 0 : 8 + this.upgrades[r.key] * 6;
-      const lvl = r.key === "next" ? "" : `Lv ${this.upgrades[r.key]}  ·  cost ${cost}`;
+      const lvl = r.key === "next" ? "ENTER to deploy" : `Lv ${this.upgrades[r.key]}  ·  cost ${cost}`;
       ctx.fillStyle = sel ? C.warn : C.bone;
       ctx.font = sel ? "18px 'Black Ops One', sans-serif" : "15px 'Share Tech Mono', monospace";
       ctx.fillText(`${sel ? "▸ " : "  "}${r.label}   ${lvl}`, W / 2, y);
     });
+    ctx.fillStyle = "rgba(244,237,228,0.55)";
+    ctx.font = "12px 'Share Tech Mono', monospace";
+    ctx.fillText("W/S select · ENTER confirm · NEXT is pre-selected", W / 2, H - 40);
     ctx.textAlign = "left";
   }
 
