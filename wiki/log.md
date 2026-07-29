@@ -13,3 +13,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-07-29] kickoff | star-mind | Metal Slug–style space-punk shooter design bible + 3-level Canvas prototype (Earth Escape / Launch / Orbit)
 
 ## [2026-07-29] design | star-mind | Dual goals locked per level: escort→climb, gates→Seraph/circ, spines→Prime
+
+## [2026-07-29] art | star-mind | Bulk art pack: storyboards + keyed sprites + parallax plates wired into Canvas runtime

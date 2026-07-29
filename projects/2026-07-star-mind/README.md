@@ -45,6 +45,7 @@ Controls: **A/D or ←/→** move · **W/↑ or Space** jump · **J / Z** shoot 
 | [notes/brainstorm.md](notes/brainstorm.md) | Option ranges per pillar (pick / remix) |
 | [notes/dual-goals.md](notes/dual-goals.md) | Per-level Goal A → Goal B board (locked + alternates) |
 | [notes/art-direction.md](notes/art-direction.md) | Palette, silhouette rules, Metal Slug → space-punk |
+| [notes/art-inventory.md](notes/art-inventory.md) | Storyboard approval checkpoint + runtime art pack |
 
 ## Prior-work surfacing
 
