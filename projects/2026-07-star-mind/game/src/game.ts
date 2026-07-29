@@ -512,6 +512,7 @@ export class Game {
     this.level.objective = `2/2 · ${this.level.goalB}`;
     this.scriptBeatIndex = 0;
     this.densityTimer = 1.2;
+    this.lastBeat = "";
     this.announce(`GOAL 2/2 · ${this.level.goalB}`, 2.8);
     this.shake = 8;
   }
