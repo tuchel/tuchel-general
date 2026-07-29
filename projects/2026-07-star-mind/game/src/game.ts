@@ -1775,16 +1775,7 @@ export class Game {
     const ctx = this.ctx;
     if (this.level.goalPhase === 1) {
       let next: Actor | null = null;
-      let best = Infinity;
-      for (const e of this.enemies) {
-        if (e.dead || e.kind !== "spine") continue;
-        const d = e.x - this.player.x;
-        if (d < best && e.x > this.player.x - 80) {
-          best = Math.abs(d);
-          next = e;
-        }
-      }
-      // Prefer the leftmost living spine ahead (walk-right order)
+      // Leftmost living spine at/ahead of the player (walk-right order)
       for (const e of this.enemies) {
         if (e.dead || e.kind !== "spine") continue;
         if (e.x >= this.player.x - 40 && e.x < (next?.x ?? Infinity)) next = e;
