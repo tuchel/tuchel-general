@@ -15,11 +15,14 @@ True side-scrollers feel flat. STAR MIND uses a **2.5D depth plane** in the Meta
 `engine25d.ts` maps `(x, z, hop)` → screen `(sx, sy, scale)`:
 
 - Ground deck is a **trapezoid** (near lip → far horizon seam)
+- Road spokes / dashes are **world-X locked** (scroll under the camera) so the player moves *over* the pad, not with it
 - Farther Z → higher on the deck, **smaller scale**, slight vanish pull
+- Default near scale is large so authored 3/4 sprites read clearly in-browser
 - Elliptical **shadows** sit on the ground seam for lane readability
 - Draw order: **far → near** (`sortByDepth`)
 - Camera lean on Z input for kinetic punch
 - Foreground silhouettes over-draw for cabinet depth
+- Play shell fills the browser; **F** / FULL SCREEN button uses the Fullscreen API
 
 ## Combat
 

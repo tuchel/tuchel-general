@@ -38,10 +38,10 @@ export interface Stage25D {
 
 export const STAGE_GROUND: Stage25D = {
   camX: 0,
-  nearGroundY: 500,
-  farGroundY: 310,
-  nearScale: 1.2,
-  farScale: 0.52,
+  nearGroundY: 505,
+  farGroundY: 300,
+  nearScale: 2.45,
+  farScale: 1.05,
   vanishPull: 70,
   zMin: 0,
   zMax: 1,
@@ -49,10 +49,10 @@ export const STAGE_GROUND: Stage25D = {
 
 export const STAGE_SKY: Stage25D = {
   camX: 0,
-  nearGroundY: 420,
-  farGroundY: 160,
-  nearScale: 1.15,
-  farScale: 0.55,
+  nearGroundY: 430,
+  farGroundY: 150,
+  nearScale: 2.2,
+  farScale: 1.0,
   vanishPull: 40,
   zMin: 0,
   zMax: 1,
@@ -60,10 +60,10 @@ export const STAGE_SKY: Stage25D = {
 
 export const STAGE_VOID: Stage25D = {
   camX: 0,
-  nearGroundY: 460,
-  farGroundY: 200,
-  nearScale: 1.25,
-  farScale: 0.48,
+  nearGroundY: 470,
+  farGroundY: 190,
+  nearScale: 2.35,
+  farScale: 0.95,
   vanishPull: 90,
   zMin: 0,
   zMax: 1,
@@ -105,7 +105,7 @@ export function drawShadow(
   ctx.restore();
 }
 
-/** Perspective ground deck with lane guides — the 2.5D stage floor */
+/** Perspective ground deck with world-scrolling road markings — player moves over it */
 export function drawGroundDeck(
   ctx: CanvasRenderingContext2D,
   stage: Stage25D,
@@ -114,19 +114,20 @@ export function drawGroundDeck(
   const nearY = stage.nearGroundY;
   const farY = stage.farGroundY;
   const pad = mode === "pad";
+  const camX = stage.camX;
 
-  // Deck fill (trapezoid)
+  // Deck fill (trapezoid) — translucent so painted parallax road can read underneath
   const g = ctx.createLinearGradient(0, farY, 0, H);
   if (mode === "pad") {
-    g.addColorStop(0, "#2a2218");
-    g.addColorStop(0.5, "#1a1510");
-    g.addColorStop(1, "#0c0a08");
+    g.addColorStop(0, "rgba(42,34,24,0.72)");
+    g.addColorStop(0.55, "rgba(26,21,16,0.82)");
+    g.addColorStop(1, "rgba(12,10,8,0.92)");
   } else if (mode === "sky") {
-    g.addColorStop(0, "rgba(30,45,70,0.15)");
-    g.addColorStop(1, "rgba(5,8,16,0.55)");
+    g.addColorStop(0, "rgba(30,45,70,0.12)");
+    g.addColorStop(1, "rgba(5,8,16,0.5)");
   } else {
-    g.addColorStop(0, "rgba(20,40,70,0.2)");
-    g.addColorStop(1, "rgba(5,8,16,0.7)");
+    g.addColorStop(0, "rgba(20,40,70,0.18)");
+    g.addColorStop(1, "rgba(5,8,16,0.65)");
   }
   ctx.fillStyle = g;
   ctx.beginPath();
@@ -147,8 +148,8 @@ export function drawGroundDeck(
   ctx.stroke();
   ctx.globalAlpha = 1;
 
-  // Depth lane lines (3 lanes)
-  ctx.strokeStyle = pad ? "rgba(244,211,94,0.18)" : "rgba(46,196,182,0.2)";
+  // Depth lane lines (fixed Z — world-parallel, do not scroll with X)
+  ctx.strokeStyle = pad ? "rgba(244,211,94,0.22)" : "rgba(46,196,182,0.22)";
   ctx.lineWidth = 1;
   for (let i = 1; i <= 3; i++) {
     const z = i / 4;
@@ -160,16 +161,47 @@ export function drawGroundDeck(
     ctx.stroke();
   }
 
-  // Perspective spokes
-  ctx.strokeStyle = pad ? "rgba(139,69,19,0.25)" : "rgba(46,196,182,0.12)";
-  for (let i = 0; i <= 8; i++) {
-    const t = i / 8;
-    const xNear = t * W;
-    const xFar = W * 0.28 + t * W * 0.44;
+  // World-space perspective spokes + road dashes — scroll under the camera
+  const spacing = 96;
+  const startWx = Math.floor((camX - 160) / spacing) * spacing;
+  const endWx = camX + W + 280;
+
+  ctx.strokeStyle = pad ? "rgba(180,120,60,0.38)" : "rgba(46,196,182,0.2)";
+  ctx.lineWidth = 1.5;
+  for (let wx = startWx; wx <= endWx; wx += spacing) {
+    const near = project({ x: wx, z: 0.02, hop: 0 }, stage);
+    const far = project({ x: wx, z: 0.98, hop: 0 }, stage);
+    if (near.sx < -40 && far.sx < -40) continue;
+    if (near.sx > W + 40 && far.sx > W + 40) continue;
     ctx.beginPath();
-    ctx.moveTo(xNear, nearY);
-    ctx.lineTo(xFar, farY);
+    ctx.moveTo(near.sx, near.sy);
+    ctx.lineTo(far.sx, far.sy);
     ctx.stroke();
+  }
+
+  // Center dashed chevrons / lane paint scrolling in world X
+  const dashLen = spacing * 0.42;
+  ctx.strokeStyle = pad ? "rgba(244,211,94,0.55)" : "rgba(46,196,182,0.4)";
+  ctx.lineWidth = pad ? 3 : 2;
+  ctx.lineCap = "butt";
+  for (let wx = startWx; wx <= endWx; wx += spacing) {
+    const a = project({ x: wx, z: 0.5, hop: 0 }, stage);
+    const b = project({ x: wx + dashLen, z: 0.5, hop: 0 }, stage);
+    if (Math.max(a.sx, b.sx) < -20 || Math.min(a.sx, b.sx) > W + 20) continue;
+    ctx.beginPath();
+    ctx.moveTo(a.sx, a.sy);
+    ctx.lineTo(b.sx, b.sy);
+    ctx.stroke();
+  }
+
+  // Near-edge hatch ticks (reinforce "over the road" motion)
+  if (pad) {
+    ctx.fillStyle = "rgba(244,211,94,0.35)";
+    for (let wx = startWx; wx <= endWx; wx += spacing / 2) {
+      const p = project({ x: wx, z: 0.08, hop: 0 }, stage);
+      if (p.sx < -10 || p.sx > W + 10) continue;
+      ctx.fillRect(p.sx - 2, p.sy - 3, 4, 6);
+    }
   }
 
   // Near lip
