@@ -107,11 +107,14 @@ Metal Slug rule: **heavy, readable, absurdly fun munitions** with clear silhouet
 
 ## 6. Levels (detailed)
 
+Each level has **two stacked goals** (A unlocks B). Full option board: [`notes/dual-goals.md`](notes/dual-goals.md).
+
 ### Level 1 — EARTH ESCAPE
 
-**Goal:** Reach Launch Pad 7 and board *Black Finch* before STAR MIND’s kill-clock hits zero.
+**Goal A:** Escort the **fuel truck** to Pad 7 (truck has HP; stay close or it stalls).  
+**Goal B:** **Climb the gantry tower** and board *Black Finch* — **PAD REAPER** holds the tower.
 
-**Dynamic:** Classic Metal-Slug run-and-gun. Horizontal scroll with short vertical sections (gantries, fuel trenches). Hostage/technician rescues optional for scrap bonus. Mid-vehicle: hijack a **Pad Loader Mech**.
+**Dynamic:** Classic Metal-Slug run-and-gun for the convoy, then a vertical climb. Optional tech rescues for scrap. Kill-clock still ticks.
 
 **Art beat:** Night storm, sodium pad lights, orange flame, rusted scaffolding, SpaceX-ish towers + cartoon exaggeration. Rain + lightning flashes.
 
@@ -134,9 +137,10 @@ A crane/gantry possessed by STAR MIND: swinging claw, weld-laser eye, missile po
 
 ### Level 2 — LAUNCH!
 
-**Goal:** Survive ascent; keep *Black Finch* structurally alive to LEO insertion.
+**Goal A:** **Thread every trajectory gate** through the ascent.  
+**Goal B:** Down **STRATOS SERAPH**, then **hold circularization** through LEO rings.
 
-**Dynamic:** Vertical / diagonal auto-scroll shooter. Player flies the starship. Manage heat, stage separation hazard, and debris. Occasional “correct trajectory” gates (fly through rings) for fuel/armor.
+**Dynamic:** Vertical / diagonal auto-scroll shooter. Player flies the starship. Gates first; boss only after the corridor is clean; short ring-burn coda after the kill.
 
 **Art beat:** Atmosphere gradient (navy → indigo → black), engine plume bloom, cloud sheets, debris fields, interceptor drones climbing with you.
 
@@ -159,9 +163,10 @@ A winged interceptor platform that mirrors your altitude. Phases: (1) wing guns,
 
 ### Level 3 — ORBIT / STAR MIND
 
-**Goal:** Cut the constellation’s command spine; destroy the **Prime Node**.
+**Goal A:** **Sever the three regional spines** (marked spine sats; beetles try to repair them).  
+**Goal B:** **Breach STAR MIND PRIME** and rupture the core.
 
-**Dynamic:** Side-scrolling space combat with light platforming on wreckage + free-flight EVA segments. Low gravity arcs. Tether to surfaces. Satellites form formations that must be broken in order (weakest first) or they regenerate shields.
+**Dynamic:** Side-scrolling space combat with light platforming on wreckage + free-flight EVA. Spines gate the final arena.
 
 **Art beat:** Earth limb glow, solar panels as gold blades, hard shadows, star field parallax, holographic warning glyphs, cold cyan + hot orange thrusters.
 
@@ -174,6 +179,7 @@ A winged interceptor platform that mirrors your altitude. Phases: (1) wing guns,
 | **Tether Mine** | Pulls you off course |
 | **Repair Beetle** | Heals other sats — priority kill |
 | **Ghost Uplink** | Invisible until it fires |
+| **Spine Node** | Goal-A target; hardened until beetles die nearby |
 
 **Final Boss — STAR MIND PRIME**  
 A cathedral-sized node: rotating rings, solar-petal shields, voice chorus. Phases:
@@ -191,12 +197,11 @@ A cathedral-sized node: rotating rings, solar-petal shields, voice chorus. Phase
 
 Per level:
 
-- **Primary:** Reach end / kill boss  
-- **POWs / techs rescued** (L1)  
-- **Trajectory gates** cleared (L2)  
-- **Formation perfect clears** (L3)  
-- **Time** under par  
-- **No continue** bonus  
+- **Goal A → Goal B** clear (required)  
+- **POWs / techs rescued** (L1) · truck HP remaining  
+- **All trajectory gates** (L2 Goal A) · circularization clean  
+- **Spines under par time** (L3)  
+- **Time** under par · **No continue** bonus  
 
 Ranks: `S / A / B / C / D` with sarcastic CAPCOM lines.
 

@@ -296,3 +296,64 @@ export function drawPickup(
   }
   ctx.restore();
 }
+
+/** Fuel truck for L1 escort */
+export function drawTruck(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  hpRatio: number,
+  moving: boolean,
+) {
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  rr(ctx, -36, -22, 72, 28, C.metal, C.soot);
+  rr(ctx, -30, -28, 40, 12, C.warn, C.soot);
+  rr(ctx, 10, -18, 22, 16, C.navy, C.cyan);
+  rr(ctx, -28, 4, 14, 10, C.soot);
+  rr(ctx, 14, 4, 14, 10, C.soot);
+  if (moving) glow(ctx, -40, 0, 14, C.pad, 0.35);
+  rr(ctx, -32, -36, 64, 5, C.soot);
+  rr(ctx, -32, -36, 64 * Math.max(0, hpRatio), 5, hpRatio < 0.35 ? C.blood : C.pad);
+  ctx.restore();
+}
+
+/** Regional spine node for L3 goal A */
+export function drawSpine(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  frame: number,
+) {
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  glow(ctx, 0, 0, 28, C.cyan, 0.4);
+  ctx.strokeStyle = C.warn;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(0, 0, 22, 0, Math.PI * 2);
+  ctx.stroke();
+  rr(ctx, -14, -14, 28, 28, C.navy, C.cyan);
+  rr(ctx, -6, -6, 12, 12, C.warn);
+  const a = frame * 0.08;
+  rr(ctx, Math.cos(a) * 18 - 3, Math.sin(a) * 18 - 3, 6, 6, C.cyan);
+  ctx.restore();
+}
+
+/** LEO circularization ring */
+export function drawCircRing(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  hit: boolean,
+) {
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.strokeStyle = hit ? C.metal : C.cyan;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 36, 22, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  if (!hit) glow(ctx, 0, 0, 30, C.cyan, 0.3);
+  ctx.restore();
+}

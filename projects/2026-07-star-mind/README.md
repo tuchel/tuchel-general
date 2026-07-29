@@ -43,6 +43,7 @@ Controls: **A/D or ←/→** move · **W/↑ or Space** jump · **J / Z** shoot 
 |-----|---------|
 | [DESIGN.md](DESIGN.md) | Full design bible: plot, cast, enemies, weapons, bosses, art |
 | [notes/brainstorm.md](notes/brainstorm.md) | Option ranges per pillar (pick / remix) |
+| [notes/dual-goals.md](notes/dual-goals.md) | Per-level Goal A → Goal B board (locked + alternates) |
 | [notes/art-direction.md](notes/art-direction.md) | Palette, silhouette rules, Metal Slug → space-punk |
 
 ## Prior-work surfacing
