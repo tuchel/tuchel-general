@@ -35,7 +35,8 @@ Avoid: purple-indigo AI cliché glow-fest, cream+terracotta editorial look, flat
 - Ash: bone suit, pad-orange accents, dark webbing, scar; clips idle/walk/shoot/jump (+ EVA thrust)
 - Enemies/bosses: multi-frame hover/walk/attack/phase clips in `public/art/anim/`
 - Near-camera props reinforce the ground deck (crates, gantry lips)
-- L1 diaspora midground: Starship/Dragon/booster wreckage + frantic cybertruck traffic; Pad 7 is a full painted launch spectacle, not a HUD glyph
+- L1 diaspora midground: Starship/Dragon/booster wreckage + rare cybertruck (one pass ~every 2.5 min); Pad 7 is a full painted launch spectacle, not a HUD glyph
+- Parallax plates evolve calm→peak with smoothed combat intensity (all three levels)
 
 See [`art-25d-anim.md`](art-25d-anim.md). 
 
