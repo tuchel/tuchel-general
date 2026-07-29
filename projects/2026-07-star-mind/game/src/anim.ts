@@ -67,8 +67,17 @@ export const CLIPS: Record<string, Partial<Record<AnimName, AnimClip>>> = {
   ash: {
     idle: { frames: ["ash-idle-0", "ash-idle-1"], fps: 4, loop: true },
     walk: {
-      frames: ["ash-walk-0", "ash-walk-1", "ash-walk-2", "ash-walk-3"],
-      fps: 10,
+      frames: [
+        "ash-walk-0",
+        "ash-walk-1",
+        "ash-walk-2",
+        "ash-walk-3",
+        "ash-walk-4",
+        "ash-walk-5",
+        "ash-walk-6",
+        "ash-walk-7",
+      ],
+      fps: 12,
       loop: true,
     },
     shoot: {
