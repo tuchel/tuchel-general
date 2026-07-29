@@ -9,6 +9,7 @@ Catalog of pages in this personal knowledge base. Keep thin; link out to long-fo
 ## Projects
 
 - [Metro Budget & Tax Explorer](../projects/2026-07-metro-budget-tax/README.md) — plan for interactive MSA local spend/tax per person
+- [STAR MIND](../projects/2026-07-star-mind/README.md) — Metal Slug–style space-punk side shooter (Ash vs rogue AI sats)
 
 ## Concepts
 

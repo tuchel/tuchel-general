@@ -1,0 +1,52 @@
+:root {
+  color-scheme: dark;
+  --void: #0b1220;
+  --bone: #f4ede4;
+  --pad: #e85d04;
+  --cyan: #2ec4b6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%, #1a2744 0%, transparent 55%),
+    linear-gradient(180deg, #070b14 0%, var(--void) 40%, #050810 100%);
+  color: var(--bone);
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+}
+
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+#game {
+  width: min(960px, 100%);
+  height: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  border: 2px solid color-mix(in srgb, var(--cyan) 55%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--pad) 35%, transparent),
+    0 24px 60px rgba(0, 0, 0, 0.55);
+  background: #000;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--bone) 65%, transparent);
+  text-align: center;
+}
