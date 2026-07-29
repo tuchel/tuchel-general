@@ -1,11 +1,30 @@
-/** Single-hue sequential ramp (teal). t in [0,1]. */
+/** Five-class choropleth palette: low → high = blue → green → yellow → orange → red. */
+export const CHOROPLETH_CLASS_COLORS = [
+  '#2c7bb6', // blue
+  '#1a9850', // green
+  '#fee08b', // yellow
+  '#fdae61', // orange
+  '#d73027', // red
+] as const
+
+export const CHOROPLETH_CLASS_LABELS = [
+  'Lowest',
+  'Low',
+  'Middle',
+  'High',
+  'Highest',
+] as const
+
+/** @deprecated Prefer CHOROPLETH_CLASS_COLORS for maps — kept for any non-map callers. */
 export function sequentialColor(t: number): string {
   const x = Math.min(1, Math.max(0, t))
-  // interpolate paper-teal → deep teal in HSL-ish RGB
-  const r = Math.round(232 + (11 - 232) * x)
-  const g = Math.round(241 + (95 - 241) * x)
-  const b = Math.round(242 + (107 - 242) * x)
-  return `rgb(${r},${g},${b})`
+  const i = Math.min(CHOROPLETH_CLASS_COLORS.length - 1, Math.round(x * (CHOROPLETH_CLASS_COLORS.length - 1)))
+  return CHOROPLETH_CLASS_COLORS[i]
+}
+
+export function classColor(index: number): string {
+  const i = Math.min(CHOROPLETH_CLASS_COLORS.length - 1, Math.max(0, index))
+  return CHOROPLETH_CLASS_COLORS[i]
 }
 
 export function quantileBreaks(values: number[], k = 5): number[] {
@@ -27,4 +46,21 @@ export function classIndex(value: number, breaks: number[]): number {
   let i = 0
   while (i < breaks.length && value > breaks[i]) i++
   return i
+}
+
+/** Inclusive class ranges from quantile breaks + data extents. */
+export function classRanges(
+  values: number[],
+  breaks: number[],
+): { lo: number; hi: number }[] {
+  if (!values.length) return []
+  const sorted = [...values].sort((a, b) => a - b)
+  const min = sorted[0]
+  const max = sorted[sorted.length - 1]
+  const edges = [min, ...breaks, max]
+  const ranges: { lo: number; hi: number }[] = []
+  for (let i = 0; i < edges.length - 1; i++) {
+    ranges.push({ lo: edges[i], hi: edges[i + 1] })
+  }
+  return ranges
 }
