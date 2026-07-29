@@ -9,6 +9,14 @@ import {
   type WeaponId,
 } from "./types";
 import {
+  art,
+  blitCover,
+  blitParallax,
+  blitSprite,
+  bossSpriteId,
+  enemySpriteId,
+} from "./assets";
+import {
   drawAsh,
   drawBoss,
   drawCircRing,
@@ -1447,16 +1455,27 @@ export class Game {
     const ctx = this.ctx;
     const t = this.frame;
     if (this.levelId === 1) {
-      const g = ctx.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, "#0a1328");
-      g.addColorStop(0.55, "#152238");
-      g.addColorStop(1, "#1a1510");
-      ctx.fillStyle = g;
+      ctx.fillStyle = C.void;
       ctx.fillRect(0, 0, W, H);
-      // rain
-      ctx.strokeStyle = "rgba(174,198,220,0.25)";
+      const painted =
+        blitParallax(ctx, art.bg("l1-sky"), this.camX, 0.15, -40, 1) &&
+        blitParallax(ctx, art.bg("l1-mid"), this.camX, 0.45, 40, 0.92);
+      if (!painted) {
+        const g = ctx.createLinearGradient(0, 0, 0, H);
+        g.addColorStop(0, "#0a1328");
+        g.addColorStop(0.55, "#152238");
+        g.addColorStop(1, "#1a1510");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+        for (let i = 0; i < 8; i++) {
+          const gx = ((i * 380 - this.camX * 0.4) % (W + 200)) - 100;
+          rr(ctx, gx, 120, 18, 350, "#2a3348", "#0b1220");
+        }
+      }
+      // rain overlay
+      ctx.strokeStyle = "rgba(174,198,220,0.22)";
       ctx.lineWidth = 1;
-      for (let i = 0; i < 60; i++) {
+      for (let i = 0; i < 50; i++) {
         const x = ((i * 97 + t * 8) % (W + 40)) - 20;
         const y = ((i * 53 + t * 14) % (H + 40)) - 20;
         ctx.beginPath();
@@ -1464,23 +1483,13 @@ export class Game {
         ctx.lineTo(x - 2, y + 12);
         ctx.stroke();
       }
-      // lightning flash
       if (Math.sin(t * 0.03) > 0.992) {
-        ctx.fillStyle = "rgba(200,220,255,0.12)";
+        ctx.fillStyle = "rgba(200,220,255,0.1)";
         ctx.fillRect(0, 0, W, H);
       }
-      // gantries parallax
-      for (let i = 0; i < 8; i++) {
-        const gx = ((i * 380 - this.camX * 0.4) % (W + 200)) - 100;
-        rr(ctx, gx, 120, 18, 350, "#2a3348", "#0b1220");
-        rr(ctx, gx - 30, 140 + (i % 3) * 60, 80, 8, "#3a455c");
-      }
-      // sodium glow
-      glow(ctx, W * 0.7, 80, 160, C.pad, 0.15);
-      // ground
-      rr(ctx, 0, this.level.groundY - this.camY, W, H, "#2b2118");
-      rr(ctx, 0, this.level.groundY - this.camY, W, 6, C.pad);
-      // platforms
+      glow(ctx, W * 0.7, 80, 160, C.pad, 0.12);
+      rr(ctx, 0, this.level.groundY - this.camY, W, H, "#1a1510");
+      rr(ctx, 0, this.level.groundY - this.camY, W, 4, C.pad);
       for (const p of this.level.platforms) {
         const sx = p.x - this.camX;
         if (sx > -50 && sx < W + 50) {
@@ -1488,7 +1497,6 @@ export class Game {
           rr(ctx, sx, p.y, p.w, 3, C.warn);
         }
       }
-      // stranded techs
       for (const tech of this.techs) {
         if (tech.rescued) continue;
         const tx = tech.x - this.camX;
@@ -1498,20 +1506,36 @@ export class Game {
           rr(ctx, tx - 4, tech.y - 22, 8, 8, C.warn, C.soot);
         }
       }
-      // fuel truck
       if (this.truck) {
         const tx = this.truck.x - this.camX;
-        if (tx > -60 && tx < W + 60) {
-          drawTruck(
-            ctx,
-            tx,
-            this.truck.y,
-            this.truck.hp / this.truck.maxHp,
-            this.truck.moving,
-          );
+        if (tx > -80 && tx < W + 80) {
+          const ok = blitSprite(ctx, art.sprite("truck"), tx, this.truck.y - 6, {
+            h: 52,
+            facing: 1,
+          });
+          if (!ok) {
+            drawTruck(
+              ctx,
+              tx,
+              this.truck.y,
+              this.truck.hp / this.truck.maxHp,
+              this.truck.moving,
+            );
+          } else {
+            // HP bar above painted truck
+            rr(ctx, tx - 32, this.truck.y - 40, 64, 5, C.soot);
+            rr(
+              ctx,
+              tx - 32,
+              this.truck.y - 40,
+              64 * Math.max(0, this.truck.hp / this.truck.maxHp),
+              5,
+              this.truck.hp < 40 ? C.blood : C.pad,
+            );
+            if (this.truck.moving) glow(ctx, tx - 40, this.truck.y, 16, C.pad, 0.35);
+          }
         }
       }
-      // pad in distance
       const padX = this.level.length - 280 - this.camX;
       if (padX < W + 100) {
         rr(ctx, padX, 200, 40, 270, C.metalLite, C.soot);
@@ -1522,39 +1546,45 @@ export class Game {
         ctx.fillText("PAD 7", padX + 55, 150);
       }
     } else if (this.levelId === 2) {
-      const alt = this.level.scroll / this.level.length;
-      const g = ctx.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, `rgb(${20 - alt * 15},${30 - alt * 20},${60 + alt * 20})`);
-      g.addColorStop(1, alt > 0.5 ? "#05070e" : "#3a4a6a");
-      ctx.fillStyle = g;
+      ctx.fillStyle = C.void;
       ctx.fillRect(0, 0, W, H);
-      // clouds
-      ctx.fillStyle = "rgba(255,255,255,0.08)";
-      for (let i = 0; i < 10; i++) {
-        const cx = ((i * 200 - this.camX * 0.2) % (W + 120)) - 60;
-        const cy = 80 + (i % 5) * 70;
-        ctx.beginPath();
-        ctx.ellipse(cx, cy, 70, 16, 0, 0, Math.PI * 2);
-        ctx.fill();
+      const painted = blitParallax(
+        ctx,
+        art.bg("l2-ascent"),
+        this.camX,
+        0.25,
+        -20,
+        1,
+      );
+      if (!painted) {
+        const alt = this.level.scroll / this.level.length;
+        const g = ctx.createLinearGradient(0, 0, 0, H);
+        g.addColorStop(0, `rgb(${20 - alt * 15},${30 - alt * 20},${60 + alt * 20})`);
+        g.addColorStop(1, alt > 0.5 ? "#05070e" : "#3a4a6a");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
       }
-      if (alt > 0.45) {
-        // stars
-        ctx.fillStyle = C.bone;
-        for (let i = 0; i < 40; i++) {
-          ctx.fillRect((i * 73) % W, (i * 97) % H, 2, 2);
-        }
-      }
-      // gates
+      // altitude vignette darkening toward space
+      const alt = this.level.scroll / this.level.length;
+      ctx.fillStyle = `rgba(5,7,14,${Math.min(0.55, alt * 0.6)})`;
+      ctx.fillRect(0, 0, W, H * 0.35);
       for (const gate of this.gates) {
         const gx = gate.x - this.level.scroll + 300;
         if (gx > -40 && gx < W + 40) {
-          ctx.strokeStyle = gate.hit ? C.metal : C.warn;
-          ctx.lineWidth = 3;
-          ctx.strokeRect(gx - 28, gate.y - 40, 56, 80);
+          const ok =
+            !gate.hit &&
+            blitSprite(ctx, art.sprite("gate"), gx, gate.y, {
+              h: 88,
+              alpha: 0.95,
+            });
+          if (!ok) {
+            ctx.strokeStyle = gate.hit ? C.metal : C.warn;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(gx - 28, gate.y - 40, 56, 80);
+          }
           glow(ctx, gx, gate.y, 30, gate.hit ? C.metal : C.warn, 0.25);
         }
       }
-      // circularization rings
       for (const ring of this.circRings) {
         const rx = ring.x - this.level.scroll + 300;
         if (rx > -50 && rx < W + 50) {
@@ -1564,22 +1594,25 @@ export class Game {
     } else {
       ctx.fillStyle = C.void;
       ctx.fillRect(0, 0, W, H);
-      // stars
-      ctx.fillStyle = C.bone;
-      for (let i = 0; i < 80; i++) {
-        const sx = ((i * 67 - this.camX * 0.15) % W + W) % W;
-        const sy = (i * 91) % H;
-        ctx.globalAlpha = 0.4 + (i % 3) * 0.2;
-        ctx.fillRect(sx, sy, i % 5 === 0 ? 2 : 1, i % 5 === 0 ? 2 : 1);
+      const painted = blitParallax(
+        ctx,
+        art.bg("l3-void"),
+        this.camX,
+        0.12,
+        0,
+        1,
+      );
+      if (!painted) {
+        ctx.fillStyle = C.bone;
+        for (let i = 0; i < 80; i++) {
+          const sx = ((i * 67 - this.camX * 0.15) % W + W) % W;
+          const sy = (i * 91) % H;
+          ctx.globalAlpha = 0.4 + (i % 3) * 0.2;
+          ctx.fillRect(sx, sy, i % 5 === 0 ? 2 : 1, i % 5 === 0 ? 2 : 1);
+        }
+        ctx.globalAlpha = 1;
+        glow(ctx, W * 0.2, H + 40, 220, C.earth, 0.35);
       }
-      ctx.globalAlpha = 1;
-      // earth limb
-      glow(ctx, W * 0.2, H + 40, 220, C.earth, 0.35);
-      ctx.fillStyle = "#1b3a6e";
-      ctx.beginPath();
-      ctx.ellipse(W * 0.15, H + 60, 260, 120, 0, Math.PI, 0);
-      ctx.fill();
-      // wreck platforms
       for (const p of this.level.platforms) {
         const sx = p.x - this.camX;
         if (sx > -60 && sx < W + 60) {
@@ -1587,8 +1620,7 @@ export class Game {
           glow(ctx, sx + p.w / 2, p.y, 20, C.cyan, 0.15);
         }
       }
-      // solar blades parallax
-      ctx.strokeStyle = "rgba(244,211,94,0.35)";
+      ctx.strokeStyle = "rgba(244,211,94,0.28)";
       ctx.lineWidth = 2;
       for (let i = 0; i < 5; i++) {
         const x = ((i * 240 - this.camX * 0.3) % (W + 100)) - 50;
@@ -1727,47 +1759,130 @@ export class Game {
 
     // entities
     for (const p of this.pickups) {
-      drawPickup(ctx, p.kind === "scrap" ? "scrap" : "weapon", p.x - this.camX, p.y, this.frame);
+      const ok = blitSprite(
+        ctx,
+        art.sprite("pickup"),
+        p.x - this.camX,
+        p.y,
+        { h: 28, bob: Math.sin(this.frame * 0.2) * 3 },
+      );
+      if (!ok) {
+        drawPickup(
+          ctx,
+          p.kind === "scrap" ? "scrap" : "weapon",
+          p.x - this.camX,
+          p.y,
+          this.frame,
+        );
+      }
     }
     for (const e of this.enemies) {
-      if (e.flash > 0) ctx.globalAlpha = 0.5;
-      if (e.kind === "spine") {
-        drawSpine(ctx, e.x - this.camX, e.y, this.frame);
-      } else {
-        drawEnemy(ctx, e.kind, e.x - this.camX, e.y, this.frame, e.facing);
+      const sid = enemySpriteId(e.kind);
+      const h =
+        e.kind === "spine" ? 64 : e.kind === "walker" ? 56 : e.kind === "ghost" ? 44 : 48;
+      const ok = blitSprite(ctx, art.sprite(sid), e.x - this.camX, e.y, {
+        facing: e.facing,
+        h,
+        alpha: e.kind === "ghost" ? 0.55 : e.flash > 0 ? 0.55 : 1,
+        bob: Math.sin(this.frame * 0.15 + e.x * 0.01) * (e.kind === "drone" || e.kind === "spine" ? 2 : 0),
+        flash: e.flash > 0,
+      });
+      if (!ok) {
+        if (e.flash > 0) ctx.globalAlpha = 0.5;
+        if (e.kind === "spine") {
+          drawSpine(ctx, e.x - this.camX, e.y, this.frame);
+        } else {
+          drawEnemy(ctx, e.kind, e.x - this.camX, e.y, this.frame, e.facing);
+        }
+        ctx.globalAlpha = 1;
       }
-      ctx.globalAlpha = 1;
     }
     if (this.boss && !this.boss.dead) {
-      if (this.boss.flash > 0) ctx.globalAlpha = 0.55;
-      drawBoss(
+      const sid = bossSpriteId(this.boss.kind);
+      const ok = blitSprite(
         ctx,
-        this.boss.kind,
+        art.sprite(sid),
         this.boss.x - this.camX,
         this.boss.y,
-        this.frame,
-        this.boss.hp / this.boss.maxHp,
-        this.boss.phase,
+        {
+          h: this.boss.kind === "prime" ? 140 : 120,
+          alpha: this.boss.flash > 0 ? 0.6 : 1,
+          flash: this.boss.flash > 0,
+        },
       );
-      ctx.globalAlpha = 1;
+      if (!ok) {
+        if (this.boss.flash > 0) ctx.globalAlpha = 0.55;
+        drawBoss(
+          ctx,
+          this.boss.kind,
+          this.boss.x - this.camX,
+          this.boss.y,
+          this.frame,
+          this.boss.hp / this.boss.maxHp,
+          this.boss.phase,
+        );
+        ctx.globalAlpha = 1;
+      }
     }
 
     // player
     if (!this.player.dead) {
-      if (this.invuln > 0 && Math.floor(this.frame / 2) % 2 === 0) ctx.globalAlpha = 0.4;
+      const inv = this.invuln > 0 && Math.floor(this.frame / 2) % 2 === 0;
       if (this.player.kind === "ship") {
-        drawShip(ctx, this.player.x - this.camX, this.player.y, this.shipThrust, this.player.flash > 0);
-      } else {
-        drawAsh(
+        const ok = blitSprite(
           ctx,
+          art.sprite("ship"),
           this.player.x - this.camX,
           this.player.y,
-          this.player.facing,
-          this.frame,
-          this.player.kind === "eva" ? "eva" : "ground",
+          { h: 48, alpha: inv ? 0.4 : 1 },
         );
+        if (!ok) {
+          if (inv) ctx.globalAlpha = 0.4;
+          drawShip(
+            ctx,
+            this.player.x - this.camX,
+            this.player.y,
+            this.shipThrust,
+            this.player.flash > 0,
+          );
+          ctx.globalAlpha = 1;
+        } else if (this.shipThrust > 0) {
+          glow(
+            ctx,
+            this.player.x - this.camX - 36,
+            this.player.y,
+            14 + this.shipThrust * 8,
+            C.pad,
+            0.45,
+          );
+        }
+      } else {
+        const sid = this.player.kind === "eva" ? "ash-eva" : "ash";
+        const ok = blitSprite(
+          ctx,
+          art.sprite(sid),
+          this.player.x - this.camX,
+          this.player.y,
+          {
+            facing: this.player.facing,
+            h: this.player.kind === "eva" ? 56 : 52,
+            alpha: inv ? 0.4 : 1,
+            bob: this.player.kind === "eva" ? Math.sin(this.frame * 0.2) * 2 : 0,
+          },
+        );
+        if (!ok) {
+          if (inv) ctx.globalAlpha = 0.4;
+          drawAsh(
+            ctx,
+            this.player.x - this.camX,
+            this.player.y,
+            this.player.facing,
+            this.frame,
+            this.player.kind === "eva" ? "eva" : "ground",
+          );
+          ctx.globalAlpha = 1;
+        }
       }
-      ctx.globalAlpha = 1;
     }
 
     // bullets
@@ -1795,41 +1910,58 @@ export class Game {
 
   private renderTitle() {
     const ctx = this.ctx;
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, "#070b14");
-    g.addColorStop(0.5, "#152238");
-    g.addColorStop(1, "#1a0f0a");
-    ctx.fillStyle = g;
+    ctx.fillStyle = C.void;
     ctx.fillRect(0, 0, W, H);
-    // decorative towers
-    for (let i = 0; i < 6; i++) {
-      rr(ctx, 40 + i * 160, 200 + (i % 2) * 40, 22, 340, "#243044", "#0b1220");
+    const painted = blitCover(ctx, art.bg("title-hero"), 1);
+    if (!painted) {
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, "#070b14");
+      g.addColorStop(0.5, "#152238");
+      g.addColorStop(1, "#1a0f0a");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      for (let i = 0; i < 6; i++) {
+        rr(ctx, 40 + i * 160, 200 + (i % 2) * 40, 22, 340, "#243044", "#0b1220");
+      }
+      glow(ctx, W / 2, 180, 200, C.pad, 0.2);
+    } else {
+      // readable band behind title
+      ctx.fillStyle = "rgba(5,8,16,0.55)";
+      ctx.fillRect(0, 70, W, 160);
     }
-    glow(ctx, W / 2, 180, 200, C.pad, 0.2);
-    glow(ctx, W / 2 + 120, 120, 100, C.cyan, 0.15);
 
     ctx.textAlign = "center";
     ctx.fillStyle = C.cyan;
     ctx.font = "14px 'Share Tech Mono', monospace";
-    ctx.fillText("OPERATION ORBITAL BREAK", W / 2, 120);
+    ctx.fillText("OPERATION ORBITAL BREAK", W / 2, 110);
     ctx.fillStyle = C.bone;
     ctx.font = "64px 'Black Ops One', sans-serif";
-    ctx.fillText("STAR MIND", W / 2, 190);
+    ctx.fillText("STAR MIND", W / 2, 175);
     ctx.fillStyle = C.pad;
     ctx.font = "14px 'Share Tech Mono', monospace";
-    ctx.fillText("METAL SLUG DNA  ·  SPACE-PUNK LEO WAR", W / 2, 220);
+    ctx.fillText("METAL SLUG DNA  ·  SPACE-PUNK LEO WAR", W / 2, 205);
 
-    drawAsh(ctx, W / 2 - 80, 340, 1, this.frame, "ground");
-    drawShip(ctx, W / 2 + 90, 330, 0.8);
+    if (!painted) {
+      blitSprite(ctx, art.sprite("ash"), W / 2 - 90, 340, { h: 70 }) ||
+        drawAsh(ctx, W / 2 - 80, 340, 1, this.frame, "ground");
+      blitSprite(ctx, art.sprite("ship"), W / 2 + 100, 330, { h: 56 }) ||
+        drawShip(ctx, W / 2 + 90, 330, 0.8);
+    }
 
     const items = ["L1 · EARTH ESCAPE", "L2 · LAUNCH!", "L3 · ORBIT"];
     items.forEach((label, i) => {
-      const y = 390 + i * 32;
+      const y = 400 + i * 32;
       const sel = i === this.menuIndex;
       ctx.fillStyle = sel ? C.warn : C.bone;
       ctx.font = sel
         ? "18px 'Black Ops One', sans-serif"
         : "15px 'Share Tech Mono', monospace";
+      // menu plate
+      if (sel) {
+        ctx.fillStyle = "rgba(11,18,32,0.72)";
+        ctx.fillRect(W / 2 - 160, y - 20, 320, 28);
+        ctx.fillStyle = C.warn;
+      }
       ctx.fillText(`${sel ? "▸ " : "  "}${label}`, W / 2, y);
     });
     ctx.fillStyle = "rgba(244,237,228,0.55)";

@@ -34,11 +34,11 @@ body {
 #game {
   width: min(960px, 100%);
   height: auto;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
+  image-rendering: auto;
   border: 2px solid color-mix(in srgb, var(--cyan) 55%, transparent);
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--pad) 35%, transparent),
+    0 0 40px color-mix(in srgb, var(--pad) 12%, transparent),
     0 24px 60px rgba(0, 0, 0, 0.55);
   background: #000;
 }
