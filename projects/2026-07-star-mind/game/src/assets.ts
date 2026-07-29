@@ -25,7 +25,9 @@ export type SpriteId =
   | "boss-seraph"
   | "boss-prime"
   | "prop-crate-near"
-  | "prop-gantry-near";
+  | "prop-gantry-near"
+  | "pad7"
+  | "gantry-tower";
 
 export type BgId = "l1-sky" | "l1-mid" | "l2-ascent" | "l3-void" | "title-hero";
 
@@ -54,6 +56,8 @@ const SPRITE_FILES: Record<SpriteId, string> = {
   "boss-prime": "sprites/boss-prime.png",
   "prop-crate-near": "props/prop-crate-near.png",
   "prop-gantry-near": "props/prop-gantry-near.png",
+  pad7: "sprites/pad7.png",
+  "gantry-tower": "sprites/gantry-tower.png",
 };
 
 const BG_FILES: Record<BgId, string> = {

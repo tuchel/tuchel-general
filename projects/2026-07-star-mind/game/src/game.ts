@@ -44,6 +44,8 @@ import {
   drawBoss,
   drawCircRing,
   drawEnemy,
+  drawGantryDeck,
+  drawPad7,
   drawPickup,
   drawShip,
   drawSpine,
@@ -51,6 +53,14 @@ import {
   glow,
   rr,
 } from "./draw";
+
+/** L1 truck fuel-drop destination (world X) */
+const PAD7_X = 2480;
+/** First gantry stair after Pad 7 */
+const GANTRY_START_X = 2560;
+/** Black Finch boarding deck */
+const BOARD_X = 3180;
+const BOARD_HOP = 168;
 
 interface Actor {
   x: number;
@@ -253,6 +263,7 @@ export class Game {
   private techs: { x: number; z: number; rescued: boolean }[] = [];
   private truck: FuelTruck | null = null;
   private towerReady = false;
+  private boardReady = false;
   private rescued = 0;
   private score = 0;
   private totalScore = 0;
@@ -407,6 +418,7 @@ export class Game {
     this.techs = [];
     this.truck = null;
     this.towerReady = false;
+    this.boardReady = false;
     this.camLean = 0;
 
     if (id === 1) {
@@ -421,11 +433,12 @@ export class Game {
         goalB,
         goalPhase: 1,
         scroll: 0,
-        length: 2800,
+        length: 3600,
         platforms: [
-          { x: 620, z: 0.65, w: 100, hop: 40 },
-          { x: 1200, z: 0.75, w: 110, hop: 55 },
-          { x: 1850, z: 0.7, w: 120, hop: 50 },
+          // Early pad props — optional hop crumbs, same Z as road so walk-right stays primary
+          { x: 620, z: 0.5, w: 120, hop: 36 },
+          { x: 1200, z: 0.5, w: 130, hop: 40 },
+          { x: 1850, z: 0.5, w: 130, hop: 36 },
         ],
         spawnIndex: 0,
         elapsed: 0,
@@ -538,15 +551,15 @@ export class Game {
     if (this.towerReady) return;
     this.towerReady = true;
     this.setGoalPhase2();
-    const baseX = 2520;
+    // Walk-right Metal Slug stairs: same depth lane, rising hop, wide decks
     this.level.platforms.push(
-      { x: baseX, z: 0.4, w: 100, hop: 35 },
-      { x: baseX + 40, z: 0.55, w: 90, hop: 70 },
-      { x: baseX - 20, z: 0.7, w: 110, hop: 105 },
-      { x: baseX + 30, z: 0.5, w: 100, hop: 140 },
-      { x: baseX, z: 0.6, w: 120, hop: 175 },
+      { x: GANTRY_START_X, z: 0.5, w: 160, hop: 38 },
+      { x: GANTRY_START_X + 130, z: 0.5, w: 160, hop: 72 },
+      { x: GANTRY_START_X + 260, z: 0.5, w: 160, hop: 106 },
+      { x: GANTRY_START_X + 400, z: 0.5, w: 170, hop: 140 },
+      { x: BOARD_X, z: 0.5, w: 200, hop: BOARD_HOP },
     );
-    this.announce("NIX: Truck's on the pad — climb the gantry!", 2.5);
+    this.announce("NIX: Truck's on Pad 7 — keep RIGHT, climb the gantry!", 3.2);
   }
 
   private spawnEnemy(kind: string, x: number, z = 0.5, hop = 0, hp = 0) {
@@ -600,12 +613,12 @@ export class Game {
     const b = BOSS[this.levelId];
     const x =
       this.levelId === 1
-        ? this.level.length - 200
+        ? BOARD_X - 40
         : this.camX + W - 180;
     this.boss = {
       x,
-      z: 0.55,
-      hop: this.levelId === 1 ? 30 : 50,
+      z: 0.5,
+      hop: this.levelId === 1 ? 120 : 50,
       vx: 0,
       vz: 0,
       vHop: 0,
@@ -899,7 +912,9 @@ export class Game {
     b.z = 0.45 + Math.sin(b.timer * 0.7) * 0.12;
 
     if (b.kind === "reaper") {
-      b.x = this.level.length - 180;
+      // Hold the upper gantry / boarding deck — player walks right into the fight
+      b.x = BOARD_X - 20 + Math.sin(b.timer * 0.5) * 30;
+      b.hop = BOARD_HOP - 20;
       if (b.timer > (b.phase === 1 ? 1.4 : 0.9)) {
         b.timer = 0;
         if (b.phase === 1) this.enemyShot(b, 280, 14, true);
@@ -919,7 +934,7 @@ export class Game {
               color: C.cyan,
             });
           }
-          if (Math.random() < 0.5) this.spawnEnemy("drone", b.x - 100, 0.4, 40);
+          if (Math.random() < 0.5) this.spawnEnemy("drone", b.x - 100, 0.5, 40);
         } else {
           this.bullets.push({
             x: this.player.x,
@@ -1029,8 +1044,8 @@ export class Game {
       this.hurtPlayer(999);
       return;
     }
-    if (truck.x >= 2480) {
-      truck.x = 2480;
+    if (truck.x >= PAD7_X) {
+      truck.x = PAD7_X;
       truck.arrived = true;
       truck.moving = false;
       this.scrap += Math.ceil(truck.hp / 10);
@@ -1081,11 +1096,11 @@ export class Game {
     if (!this.level.bossSpawned) {
       let ready = false;
       if (this.levelId === 1) {
+        // Enter the gantry by walking right from Pad 7 — Pad Reaper holds the tower
         ready =
           this.level.goalPhase === 2 &&
           this.towerReady &&
-          this.player.hop > 90 &&
-          this.player.x > 2480;
+          this.player.x > GANTRY_START_X + 40;
       } else if (this.levelId === 2) {
         ready = this.level.goalPhase === 2 && this.level.gatesCleared >= this.gates.length;
       } else {
@@ -1120,19 +1135,35 @@ export class Game {
         if (
           this.player.vHop <= 0 &&
           Math.abs(this.player.x - p.x) < p.w * 0.55 &&
-          zOverlap(this.player.z, p.z, 0.2) &&
+          zOverlap(this.player.z, p.z, 0.35) &&
           this.player.hop <= p.hop + 8 &&
-          this.player.hop >= p.hop - 18
+          this.player.hop >= p.hop - 22
         ) {
           this.player.hop = p.hop;
           this.player.vHop = 0;
           onGround = true;
+          // Soft Z pull onto the deck so walk-right climbs stay forgiving
+          this.player.z += (p.z - this.player.z) * 0.35;
         }
       }
       this.player.grounded = onGround;
       this.player.x = clamp(this.player.x, 40, this.level.length - 40);
       this.camX = clamp(this.player.x - W * 0.35, 0, this.level.length - W);
       this.camLean += (az * 0.08 - this.camLean) * 4 * dt;
+
+      // L1 boarding: after Reaper, walk right into BLACK FINCH
+      if (
+        this.levelId === 1 &&
+        this.boardReady &&
+        this.mode !== "clear" &&
+        this.player.x > BOARD_X - 50 &&
+        this.player.hop >= BOARD_HOP - 30
+      ) {
+        this.mode = "clear";
+        this.announce("BLACK FINCH · BOARDED", 3);
+        this.score += 1200;
+        this.shake = 10;
+      }
     } else if (this.player.kind === "ship") {
       this.level.scroll += 140 * dt;
       this.camX = this.level.scroll;
@@ -1279,6 +1310,10 @@ export class Game {
                 this.level.circCleared = 0;
                 this.announce("NIX: Hold circularization burn!", 2.8);
                 this.mode = "play";
+              } else if (this.levelId === 1) {
+                this.boardReady = true;
+                this.mode = "play";
+                this.announce("NIX: Path clear — keep RIGHT, board BLACK FINCH!", 3.2);
               } else {
                 this.mode = "clear";
                 this.announce(`${BOSS[this.levelId].name} DOWN`, 3);
@@ -1460,12 +1495,131 @@ export class Game {
     drawGroundDeck(ctx, this.stage, kind);
     drawDepthFog(ctx, this.stage);
 
-    // platforms as raised deck plates
+    if (this.levelId === 1) this.renderPad7Landmark();
+
+    // platforms as raised deck plates / gantry stairs
     for (const p of this.level.platforms) {
       const sp = project({ x: p.x, z: p.z, hop: p.hop }, this.stage);
       if (sp.sx < -80 || sp.sx > W + 80) continue;
-      const w = p.w * sp.scale;
-      rr(ctx, sp.sx - w / 2, sp.sy, w, 8 * sp.scale, C.metal, this.levelId === 3 ? C.cyan : C.warn);
+      const isGantry = this.towerReady && p.x >= GANTRY_START_X - 10;
+      if (isGantry) {
+        const label =
+          p.x >= BOARD_X - 10 ? "BOARD →" : p.x <= GANTRY_START_X + 10 ? "CLIMB →" : undefined;
+        drawGantryDeck(ctx, sp.sx, sp.sy, p.w, sp.scale, label);
+      } else {
+        const w = p.w * sp.scale;
+        rr(ctx, sp.sx - w / 2, sp.sy, w, 8 * sp.scale, C.metal, this.levelId === 3 ? C.cyan : C.warn);
+      }
+    }
+
+    if (this.levelId === 1 && this.towerReady) this.renderGantryAndShip();
+  }
+
+  /** Visible Pad 7 fuel-drop destination + off-screen arrow during Goal A */
+  private renderPad7Landmark() {
+    const ctx = this.ctx;
+    const pulse = 0.5 + 0.5 * Math.sin(this.frame * 0.12);
+    const sp = project({ x: PAD7_X, z: 0.5, hop: 0 }, this.stage);
+    const onScreen = sp.sx > -40 && sp.sx < W + 40;
+
+    if (onScreen) {
+      drawShadow(ctx, sp, 48);
+      const ok = blitSprite(ctx, art.sprite("pad7"), sp.sx, sp.sy - 10, {
+        h: 90,
+        scale: sp.scale,
+      });
+      if (!ok) drawPad7(ctx, sp.sx, sp.sy, sp.scale, pulse);
+      if (this.level.goalPhase === 1) {
+        glow(ctx, sp.sx, sp.sy - 40 * sp.scale, 36 * sp.scale, C.warn, 0.2 + pulse * 0.25);
+        ctx.fillStyle = C.warn;
+        ctx.font = "12px 'Share Tech Mono', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("▼ DROP HERE", sp.sx, sp.sy - 100 * sp.scale);
+        ctx.textAlign = "left";
+      } else if (this.truck?.arrived) {
+        ctx.fillStyle = C.cyan;
+        ctx.font = "11px 'Share Tech Mono', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("PAD 7 · SECURE", sp.sx, sp.sy - 100 * sp.scale);
+        ctx.textAlign = "left";
+      }
+    } else if (this.level.goalPhase === 1 && sp.sx >= W) {
+      // Off-screen destination arrow — always push right toward Pad 7
+      ctx.fillStyle = `rgba(244,211,94,${0.55 + pulse * 0.35})`;
+      ctx.beginPath();
+      ctx.moveTo(W - 28, H * 0.55);
+      ctx.lineTo(W - 8, H * 0.55 + 14);
+      ctx.lineTo(W - 28, H * 0.55 + 28);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = C.warn;
+      ctx.font = "11px 'Share Tech Mono', monospace";
+      ctx.textAlign = "right";
+      const dist = Math.max(0, Math.floor(PAD7_X - this.player.x));
+      ctx.fillText(`PAD 7 → ${dist}m`, W - 34, H * 0.55 + 16);
+      ctx.textAlign = "left";
+    }
+
+    // Ground chevrons pointing toward Pad 7 while escorting
+    if (this.level.goalPhase === 1) {
+      const spacing = 220;
+      const start = Math.floor((this.camX + 80) / spacing) * spacing;
+      for (let wx = start; wx < Math.min(PAD7_X - 60, this.camX + W + 40); wx += spacing) {
+        if (wx < this.player.x - 40) continue;
+        const a = project({ x: wx, z: 0.5, hop: 0 }, this.stage);
+        if (a.sx < 0 || a.sx > W) continue;
+        ctx.fillStyle = "rgba(244,211,94,0.4)";
+        ctx.beginPath();
+        ctx.moveTo(a.sx - 8, a.sy - 4);
+        ctx.lineTo(a.sx + 12, a.sy);
+        ctx.lineTo(a.sx - 8, a.sy + 4);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+  }
+
+  /** Gantry tower prop + Black Finch boarding silhouette */
+  private renderGantryAndShip() {
+    const ctx = this.ctx;
+    const tower = project({ x: GANTRY_START_X + 80, z: 0.72, hop: 0 }, this.stage);
+    if (tower.sx > -60 && tower.sx < W + 60) {
+      blitSprite(ctx, art.sprite("gantry-tower"), tower.sx, tower.sy - 40, {
+        h: 160,
+        scale: tower.scale * 0.85,
+        alpha: 0.9,
+      });
+    }
+
+    const ship = project({ x: BOARD_X + 40, z: 0.45, hop: BOARD_HOP + 20 }, this.stage);
+    if (ship.sx > -80 && ship.sx < W + 80) {
+      const pulse = 0.5 + 0.5 * Math.sin(this.frame * 0.1);
+      glow(ctx, ship.sx, ship.sy, 40 * ship.scale, C.cyan, 0.2 + (this.boardReady ? pulse * 0.3 : 0.1));
+      blitSprite(ctx, art.sprite("ship"), ship.sx, ship.sy, {
+        h: 70,
+        scale: ship.scale,
+        alpha: this.boardReady ? 1 : 0.7,
+      }) || drawShip(ctx, ship.sx, ship.sy, 0.4, false);
+      ctx.fillStyle = this.boardReady ? C.warn : C.cyan;
+      ctx.font = "11px 'Share Tech Mono', monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(this.boardReady ? "▼ BOARD FINCH" : "BLACK FINCH", ship.sx, ship.sy - 50 * ship.scale);
+      ctx.textAlign = "left";
+    }
+
+    if (this.level.goalPhase === 2 && !this.boardReady && this.player.x < GANTRY_START_X) {
+      ctx.fillStyle = "rgba(46,196,182,0.75)";
+      ctx.beginPath();
+      ctx.moveTo(W - 28, H * 0.5);
+      ctx.lineTo(W - 8, H * 0.5 + 14);
+      ctx.lineTo(W - 28, H * 0.5 + 28);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = C.cyan;
+      ctx.font = "11px 'Share Tech Mono', monospace";
+      ctx.textAlign = "right";
+      ctx.fillText("GANTRY → keep right", W - 34, H * 0.5 + 16);
+      ctx.textAlign = "left";
     }
   }
 
@@ -1673,8 +1827,16 @@ export class Game {
     if (this.levelId === 1) {
       ctx.fillStyle = this.level.killClock < 30 ? C.blood : C.warn;
       const truckHp = this.truck ? ` · TRUCK ${Math.ceil(this.truck.hp)}` : "";
+      let phaseHint = "";
+      if (this.level.goalPhase === 1 && this.truck && !this.truck.arrived) {
+        phaseHint = ` · PAD 7 ${Math.max(0, Math.floor(PAD7_X - this.truck.x))}m`;
+      } else if (this.boardReady) {
+        phaseHint = " · BOARD FINCH →";
+      } else if (this.level.goalPhase === 2) {
+        phaseHint = this.level.bossSpawned ? " · FIGHT UP THE GANTRY →" : " · CLIMB RIGHT →";
+      }
       ctx.fillText(
-        `KILL-CLOCK ${Math.ceil(this.level.killClock)}s · TECHS ${this.rescued}/${this.techs.length}${truckHp}`,
+        `KILL-CLOCK ${Math.ceil(this.level.killClock)}s · TECHS ${this.rescued}/${this.techs.length}${truckHp}${phaseHint}`,
         12,
         54,
       );
@@ -1836,11 +1998,11 @@ export class Game {
       this.levelId === 1
         ? [
             "2.5D PAD WAR — strafe on X, push depth with W/S.",
-            "GOAL 1/2 — Escort the fuel truck (match its depth lane).",
-            "GOAL 2/2 — Climb gantry platforms into PAD REAPER.",
-            "Near = bigger. Far = smaller. Shadows mark your lane.",
+            "GOAL 1/2 — Escort the fuel truck to the lit PAD 7 drop.",
+            "GOAL 2/2 — Keep walking RIGHT up gantry decks → board Finch.",
+            "Space jump between decks. Pad Reaper holds the tower.",
             "",
-            "SPACE jump · stay near the truck or it stalls.",
+            "When in doubt: keep moving RIGHT.",
           ]
         : this.levelId === 2
           ? [
