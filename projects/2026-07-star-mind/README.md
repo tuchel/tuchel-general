@@ -23,6 +23,18 @@ npm install
 npm run dev
 ```
 
+Dev URL includes the Pages base path:  
+`http://localhost:5173/tuchel-general/star-mind/`
+
+### Live site
+
+After merge to `main`, GitHub Actions deploys to:
+
+**https://tuchel.github.io/tuchel-general/star-mind/**
+
+Hub: https://tuchel.github.io/tuchel-general/  
+Manual redeploy: Actions → “Deploy GitHub Pages” → Run workflow.
+
 Controls: **A/D or ←/→** move · **W/↑ or Space** jump · **J / Z** shoot · **K / X** special · **Enter** confirm / start
 
 ## Docs

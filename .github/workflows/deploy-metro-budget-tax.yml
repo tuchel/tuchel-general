@@ -1,91 +1,16 @@
+# Retained name for discoverability. Real deploy lives in deploy-pages.yml
+# (tax + STAR MIND must ship in one Pages artifact).
 name: Deploy Metro Budget & Tax Explorer
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'projects/2026-07-metro-budget-tax/web/**'
-      - '.github/workflows/deploy-metro-budget-tax.yml'
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages-metro-budget-tax
-  cancel-in-progress: true
-
 jobs:
-  build:
+  redirect:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: projects/2026-07-metro-budget-tax/web
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: projects/2026-07-metro-budget-tax/web/package-lock.json
-
-      - name: Install
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Stage Pages artifact
+      - name: Use Deploy GitHub Pages instead
         run: |
-          SITE="${{ github.workspace }}/_site"
-          mkdir -p "$SITE/tax" "$SITE/metro-budget-tax"
-          cp -a dist/. "$SITE/tax/"
-          # Keep old path working as a redirect
-          cat > "$SITE/metro-budget-tax/index.html" <<'HTML'
-          <!DOCTYPE html>
-          <html lang="en">
-            <head>
-              <meta charset="utf-8" />
-              <meta http-equiv="refresh" content="0; url=../tax/" />
-              <link rel="canonical" href="/tuchel-general/tax/" />
-              <title>Redirecting…</title>
-            </head>
-            <body>
-              <p>Moved to <a href="../tax/">/tax/</a>.</p>
-            </body>
-          </html>
-          HTML
-          cat > "$SITE/index.html" <<'HTML'
-          <!DOCTYPE html>
-          <html lang="en">
-            <head>
-              <meta charset="utf-8" />
-              <meta http-equiv="refresh" content="0; url=tax/" />
-              <title>tuchel-general</title>
-            </head>
-            <body>
-              <p><a href="tax/">Metro Budget &amp; Tax Explorer</a></p>
-            </body>
-          </html>
-          HTML
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          echo "::notice::Run the workflow named 'Deploy GitHub Pages' (deploy-pages.yml)."
+          echo "This alias no longer deploys on its own so the tax site and STAR MIND stay in sync."
+          exit 0
