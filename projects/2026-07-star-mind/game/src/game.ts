@@ -39,6 +39,7 @@ import {
   sortByDepth,
   zOverlap,
 } from "./engine25d";
+import { mobileZoomFactor, isTouchPrimary } from "./platform";
 import {
   SCRIPT_BEATS,
   rollDensityKind,
@@ -187,7 +188,8 @@ function clamp(v: number, a: number, b: number) {
 
 export class Game {
   private ctx: CanvasRenderingContext2D;
-  private input = new Input();
+  /** Shared with touch overlay + keyboard — keep public for main.ts wiring */
+  readonly input = new Input();
   private mode: Mode = "title";
   private levelId: LevelId = 1;
   private level!: LevelRuntime;
@@ -255,6 +257,37 @@ export class Game {
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
+  }
+
+  /** Touch UI mode for mobile overlay (play combat vs menu strip) */
+  uiMode(): "play" | "menu" | "hidden" {
+    if (this.mode === "play" || this.mode === "boss") return "play";
+    if (
+      this.mode === "title" ||
+      this.mode === "briefing" ||
+      this.mode === "upgrade" ||
+      this.mode === "clear" ||
+      this.mode === "dead" ||
+      this.mode === "victory"
+    ) {
+      return "menu";
+    }
+    return "hidden";
+  }
+
+  /** TITLE/back button — not on the title select screen itself */
+  showTouchBack(): boolean {
+    return (
+      this.mode === "briefing" ||
+      this.mode === "upgrade" ||
+      this.mode === "dead" ||
+      this.mode === "victory"
+    );
+  }
+
+  /** ▲▼ menu strip — title level pick + fabricator only */
+  showTouchNav(): boolean {
+    return this.mode === "title" || this.mode === "upgrade";
   }
 
   private announce(text: string, time = 2.2) {
@@ -401,6 +434,16 @@ export class Game {
     this.heat = 0;
   }
 
+  private withMobileZoom(stage: Stage25D): Stage25D {
+    const z = mobileZoomFactor();
+    if (z === 1) return { ...stage };
+    return {
+      ...stage,
+      nearScale: stage.nearScale * z,
+      farScale: stage.farScale * z,
+    };
+  }
+
   private beginLevel(id: LevelId) {
     this.levelId = id;
     this.enemies = [];
@@ -426,7 +469,7 @@ export class Game {
     this.camLean = 0;
 
     if (id === 1) {
-      this.stage = { ...STAGE_GROUND };
+      this.stage = this.withMobileZoom(STAGE_GROUND);
       const goalA = "Escort fuel truck to Pad 7";
       const goalB = "Climb gantry · board BLACK FINCH";
       this.level = {
@@ -471,7 +514,7 @@ export class Game {
       ];
       this.resetPlayer("ground");
     } else if (id === 2) {
-      this.stage = { ...STAGE_SKY };
+      this.stage = this.withMobileZoom(STAGE_SKY);
       const goalA = "Thread every trajectory gate";
       const goalB = "Down SERAPH · hold circularization";
       this.level = {
@@ -504,7 +547,7 @@ export class Game {
       ];
       this.resetPlayer("ship");
     } else {
-      this.stage = { ...STAGE_VOID };
+      this.stage = this.withMobileZoom(STAGE_VOID);
       const goalA = "Sever the three regional spines";
       const goalB = "Breach PRIME · rupture the core";
       this.level = {
@@ -1534,9 +1577,10 @@ export class Game {
 
   private update(dt: number) {
     if (this.mode === "title") {
-      if (this.input.just("arrowdown") || this.input.just("s")) this.menuIndex = (this.menuIndex + 1) % 3;
-      if (this.input.just("arrowup") || this.input.just("w")) this.menuIndex = (this.menuIndex + 2) % 3;
-      if (this.input.confirm() || this.input.just("enter") || this.input.just("j")) {
+      const nav = this.input.menuNav();
+      if (nav === 1) this.menuIndex = (this.menuIndex + 1) % 3;
+      if (nav === -1) this.menuIndex = (this.menuIndex + 2) % 3;
+      if (this.input.confirm()) {
         this.scrap = 0;
         this.upgrades = defaultUpgrades();
         this.totalScore = 0;
@@ -1545,16 +1589,22 @@ export class Game {
       return;
     }
     if (this.mode === "briefing") {
-      if (this.input.confirm() || this.input.just("enter") || this.input.just("j")) {
+      if (this.input.confirm()) {
         this.mode = "play";
         this.announce("GO!", 1);
       }
+      if (this.input.back()) this.mode = "title";
       return;
     }
     if (this.mode === "upgrade") {
-      if (this.input.just("arrowdown") || this.input.just("s")) this.upgradeIndex = (this.upgradeIndex + 1) % 7;
-      if (this.input.just("arrowup") || this.input.just("w")) this.upgradeIndex = (this.upgradeIndex + 6) % 7;
-      if (this.input.confirm() || this.input.just("j") || this.input.just("enter")) {
+      const nav = this.input.menuNav();
+      if (nav === 1) this.upgradeIndex = (this.upgradeIndex + 1) % 7;
+      if (nav === -1) this.upgradeIndex = (this.upgradeIndex + 6) % 7;
+      if (this.input.back()) {
+        this.mode = "title";
+        return;
+      }
+      if (this.input.confirm()) {
         const keys: (keyof Upgrades | "next")[] = [
           "damage",
           "fireRate",
@@ -1582,7 +1632,7 @@ export class Game {
     }
     if (this.mode === "clear") {
       this.msgTimer -= dt;
-      if (this.input.confirm() || this.input.just("enter") || this.msgTimer < -1) {
+      if (this.input.confirm() || this.msgTimer < -1) {
         this.totalScore += this.score;
         if (this.levelId === 3) this.mode = "victory";
         else {
@@ -1594,12 +1644,12 @@ export class Game {
       return;
     }
     if (this.mode === "dead") {
-      if (this.input.confirm() || this.input.just("enter")) this.beginLevel(this.levelId);
-      if (this.input.just("escape")) this.mode = "title";
+      if (this.input.confirm()) this.beginLevel(this.levelId);
+      if (this.input.back()) this.mode = "title";
       return;
     }
     if (this.mode === "victory") {
-      if (this.input.confirm() || this.input.just("enter")) this.mode = "title";
+      if (this.input.confirm() || this.input.back()) this.mode = "title";
       return;
     }
     if (this.mode === "play" || this.mode === "boss") this.updatePlay(dt);
@@ -2345,11 +2395,20 @@ export class Game {
 
     if (this.msgTimer > 0 || this.mode === "dead") {
       ctx.fillStyle = "rgba(0,0,0,0.45)";
-      ctx.fillRect(W / 2 - 220, H / 2 - 30, 440, 40);
+      ctx.fillRect(W / 2 - 220, H / 2 - 30, 440, this.mode === "dead" ? 58 : 40);
       ctx.fillStyle = C.warn;
       ctx.font = "16px 'Black Ops One', sans-serif";
       ctx.textAlign = "center";
       ctx.fillText(this.msg, W / 2, H / 2 - 4);
+      if (this.mode === "dead") {
+        ctx.fillStyle = "rgba(244,237,228,0.7)";
+        ctx.font = "12px 'Share Tech Mono', monospace";
+        ctx.fillText(
+          isTouchPrimary() ? "OK retry · TITLE quit" : "ENTER / J retry · ESC title",
+          W / 2,
+          H / 2 + 18,
+        );
+      }
       ctx.textAlign = "left";
     }
   }
@@ -2452,7 +2511,13 @@ export class Game {
     });
     ctx.fillStyle = "rgba(244,237,228,0.55)";
     ctx.font = "12px 'Share Tech Mono', monospace";
-    ctx.fillText("A/D strafe · W/S depth · SPACE jump · J shoot · K EMP · F full screen", W / 2, 510);
+    ctx.fillText(
+      isTouchPrimary()
+        ? "▲▼ select · OK deploy · stick move · FIRE · JUMP · EMP"
+        : "A/D strafe · W/S depth · SPACE jump · J shoot · K EMP · F full screen",
+      W / 2,
+      510,
+    );
     ctx.textAlign = "left";
     this.frame++;
   }
@@ -2497,7 +2562,11 @@ export class Game {
             ];
     lines.forEach((ln, i) => ctx.fillText(ln, 110, 160 + i * 28));
     ctx.fillStyle = C.warn;
-    ctx.fillText("PRESS ENTER / J TO DEPLOY", 110, H - 110);
+    ctx.fillText(
+      isTouchPrimary() ? "OK TO DEPLOY" : "PRESS ENTER / J TO DEPLOY",
+      110,
+      H - 110,
+    );
   }
 
   private renderClearOverlay() {
@@ -2513,10 +2582,16 @@ export class Game {
     ctx.fillText(`SCORE ${this.score}   SCRAP ${this.scrap}`, W / 2, H / 2);
     const nextHint =
       this.levelId === 3
-        ? "ENTER · final debrief"
+        ? isTouchPrimary()
+          ? "OK · final debrief"
+          : "ENTER · final debrief"
         : this.levelId === 1
-          ? "ENTER · fabricator → LAUNCH!"
-          : "ENTER · fabricator → ORBIT";
+          ? isTouchPrimary()
+            ? "OK · fabricator → LAUNCH!"
+            : "ENTER · fabricator → LAUNCH!"
+          : isTouchPrimary()
+            ? "OK · fabricator → ORBIT"
+            : "ENTER · fabricator → ORBIT";
     ctx.fillStyle = C.cyan;
     ctx.fillText(nextHint, W / 2, H / 2 + 36);
     ctx.textAlign = "left";
@@ -2551,14 +2626,25 @@ export class Game {
       const sel = i === this.upgradeIndex;
       const y = 190 + i * 36;
       const cost = r.key === "next" ? 0 : 8 + this.upgrades[r.key] * 6;
-      const lvl = r.key === "next" ? "ENTER to deploy" : `Lv ${this.upgrades[r.key]}  ·  cost ${cost}`;
+      const lvl =
+        r.key === "next"
+          ? isTouchPrimary()
+            ? "OK to deploy"
+            : "ENTER to deploy"
+          : `Lv ${this.upgrades[r.key]}  ·  cost ${cost}`;
       ctx.fillStyle = sel ? C.warn : C.bone;
       ctx.font = sel ? "18px 'Black Ops One', sans-serif" : "15px 'Share Tech Mono', monospace";
       ctx.fillText(`${sel ? "▸ " : "  "}${r.label}   ${lvl}`, W / 2, y);
     });
     ctx.fillStyle = "rgba(244,237,228,0.55)";
     ctx.font = "12px 'Share Tech Mono', monospace";
-    ctx.fillText("W/S select · ENTER confirm · NEXT is pre-selected", W / 2, H - 40);
+    ctx.fillText(
+      isTouchPrimary()
+        ? "▲▼ select · OK buy / advance · TITLE returns"
+        : "W/S select · ENTER confirm · NEXT is pre-selected",
+      W / 2,
+      H - 40,
+    );
     ctx.textAlign = "left";
   }
 
@@ -2584,7 +2670,7 @@ export class Game {
       ctx.fillText("…one sat blinks back online.", W / 2, 360);
     }
     ctx.fillStyle = C.warn;
-    ctx.fillText("ENTER · title", W / 2, 420);
+    ctx.fillText(isTouchPrimary() ? "OK · title" : "ENTER · title", W / 2, 420);
     ctx.textAlign = "left";
     if (Math.floor(this.frame / 20) % 2 === 0) {
       glow(ctx, W / 2 + 180, 120, 16, C.cyan, 0.8);
