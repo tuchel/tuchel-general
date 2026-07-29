@@ -20,7 +20,9 @@ After merge to `main`, GitHub Actions deploys to:
 
 **https://tuchel.github.io/tuchel-general/tax/**
 
-Root `https://tuchel.github.io/tuchel-general/` redirects there. Manual redeploy: Actions → “Deploy Metro Budget & Tax Explorer” → Run workflow.
+Hub index: https://tuchel.github.io/tuchel-general/  
+Manual redeploy: Actions → “Deploy GitHub Pages” → Run workflow.
+
 ### Rebuild data
 
 ```bash
