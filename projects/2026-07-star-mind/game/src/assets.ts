@@ -33,7 +33,20 @@ export type SpriteId =
   | "wreck-booster"
   | "cybertruck";
 
-export type BgId = "l1-sky" | "l1-mid" | "l2-ascent" | "l3-void" | "title-hero";
+export type BgId =
+  | "l1-sky"
+  | "l1-sky-calm"
+  | "l1-sky-peak"
+  | "l1-mid"
+  | "l1-mid-calm"
+  | "l1-mid-peak"
+  | "l2-ascent"
+  | "l2-ascent-calm"
+  | "l2-ascent-peak"
+  | "l3-void"
+  | "l3-void-calm"
+  | "l3-void-peak"
+  | "title-hero";
 
 const SPRITE_FILES: Record<SpriteId, string> = {
   ash: "sprites/ash.png",
@@ -70,9 +83,17 @@ const SPRITE_FILES: Record<SpriteId, string> = {
 
 const BG_FILES: Record<BgId, string> = {
   "l1-sky": "bg/l1-sky.jpg",
+  "l1-sky-calm": "bg/l1-sky-calm.jpg",
+  "l1-sky-peak": "bg/l1-sky-peak.jpg",
   "l1-mid": "bg/l1-mid.jpg",
+  "l1-mid-calm": "bg/l1-mid-calm.jpg",
+  "l1-mid-peak": "bg/l1-mid-peak.jpg",
   "l2-ascent": "bg/l2-ascent.jpg",
+  "l2-ascent-calm": "bg/l2-ascent-calm.jpg",
+  "l2-ascent-peak": "bg/l2-ascent-peak.jpg",
   "l3-void": "bg/l3-void.jpg",
+  "l3-void-calm": "bg/l3-void-calm.jpg",
+  "l3-void-peak": "bg/l3-void-peak.jpg",
   "title-hero": "ui/title-hero.jpg",
 };
 
@@ -215,6 +236,22 @@ export function blitParallax(
   }
   ctx.restore();
   return true;
+}
+
+/** Crossfade calm→peak parallax plates by threat 0…1 */
+export function blitParallaxEvolve(
+  ctx: CanvasRenderingContext2D,
+  calm: HTMLImageElement | null,
+  peak: HTMLImageElement | null,
+  camX: number,
+  factor: number,
+  threat: number,
+  yOffset = 0,
+) {
+  const t = Math.max(0, Math.min(1, threat));
+  const peakA = t * t * (3 - 2 * t);
+  blitParallax(ctx, calm, camX, factor, yOffset, 1);
+  if (peakA > 0.02) blitParallax(ctx, peak, camX, factor, yOffset, peakA);
 }
 
 export function blitCover(

@@ -11,7 +11,7 @@ import {
 import {
   art,
   blitCover,
-  blitParallax,
+  blitParallaxEvolve,
   blitSprite,
   bossAnimLib,
   enemyAnimLib,
@@ -227,6 +227,8 @@ export class Game {
   private scriptBeatIndex = 0;
   private densityTimer = 0;
   private intensity: IntensitySample = sampleIntensity(1, 1, 0);
+  /** Smoothed 0–1 threat for continuous background evolution */
+  private bgThreat = 0;
   private lastBeat = "";
   private rescued = 0;
   private score = 0;
@@ -466,6 +468,7 @@ export class Game {
     this.densityTimer = 0.8;
     this.lastBeat = "";
     this.intensity = sampleIntensity(id, 1, 0);
+    this.bgThreat = this.intensity.intensity;
     this.camLean = 0;
 
     if (id === 1) {
@@ -682,6 +685,9 @@ export class Game {
   private updateIntensityPacing(dt: number) {
     const progress = this.goalProgress();
     this.intensity = sampleIntensity(this.levelId, this.level.goalPhase, progress);
+    // Continuous visual evolution — lag slightly so plates crossfade, don't pop
+    const k = 1 - Math.exp(-1.35 * dt);
+    this.bgThreat += (this.intensity.intensity - this.bgThreat) * k;
 
     if (this.intensity.beat !== this.lastBeat) {
       const prev = this.lastBeat;
@@ -1658,30 +1664,66 @@ export class Game {
   private renderBg() {
     const ctx = this.ctx;
     const kind = this.levelId === 1 ? "pad" : this.levelId === 2 ? "sky" : "void";
+    const threat = this.bgThreat;
     ctx.fillStyle = C.void;
     ctx.fillRect(0, 0, W, H);
 
     if (this.levelId === 1) {
-      blitParallax(ctx, art.bg("l1-sky"), this.camX, 0.12, -60, 1);
-      blitParallax(ctx, art.bg("l1-mid"), this.camX, 0.35, 20, 0.85);
-      // rain
-      ctx.strokeStyle = "rgba(174,198,220,0.2)";
-      for (let i = 0; i < 40; i++) {
-        const x = ((i * 97 + this.frame * 8) % (W + 40)) - 20;
-        const y = ((i * 53 + this.frame * 14) % (H + 40)) - 20;
+      blitParallaxEvolve(
+        ctx,
+        art.bg("l1-sky-calm") ?? art.bg("l1-sky"),
+        art.bg("l1-sky-peak"),
+        this.camX,
+        0.12,
+        threat,
+        -60,
+      );
+      blitParallaxEvolve(
+        ctx,
+        art.bg("l1-mid-calm") ?? art.bg("l1-mid"),
+        art.bg("l1-mid-peak"),
+        this.camX,
+        0.35,
+        threat,
+        20,
+      );
+      // rain densifies with threat
+      const rainN = 28 + Math.floor(threat * 36);
+      ctx.strokeStyle = `rgba(174,198,220,${0.14 + threat * 0.16})`;
+      for (let i = 0; i < rainN; i++) {
+        const x = ((i * 97 + this.frame * (8 + threat * 10)) % (W + 40)) - 20;
+        const y = ((i * 53 + this.frame * (14 + threat * 12)) % (H + 40)) - 20;
         ctx.beginPath();
         ctx.moveTo(x, y);
-        ctx.lineTo(x - 2, y + 12);
+        ctx.lineTo(x - 2 - threat * 2, y + 12 + threat * 6);
         ctx.stroke();
       }
     } else if (this.levelId === 2) {
-      blitParallax(ctx, art.bg("l2-ascent"), this.camX, 0.2, -30, 1);
+      blitParallaxEvolve(
+        ctx,
+        art.bg("l2-ascent-calm") ?? art.bg("l2-ascent"),
+        art.bg("l2-ascent-peak"),
+        this.camX,
+        0.2,
+        threat,
+        -30,
+      );
       const alt = this.level.scroll / this.level.length;
-      ctx.fillStyle = `rgba(5,7,14,${Math.min(0.5, alt * 0.55)})`;
+      ctx.fillStyle = `rgba(5,7,14,${Math.min(0.55, alt * 0.4 + threat * 0.25)})`;
       ctx.fillRect(0, 0, W, H * 0.35);
     } else {
-      blitParallax(ctx, art.bg("l3-void"), this.camX, 0.1, 0, 1);
+      blitParallaxEvolve(
+        ctx,
+        art.bg("l3-void-calm") ?? art.bg("l3-void"),
+        art.bg("l3-void-peak"),
+        this.camX,
+        0.1,
+        threat,
+        0,
+      );
     }
+
+    this.renderThreatAtmosphere(threat);
 
     drawGroundDeck(ctx, this.stage, kind);
     drawDepthFog(ctx, this.stage);
@@ -1707,8 +1749,47 @@ export class Game {
     if (this.levelId === 1 && this.towerReady) this.renderGantryAndShip();
   }
 
+  /** Embers / ion haze / vignette that ramp with smoothed threat */
+  private renderThreatAtmosphere(threat: number) {
+    if (threat < 0.08) return;
+    const ctx = this.ctx;
+    const t = threat;
+
+    // Warm/red wash — dystopian heat
+    ctx.fillStyle = `rgba(180, 40, 12, ${0.04 + t * 0.14})`;
+    ctx.fillRect(0, 0, W, H * 0.55);
+
+    // Vignette crush at peak
+    const g = ctx.createRadialGradient(W / 2, H * 0.45, 80, W / 2, H * 0.5, 520);
+    g.addColorStop(0, "transparent");
+    g.addColorStop(1, `rgba(5, 4, 8, ${0.15 + t * 0.45})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // Rising embers / debris sparks
+    const n = Math.floor(6 + t * 28);
+    for (let i = 0; i < n; i++) {
+      const seed = i * 97.3;
+      const x = ((seed * 13 + this.frame * (0.7 + t) + this.camX * 0.08) % (W + 40)) - 20;
+      const y = H - ((seed * 7 + this.frame * (1.2 + t * 2.5)) % (H * 0.85));
+      const a = 0.25 + t * 0.55;
+      ctx.fillStyle =
+        i % 3 === 0
+          ? `rgba(232, 93, 4, ${a})`
+          : i % 3 === 1
+            ? `rgba(244, 211, 94, ${a * 0.85})`
+            : `rgba(46, 196, 182, ${a * 0.5})`;
+      ctx.fillRect(x, y, 2, 2 + (i % 2));
+    }
+
+    // Occasional distant flash bloom when threat is high
+    if (t > 0.55 && Math.sin(this.frame * 0.11 + t * 4) > 0.92) {
+      glow(ctx, W * (0.2 + (this.frame % 7) * 0.1), H * 0.3, 90 + t * 40, C.pad, 0.12 + t * 0.1);
+    }
+  }
+
   /**
-   * SpaceX/Tesla diaspora wreckage + frantic cybertruck traffic —
+   * SpaceX/Tesla diaspora wreckage + rare cybertruck pass —
    * dystopian race-to-orbit midground for Earth Escape.
    */
   private renderL1Diaspora() {
@@ -1741,30 +1822,28 @@ export class Game {
       });
     }
 
-    // Frantic cybertruck traffic — mid parallax, both directions
-    const traffic: { phase: number; speed: number; z: number; h: number; facing: 1 | -1 }[] = [
-      { phase: 0.05, speed: 210, z: 0.92, h: 42, facing: 1 },
-      { phase: 0.38, speed: 260, z: 0.86, h: 48, facing: -1 },
-      { phase: 0.62, speed: 190, z: 0.94, h: 36, facing: 1 },
-      { phase: 0.84, speed: 240, z: 0.8, h: 52, facing: -1 },
-    ];
-    const span = 1600;
-    for (const t of traffic) {
-      const travel = this.level.elapsed * t.speed * t.facing;
-      const local = ((travel + t.phase * span) % span + span) % span;
-      const wx = this.camX - 200 + local;
-      const sp = project({ x: wx, z: t.z, hop: 0 }, this.stage);
-      if (sp.sx < -100 || sp.sx > W + 100) continue;
-      // headlight / roof-bar flicker
-      if (Math.floor(this.frame / 4 + t.phase * 10) % 5 !== 0) {
-        glow(ctx, sp.sx + t.facing * 18 * sp.scale, sp.sy - 8, 16 * sp.scale, C.warn, 0.2);
+    // One cybertruck every ~2.5 minutes — brief on-screen pass, not a traffic jam
+    const PERIOD = 150; // seconds between passes
+    const CROSS = 11; // seconds visible while crossing
+    const cycle = this.level.elapsed % PERIOD;
+    if (cycle < CROSS) {
+      const facing: 1 | -1 = Math.floor(this.level.elapsed / PERIOD) % 2 === 0 ? 1 : -1;
+      const u = cycle / CROSS; // 0→1 across the pass
+      const local = facing === 1 ? u * (W + 200) - 100 : (1 - u) * (W + 200) - 100;
+      const wx = this.camX + local;
+      const z = 0.9;
+      const sp = project({ x: wx, z, hop: 0 }, this.stage);
+      if (sp.sx > -120 && sp.sx < W + 120) {
+        if (Math.floor(this.frame / 5) % 6 !== 0) {
+          glow(ctx, sp.sx + facing * 18 * sp.scale, sp.sy - 8, 14 * sp.scale, C.warn, 0.18);
+        }
+        blitSprite(ctx, art.sprite("cybertruck"), sp.sx, sp.sy - 4, {
+          h: 46,
+          scale: sp.scale,
+          facing,
+          alpha: 0.7,
+        });
       }
-      blitSprite(ctx, art.sprite("cybertruck"), sp.sx, sp.sy - 4, {
-        h: t.h,
-        scale: sp.scale,
-        facing: t.facing,
-        alpha: 0.75,
-      });
     }
   }
 
