@@ -17,3 +17,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-07-29] art | star-mind | Bulk art pack: storyboards + keyed sprites + parallax plates wired into Canvas runtime
 
 ## [2026-07-29] engine | star-mind | Rebuild to Metal Slug 2.5D: depth lanes, perspective deck, Z-scale, lane combat
+
+## [2026-07-29] art | star-mind | Hand-authored 2.5D 3/4 animation pack (88 frames) + anim driver wired into renderer

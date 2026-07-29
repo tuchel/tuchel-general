@@ -1,4 +1,5 @@
 import { C } from "./palette";
+import { CLIPS } from "./anim";
 
 export type SpriteId =
   | "ash"
@@ -22,7 +23,9 @@ export type SpriteId =
   | "pickup"
   | "boss-reaper"
   | "boss-seraph"
-  | "boss-prime";
+  | "boss-prime"
+  | "prop-crate-near"
+  | "prop-gantry-near";
 
 export type BgId = "l1-sky" | "l1-mid" | "l2-ascent" | "l3-void" | "title-hero";
 
@@ -49,6 +52,8 @@ const SPRITE_FILES: Record<SpriteId, string> = {
   "boss-reaper": "sprites/boss-reaper.png",
   "boss-seraph": "sprites/boss-seraph.png",
   "boss-prime": "sprites/boss-prime.png",
+  "prop-crate-near": "props/prop-crate-near.png",
+  "prop-gantry-near": "props/prop-gantry-near.png",
 };
 
 const BG_FILES: Record<BgId, string> = {
@@ -59,8 +64,19 @@ const BG_FILES: Record<BgId, string> = {
   "title-hero": "ui/title-hero.jpg",
 };
 
+/** Collect every authored anim frame id from clip libraries */
+function collectAnimFrameIds(): string[] {
+  const ids = new Set<string>();
+  for (const lib of Object.values(CLIPS)) {
+    for (const clip of Object.values(lib)) {
+      if (!clip) continue;
+      for (const f of clip.frames) ids.add(f);
+    }
+  }
+  return [...ids];
+}
+
 function artUrl(rel: string) {
-  // Respect Vite base path on GitHub Pages
   const base = import.meta.env.BASE_URL || "/";
   return `${base}art/${rel}`;
 }
@@ -78,11 +94,13 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 export class ArtBank {
   ready = false;
   private sprites = new Map<string, HTMLImageElement>();
+  private frames = new Map<string, HTMLImageElement>();
   private bgs = new Map<string, HTMLImageElement>();
 
   async load() {
     const spriteEntries = Object.entries(SPRITE_FILES);
     const bgEntries = Object.entries(BG_FILES);
+    const animIds = collectAnimFrameIds();
     await Promise.all([
       ...spriteEntries.map(async ([id, rel]) => {
         try {
@@ -98,12 +116,24 @@ export class ArtBank {
           console.warn("bg miss", id, e);
         }
       }),
+      ...animIds.map(async (id) => {
+        try {
+          this.frames.set(id, await loadImage(artUrl(`anim/${id}.png`)));
+        } catch (e) {
+          console.warn("anim miss", id, e);
+        }
+      }),
     ]);
-    this.ready = this.sprites.size > 0 || this.bgs.size > 0;
+    this.ready = this.sprites.size > 0 || this.frames.size > 0 || this.bgs.size > 0;
   }
 
   sprite(id: SpriteId | string) {
     return this.sprites.get(id) ?? null;
+  }
+
+  /** Authored animation frame by id (e.g. ash-walk-2) */
+  frame(id: string) {
+    return this.frames.get(id) ?? null;
   }
 
   bg(id: BgId) {
@@ -113,7 +143,6 @@ export class ArtBank {
 
 export const art = new ArtBank();
 
-/** Draw a sprite centered at (x,y), optional flip and max height */
 export function blitSprite(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement | null,
@@ -149,7 +178,6 @@ export function blitSprite(
   return true;
 }
 
-/** Parallax-scrolling background plate */
 export function blitParallax(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement | null,
@@ -188,7 +216,6 @@ export function blitCover(
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.drawImage(img, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
-  // vignette for arcade cabinet feel
   const g = ctx.createRadialGradient(cw / 2, ch / 2, 120, cw / 2, ch / 2, 520);
   g.addColorStop(0, "transparent");
   g.addColorStop(1, "rgba(5,8,16,0.55)");
@@ -218,6 +245,18 @@ export function enemySpriteId(kind: string): SpriteId {
 }
 
 export function bossSpriteId(id: string): SpriteId {
+  if (id === "reaper") return "boss-reaper";
+  if (id === "seraph") return "boss-seraph";
+  return "boss-prime";
+}
+
+export function enemyAnimLib(kind: string): string {
+  if (kind === "climber") return "drone";
+  if (kind === "mine") return "drone";
+  return kind;
+}
+
+export function bossAnimLib(id: string): string {
   if (id === "reaper") return "boss-reaper";
   if (id === "seraph") return "boss-seraph";
   return "boss-prime";

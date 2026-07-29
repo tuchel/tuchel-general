@@ -13,9 +13,18 @@ import {
   blitCover,
   blitParallax,
   blitSprite,
-  bossSpriteId,
+  bossAnimLib,
+  enemyAnimLib,
   enemySpriteId,
 } from "./assets";
+import {
+  CLIPS,
+  animFrameIndex,
+  createAnimState,
+  playAnim,
+  tickAnim,
+  type AnimPlayerState,
+} from "./anim";
 import {
   STAGE_GROUND,
   STAGE_SKY,
@@ -62,6 +71,9 @@ interface Actor {
   flash: number;
   scrap?: number;
   grounded?: boolean;
+  anim: AnimPlayerState;
+  animLib: string;
+  shooting?: boolean;
 }
 
 interface Bullet {
@@ -280,8 +292,74 @@ export class Game {
     this.stage.camX = this.camX;
   }
 
+  private animImage(actor: Actor): HTMLImageElement | null {
+    const lib = CLIPS[actor.animLib];
+    const clip = lib?.[actor.anim.clip];
+    if (clip) {
+      const idx = animFrameIndex(actor.anim, clip);
+      const id = clip.frames[idx];
+      if (id) {
+        const framed = art.frame(id);
+        if (framed) return framed;
+      }
+    }
+    if (actor.animLib === "ash") return art.sprite("ash");
+    if (actor.animLib === "ash-eva") return art.sprite("ash-eva");
+    if (actor.animLib === "ship") return art.sprite("ship");
+    if (actor.animLib.startsWith("boss-")) return art.sprite(actor.animLib);
+    return art.sprite(enemySpriteId(actor.kind));
+  }
+
+  private drivePlayerAnim(dt: number) {
+    tickAnim(this.player.anim, dt);
+    const p = this.player;
+    if (p.shooting) {
+      playAnim(p.anim, "shoot", 0.18);
+      if (p.anim.lockedUntil <= 0 && p.anim.clip === "shoot") p.shooting = false;
+    } else if (p.kind === "ground") {
+      if (!p.grounded) playAnim(p.anim, "jump");
+      else if (Math.abs(p.vx) > 20 || Math.abs(p.vz) > 0.05) playAnim(p.anim, "walk");
+      else playAnim(p.anim, "idle");
+    } else if (p.kind === "ship") {
+      if (this.shipThrust > 0.5) playAnim(p.anim, "thrust");
+      else playAnim(p.anim, "idle");
+    } else {
+      if (Math.abs(p.vx) + Math.abs(p.vz) + Math.abs(p.vHop) > 40) playAnim(p.anim, "thrust");
+      else playAnim(p.anim, "idle");
+    }
+  }
+
+  private driveEnemyAnim(e: Actor, dt: number) {
+    tickAnim(e.anim, dt);
+    const flying = ["drone", "climber", "wasp", "ghost", "gridsat"].includes(e.kind);
+    if (e.kind === "spine" || e.kind === "mirror") playAnim(e.anim, "idle");
+    else if (e.kind === "turret") playAnim(e.anim, e.timer < 0.25 ? "attack" : "idle");
+    else if (flying) playAnim(e.anim, "hover");
+    else if (e.kind === "crab" && e.hop > 8) playAnim(e.anim, "attack");
+    else playAnim(e.anim, "walk");
+  }
+
+  private driveBossAnim(dt: number) {
+    const b = this.boss;
+    if (!b || b.dead) return;
+    tickAnim(b.anim, dt);
+    if (b.kind === "reaper") {
+      if (b.phase >= 3) playAnim(b.anim, "attack", 0.4);
+      else if (b.phase === 2) playAnim(b.anim, "phase2");
+      else playAnim(b.anim, "idle");
+    } else if (b.kind === "seraph") {
+      if (b.phase >= 3) playAnim(b.anim, "attack", 0.5);
+      else playAnim(b.anim, "idle");
+    } else {
+      if (b.phase >= 3) playAnim(b.anim, "phase3");
+      else if (b.phase === 2) playAnim(b.anim, "phase2");
+      else playAnim(b.anim, "idle");
+    }
+  }
+
   private resetPlayer(mode: "ground" | "ship" | "eva") {
     const hp = 100 + this.upgrades.armor * 20;
+    const animLib = mode === "ship" ? "ship" : mode === "eva" ? "ash-eva" : "ash";
     this.player = {
       x: mode === "ship" ? 220 : 140,
       z: 0.45,
@@ -300,6 +378,9 @@ export class Game {
       phase: 0,
       flash: 0,
       grounded: mode === "ground",
+      anim: createAnimState("idle"),
+      animLib,
+      shooting: false,
     };
     this.weapon = "coil";
     this.ammo = 80 + this.upgrades.mag * 25;
@@ -504,6 +585,14 @@ export class Game {
       flash: 0,
       scrap: s.scrap,
       grounded: hop <= 0,
+      anim: createAnimState(
+        ["drone", "climber", "wasp", "ghost", "gridsat"].includes(kind)
+          ? "hover"
+          : kind === "spine" || kind === "mirror" || kind === "turret"
+            ? "idle"
+            : "walk",
+      ),
+      animLib: enemyAnimLib(kind),
     });
   }
 
@@ -531,6 +620,8 @@ export class Game {
       phase: 1,
       flash: 0,
       scrap: 40,
+      anim: createAnimState("idle"),
+      animLib: bossAnimLib(b.id),
     };
     this.level.bossSpawned = true;
     this.mode = "boss";
@@ -615,6 +706,8 @@ export class Game {
     }
     if (def.heat) this.heat = Math.min(1.4, this.heat + 0.04);
     this.burst(this.player.x + dir * 20, this.player.z, this.player.hop + 16, C.warn, 3);
+    this.player.shooting = true;
+    playAnim(this.player.anim, "shoot", 0.2, true);
   }
 
   private fireSpecial() {
@@ -1123,10 +1216,17 @@ export class Game {
     this.syncStage();
     if (this.input.shoot()) this.fireWeapon();
     if (this.input.specialJust()) this.fireSpecial();
+    this.drivePlayerAnim(dt);
 
-    for (const e of this.enemies) if (!e.dead) this.updateEnemy(e, dt);
+    for (const e of this.enemies) {
+      if (!e.dead) {
+        this.updateEnemy(e, dt);
+        this.driveEnemyAnim(e, dt);
+      }
+    }
     this.enemies = this.enemies.filter((e) => !e.dead);
     this.updateBoss(dt);
+    this.driveBossAnim(dt);
 
     for (const b of this.bullets) {
       b.x += b.vx * dt;
@@ -1419,10 +1519,18 @@ export class Game {
         const truck = item.ref;
         const sp = project({ x: truck.x, z: truck.z, hop: 0 }, this.stage);
         drawShadow(ctx, sp, 36);
-        const ok = blitSprite(ctx, art.sprite("truck"), sp.sx, sp.sy - 4, {
-          h: 52,
-          scale: sp.scale,
-        });
+        const frameId = truck.moving
+          ? `truck-move-${Math.floor(this.frame / 5) % 3}`
+          : "truck-idle-0";
+        const ok =
+          blitSprite(ctx, art.frame(frameId), sp.sx, sp.sy - 4, {
+            h: 52,
+            scale: sp.scale,
+          }) ||
+          blitSprite(ctx, art.sprite("truck"), sp.sx, sp.sy - 4, {
+            h: 52,
+            scale: sp.scale,
+          });
         if (!ok) drawTruck(ctx, sp.sx, sp.sy, truck.hp / truck.maxHp, truck.moving);
         rr(ctx, sp.sx - 32 * sp.scale, sp.sy - 42 * sp.scale, 64 * sp.scale, 5, C.soot);
         rr(
@@ -1452,9 +1560,8 @@ export class Game {
         const e = item.ref;
         const sp = project(e, this.stage);
         drawShadow(ctx, sp, e.kind === "walker" ? 28 : 18);
-        const sid = enemySpriteId(e.kind);
         const baseH = e.kind === "spine" ? 64 : e.kind === "walker" ? 56 : 48;
-        const ok = blitSprite(ctx, art.sprite(sid), sp.sx, sp.sy, {
+        const ok = blitSprite(ctx, this.animImage(e), sp.sx, sp.sy, {
           facing: e.facing,
           h: baseH,
           scale: sp.scale,
@@ -1469,7 +1576,7 @@ export class Game {
         const boss = item.ref;
         const sp = project(boss, this.stage);
         drawShadow(ctx, sp, 50);
-        const ok = blitSprite(ctx, art.sprite(bossSpriteId(boss.kind)), sp.sx, sp.sy, {
+        const ok = blitSprite(ctx, this.animImage(boss), sp.sx, sp.sy, {
           h: boss.kind === "prime" ? 140 : 120,
           scale: sp.scale,
           alpha: boss.flash > 0 ? 0.6 : 1,
@@ -1483,7 +1590,7 @@ export class Game {
         drawShadow(ctx, sp, this.player.kind === "ship" ? 30 : 18);
         const inv = this.invuln > 0 && Math.floor(this.frame / 2) % 2 === 0;
         if (this.player.kind === "ship") {
-          const ok = blitSprite(ctx, art.sprite("ship"), sp.sx, sp.sy, {
+          const ok = blitSprite(ctx, this.animImage(this.player), sp.sx, sp.sy, {
             h: 48,
             scale: sp.scale,
             alpha: inv ? 0.4 : 1,
@@ -1493,8 +1600,7 @@ export class Game {
             glow(ctx, sp.sx - 30 * sp.scale, sp.sy, 14 * sp.scale, C.pad, 0.45);
           }
         } else {
-          const sid = this.player.kind === "eva" ? "ash-eva" : "ash";
-          const ok = blitSprite(ctx, art.sprite(sid), sp.sx, sp.sy, {
+          const ok = blitSprite(ctx, this.animImage(this.player), sp.sx, sp.sy, {
             facing: this.player.facing,
             h: this.player.kind === "eva" ? 56 : 52,
             scale: sp.scale,
@@ -1648,7 +1754,17 @@ export class Game {
     this.renderBg();
     this.renderActors();
     const kind = this.levelId === 1 ? "pad" : this.levelId === 2 ? "sky" : "void";
-    drawForegroundProps(ctx, this.camX, this.frame, kind);
+    // Authored near-camera props for 2.5D cabinet depth
+    if (this.levelId === 1) {
+      for (let i = 0; i < 3; i++) {
+        const x = ((i * 420 - this.camX * 1.35) % (W + 220)) - 60;
+        const img =
+          i % 2 === 0 ? art.sprite("prop-crate-near") : art.sprite("prop-gantry-near");
+        blitSprite(ctx, img, x, H - 70, { h: 110, alpha: 0.9 });
+      }
+    } else {
+      drawForegroundProps(ctx, this.camX, this.frame, kind);
+    }
 
     if (this.mode === "briefing") this.renderBriefingOverlay();
     if (this.mode === "clear") this.renderClearOverlay();
