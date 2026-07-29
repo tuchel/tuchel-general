@@ -4,10 +4,16 @@
   --bone: #f4ede4;
   --pad: #e85d04;
   --cyan: #2ec4b6;
+  --warn: #f4d35e;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
 }
 
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html,
@@ -22,8 +28,22 @@ body {
   font-family: "Share Tech Mono", ui-monospace, monospace;
 }
 
+body.is-touch {
+  overflow: hidden;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  overscroll-behavior: none;
+}
+
 #app {
   min-height: 100vh;
+  min-height: 100dvh;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -31,6 +51,16 @@ body {
   justify-content: stretch;
   gap: 0.4rem;
   padding: 0.4rem 0.5rem 0.55rem;
+  padding: max(0.35rem, var(--safe-t)) max(0.5rem, var(--safe-r)) max(0.45rem, var(--safe-b))
+    max(0.5rem, var(--safe-l));
+}
+
+body.is-touch #app {
+  gap: 0;
+  padding: var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l);
+  width: 100%;
+  max-width: 100vw;
+  overflow: hidden;
 }
 
 #game-shell {
@@ -42,12 +72,13 @@ body {
   align-items: center;
   justify-content: center;
   background: #000;
+  overflow: hidden;
 }
 
 #game {
-  /* Fill the browser: as large as the viewport allows at 16:9 */
   width: min(100%, calc((100vh - 3.2rem) * 16 / 9));
   max-height: calc(100vh - 3.2rem);
+  max-height: calc(100dvh - 3.2rem);
   height: auto;
   aspect-ratio: 16 / 9;
   image-rendering: auto;
@@ -58,6 +89,27 @@ body {
     0 24px 60px rgba(0, 0, 0, 0.55);
   background: #000;
   display: block;
+  touch-action: none;
+}
+
+body.is-touch #game {
+  width: min(100%, calc(100dvh * 16 / 9));
+  max-height: 100%;
+  border-width: 1px;
+  box-shadow: none;
+}
+
+/* Portrait phone: canvas on top, control sheet below */
+@media (orientation: portrait) and (pointer: coarse) {
+  body.is-touch #game-shell {
+    flex: 0 0 auto;
+    width: 100%;
+    max-height: min(52dvh, calc(100vw * 9 / 16 + 4px));
+  }
+  body.is-touch #game {
+    width: 100%;
+    max-height: min(52dvh, calc(100vw * 9 / 16));
+  }
 }
 
 #fs-btn {
@@ -84,6 +136,11 @@ body {
   color: var(--bone);
 }
 
+body.is-ios #fs-btn,
+body.is-touch #fs-btn {
+  display: none;
+}
+
 #game-shell:fullscreen,
 #game-shell:-webkit-full-screen {
   width: 100%;
@@ -107,4 +164,342 @@ body {
   letter-spacing: 0.04em;
   color: color-mix(in srgb, var(--bone) 65%, transparent);
   text-align: center;
+}
+
+.hint-touch {
+  display: none;
+}
+
+body.is-touch .hint-desktop {
+  display: none;
+}
+
+body.is-touch .hint-touch {
+  display: none;
+}
+
+/* ——— Touch overlay ——— */
+
+#touch-layer {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+body.is-touch #touch-layer {
+  display: block;
+}
+
+/* Portrait bottom sheet (reparented under #app) */
+body.is-touch #touch-layer.touch-sheet {
+  position: relative;
+  inset: auto;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 200px;
+  height: auto;
+  background: linear-gradient(180deg, rgba(5, 8, 16, 0.2), rgba(5, 8, 16, 0.96) 28%);
+  pointer-events: none;
+}
+
+.touch-rotate-hint {
+  display: none;
+  position: absolute;
+  top: max(0.35rem, var(--safe-t));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--pad) 55%, transparent);
+  background: rgba(11, 18, 32, 0.88);
+  color: var(--warn);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+#touch-layer.touch-sheet .touch-rotate-hint {
+  top: 0.35rem;
+}
+
+.touch-rotate-hint.is-on {
+  display: block;
+}
+
+.touch-stick-zone,
+.touch-btns,
+.touch-menu {
+  display: none;
+  pointer-events: none;
+}
+
+.touch-stick-zone.is-on,
+.touch-btns.is-on,
+.touch-menu.is-on {
+  display: flex;
+  pointer-events: auto;
+}
+
+.touch-stick-zone {
+  position: absolute;
+  left: max(0.35rem, var(--safe-l));
+  bottom: max(0.55rem, var(--safe-b));
+  width: min(168px, 42vw);
+  height: min(168px, 42vw);
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+
+#touch-layer.touch-sheet .touch-stick-zone {
+  left: max(0.5rem, var(--safe-l));
+  bottom: max(0.85rem, var(--safe-b));
+  width: min(176px, 46vw);
+  height: min(176px, 46vw);
+}
+
+.touch-stick-base {
+  position: relative;
+  width: 72%;
+  height: 72%;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--cyan) 55%, transparent);
+  background: rgba(11, 18, 32, 0.45);
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.45);
+}
+
+.touch-stick-cross::before,
+.touch-stick-cross::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: color-mix(in srgb, var(--cyan) 28%, transparent);
+  transform: translate(-50%, -50%);
+}
+.touch-stick-cross::before {
+  width: 2px;
+  height: 42%;
+}
+.touch-stick-cross::after {
+  width: 42%;
+  height: 2px;
+}
+
+.touch-stick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44%;
+  max-width: 56px;
+  height: 44%;
+  max-height: 56px;
+  aspect-ratio: 1;
+  margin: 0;
+  border-radius: 50%;
+  border: 2px solid var(--pad);
+  background: color-mix(in srgb, var(--pad) 55%, #152238);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  will-change: transform;
+  transform: translate(-50%, -50%);
+}
+
+.touch-stick-label {
+  position: absolute;
+  left: 50%;
+  bottom: -1.15rem;
+  transform: translateX(-50%);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  color: color-mix(in srgb, var(--bone) 55%, transparent);
+}
+
+.touch-btns {
+  position: absolute;
+  right: max(0.3rem, var(--safe-r));
+  bottom: max(0.5rem, var(--safe-b));
+  width: min(200px, 48vw);
+  height: min(168px, 42vw);
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  flex-direction: row;
+}
+
+#touch-layer.touch-sheet .touch-btns {
+  right: max(0.5rem, var(--safe-r));
+  bottom: max(0.85rem, var(--safe-b));
+  width: min(210px, 50vw);
+  height: min(176px, 46vw);
+}
+
+.touch-btn {
+  margin: 0;
+  border: 2px solid color-mix(in srgb, var(--cyan) 50%, transparent);
+  background: rgba(11, 18, 32, 0.55);
+  color: var(--bone);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  border-radius: 50%;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.touch-btn-fire {
+  width: clamp(72px, 22vw, 92px);
+  height: clamp(72px, 22vw, 92px);
+  border-color: var(--pad);
+  color: var(--pad);
+  background: color-mix(in srgb, var(--pad) 22%, rgba(11, 18, 32, 0.7));
+}
+
+.touch-btn-jump {
+  width: clamp(58px, 17vw, 72px);
+  height: clamp(58px, 17vw, 72px);
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+.touch-btn-emp {
+  width: clamp(48px, 14vw, 58px);
+  height: clamp(48px, 14vw, 58px);
+  font-size: 0.62rem;
+  border-color: color-mix(in srgb, var(--warn) 70%, transparent);
+  color: var(--warn);
+}
+
+.touch-btn.is-active {
+  transform: scale(0.94);
+  background: color-mix(in srgb, var(--pad) 40%, #0b1220);
+  color: var(--bone);
+}
+
+.touch-menu {
+  position: absolute;
+  left: 50%;
+  bottom: max(0.75rem, var(--safe-b));
+  transform: translateX(-50%);
+  gap: 0.45rem;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  max-width: 96vw;
+}
+
+#touch-layer.touch-sheet .touch-menu {
+  bottom: max(1.1rem, var(--safe-b));
+}
+
+.touch-menu-btn {
+  display: none;
+  width: 64px;
+  height: 52px;
+  margin: 0;
+  border: 2px solid color-mix(in srgb, var(--cyan) 55%, transparent);
+  background: rgba(11, 18, 32, 0.72);
+  color: var(--cyan);
+  font: inherit;
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  border-radius: 10px;
+  touch-action: none;
+}
+
+.touch-menu-btn.is-on,
+.touch-menu-ok {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.touch-menu-ok {
+  width: 88px;
+  height: 56px;
+  border-color: var(--pad);
+  color: var(--pad);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.touch-menu-title {
+  width: 72px;
+  font-size: 0.72rem;
+  border-color: color-mix(in srgb, var(--bone) 45%, transparent);
+  color: color-mix(in srgb, var(--bone) 80%, transparent);
+}
+
+.touch-menu-btn:active,
+.touch-menu-btn.is-active {
+  background: color-mix(in srgb, var(--cyan) 25%, #0b1220);
+  color: var(--bone);
+}
+
+/* Landscape phone: float controls over the playfield edges */
+@media (orientation: landscape) and (pointer: coarse) {
+  body.is-touch #app {
+    padding: 0;
+  }
+  body.is-touch #game-shell {
+    flex: 1 1 auto;
+    max-height: none;
+    height: 100%;
+  }
+  body.is-touch #game {
+    width: min(100vw, 100dvh * 16 / 9);
+    max-height: 100dvh;
+  }
+  body.is-touch #touch-layer {
+    position: absolute;
+    inset: 0;
+    height: auto;
+    background: none;
+  }
+  .touch-stick-zone {
+    width: min(150px, 28vmin);
+    height: min(150px, 28vmin);
+    opacity: 0.9;
+    left: max(0.5rem, var(--safe-l));
+    bottom: max(0.35rem, var(--safe-b));
+  }
+  .touch-btns {
+    width: min(180px, 34vmin);
+    height: min(150px, 28vmin);
+    opacity: 0.9;
+    right: max(0.45rem, var(--safe-r));
+    bottom: max(0.3rem, var(--safe-b));
+  }
+  .touch-menu {
+    bottom: max(0.45rem, var(--safe-b));
+  }
+}
+
+/* Short landscape (phones) — tighten chrome so art stays visible */
+@media (orientation: landscape) and (pointer: coarse) and (max-height: 420px) {
+  .touch-stick-zone {
+    width: min(120px, 26vmin);
+    height: min(120px, 26vmin);
+  }
+  .touch-btns {
+    width: min(150px, 32vmin);
+    height: min(120px, 26vmin);
+  }
+  .touch-btn-fire {
+    width: clamp(56px, 18vmin, 76px);
+    height: clamp(56px, 18vmin, 76px);
+  }
+  .touch-btn-jump {
+    width: clamp(48px, 14vmin, 60px);
+    height: clamp(48px, 14vmin, 60px);
+  }
+  .touch-btn-emp {
+    width: clamp(40px, 12vmin, 50px);
+    height: clamp(40px, 12vmin, 50px);
+  }
 }
