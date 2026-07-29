@@ -35,7 +35,7 @@ After merge to `main`, GitHub Actions deploys to:
 Hub: https://tuchel.github.io/tuchel-general/  
 Manual redeploy: Actions → “Deploy GitHub Pages” → Run workflow.
 
-Controls: **A/D** strafe · **W/S** depth · **Space** jump · **J / Z** shoot · **K / X** EMP · **Enter** confirm
+Controls: **A/D** strafe · **W/S** depth · **Space** jump · **J / Z** shoot · **K / X** EMP · **Enter** confirm · **F** full screen
 
 Engine is **Metal Slug–style 2.5D** (depth lanes, perspective ground, scale-by-Z). See [`notes/engine-25d.md`](notes/engine-25d.md).
 
@@ -49,6 +49,7 @@ Engine is **Metal Slug–style 2.5D** (depth lanes, perspective ground, scale-by
 | [notes/art-direction.md](notes/art-direction.md) | Palette, silhouette rules, Metal Slug → space-punk |
 | [notes/art-inventory.md](notes/art-inventory.md) | Storyboard approval checkpoint + runtime art pack |
 | [notes/engine-25d.md](notes/engine-25d.md) | 2.5D projection, depth lanes, combat rules |
+| [notes/art-25d-anim.md](notes/art-25d-anim.md) | Hand-authored 3/4 animation pack for depth |
 
 ## Prior-work surfacing
 

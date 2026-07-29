@@ -13,9 +13,12 @@
   </head>
   <body>
     <div id="app">
-      <canvas id="game" width="960" height="540" aria-label="STAR MIND game canvas"></canvas>
+      <div id="game-shell">
+        <canvas id="game" width="960" height="540" aria-label="STAR MIND game canvas"></canvas>
+        <button type="button" id="fs-btn" aria-label="Toggle full screen">FULL SCREEN</button>
+      </div>
       <p class="hint">
-        A/D strafe · W/S depth · Space jump · J shoot · K EMP · Enter start
+        A/D strafe · W/S depth · Space jump · J shoot · K EMP · Enter start · F full screen
       </p>
     </div>
     <script type="module" src="/src/main.ts"></script>

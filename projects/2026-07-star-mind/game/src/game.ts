@@ -1505,7 +1505,7 @@ export class Game {
         const sp = project(p, this.stage);
         drawShadow(ctx, sp, 14);
         blitSprite(ctx, art.sprite("pickup"), sp.sx, sp.sy, {
-          h: 28,
+          h: 40,
           scale: sp.scale,
           bob: Math.sin(this.frame * 0.2) * 3,
         }) || drawPickup(ctx, p.kind === "scrap" ? "scrap" : "weapon", sp.sx, sp.sy, this.frame);
@@ -1524,11 +1524,11 @@ export class Game {
           : "truck-idle-0";
         const ok =
           blitSprite(ctx, art.frame(frameId), sp.sx, sp.sy - 4, {
-            h: 52,
+            h: 78,
             scale: sp.scale,
           }) ||
           blitSprite(ctx, art.sprite("truck"), sp.sx, sp.sy - 4, {
-            h: 52,
+            h: 78,
             scale: sp.scale,
           });
         if (!ok) drawTruck(ctx, sp.sx, sp.sy, truck.hp / truck.maxHp, truck.moving);
@@ -1548,7 +1548,7 @@ export class Game {
         if (item.circ) {
           drawCircRing(ctx, sp.sx, sp.sy, false);
         } else {
-          blitSprite(ctx, art.sprite("gate"), sp.sx, sp.sy, { h: 88, scale: sp.scale }) ||
+          blitSprite(ctx, art.sprite("gate"), sp.sx, sp.sy, { h: 120, scale: sp.scale }) ||
             (() => {
               ctx.strokeStyle = C.warn;
               ctx.lineWidth = 3;
@@ -1560,7 +1560,7 @@ export class Game {
         const e = item.ref;
         const sp = project(e, this.stage);
         drawShadow(ctx, sp, e.kind === "walker" ? 28 : 18);
-        const baseH = e.kind === "spine" ? 64 : e.kind === "walker" ? 56 : 48;
+        const baseH = e.kind === "spine" ? 88 : e.kind === "walker" ? 78 : 68;
         const ok = blitSprite(ctx, this.animImage(e), sp.sx, sp.sy, {
           facing: e.facing,
           h: baseH,
@@ -1577,7 +1577,7 @@ export class Game {
         const sp = project(boss, this.stage);
         drawShadow(ctx, sp, 50);
         const ok = blitSprite(ctx, this.animImage(boss), sp.sx, sp.sy, {
-          h: boss.kind === "prime" ? 140 : 120,
+          h: boss.kind === "prime" ? 180 : 155,
           scale: sp.scale,
           alpha: boss.flash > 0 ? 0.6 : 1,
           flash: boss.flash > 0,
@@ -1591,7 +1591,7 @@ export class Game {
         const inv = this.invuln > 0 && Math.floor(this.frame / 2) % 2 === 0;
         if (this.player.kind === "ship") {
           const ok = blitSprite(ctx, this.animImage(this.player), sp.sx, sp.sy, {
-            h: 48,
+            h: 72,
             scale: sp.scale,
             alpha: inv ? 0.4 : 1,
           });
@@ -1602,7 +1602,7 @@ export class Game {
         } else {
           const ok = blitSprite(ctx, this.animImage(this.player), sp.sx, sp.sy, {
             facing: this.player.facing,
-            h: this.player.kind === "eva" ? 56 : 52,
+            h: this.player.kind === "eva" ? 84 : 78,
             scale: sp.scale,
             alpha: inv ? 0.4 : 1,
             bob: this.player.kind === "eva" ? Math.sin(this.frame * 0.2) * 2 : 0,
@@ -1816,7 +1816,7 @@ export class Game {
     });
     ctx.fillStyle = "rgba(244,237,228,0.55)";
     ctx.font = "12px 'Share Tech Mono', monospace";
-    ctx.fillText("A/D strafe · W/S depth · SPACE jump · J shoot · K EMP", W / 2, 510);
+    ctx.fillText("A/D strafe · W/S depth · SPACE jump · J shoot · K EMP · F full screen", W / 2, 510);
     ctx.textAlign = "left";
     this.frame++;
   }
