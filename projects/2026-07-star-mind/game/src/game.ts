@@ -40,6 +40,12 @@ import {
   zOverlap,
 } from "./engine25d";
 import {
+  SCRIPT_BEATS,
+  rollDensityKind,
+  sampleIntensity,
+  type IntensitySample,
+} from "./pacing";
+import {
   drawAsh,
   drawBoss,
   drawCircRing,
@@ -169,63 +175,6 @@ interface FuelTruck {
   moving: boolean;
 }
 
-type SpawnEvent = {
-  t: number;
-  kind: string;
-  x: number;
-  z?: number;
-  hop?: number;
-  hp?: number;
-};
-
-const LEVEL_SPAWNS: Record<LevelId, SpawnEvent[]> = {
-  1: [
-    { t: 1, kind: "drone", x: 520, z: 0.35, hop: 40 },
-    { t: 2, kind: "crab", x: 600, z: 0.55 },
-    { t: 3.5, kind: "drone", x: 700, z: 0.7, hop: 50 },
-    { t: 5, kind: "turret", x: 780, z: 0.8 },
-    { t: 6.5, kind: "crab", x: 900, z: 0.25 },
-    { t: 8, kind: "hackbot", x: 980, z: 0.45 },
-    { t: 10, kind: "drone", x: 1100, z: 0.6, hop: 60 },
-    { t: 10.2, kind: "drone", x: 1160, z: 0.3, hop: 30 },
-    { t: 12, kind: "walker", x: 1300, z: 0.5 },
-    { t: 14, kind: "crab", x: 1450, z: 0.7 },
-    { t: 15, kind: "turret", x: 1550, z: 0.85 },
-    { t: 17, kind: "drone", x: 1680, z: 0.4, hop: 45 },
-    { t: 18, kind: "hackbot", x: 1750, z: 0.2 },
-    { t: 20, kind: "walker", x: 1900, z: 0.55 },
-    { t: 22, kind: "drone", x: 2000, z: 0.75, hop: 55 },
-    { t: 24, kind: "crab", x: 2150, z: 0.35 },
-  ],
-  2: [
-    { t: 1, kind: "climber", x: 700, z: 0.3 },
-    { t: 2.5, kind: "wasp", x: 800, z: 0.6 },
-    { t: 4, kind: "mine", x: 650, z: 0.45 },
-    { t: 5, kind: "climber", x: 720, z: 0.75 },
-    { t: 6.5, kind: "wasp", x: 780, z: 0.2 },
-    { t: 8, kind: "climber", x: 700, z: 0.5 },
-    { t: 10, kind: "wasp", x: 820, z: 0.7 },
-    { t: 12, kind: "climber", x: 740, z: 0.35 },
-    { t: 15, kind: "wasp", x: 760, z: 0.55 },
-    { t: 18, kind: "wasp", x: 800, z: 0.25 },
-    { t: 20, kind: "climber", x: 720, z: 0.65 },
-  ],
-  3: [
-    { t: 1, kind: "gridsat", x: 700, z: 0.4 },
-    { t: 2, kind: "gridsat", x: 760, z: 0.7 },
-    { t: 3.5, kind: "mirror", x: 820, z: 0.3 },
-    { t: 5, kind: "beetle", x: 780, z: 0.55 },
-    { t: 6.5, kind: "gridsat", x: 740, z: 0.2 },
-    { t: 8, kind: "ghost", x: 800, z: 0.6 },
-    { t: 10, kind: "mirror", x: 860, z: 0.45 },
-    { t: 12, kind: "beetle", x: 780, z: 0.75 },
-    { t: 14, kind: "ghost", x: 840, z: 0.35 },
-    { t: 16, kind: "gridsat", x: 700, z: 0.5 },
-    { t: 18, kind: "mirror", x: 820, z: 0.25 },
-    { t: 20, kind: "beetle", x: 800, z: 0.6 },
-  ],
-};
-
 const BOSS: Record<LevelId, { id: string; name: string; hp: number }> = {
   1: { id: "reaper", name: "PAD REAPER", hp: 520 },
   2: { id: "seraph", name: "STRATOS SERAPH", hp: 600 },
@@ -273,6 +222,10 @@ export class Game {
   private towerReady = false;
   private boardReady = false;
   private primeArenaReady = false;
+  private scriptBeatIndex = 0;
+  private densityTimer = 0;
+  private intensity: IntensitySample = sampleIntensity(1, 1, 0);
+  private lastBeat = "";
   private rescued = 0;
   private score = 0;
   private totalScore = 0;
@@ -429,6 +382,10 @@ export class Game {
     this.towerReady = false;
     this.boardReady = false;
     this.primeArenaReady = false;
+    this.scriptBeatIndex = 0;
+    this.densityTimer = 0.8;
+    this.lastBeat = "";
+    this.intensity = sampleIntensity(id, 1, 0);
     this.camLean = 0;
 
     if (id === 1) {
@@ -553,6 +510,8 @@ export class Game {
     if (this.level.goalPhase === 2) return;
     this.level.goalPhase = 2;
     this.level.objective = `2/2 · ${this.level.goalB}`;
+    this.scriptBeatIndex = 0;
+    this.densityTimer = 1.2;
     this.announce(`GOAL 2/2 · ${this.level.goalB}`, 2.8);
     this.shake = 8;
   }
@@ -578,6 +537,132 @@ export class Game {
     this.setGoalPhase2();
     this.level.length = Math.max(this.level.length, 3000);
     this.announce("NIX: Spines down — keep RIGHT into the Prime cavity!", 3.2);
+  }
+
+  /** Narrative 0–1 progress for the active goal (feeds intensity curves). */
+  private goalProgress(): number {
+    const phase = this.level.goalPhase;
+    if (this.levelId === 1) {
+      if (phase === 1) {
+        const truck = this.truck;
+        if (!truck) return 0;
+        if (truck.arrived) return 1;
+        return clamp((truck.x - 200) / (PAD7_X - 200), 0, 1);
+      }
+      if (this.boardReady) return 1;
+      if (this.level.bossDefeated) return 0.9;
+      if (this.boss && !this.boss.dead) {
+        return 0.4 + 0.45 * (1 - this.boss.hp / this.boss.maxHp);
+      }
+      return clamp((this.player.x - GANTRY_START_X) / (BOARD_X - GANTRY_START_X), 0, 0.38);
+    }
+    if (this.levelId === 2) {
+      if (phase === 1) {
+        const n = Math.max(1, this.gates.length);
+        const cleared = this.level.gatesCleared / n;
+        const lastX = this.gates.reduce((m, g) => Math.max(m, g.x), 400);
+        const scrollP = clamp(this.level.scroll / lastX, 0, 1);
+        return clamp(0.55 * cleared + 0.45 * scrollP, 0, 1);
+      }
+      if (this.level.bossDefeated) {
+        const need = Math.max(1, this.level.circNeeded);
+        return clamp(0.7 + 0.3 * (this.level.circCleared / need), 0, 1);
+      }
+      if (this.boss && !this.boss.dead) {
+        return 0.05 + 0.6 * (1 - this.boss.hp / this.boss.maxHp);
+      }
+      return 0.02;
+    }
+    // L3
+    if (phase === 1) {
+      const need = Math.max(1, this.level.spinesNeeded);
+      const base = this.level.spinesDown / need;
+      let nextX = Infinity;
+      for (const e of this.enemies) {
+        if (!e.dead && e.kind === "spine" && e.x < nextX) nextX = e.x;
+      }
+      const approach =
+        nextX < Infinity
+          ? clamp(1 - (nextX - this.player.x) / 450, 0, 1) * (0.85 / need)
+          : 0;
+      return clamp(base + approach, 0, 1);
+    }
+    if (this.level.bossDefeated) return 1;
+    if (this.boss && !this.boss.dead) {
+      return 0.22 + 0.78 * (1 - this.boss.hp / this.boss.maxHp);
+    }
+    return clamp((this.player.x - (PRIME_ARENA_X - 420)) / 420, 0, 0.2);
+  }
+
+  private liveFodderCount() {
+    return this.enemies.filter((e) => !e.dead && e.kind !== "spine").length;
+  }
+
+  private updateIntensityPacing(dt: number) {
+    const progress = this.goalProgress();
+    this.intensity = sampleIntensity(this.levelId, this.level.goalPhase, progress);
+
+    if (this.intensity.beat !== this.lastBeat) {
+      const prev = this.lastBeat;
+      this.lastBeat = this.intensity.beat;
+      const rising = this.intensity.intensity >= 0.62;
+      const lull = this.intensity.intensity <= 0.22;
+      if ((rising || lull) && prev && this.msgTimer < 0.35) {
+        this.announce(
+          rising ? `THREAT · ${this.intensity.beat}` : `LULL · ${this.intensity.beat}`,
+          1.35,
+        );
+      }
+    }
+
+    // Scripted set-pieces keyed to narrative progress
+    const beats =
+      this.level.goalPhase === 1
+        ? SCRIPT_BEATS[this.levelId].a
+        : SCRIPT_BEATS[this.levelId].b;
+    while (
+      this.scriptBeatIndex < beats.length &&
+      beats[this.scriptBeatIndex]!.at <= progress
+    ) {
+      const b = beats[this.scriptBeatIndex]!;
+      const sx =
+        this.levelId === 1 && b.x !== undefined
+          ? b.x
+          : this.camX + 480 + Math.random() * 120;
+      this.spawnEnemy(b.kind, sx, b.z ?? 0.5, b.hop ?? 0);
+      if (b.announce) this.announce(b.announce, 2.2);
+      this.scriptBeatIndex++;
+    }
+
+    // Density director — fill toward curve live-cap during play/boss
+    if (this.mode !== "play" && this.mode !== "boss") return;
+    // Boarding / pad-secure / cavity approach: respect deep lulls
+    if (this.intensity.maxLive <= 0) return;
+
+    this.densityTimer -= dt;
+    if (this.densityTimer > 0) return;
+    this.densityTimer = this.intensity.spawnPeriod;
+
+    if (this.liveFodderCount() >= this.intensity.maxLive) return;
+    // During circ rings keep it sparse even if curve allows more
+    if (this.levelId === 2 && this.level.bossDefeated && this.liveFodderCount() >= 2) return;
+    // Don't pile on during boarding window
+    if (this.levelId === 1 && this.boardReady) return;
+
+    const kind = rollDensityKind(
+      this.levelId,
+      this.level.goalPhase,
+      this.intensity.intensity,
+    );
+    const sx =
+      this.levelId === 1
+        ? this.player.x + 280 + Math.random() * 160
+        : this.camX + 500 + Math.random() * 100;
+    const z = 0.2 + Math.random() * 0.6;
+    const hop = ["drone", "climber", "wasp", "ghost", "gridsat"].includes(kind)
+      ? 20 + Math.random() * 40
+      : 0;
+    this.spawnEnemy(kind, sx, z, hop);
   }
 
   private spawnEnemy(kind: string, x: number, z = 0.5, hop = 0, hp = 0) {
@@ -816,6 +901,9 @@ export class Game {
     e.timer += dt;
     e.flash = Math.max(0, e.flash - dt);
     const pz = this.player.z;
+    const agg = this.intensity.aggression;
+    const fire = (base: number) => base / agg;
+    const move = (base: number) => base * (0.75 + 0.35 * agg);
 
     switch (e.kind) {
       case "drone":
@@ -824,16 +912,16 @@ export class Game {
       case "ghost":
         e.hop += Math.sin(e.timer * 2) * 18 * dt;
         e.z += Math.sin(e.timer * 1.3) * 0.12 * dt;
-        e.x += (this.levelId === 1 ? -40 : -30) * dt;
-        if (e.timer > 1.2) {
+        e.x += move(this.levelId === 1 ? -40 : -30) * dt;
+        if (e.timer > fire(1.2)) {
           e.timer = 0;
           this.enemyShot(e, 240, 8);
         }
         break;
       case "crab":
-        e.x += -55 * dt;
+        e.x += move(-55) * dt;
         e.z += (pz - e.z) * 0.6 * dt;
-        if (Math.random() < 0.01) e.vHop = 220;
+        if (Math.random() < 0.008 + 0.006 * agg) e.vHop = 220;
         e.vHop -= 700 * dt;
         e.hop += e.vHop * dt;
         if (e.hop <= 0) {
@@ -842,15 +930,15 @@ export class Game {
         }
         break;
       case "turret":
-        if (e.timer > 1.4) {
+        if (e.timer > fire(1.4)) {
           e.timer = 0;
           this.enemyShot(e, 260, 10);
         }
         break;
       case "hackbot":
-        e.x += Math.sign(this.player.x - e.x) * 70 * dt;
+        e.x += Math.sign(this.player.x - e.x) * move(70) * dt;
         e.z += (pz - e.z) * 1.4 * dt;
-        if (e.timer > 2 && Math.hypot(this.player.x - e.x, (pz - e.z) * 180) < 50 && zOverlap(pz, e.z, 0.22)) {
+        if (e.timer > fire(2) && Math.hypot(this.player.x - e.x, (pz - e.z) * 180) < 50 && zOverlap(pz, e.z, 0.22)) {
           e.timer = 0;
           if (this.weapon !== "pistol") {
             this.announce("WEAPON JAMMED!");
@@ -861,17 +949,17 @@ export class Game {
         }
         break;
       case "walker":
-        e.x += -35 * dt;
+        e.x += move(-35) * dt;
         e.z += (pz - e.z) * 0.4 * dt;
-        if (e.timer > 1.6) {
+        if (e.timer > fire(1.6)) {
           e.timer = 0;
           this.enemyShot(e, 300, 14, true);
         }
         break;
       case "wasp":
-        e.x += -90 * dt;
+        e.x += move(-90) * dt;
         e.z += Math.sin(e.timer * 3) * 0.2 * dt;
-        if (e.timer > 0.9) {
+        if (e.timer > fire(0.9)) {
           e.timer = 0;
           this.enemyShot(e, 200, 12);
         }
@@ -885,12 +973,12 @@ export class Game {
         }
         break;
       case "mirror":
-        e.x += -25 * dt;
+        e.x += move(-25) * dt;
         e.z += Math.sin(e.timer) * 0.1 * dt;
         break;
       case "beetle":
-        e.x += -40 * dt;
-        if (e.timer > 1.5) {
+        e.x += move(-40) * dt;
+        if (e.timer > fire(1.5)) {
           e.timer = 0;
           for (const o of this.enemies) {
             if (!o.dead && o !== e && Math.hypot(o.x - e.x, (o.z - e.z) * 160) < 140) {
@@ -902,7 +990,7 @@ export class Game {
         break;
       case "spine":
         e.hop += Math.sin(e.timer * 1.2) * 8 * dt;
-        if (e.timer > 1.8) {
+        if (e.timer > fire(1.8)) {
           e.timer = 0;
           this.enemyShot(e, 240, 12);
         }
@@ -1100,16 +1188,7 @@ export class Game {
       this.updateTruck(dt);
     }
 
-    const spawns = LEVEL_SPAWNS[this.levelId];
-    while (
-      this.level.spawnIndex < spawns.length &&
-      spawns[this.level.spawnIndex]!.t <= this.level.elapsed
-    ) {
-      const s = spawns[this.level.spawnIndex]!;
-      const sx = this.levelId === 1 ? s.x : this.camX + 520 + Math.random() * 80;
-      this.spawnEnemy(s.kind, sx, s.z ?? 0.5, s.hop ?? 0);
-      this.level.spawnIndex++;
-    }
+    this.updateIntensityPacing(dt);
 
     if (!this.level.bossSpawned) {
       let ready = false;
@@ -2041,6 +2120,27 @@ export class Game {
     ctx.fillText(`SCRAP ${this.scrap}`, 560, 22);
     ctx.fillStyle = C.cyan;
     ctx.fillText(this.level.objective, 640, 22);
+
+    // Threat meter — tracks Intensity Director sample
+    {
+      const tx = 640;
+      const ty = 30;
+      ctx.fillStyle = "rgba(11,18,32,0.65)";
+      ctx.fillRect(tx, ty, 120, 8);
+      const fill = 120 * this.intensity.intensity;
+      ctx.fillStyle =
+        this.intensity.intensity > 0.75
+          ? C.blood
+          : this.intensity.intensity > 0.45
+            ? C.pad
+            : C.warn;
+      ctx.fillRect(tx, ty, fill, 8);
+      ctx.strokeStyle = C.cyan;
+      ctx.strokeRect(tx + 0.5, ty + 0.5, 119, 7);
+      ctx.fillStyle = "rgba(244,237,228,0.7)";
+      ctx.font = "9px 'Share Tech Mono', monospace";
+      ctx.fillText(`THREAT ${Math.round(this.intensity.intensity * 100)}`, tx + 124, ty + 8);
+    }
 
     // depth meter
     ctx.fillStyle = "rgba(11,18,32,0.55)";

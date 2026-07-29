@@ -49,6 +49,7 @@ Engine is **Metal Slug–style 2.5D** (depth lanes, perspective ground, scale-by
 | [notes/art-direction.md](notes/art-direction.md) | Palette, silhouette rules, Metal Slug → space-punk |
 | [notes/art-inventory.md](notes/art-inventory.md) | Storyboard approval checkpoint + runtime art pack |
 | [notes/engine-25d.md](notes/engine-25d.md) | 2.5D projection, depth lanes, combat rules |
+| [notes/pacing.md](notes/pacing.md) | Intensity curves — lulls/sprints per goal |
 | [notes/art-25d-anim.md](notes/art-25d-anim.md) | Hand-authored 3/4 animation pack for depth |
 
 ## Prior-work surfacing
