@@ -53,6 +53,7 @@ export class Input {
     return this.pressed.has(key);
   }
 
+  /** Strafe along the stage (X) */
   axisX() {
     let x = 0;
     if (this.hold("a") || this.hold("arrowleft")) x -= 1;
@@ -60,26 +61,24 @@ export class Input {
     return x;
   }
 
-  axisY() {
-    let y = 0;
-    if (this.hold("w") || this.hold("arrowup") || this.hold(" ")) y -= 1;
-    if (this.hold("s") || this.hold("arrowdown")) y += 1;
-    return y;
+  /**
+   * Depth into the screen (Z).
+   * W / ↑ = farther (into scene), S / ↓ = nearer (toward camera).
+   */
+  axisZ() {
+    let z = 0;
+    if (this.hold("w") || this.hold("arrowup")) z += 1;
+    if (this.hold("s") || this.hold("arrowdown")) z -= 1;
+    return z;
   }
 
-  jump() {
-    return (
-      this.just("w") ||
-      this.just("arrowup") ||
-      this.just(" ") ||
-      this.hold("w") ||
-      this.hold("arrowup") ||
-      this.hold(" ")
-    );
+  /** @deprecated use axisZ — kept for ship altitude aliases */
+  axisY() {
+    return -this.axisZ();
   }
 
   jumpJust() {
-    return this.just("w") || this.just("arrowup") || this.just(" ");
+    return this.just(" ");
   }
 
   shoot() {
