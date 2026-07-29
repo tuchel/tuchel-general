@@ -56,18 +56,13 @@ Each pillar lists **several directions**. The prototype locks **[DEFAULT]** so i
 
 ## E. Level 1 — Earth Escape variants
 
-**Goals (pick 1 primary + optional secondaries):**
-
-- Reach Pad 7 before kill-clock **[DEFAULT]**  
-- Escort fuel truck to pad  
-- Sabotage uplink tower *then* reach pad  
-- Rescue N technicians (quota)  
+**Dual goals (locked):** see [`dual-goals.md`](dual-goals.md) — escort fuel truck → climb gantry / board ship.
 
 **Dynamics:**
 
-- Classic left→right Metal Slug **[DEFAULT]**  
+- Classic left→right convoy, then vertical tower **[DEFAULT]**  
 - Hub courtyard with 2–3 sortie lanes then pad  
-- Vertical tower climb majority  
+- Vertical tower climb majority from the start  
 
 **Boss options:**
 
@@ -79,11 +74,7 @@ Each pillar lists **several directions**. The prototype locks **[DEFAULT]** so i
 
 ## F. Level 2 — Launch! variants
 
-**Goals:**
-
-- Survive to LEO with hull > 0% **[DEFAULT]**  
-- Protect second crew capsule (escort)  
-- Collect stage-sep rings for perfect insertion  
+**Dual goals (locked):** thread all trajectory gates → Seraph + circularization burn.
 
 **Dynamics:**
 
@@ -101,11 +92,7 @@ Each pillar lists **several directions**. The prototype locks **[DEFAULT]** so i
 
 ## G. Level 3 — Orbit variants
 
-**Goals:**
-
-- Destroy Prime Node **[DEFAULT]**  
-- Sever three regional spines then Prime  
-- Upload counter-virus while defending uplink (tower defense beat)  
+**Dual goals (locked):** sever three regional spines → breach Prime core.
 
 **Dynamics:**
 
@@ -169,9 +156,11 @@ Suggested pickup set (default): Coil · Spread · Beam · Rocket · Flame · Rai
 - Hero: **Ash Calder**  
 - Lore: **Defense runaway**  
 - CAPCOM: **Nix**  
-- L1 boss: **Pad Reaper**  
-- L2 boss: **Stratos Seraph**  
-- L3 boss: **Star Mind Prime**  
+- L1: **Escort fuel truck → climb gantry / Pad Reaper**  
+- L2: **All trajectory gates → Seraph + circularization**  
+- L3: **Sever 3 spines → Star Mind Prime**  
 - Weapons: pickup-replace  
 - Upgrades: between-level scrap  
-- Art: Fork A
+- Art: Fork A  
+
+Dual-goal board + alternates: [`dual-goals.md`](dual-goals.md)

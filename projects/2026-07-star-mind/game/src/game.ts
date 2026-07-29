@@ -11,9 +11,12 @@ import {
 import {
   drawAsh,
   drawBoss,
+  drawCircRing,
   drawEnemy,
   drawPickup,
   drawShip,
+  drawSpine,
+  drawTruck,
   glow,
   rr,
 } from "./draw";
@@ -80,6 +83,9 @@ interface LevelRuntime {
   id: LevelId;
   name: string;
   objective: string;
+  goalA: string;
+  goalB: string;
+  goalPhase: 1 | 2;
   scroll: number;
   length: number;
   groundY: number;
@@ -91,6 +97,19 @@ interface LevelRuntime {
   killClock: number;
   gatesCleared: number;
   formationsBroken: number;
+  spinesDown: number;
+  spinesNeeded: number;
+  circCleared: number;
+  circNeeded: number;
+}
+
+interface FuelTruck {
+  x: number;
+  y: number;
+  hp: number;
+  maxHp: number;
+  arrived: boolean;
+  moving: boolean;
 }
 
 type SpawnEvent = {
@@ -209,7 +228,10 @@ export class Game {
   private shipThrust = 0;
   private heat = 0;
   private gates: { x: number; y: number; hit: boolean }[] = [];
+  private circRings: { x: number; y: number; hit: boolean }[] = [];
   private techs: { x: number; y: number; rescued: boolean }[] = [];
+  private truck: FuelTruck | null = null;
+  private towerReady = false;
   private rescued = 0;
   private score = 0;
   private totalScore = 0;
@@ -284,13 +306,21 @@ export class Game {
     this.rescued = 0;
     this.stinger = false;
     this.gates = [];
+    this.circRings = [];
     this.techs = [];
+    this.truck = null;
+    this.towerReady = false;
 
     if (id === 1) {
+      const goalA = "Escort fuel truck to Pad 7";
+      const goalB = "Climb gantry · board BLACK FINCH";
       this.level = {
         id,
         name: "EARTH ESCAPE",
-        objective: "Reach Pad 7 · Board BLACK FINCH",
+        objective: `1/2 · ${goalA}`,
+        goalA,
+        goalB,
+        goalPhase: 1,
         scroll: 0,
         length: 2800,
         groundY: 470,
@@ -302,30 +332,46 @@ export class Game {
           { x: 1500, y: 340, w: 160, h: 16 },
           { x: 1850, y: 300, w: 120, h: 16 },
           { x: 2200, y: 360, w: 180, h: 16 },
-          { x: 2500, y: 400, w: 200, h: 16 },
+          { x: 2480, y: 400, w: 200, h: 16 },
         ],
         spawnIndex: 0,
         elapsed: 0,
         bossSpawned: false,
         bossDefeated: false,
-        killClock: 180,
+        killClock: 200,
         gatesCleared: 0,
         formationsBroken: 0,
+        spinesDown: 0,
+        spinesNeeded: 0,
+        circCleared: 0,
+        circNeeded: 0,
+      };
+      this.truck = {
+        x: 180,
+        y: this.level.groundY - 18,
+        hp: 120,
+        maxHp: 120,
+        arrived: false,
+        moving: false,
       };
       this.techs = [
         { x: 450, y: 360, rescued: false },
         { x: 980, y: 340, rescued: false },
         { x: 1580, y: 320, rescued: false },
-        { x: 2280, y: 340, rescued: false },
       ];
       this.resetPlayer("ground");
     } else if (id === 2) {
+      const goalA = "Thread every trajectory gate";
+      const goalB = "Down SERAPH · hold circularization";
       this.level = {
         id,
         name: "LAUNCH!",
-        objective: "Survive ascent · Insert to LEO",
+        objective: `1/2 · ${goalA}`,
+        goalA,
+        goalB,
+        goalPhase: 1,
         scroll: 0,
-        length: 2400,
+        length: 2600,
         groundY: H + 40,
         platforms: [],
         spawnIndex: 0,
@@ -335,22 +381,31 @@ export class Game {
         killClock: 0,
         gatesCleared: 0,
         formationsBroken: 0,
+        spinesDown: 0,
+        spinesNeeded: 0,
+        circCleared: 0,
+        circNeeded: 3,
       };
       this.gates = [
-        { x: 400, y: 180, hit: false },
-        { x: 700, y: 320, hit: false },
-        { x: 1100, y: 140, hit: false },
-        { x: 1500, y: 280, hit: false },
-        { x: 1900, y: 200, hit: false },
+        { x: 350, y: 180, hit: false },
+        { x: 650, y: 320, hit: false },
+        { x: 1000, y: 140, hit: false },
+        { x: 1350, y: 280, hit: false },
+        { x: 1700, y: 200, hit: false },
       ];
       this.resetPlayer("ship");
     } else {
+      const goalA = "Sever the three regional spines";
+      const goalB = "Breach PRIME · rupture the core";
       this.level = {
         id,
         name: "ORBIT",
-        objective: "Cut the constellation · Destroy PRIME",
+        objective: `1/2 · ${goalA}`,
+        goalA,
+        goalB,
+        goalPhase: 1,
         scroll: 0,
-        length: 2600,
+        length: 2400,
         groundY: H + 80,
         platforms: [
           { x: 500, y: 360, w: 140, h: 14 },
@@ -367,12 +422,44 @@ export class Game {
         killClock: 0,
         gatesCleared: 0,
         formationsBroken: 0,
+        spinesDown: 0,
+        spinesNeeded: 3,
+        circCleared: 0,
+        circNeeded: 0,
       };
       this.resetPlayer("eva");
+      // Spine nodes — Goal A targets
+      this.spawnEnemy("spine", 720, 200, 90);
+      this.spawnEnemy("spine", 1200, 320, 90);
+      this.spawnEnemy("spine", 1750, 180, 90);
     }
 
     this.mode = "briefing";
     this.announce(`${this.level.name}`);
+  }
+
+  private setGoalPhase2() {
+    if (this.level.goalPhase === 2) return;
+    this.level.goalPhase = 2;
+    this.level.objective = `2/2 · ${this.level.goalB}`;
+    this.announce(`GOAL 2/2 · ${this.level.goalB}`, 2.8);
+    this.shake = 8;
+  }
+
+  private unlockTowerClimb() {
+    if (this.towerReady) return;
+    this.towerReady = true;
+    this.setGoalPhase2();
+    // Vertical gantry platforms at Pad 7
+    const baseX = 2520;
+    this.level.platforms.push(
+      { x: baseX, y: 380, w: 100, h: 14 },
+      { x: baseX + 40, y: 300, w: 90, h: 14 },
+      { x: baseX - 20, y: 220, w: 110, h: 14 },
+      { x: baseX + 30, y: 140, w: 100, h: 14 },
+      { x: baseX, y: 70, w: 120, h: 14 },
+    );
+    this.announce("NIX: Truck's on the pad — climb the gantry!", 2.5);
   }
 
   private spawnEnemy(kind: string, x: number, y: number, hp = 0) {
@@ -389,6 +476,7 @@ export class Game {
       mirror: { hp: 50, w: 28, h: 28, scrap: 5 },
       beetle: { hp: 30, w: 28, h: 20, scrap: 6 },
       ghost: { hp: 26, w: 24, h: 24, scrap: 4 },
+      spine: { hp: 90, w: 36, h: 36, scrap: 12 },
     };
     const s = stats[kind] ?? { hp: 30, w: 24, h: 24, scrap: 2 };
     this.enemies.push({
@@ -556,10 +644,20 @@ export class Game {
 
   private killEnemy(e: Actor) {
     e.dead = true;
-    this.burst(e.x, e.y, C.cyan, 14);
-    this.score += 100;
+    this.burst(e.x, e.y, e.kind === "spine" ? C.warn : C.cyan, 14);
+    this.score += e.kind === "spine" ? 400 : 100;
     this.scrap += e.scrap ?? 2;
-    if (Math.random() < 0.22) {
+    if (e.kind === "spine") {
+      this.level.spinesDown += 1;
+      this.announce(
+        `SPINE SEVERED ${this.level.spinesDown}/${this.level.spinesNeeded}`,
+      );
+      if (this.level.spinesDown >= this.level.spinesNeeded) {
+        this.setGoalPhase2();
+        this.announce("NIX: Spines down — push to PRIME!", 2.5);
+      }
+    }
+    if (Math.random() < 0.22 && e.kind !== "spine") {
       const pool: WeaponId[] = ["spread", "beam", "rocket", "flame", "rail", "coil"];
       this.pickups.push({
         x: e.x,
@@ -670,6 +768,13 @@ export class Game {
           }
         }
         break;
+      case "spine":
+        e.y += Math.sin(e.timer * 1.2) * 12 * dt;
+        if (e.timer > 1.8) {
+          e.timer = 0;
+          this.enemyShot(e, px, py, 240, 12);
+        }
+        break;
     }
 
     // contact damage
@@ -688,8 +793,11 @@ export class Game {
       this.hurtPlayer(e.kind === "walker" ? 18 : 10);
     }
 
-    if (this.levelId === 1 && e.x < this.camX - 80) e.dead = true;
-    if (this.levelId !== 1 && e.x < this.camX - 40) e.dead = true;
+    // Don't cull spine nodes off the left — they're goal targets
+    if (e.kind !== "spine") {
+      if (this.levelId === 1 && e.x < this.camX - 80) e.dead = true;
+      if (this.levelId !== 1 && e.x < this.camX - 40) e.dead = true;
+    }
   }
 
   private enemyShot(
@@ -855,6 +963,7 @@ export class Game {
         this.hurtPlayer(999);
         this.announce("KILL-CLOCK ZERO");
       }
+      this.updateTruck(dt);
     }
 
     // spawns
@@ -869,13 +978,25 @@ export class Game {
       this.level.spawnIndex++;
     }
 
-    // boss trigger
+    // boss trigger — gated by Goal A
     if (!this.level.bossSpawned) {
-      const progress =
-        this.levelId === 1
-          ? this.player.x > this.level.length - 450
-          : this.level.scroll > this.level.length - 400;
-      if (progress || this.level.elapsed > 28) this.spawnBoss();
+      let ready = false;
+      if (this.levelId === 1) {
+        ready =
+          this.level.goalPhase === 2 &&
+          this.towerReady &&
+          this.player.y < 220 &&
+          this.player.x > 2480;
+      } else if (this.levelId === 2) {
+        ready =
+          this.level.goalPhase === 2 &&
+          this.level.gatesCleared >= this.gates.length;
+      } else {
+        ready =
+          this.level.goalPhase === 2 &&
+          this.level.spinesDown >= this.level.spinesNeeded;
+      }
+      if (ready) this.spawnBoss();
     }
 
     // player move
@@ -926,6 +1047,7 @@ export class Game {
     } else if (this.player.kind === "ship") {
       this.level.scroll += 140 * dt;
       this.camX = this.level.scroll;
+      this.recycleMissedGates();
       const ax = this.input.axisX();
       const ay = this.input.axisY();
       this.player.vx = ax * 220 * mob;
@@ -933,24 +1055,55 @@ export class Game {
       this.shipThrust = ay < 0 || ax !== 0 ? 1 : 0.35;
       this.player.x = clamp(this.player.x + this.player.vx * dt, this.camX + 60, this.camX + W - 80);
       this.player.y = clamp(this.player.y + this.player.vy * dt, 50, H - 50);
-      // gates
+      // gates (L2 Goal A)
       for (const g of this.gates) {
-        if (!g.hit && Math.hypot(this.player.x - (this.camX + (g.x % W)), this.player.y - g.y) < 50) {
-          // world-relative gates along scroll
-        }
-        const gx = g.x;
-        if (!g.hit && Math.abs(this.level.scroll - gx) < 40 && Math.abs(this.player.y - g.y) < 55) {
+        if (!g.hit && Math.abs(this.level.scroll - g.x) < 40 && Math.abs(this.player.y - g.y) < 55) {
           g.hit = true;
           this.level.gatesCleared++;
           this.scrap += 5;
-          this.announce("TRAJECTORY GATE");
+          this.announce(`GATE ${this.level.gatesCleared}/${this.gates.length}`);
           this.burst(this.player.x, this.player.y, C.warn, 10);
+          if (this.level.gatesCleared >= this.gates.length) {
+            this.setGoalPhase2();
+            this.announce("NIX: Corridor clean — Seraph inbound!", 2.5);
+          }
+        }
+      }
+      // circularization rings (L2 Goal B coda)
+      for (const ring of this.circRings) {
+        if (
+          !ring.hit &&
+          Math.abs(this.level.scroll - ring.x) < 45 &&
+          Math.abs(this.player.y - ring.y) < 50
+        ) {
+          ring.hit = true;
+          this.level.circCleared++;
+          this.scrap += 6;
+          this.announce(
+            `CIRC ${this.level.circCleared}/${this.level.circNeeded}`,
+          );
+          this.burst(this.player.x, this.player.y, C.cyan, 12);
+          if (this.level.circCleared >= this.level.circNeeded) {
+            this.mode = "clear";
+            this.announce("LEO INSERTION · CLEAN", 3);
+            this.score += 1500;
+          }
         }
       }
     } else {
       // EVA
-      this.level.scroll += 70 * dt;
-      this.camX = this.level.scroll;
+      if (this.level.goalPhase === 2) {
+        this.level.scroll += 40 * dt;
+      }
+      // Camera follows Ash so spine hunts stay completable
+      this.camX = clamp(
+        this.player.x - W * 0.4,
+        0,
+        Math.max(this.level.length - W, this.level.scroll),
+      );
+      if (this.level.goalPhase === 2) {
+        this.camX = Math.max(this.camX, this.level.scroll);
+      }
       const ax = this.input.axisX();
       const ay = this.input.axisY();
       this.player.vx += ax * 420 * dt * mob;
@@ -960,7 +1113,7 @@ export class Game {
       if (ax) this.player.facing = ax > 0 ? 1 : -1;
       this.player.x += this.player.vx * dt;
       this.player.y += this.player.vy * dt;
-      this.player.x = clamp(this.player.x, this.camX + 40, this.camX + W - 40);
+      this.player.x = clamp(this.player.x, 40, this.level.length - 40);
       this.player.y = clamp(this.player.y, 40, H - 40);
       // soft platforms
       for (const p of this.level.platforms) {
@@ -1041,9 +1194,21 @@ export class Game {
               this.scrap += boss.scrap ?? 40;
               this.score += 2500;
               this.shake = 16;
-              this.mode = "clear";
-              this.announce(`${BOSS[this.levelId].name} DOWN`, 3);
-              if (this.levelId === 3) this.stinger = true;
+              if (this.levelId === 2) {
+                // Goal B coda — circularization rings
+                this.circRings = [
+                  { x: this.level.scroll + 280, y: 200, hit: false },
+                  { x: this.level.scroll + 480, y: 300, hit: false },
+                  { x: this.level.scroll + 680, y: 180, hit: false },
+                ];
+                this.level.circCleared = 0;
+                this.announce("NIX: Hold circularization burn!", 2.8);
+                this.mode = "play";
+              } else {
+                this.mode = "clear";
+                this.announce(`${BOSS[this.levelId].name} DOWN`, 3);
+                if (this.levelId === 3) this.stinger = true;
+              }
             }
           }
         }
@@ -1130,6 +1295,62 @@ export class Game {
         e.hp -= dmg;
         e.flash = 0.1;
         if (e.hp <= 0) this.killEnemy(e);
+      }
+    }
+  }
+
+  private updateTruck(dt: number) {
+    const truck = this.truck;
+    if (!truck || truck.arrived) return;
+
+    const near =
+      Math.abs(this.player.x - truck.x) < 160 &&
+      Math.abs(this.player.y - truck.y) < 100;
+    truck.moving = near && this.level.goalPhase === 1;
+    if (truck.moving) {
+      truck.x += 55 * dt;
+    }
+
+    // Enemy pressure on the truck
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      if (Math.hypot(e.x - truck.x, e.y - truck.y) < 40) {
+        truck.hp -= 12 * dt;
+      }
+    }
+    for (const b of this.bullets) {
+      if (b.friendly || b.life <= 0) continue;
+      if (Math.hypot(b.x - truck.x, b.y - truck.y) < 28) {
+        truck.hp -= b.dmg * 0.5;
+        b.life = 0;
+        this.burst(truck.x, truck.y, C.blood, 4);
+      }
+    }
+
+    if (truck.hp <= 0) {
+      truck.hp = 0;
+      this.burst(truck.x, truck.y, C.pad, 30);
+      this.announce("FUEL TRUCK DESTROYED");
+      this.hurtPlayer(999);
+      return;
+    }
+
+    if (truck.x >= 2480) {
+      truck.x = 2480;
+      truck.arrived = true;
+      truck.moving = false;
+      this.scrap += Math.ceil(truck.hp / 10);
+      this.score += 800;
+      this.unlockTowerClimb();
+    }
+  }
+
+  /** Missed L2 gates reappear ahead so Goal A stays completable */
+  private recycleMissedGates() {
+    for (const g of this.gates) {
+      if (!g.hit && this.level.scroll > g.x + 100) {
+        g.x = this.level.scroll + 350 + Math.random() * 80;
+        g.y = 120 + Math.random() * 280;
       }
     }
   }
@@ -1277,6 +1498,19 @@ export class Game {
           rr(ctx, tx - 4, tech.y - 22, 8, 8, C.warn, C.soot);
         }
       }
+      // fuel truck
+      if (this.truck) {
+        const tx = this.truck.x - this.camX;
+        if (tx > -60 && tx < W + 60) {
+          drawTruck(
+            ctx,
+            tx,
+            this.truck.y,
+            this.truck.hp / this.truck.maxHp,
+            this.truck.moving,
+          );
+        }
+      }
       // pad in distance
       const padX = this.level.length - 280 - this.camX;
       if (padX < W + 100) {
@@ -1318,6 +1552,13 @@ export class Game {
           ctx.lineWidth = 3;
           ctx.strokeRect(gx - 28, gate.y - 40, 56, 80);
           glow(ctx, gx, gate.y, 30, gate.hit ? C.metal : C.warn, 0.25);
+        }
+      }
+      // circularization rings
+      for (const ring of this.circRings) {
+        const rx = ring.x - this.level.scroll + 300;
+        if (rx > -50 && rx < W + 50) {
+          drawCircRing(ctx, rx, ring.y, ring.hit);
         }
       }
     } else {
@@ -1388,20 +1629,43 @@ export class Game {
     ctx.fillText(`EMP ${this.special}`, 500, 22);
     ctx.fillText(`SCRAP ${this.scrap}`, 580, 22);
     ctx.fillStyle = C.cyan;
-    ctx.fillText(this.level.objective, 680, 22);
+    ctx.fillText(this.level.objective, 560, 22);
 
     if (this.levelId === 1) {
       ctx.fillStyle = this.level.killClock < 30 ? C.blood : C.warn;
+      const truckHp = this.truck
+        ? ` · TRUCK ${Math.ceil(this.truck.hp)}`
+        : "";
       ctx.fillText(
-        `KILL-CLOCK ${Math.ceil(this.level.killClock)}s · TECHS ${this.rescued}/${this.techs.length}`,
+        `KILL-CLOCK ${Math.ceil(this.level.killClock)}s · TECHS ${this.rescued}/${this.techs.length}${truckHp}`,
         12,
         54,
       );
     }
     if (this.levelId === 2) {
       ctx.fillStyle = C.warn;
+      if (this.level.goalPhase === 1) {
+        ctx.fillText(
+          `GATES ${this.level.gatesCleared}/${this.gates.length} · ALT ${Math.floor((this.level.scroll / this.level.length) * 100)}%`,
+          12,
+          54,
+        );
+      } else {
+        ctx.fillText(
+          this.level.bossDefeated
+            ? `CIRC ${this.level.circCleared}/${this.level.circNeeded}`
+            : `SERAPH · ALT ${Math.floor((this.level.scroll / this.level.length) * 100)}%`,
+          12,
+          54,
+        );
+      }
+    }
+    if (this.levelId === 3) {
+      ctx.fillStyle = C.warn;
       ctx.fillText(
-        `GATES ${this.level.gatesCleared}/${this.gates.length} · ALT ${Math.floor((this.level.scroll / this.level.length) * 100)}%`,
+        this.level.goalPhase === 1
+          ? `SPINES ${this.level.spinesDown}/${this.level.spinesNeeded}`
+          : "PRIME ARENA",
         12,
         54,
       );
@@ -1467,7 +1731,11 @@ export class Game {
     }
     for (const e of this.enemies) {
       if (e.flash > 0) ctx.globalAlpha = 0.5;
-      drawEnemy(ctx, e.kind, e.x - this.camX, e.y, this.frame, e.facing);
+      if (e.kind === "spine") {
+        drawSpine(ctx, e.x - this.camX, e.y, this.frame);
+      } else {
+        drawEnemy(ctx, e.kind, e.x - this.camX, e.y, this.frame, e.facing);
+      }
       ctx.globalAlpha = 1;
     }
     if (this.boss && !this.boss.dead) {
@@ -1585,26 +1853,29 @@ export class Game {
     const lines =
       this.levelId === 1
         ? [
-            "CAPCOM NIX: Starbase Atlas is dark. STAR MIND owns the uplink.",
-            "Get to Pad 7. Board BLACK FINCH before the kill-clock hits zero.",
-            "Expect Null Drones, Sentry Crabs, and a gantry that learned to hate.",
+            "CAPCOM NIX: Fuel truck's the only way Pad 7 lights up.",
+            "GOAL 1/2 — Escort the rig. Stay close or it stalls. Keep it alive.",
+            "GOAL 2/2 — Climb the gantry tower and board BLACK FINCH.",
+            "PAD REAPER owns the tower. Techs along the route pay scrap.",
             "",
-            "BOSS: PAD REAPER — claw, weld-laser, exposed core on slam.",
+            "Kill-clock is live. Don't sightseeing.",
           ]
         : this.levelId === 2
           ? [
               "CAPCOM NIX: Throttle up. You are the ship now.",
-              "Ride the plume through the cloud deck. Thread trajectory gates.",
-              "SAMs and Climb Drones will match your altitude.",
+              "GOAL 1/2 — Thread EVERY trajectory gate through the climb.",
+              "GOAL 2/2 — Kill STRATOS SERAPH, then hold circularization rings.",
+              "Miss a gate and it'll re-queue ahead. Still hit them all.",
               "",
-              "BOSS: STRATOS SERAPH — wing guns, mirror drones, spear dive.",
+              "Seraph mirrors your altitude. Belly reactor on the spear dive.",
             ]
           : [
               "CAPCOM NIX: Hatch open. EVA authorized.",
-              "Break sat formations. Priority-kill Repair Beetles.",
-              "Mirror Shards reflect fire until stunned. Cut to the Prime Node.",
+              "GOAL 1/2 — Sever the three regional spines (gold-marked nodes).",
+              "Repair Beetles will try to knit them — prioritize beetles.",
+              "GOAL 2/2 — Breach STAR MIND PRIME and rupture the core.",
               "",
-              "FINAL BOSS: STAR MIND PRIME — rings, petals, mind-lash, panic cascade.",
+              "Spines gate the final arena. No shortcuts.",
             ];
     lines.forEach((ln, i) => ctx.fillText(ln, 110, 170 + i * 28));
     ctx.fillStyle = C.warn;
