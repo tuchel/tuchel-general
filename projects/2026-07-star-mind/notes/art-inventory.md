@@ -23,6 +23,13 @@ Full-res refs in `notes/art-refs/`:
 ### Sprites (PNG, magenta-keyed)
 Ash · Ash EVA · Ship · Truck · Drone · Crab · Turret · Hackbot · Walker · Wasp · GridSat · Spine · Beetle · Mirror · Ghost · Gate · Pickup · Boss Reaper / Seraph / Prime
 
+### L1 diaspora props
+- `sprites/pad7.png` — massive Pad 7 launch spectacle (destination landmark)
+- `props/gantry-spectacle.png` — climb tower
+- `props/wreck-starship.png`, `wreck-dragon.png`, `wreck-booster.png` — pad wreckage
+- `props/cybertruck.png` — frantic midground traffic
+- Near props: `prop-crate-near.png`, `prop-gantry-near.png`
+
 ### Pipeline
 `game/scripts/process-art.py` — chroma key + crop + resize from `/opt/cursor/artifacts/assets`.
 

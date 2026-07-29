@@ -1519,6 +1519,7 @@ export class Game {
     drawGroundDeck(ctx, this.stage, kind);
     drawDepthFog(ctx, this.stage);
 
+    if (this.levelId === 1) this.renderL1Diaspora();
     if (this.levelId === 1) this.renderPad7Landmark();
 
     // platforms as raised deck plates / gantry stairs
@@ -1539,36 +1540,114 @@ export class Game {
     if (this.levelId === 1 && this.towerReady) this.renderGantryAndShip();
   }
 
-  /** Visible Pad 7 fuel-drop destination + off-screen arrow during Goal A */
+  /**
+   * SpaceX/Tesla diaspora wreckage + frantic cybertruck traffic —
+   * dystopian race-to-orbit midground for Earth Escape.
+   */
+  private renderL1Diaspora() {
+    const ctx = this.ctx;
+    const wrecks: {
+      x: number;
+      z: number;
+      kind: "wreck-starship" | "wreck-dragon" | "wreck-booster";
+      h: number;
+      facing?: 1 | -1;
+    }[] = [
+      { x: 340, z: 0.88, kind: "wreck-booster", h: 120 },
+      { x: 680, z: 0.82, kind: "wreck-dragon", h: 100, facing: -1 },
+      { x: 980, z: 0.9, kind: "wreck-starship", h: 160 },
+      { x: 1320, z: 0.78, kind: "wreck-booster", h: 110, facing: -1 },
+      { x: 1680, z: 0.86, kind: "wreck-dragon", h: 105 },
+      { x: 2050, z: 0.8, kind: "wreck-starship", h: 170, facing: -1 },
+      { x: 2320, z: 0.88, kind: "wreck-booster", h: 115 },
+    ];
+
+    for (const w of wrecks) {
+      const sp = project({ x: w.x, z: w.z, hop: 0 }, this.stage);
+      if (sp.sx < -160 || sp.sx > W + 160) continue;
+      const alpha = 0.55 + (1 - w.z) * 0.35;
+      blitSprite(ctx, art.sprite(w.kind), sp.sx, sp.sy - 8, {
+        h: w.h,
+        scale: sp.scale * 0.92,
+        facing: w.facing ?? 1,
+        alpha,
+      });
+    }
+
+    // Frantic cybertruck traffic — mid parallax, both directions
+    const traffic: { phase: number; speed: number; z: number; h: number; facing: 1 | -1 }[] = [
+      { phase: 0.05, speed: 210, z: 0.92, h: 42, facing: 1 },
+      { phase: 0.38, speed: 260, z: 0.86, h: 48, facing: -1 },
+      { phase: 0.62, speed: 190, z: 0.94, h: 36, facing: 1 },
+      { phase: 0.84, speed: 240, z: 0.8, h: 52, facing: -1 },
+    ];
+    const span = 1600;
+    for (const t of traffic) {
+      const travel = this.level.elapsed * t.speed * t.facing;
+      const local = ((travel + t.phase * span) % span + span) % span;
+      const wx = this.camX - 200 + local;
+      const sp = project({ x: wx, z: t.z, hop: 0 }, this.stage);
+      if (sp.sx < -100 || sp.sx > W + 100) continue;
+      // headlight / roof-bar flicker
+      if (Math.floor(this.frame / 4 + t.phase * 10) % 5 !== 0) {
+        glow(ctx, sp.sx + t.facing * 18 * sp.scale, sp.sy - 8, 16 * sp.scale, C.warn, 0.2);
+      }
+      blitSprite(ctx, art.sprite("cybertruck"), sp.sx, sp.sy - 4, {
+        h: t.h,
+        scale: sp.scale,
+        facing: t.facing,
+        alpha: 0.75,
+      });
+    }
+  }
+
+  /** Visible Pad 7 fuel-drop destination — massive painted spectacle */
   private renderPad7Landmark() {
     const ctx = this.ctx;
     const pulse = 0.5 + 0.5 * Math.sin(this.frame * 0.12);
-    const sp = project({ x: PAD7_X, z: 0.5, hop: 0 }, this.stage);
-    const onScreen = sp.sx > -40 && sp.sx < W + 40;
+    // Far scaffold layer slightly behind the pad proper
+    const far = project({ x: PAD7_X + 30, z: 0.78, hop: 0 }, this.stage);
+    if (far.sx > -200 && far.sx < W + 200) {
+      blitSprite(ctx, art.sprite("pad7"), far.sx, far.sy - 20, {
+        h: 220,
+        scale: far.scale * 0.75,
+        alpha: 0.45,
+      });
+    }
+
+    const sp = project({ x: PAD7_X, z: 0.55, hop: 0 }, this.stage);
+    const onScreen = sp.sx > -120 && sp.sx < W + 120;
 
     if (onScreen) {
-      drawShadow(ctx, sp, 48);
-      const ok = blitSprite(ctx, art.sprite("pad7"), sp.sx, sp.sy - 10, {
-        h: 90,
+      // Flame-trench bloom under the spectacle
+      glow(ctx, sp.sx, sp.sy + 10, 90 * sp.scale, C.pad, 0.22 + pulse * 0.2);
+      glow(ctx, sp.sx - 40 * sp.scale, sp.sy, 50 * sp.scale, C.warn, 0.12 + pulse * 0.1);
+      drawShadow(ctx, sp, 70);
+      const ok = blitSprite(ctx, art.sprite("pad7"), sp.sx, sp.sy - 18, {
+        h: 280,
         scale: sp.scale,
       });
-      if (!ok) drawPad7(ctx, sp.sx, sp.sy, sp.scale, pulse);
+      if (!ok) drawPad7(ctx, sp.sx, sp.sy, sp.scale * 1.6, pulse);
+      // Beacon wash
+      glow(ctx, sp.sx, sp.sy - 120 * sp.scale, 55 * sp.scale, C.pad, 0.18 + pulse * 0.2);
+
       if (this.level.goalPhase === 1) {
-        glow(ctx, sp.sx, sp.sy - 40 * sp.scale, 36 * sp.scale, C.warn, 0.2 + pulse * 0.25);
         ctx.fillStyle = C.warn;
-        ctx.font = "12px 'Share Tech Mono', monospace";
+        ctx.font = "14px 'Black Ops One', sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("▼ DROP HERE", sp.sx, sp.sy - 100 * sp.scale);
+        ctx.fillText("▼ PAD 7 · FUEL DROP", sp.sx, Math.max(36, sp.sy - 155 * sp.scale));
+        ctx.font = "11px 'Share Tech Mono', monospace";
+        ctx.fillStyle = C.cyan;
+        ctx.fillText("ESCORT TARGET", sp.sx, Math.max(52, sp.sy - 138 * sp.scale));
         ctx.textAlign = "left";
       } else if (this.truck?.arrived) {
         ctx.fillStyle = C.cyan;
-        ctx.font = "11px 'Share Tech Mono', monospace";
+        ctx.font = "12px 'Share Tech Mono', monospace";
         ctx.textAlign = "center";
-        ctx.fillText("PAD 7 · SECURE", sp.sx, sp.sy - 100 * sp.scale);
+        ctx.fillText("PAD 7 · SECURE", sp.sx, Math.max(40, sp.sy - 150 * sp.scale));
         ctx.textAlign = "left";
       }
     } else if (this.level.goalPhase === 1 && sp.sx >= W) {
-      // Off-screen destination arrow — always push right toward Pad 7
       ctx.fillStyle = `rgba(244,211,94,${0.55 + pulse * 0.35})`;
       ctx.beginPath();
       ctx.moveTo(W - 28, H * 0.55);
@@ -1606,12 +1685,12 @@ export class Game {
   /** Gantry tower prop + Black Finch boarding silhouette */
   private renderGantryAndShip() {
     const ctx = this.ctx;
-    const tower = project({ x: GANTRY_START_X + 80, z: 0.72, hop: 0 }, this.stage);
-    if (tower.sx > -60 && tower.sx < W + 60) {
-      blitSprite(ctx, art.sprite("gantry-tower"), tower.sx, tower.sy - 40, {
-        h: 160,
-        scale: tower.scale * 0.85,
-        alpha: 0.9,
+    const tower = project({ x: GANTRY_START_X + 60, z: 0.7, hop: 0 }, this.stage);
+    if (tower.sx > -100 && tower.sx < W + 100) {
+      blitSprite(ctx, art.sprite("gantry-tower"), tower.sx, tower.sy - 30, {
+        h: 260,
+        scale: tower.scale,
+        alpha: 0.95,
       });
     }
 

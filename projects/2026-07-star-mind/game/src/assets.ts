@@ -27,7 +27,11 @@ export type SpriteId =
   | "prop-crate-near"
   | "prop-gantry-near"
   | "pad7"
-  | "gantry-tower";
+  | "gantry-tower"
+  | "wreck-starship"
+  | "wreck-dragon"
+  | "wreck-booster"
+  | "cybertruck";
 
 export type BgId = "l1-sky" | "l1-mid" | "l2-ascent" | "l3-void" | "title-hero";
 
@@ -57,7 +61,11 @@ const SPRITE_FILES: Record<SpriteId, string> = {
   "prop-crate-near": "props/prop-crate-near.png",
   "prop-gantry-near": "props/prop-gantry-near.png",
   pad7: "sprites/pad7.png",
-  "gantry-tower": "sprites/gantry-tower.png",
+  "gantry-tower": "props/gantry-spectacle.png",
+  "wreck-starship": "props/wreck-starship.png",
+  "wreck-dragon": "props/wreck-dragon.png",
+  "wreck-booster": "props/wreck-booster.png",
+  cybertruck: "props/cybertruck.png",
 };
 
 const BG_FILES: Record<BgId, string> = {
