@@ -29,12 +29,14 @@ Avoid: purple-indigo AI cliché glow-fest, cream+terracotta editorial look, flat
 - **L2:** Vertical gradient navy→black, cloud decks, plume bloom, sun rim  
 - **L3:** Earth crescent, gold solar blades, hard vacuum shadows, cyan glyphs  
 
-## Character sheets (prototype draw rules)
+## Character sheets (2.5D authored)
 
-- Ash: bone suit, pad-orange accents, dark webbing, scar tick on face  
-- Null Drone: cyan eye + dark hex body  
-- Pad Reaper: rust crane + cyan infection veins  
-- Star Mind Prime: concentric rings, petal shields, cyan core  
+- **Viewpoint:** three-quarter toward camera-right — never pure orthographic side
+- Ash: bone suit, pad-orange accents, dark webbing, scar; clips idle/walk/shoot/jump (+ EVA thrust)
+- Enemies/bosses: multi-frame hover/walk/attack/phase clips in `public/art/anim/`
+- Near-camera props reinforce the ground deck (crates, gantry lips)
+
+See [`art-25d-anim.md`](art-25d-anim.md). 
 
 ## Motion language
 
