@@ -30,7 +30,7 @@ Hits require **Z overlap** (lane slack ~0.2–0.28) plus X/hop proximity. Strafi
 
 ## Per level
 
-- **L1:** Escort truck on matching depth · gantry platforms have Z+hop · Pad Reaper
+- **L1:** Escort truck to visible **Pad 7** · walk-right gantry stairs · board Black Finch (Pad Reaper on the tower)
 - **L2:** Trajectory gates and circ rings sit on depth lanes · Seraph mirrors your Z
 - **L3:** Free-fly X/Z + hop thrust · spines placed across depth space
 

@@ -12,8 +12,10 @@ Brainstorm defaults elsewhere stay locked (Ash, defense-runaway lore, Pad Reaper
 
 | Phase | Goal | Fun beat |
 |-------|------|----------|
-| **A** | **Escort the fuel truck to Pad 7** | Rolling Metal Slug convoy: stay near the rig, peel drones/crabs, truck has HP |
-| **B** | **Climb the gantry tower · board BLACK FINCH** | Vertical shift after pad arrival; platforms + Pad Reaper on the tower |
+| **A** | **Escort the fuel truck to Pad 7** | Rolling Metal Slug convoy: stay near the rig, peel drones/crabs, truck has HP; lit **Pad 7** drop is the destination |
+| **B** | **Climb the gantry tower · board BLACK FINCH** | After pad arrival: keep walking **right** up gantry decks (Space to hop), fight Pad Reaper, board the Finch |
+
+HUD cues: distance-to-Pad-7 while escorting; `CLIMB RIGHT →` / `BOARD FINCH →` after unlock. Default progress direction is always **right**.
 
 ### Alternates (parked)
 

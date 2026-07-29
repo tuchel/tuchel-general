@@ -357,3 +357,94 @@ export function drawCircRing(
   if (!hit) glow(ctx, 0, 0, 30, C.cyan, 0.3);
   ctx.restore();
 }
+
+/** Pad 7 fuel-drop destination (procedural fallback) */
+export function drawPad7(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  scale: number,
+  pulse: number,
+) {
+  const s = scale;
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  glow(ctx, 0, -20 * s, 50 * s, C.pad, 0.25 + pulse * 0.2);
+  // plate
+  ctx.fillStyle = C.metal;
+  ctx.strokeStyle = C.pad;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-70 * s, 8 * s);
+  ctx.lineTo(70 * s, 8 * s);
+  ctx.lineTo(52 * s, -36 * s);
+  ctx.lineTo(-52 * s, -36 * s);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = C.soot;
+  ctx.beginPath();
+  ctx.moveTo(-40 * s, 0);
+  ctx.lineTo(40 * s, 0);
+  ctx.lineTo(28 * s, -24 * s);
+  ctx.lineTo(-28 * s, -24 * s);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = C.cyan;
+  ctx.beginPath();
+  ctx.ellipse(0, -12 * s, 18 * s, 10 * s, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  rr(ctx, -6 * s, -16 * s, 12 * s, 8 * s, C.pad);
+  // beacons
+  for (const bx of [-58, 58]) {
+    rr(ctx, (bx - 4) * s, -70 * s, 8 * s, 70 * s, C.metalLite, C.soot);
+    glow(ctx, bx * s, -74 * s, 12 * s, C.pad, 0.45 + pulse * 0.35);
+    rr(ctx, (bx - 5) * s, -80 * s, 10 * s, 10 * s, C.warn);
+  }
+  ctx.fillStyle = C.bone;
+  ctx.font = `${Math.round(14 * s)}px 'Black Ops One', sans-serif`;
+  ctx.textAlign = "center";
+  ctx.fillText("PAD 7", 0, -88 * s);
+  ctx.fillStyle = C.warn;
+  ctx.font = `${Math.round(9 * s)}px 'Share Tech Mono', monospace`;
+  ctx.fillText("FUEL DROP", 0, -74 * s);
+  ctx.textAlign = "left";
+  ctx.restore();
+}
+
+/** Gantry stair decks — thick painted platforms with climb chevrons */
+export function drawGantryDeck(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  scale: number,
+  label?: string,
+) {
+  const s = scale;
+  const hw = (w * s) / 2;
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  rr(ctx, -hw, -6 * s, hw * 2, 12 * s, C.metal, C.pad);
+  rr(ctx, -hw, -18 * s, 5 * s, 14 * s, C.metalLite);
+  rr(ctx, hw - 5 * s, -18 * s, 5 * s, 14 * s, C.metalLite);
+  // rightward climb chevrons
+  ctx.fillStyle = C.warn;
+  for (let i = -2; i <= 1; i++) {
+    const cx = i * 18 * s;
+    ctx.beginPath();
+    ctx.moveTo(cx, -2 * s);
+    ctx.lineTo(cx + 10 * s, 2 * s);
+    ctx.lineTo(cx, 6 * s);
+    ctx.closePath();
+    ctx.fill();
+  }
+  if (label) {
+    ctx.fillStyle = C.cyan;
+    ctx.font = `${Math.round(10 * s)}px 'Share Tech Mono', monospace`;
+    ctx.textAlign = "center";
+    ctx.fillText(label, 0, -24 * s);
+    ctx.textAlign = "left";
+  }
+  ctx.restore();
+}
