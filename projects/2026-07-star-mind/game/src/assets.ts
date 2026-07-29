@@ -123,6 +123,7 @@ export function blitSprite(
     facing?: 1 | -1;
     h?: number;
     w?: number;
+    scale?: number;
     alpha?: number;
     bob?: number;
     flash?: boolean;
@@ -130,7 +131,9 @@ export function blitSprite(
 ) {
   if (!img) return false;
   const facing = opts.facing ?? 1;
-  const targetH = opts.h ?? Math.min(72, img.height);
+  const baseH = opts.h ?? Math.min(72, img.height);
+  const s = opts.scale ?? 1;
+  const targetH = baseH * s;
   const scale = targetH / img.height;
   const dw = opts.w ?? img.width * scale;
   const dh = targetH;
