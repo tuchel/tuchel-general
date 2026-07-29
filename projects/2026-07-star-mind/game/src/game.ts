@@ -233,6 +233,7 @@ export class Game {
   private running = false;
   private stinger = false;
   private camLean = 0;
+  private walkDustLatch = -1;
 
   constructor(canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -284,14 +285,36 @@ export class Game {
   }
 
   private drivePlayerAnim(dt: number) {
-    tickAnim(this.player.anim, dt);
     const p = this.player;
+    const groundedWalk =
+      p.kind === "ground" &&
+      !!p.grounded &&
+      (Math.abs(p.vx) > 18 || Math.abs(p.vz) > 0.04);
+
+    if (groundedWalk) {
+      // Distance-synced stride — stops the "ice skate" glide
+      if (p.anim.lockedUntil > 0) {
+        p.anim.lockedUntil = Math.max(0, p.anim.lockedUntil - dt);
+      }
+      if (p.anim.clip !== "walk") {
+        playAnim(p.anim, "walk");
+      }
+      const clip = CLIPS.ash?.walk;
+      const speed = Math.hypot(p.vx, p.vz * 150);
+      // ~56 world-units per full cycle ≈ heavy Metal Slug boot stride
+      const cyclesPerSec = speed / 56;
+      const cycleDur = clip ? clip.frames.length / clip.fps : 1;
+      p.anim.time += cyclesPerSec * cycleDur * dt;
+    } else {
+      tickAnim(p.anim, dt);
+    }
+
     if (p.shooting) {
       playAnim(p.anim, "shoot", 0.18);
       if (p.anim.lockedUntil <= 0 && p.anim.clip === "shoot") p.shooting = false;
     } else if (p.kind === "ground") {
       if (!p.grounded) playAnim(p.anim, "jump");
-      else if (Math.abs(p.vx) > 20 || Math.abs(p.vz) > 0.05) playAnim(p.anim, "walk");
+      else if (groundedWalk) playAnim(p.anim, "walk");
       else playAnim(p.anim, "idle");
     } else if (p.kind === "ship") {
       if (this.shipThrust > 0.5) playAnim(p.anim, "thrust");
@@ -299,6 +322,20 @@ export class Game {
     } else {
       if (Math.abs(p.vx) + Math.abs(p.vz) + Math.abs(p.vHop) > 40) playAnim(p.anim, "thrust");
       else playAnim(p.anim, "idle");
+    }
+
+    // Foot-plant dust on contact frames
+    if (groundedWalk && p.anim.clip === "walk") {
+      const clip = CLIPS.ash?.walk;
+      const idx = animFrameIndex(p.anim, clip);
+      if ((idx === 0 || idx === 4) && this.walkDustLatch !== idx) {
+        this.walkDustLatch = idx;
+        this.burst(p.x - p.facing * 6, p.z, 0, C.metal, 4);
+      } else if (idx !== 0 && idx !== 4) {
+        this.walkDustLatch = -1;
+      }
+    } else {
+      this.walkDustLatch = -1;
     }
   }
 
@@ -2140,12 +2177,27 @@ export class Game {
             glow(ctx, sp.sx - 30 * sp.scale, sp.sy, 14 * sp.scale, C.pad, 0.45);
           }
         } else {
+          const walking =
+            this.player.kind === "ground" &&
+            this.player.grounded &&
+            this.player.anim.clip === "walk";
+          let bob = this.player.kind === "eva" ? Math.sin(this.frame * 0.2) * 2 : 0;
+          if (walking) {
+            const clip = CLIPS.ash?.walk;
+            const phase =
+              clip && clip.frames.length
+                ? ((this.player.anim.time * clip.fps) % clip.frames.length) / clip.frames.length
+                : 0;
+            // Two steps per cycle: lift on pass, plant on contact
+            bob = -Math.abs(Math.sin(phase * Math.PI * 2)) * 4.5 * sp.scale;
+          }
           const ok = blitSprite(ctx, this.animImage(this.player), sp.sx, sp.sy, {
             facing: this.player.facing,
             h: this.player.kind === "eva" ? 84 : 78,
             scale: sp.scale,
             alpha: inv ? 0.4 : 1,
-            bob: this.player.kind === "eva" ? Math.sin(this.frame * 0.2) * 2 : 0,
+            bob,
+            anchor: this.player.kind === "ground" ? "feet" : "center",
           });
           if (!ok) {
             drawAsh(
