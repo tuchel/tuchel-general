@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react'
-import { WhaleMap, type HexHover } from './components/WhaleMap'
+import { WhaleMap, type HeatScale, type HexHover } from './components/WhaleMap'
 import { SeasonGrid } from './components/SeasonGrid'
 import { HourStrip } from './components/HourStrip'
 import { ConditionsPanel } from './components/ConditionsPanel'
@@ -47,6 +47,7 @@ export default function App() {
   const [showScatter, setShowScatter] = useState(false)
   const [showHydros, setShowHydros] = useState(true)
   const [hexHover, setHexHover] = useState<HexHover | null>(null)
+  const [heatScale, setHeatScale] = useState<HeatScale | null>(null)
   const [selectedHotspot, setSelectedHotspot] = useState<string | null>('haro-west-side')
   const [panel, setPanel] = useState<'plan' | 'live' | 'ideas'>('live')
 
@@ -189,14 +190,35 @@ export default function App() {
             meta={meta}
             onHexHover={setHexHover}
             onSelectHotspot={setSelectedHotspot}
+            onHeatScale={setHeatScale}
             selectedHotspot={selectedHotspot}
           />
           <div className="map-legend">
-            <span className="swatch heat" /> {effortBias ? 'Effort-adjusted density' : 'Raw report density'}
-            <span className="swatch recent" /> Recent pin
-            <span className="swatch hotspot" /> Corridor
-            <span className="swatch hydro" /> Hydrophone
-            <span className="swatch launch" /> Launch
+            <div className="heat-scale" aria-label="Sighting density scale">
+              <div className="heat-scale-bar" />
+              <div className="heat-scale-labels">
+                <span>Low</span>
+                <span>Mid</span>
+                <span>Hot</span>
+              </div>
+              <p>
+                {effortBias ? 'Effort-adjusted' : 'Raw reports'} · stretched by rank among{' '}
+                {heatScale?.positiveCells ?? '—'} cells
+                {heatScale
+                  ? ` · peak ${
+                      effortBias
+                        ? `index ${heatScale.maxScore.toFixed(1)}`
+                        : `${heatScale.maxRaw} reports`
+                    }`
+                  : ''}
+              </p>
+            </div>
+            <div className="legend-marks">
+              <span className="swatch recent" /> Recent
+              <span className="swatch hotspot" /> Corridor
+              <span className="swatch hydro" /> Hydro
+              <span className="swatch launch" /> Launch
+            </div>
           </div>
           {hexHover && hexHover.score > 0 && (
             <div className="hex-tooltip">
@@ -205,7 +227,7 @@ export default function App() {
                   ? `Index ${hexHover.score.toFixed(1)} (${hexHover.raw} reports)`
                   : `${hexHover.raw} report${hexHover.raw === 1 ? '' : 's'}`}
               </strong>{' '}
-              for current filters
+              · top {Math.max(1, Math.round(100 - hexHover.rank))}% of cells
               <span>
                 {hexHover.lat.toFixed(2)}°N {Math.abs(hexHover.lon).toFixed(2)}°W · cell effort{' '}
                 {hexHover.total} all-time
