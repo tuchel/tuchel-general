@@ -49,7 +49,8 @@ export default function App() {
   const [hexHover, setHexHover] = useState<HexHover | null>(null)
   const [heatScale, setHeatScale] = useState<HeatScale | null>(null)
   const [selectedHotspot, setSelectedHotspot] = useState<string | null>('haro-west-side')
-  const [panel, setPanel] = useState<'plan' | 'live' | 'ideas'>('live')
+  const [panel, setPanel] = useState<'filters' | 'live' | 'plan' | 'ideas'>('filters')
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   const [tides, setTides] = useState<TideSnapshot | null>(null)
   const [wind, setWind] = useState<WindSnapshot | null>(null)
@@ -113,9 +114,19 @@ export default function App() {
     }
   }, [])
 
+  useEffect(() => {
+    const onResize = () => window.dispatchEvent(new Event('resize'))
+    const t = window.setTimeout(onResize, 320)
+    return () => window.clearTimeout(t)
+  }, [sheetOpen])
+
   const labels = meta?.speciesLabels || {}
   const activeHotspot = hotspots.find((h) => h.id === selectedHotspot) || null
-  const monthLabel = month === 'all' ? 'All months' : MONTHS[month - 1]
+  const monthLabel = month === 'all' ? 'All year' : MONTHS[month - 1]
+  const recentCount = meta?.counts.recentInBbox ?? 0
+  const hydroHot = hydro?.feeds.some((f) => f.pulse === 'hot') ?? false
+  const gateLabel =
+    wind?.gate === 'go' ? 'Go' : wind?.gate === 'caution' ? 'Caution' : wind?.gate === 'no-go' ? 'No-go' : '…'
 
   const toggleSpecies = (sp: SpeciesKey) => {
     setSpecies((prev) => {
@@ -133,248 +144,320 @@ export default function App() {
     if (kind === 'all-orca') setSpecies(new Set(['srkw', 'biggs', 'orca_unspecified']))
   }
 
-  const recentCount = meta?.counts.recentInBbox ?? 0
-  const hydroHot = hydro?.feeds.some((f) => f.pulse === 'hot') ?? false
+  const openPanel = (id: typeof panel) => {
+    setPanel(id)
+    setSheetOpen(true)
+  }
 
   return (
-    <div className="app">
-      <div className="sea-wash" aria-hidden />
-      <header className="top">
-        <div className="brand-block">
-          <p className="brand">San Juan Whale Odds</p>
-          <h1>Where should the boat go?</h1>
-          <p className="lede">
-            Historical density, live Acartia pins, tides, wind gate, and OrcaSound pulses — filtered
-            by species and month so a rental group can sit in productive water without chasing.
-          </p>
+    <div className={`app ${sheetOpen ? 'sheet-open' : ''}`}>
+      <div className="atmosphere" aria-hidden>
+        <div className="mist mist-a" />
+        <div className="mist mist-b" />
+        <div className="grain" />
+      </div>
+
+      <div className="map-stage">
+        <WhaleMap
+          month={month}
+          species={species}
+          showHabitat={showHabitat}
+          showHotspots={showHotspots}
+          showLaunches={showLaunches}
+          showRecent={showRecent}
+          showScatter={showScatter}
+          showHydros={showHydros}
+          effortBias={effortBias}
+          viewMode={viewMode}
+          windGate={wind?.gate ?? null}
+          hydroFeeds={hydro?.feeds ?? []}
+          hotspots={hotspots}
+          launches={launches}
+          meta={meta}
+          onHexHover={setHexHover}
+          onSelectHotspot={(id) => {
+            setSelectedHotspot(id)
+            openPanel('plan')
+          }}
+          onHeatScale={setHeatScale}
+          selectedHotspot={selectedHotspot}
+          layoutKey={sheetOpen ? 'open' : 'closed'}
+        />
+
+        <div className="chrome-left">
+          <header className="brand-float">
+            <p className="brand">San Juan Whale Odds</p>
+            <p className="tagline">Where should the boat go?</p>
+          </header>
+
+          <div className="status-float" aria-label="Live status">
+            <div className="status-chip">
+              <em>{meta?.counts.historicalInBbox.toLocaleString() ?? '—'}</em>
+              <span>reports</span>
+            </div>
+            <div className="status-chip">
+              <em>{recentCount}</em>
+              <span>recent</span>
+            </div>
+            <div className={`status-chip gate-${wind?.gate || 'unknown'}`}>
+              <em>{gateLabel}</em>
+              <span>wind</span>
+            </div>
+            <div className={`status-chip ${hydroHot ? 'pulse' : ''}`}>
+              <em>{hydroHot ? 'Calls' : 'Quiet'}</em>
+              <span>hydro</span>
+            </div>
+          </div>
         </div>
-        <aside className="stat-rail" aria-label="Dataset snapshot">
-          <div>
-            <strong>{meta?.counts.historicalInBbox.toLocaleString() ?? '—'}</strong>
-            <span>historical reports in view</span>
+
+        <div className="map-legend">
+          <div className="heat-scale" aria-label="Sighting density scale">
+            <div className="heat-scale-bar" />
+            <div className="heat-scale-labels">
+              <span>Low</span>
+              <span>Mid</span>
+              <span>Hot</span>
+            </div>
+            <p>
+              {effortBias ? 'Effort-adjusted' : 'Raw'} · {heatScale?.positiveCells ?? '—'} cells
+              {heatScale
+                ? ` · peak ${
+                    effortBias ? heatScale.maxScore.toFixed(1) : `${heatScale.maxRaw} reports`
+                  }`
+                : ''}
+            </p>
           </div>
-          <div>
-            <strong>{recentCount}</strong>
-            <span>recent Acartia pins</span>
-          </div>
-          <div>
-            <strong className={wind ? `gate-text-${wind.gate}` : ''}>
-              {wind?.gate === 'go' ? 'Go' : wind?.gate === 'caution' ? 'Caution' : wind?.gate === 'no-go' ? 'No-go' : '…'}
+        </div>
+
+        {hexHover && hexHover.score > 0 && (
+          <div className="hex-tooltip">
+            <strong>
+              {effortBias
+                ? `Index ${hexHover.score.toFixed(1)} · ${hexHover.raw} reports`
+                : `${hexHover.raw} report${hexHover.raw === 1 ? '' : 's'}`}
             </strong>
-            <span>Haro wind gate</span>
+            <span>
+              Top {Math.max(1, Math.round(100 - hexHover.rank))}% · {hexHover.lat.toFixed(2)}°N{' '}
+              {Math.abs(hexHover.lon).toFixed(2)}°W
+            </span>
           </div>
-          <div>
-            <strong className={hydroHot ? 'pulse-hot-text' : ''}>{hydroHot ? 'Calls' : 'Quiet'}</strong>
-            <span>San Juan hydrophones</span>
+        )}
+
+        {wind?.gate === 'no-go' && (
+          <div className="wind-banner no-go">No-go for open Haro — {wind.gateNote}</div>
+        )}
+        {wind?.gate === 'caution' && (
+          <div className="wind-banner caution">Caution — {wind.gateNote}</div>
+        )}
+
+        <button
+          type="button"
+          className="sheet-launch"
+          onClick={() => setSheetOpen(true)}
+          aria-expanded={sheetOpen}
+        >
+          <span className="sheet-launch-label">Plan the day</span>
+          <span className="sheet-launch-meta">
+            {monthLabel} · {viewMode}
+          </span>
+        </button>
+      </div>
+
+      {sheetOpen && (
+        <button
+          type="button"
+          className="sheet-scrim"
+          aria-label="Close panel"
+          onClick={() => setSheetOpen(false)}
+        />
+      )}
+
+      <aside className={`sheet ${sheetOpen ? 'open' : ''}`} aria-label="Trip controls">
+        <div className="sheet-handle-wrap">
+          <button
+            type="button"
+            className="sheet-handle"
+            aria-label={sheetOpen ? 'Collapse panel' : 'Expand panel'}
+            onClick={() => setSheetOpen((v) => !v)}
+          >
+            <span />
+          </button>
+          <div className="sheet-head">
+            <div>
+              <p className="sheet-kicker">Boat day</p>
+              <h2>Tune the odds</h2>
+            </div>
+            <button type="button" className="sheet-close" onClick={() => setSheetOpen(false)}>
+              Close
+            </button>
           </div>
-        </aside>
-      </header>
+        </div>
 
-      <main className="workspace">
-        <section className="map-panel">
-          <WhaleMap
-            month={month}
-            species={species}
-            showHabitat={showHabitat}
-            showHotspots={showHotspots}
-            showLaunches={showLaunches}
-            showRecent={showRecent}
-            showScatter={showScatter}
-            showHydros={showHydros}
-            effortBias={effortBias}
-            viewMode={viewMode}
-            windGate={wind?.gate ?? null}
-            hydroFeeds={hydro?.feeds ?? []}
-            hotspots={hotspots}
-            launches={launches}
-            meta={meta}
-            onHexHover={setHexHover}
-            onSelectHotspot={setSelectedHotspot}
-            onHeatScale={setHeatScale}
-            selectedHotspot={selectedHotspot}
-          />
-          <div className="map-legend">
-            <div className="heat-scale" aria-label="Sighting density scale">
-              <div className="heat-scale-bar" />
-              <div className="heat-scale-labels">
-                <span>Low</span>
-                <span>Mid</span>
-                <span>Hot</span>
-              </div>
-              <p>
-                {effortBias ? 'Effort-adjusted' : 'Raw reports'} · stretched by rank among{' '}
-                {heatScale?.positiveCells ?? '—'} cells
-                {heatScale
-                  ? ` · peak ${
-                      effortBias
-                        ? `index ${heatScale.maxScore.toFixed(1)}`
-                        : `${heatScale.maxRaw} reports`
-                    }`
-                  : ''}
-              </p>
-            </div>
-            <div className="legend-marks">
-              <span className="swatch recent" /> Recent
-              <span className="swatch hotspot" /> Corridor
-              <span className="swatch hydro" /> Hydro
-              <span className="swatch launch" /> Launch
-            </div>
-          </div>
-          {hexHover && hexHover.score > 0 && (
-            <div className="hex-tooltip">
-              <strong>
-                {effortBias
-                  ? `Index ${hexHover.score.toFixed(1)} (${hexHover.raw} reports)`
-                  : `${hexHover.raw} report${hexHover.raw === 1 ? '' : 's'}`}
-              </strong>{' '}
-              · top {Math.max(1, Math.round(100 - hexHover.rank))}% of cells
-              <span>
-                {hexHover.lat.toFixed(2)}°N {Math.abs(hexHover.lon).toFixed(2)}°W · cell effort{' '}
-                {hexHover.total} all-time
-              </span>
-            </div>
-          )}
-          {wind?.gate === 'no-go' && (
-            <div className="wind-banner no-go">Wind gate: no-go for open Haro — {wind.gateNote}</div>
-          )}
-          {wind?.gate === 'caution' && (
-            <div className="wind-banner caution">Wind gate: caution — {wind.gateNote}</div>
-          )}
-        </section>
-
-        <aside className="side">
-          <div className="control-card">
-            <div className="field">
-              <span>View mode</span>
-              <div className="mode-row">
-                {(
-                  [
-                    ['balanced', 'Balanced'],
-                    ['climatology', 'Climatology'],
-                    ['nowcast', 'Nowcast'],
-                  ] as const
-                ).map(([id, label]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    className={viewMode === id ? 'on' : ''}
-                    onClick={() => setViewMode(id)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <p className="bound-note">
-                Climatology = multi-year hexes · Nowcast = Acartia + hydrophones · Balanced keeps both.
-              </p>
-            </div>
-
-            <label className="field">
-              <span>Month</span>
-              <input
-                type="range"
-                min={0}
-                max={12}
-                value={month === 'all' ? 0 : month}
-                onChange={(e) => {
-                  const v = Number(e.target.value)
-                  setMonth(v === 0 ? 'all' : v)
-                }}
-              />
-              <div className="range-meta">
-                <span>All year</span>
-                <strong>{monthLabel}</strong>
-                <span>Dec</span>
-              </div>
-            </label>
-
-            <div className="field">
-              <span>Species / ecotype</span>
-              <div className="preset-row">
-                <button type="button" onClick={() => presetEcotype('residents')}>
-                  Residents
-                </button>
-                <button type="button" onClick={() => presetEcotype('biggs')}>
-                  Bigg’s
-                </button>
-                <button type="button" onClick={() => presetEcotype('mysticetes')}>
-                  Humpback+
-                </button>
-                <button type="button" onClick={() => presetEcotype('all-orca')}>
-                  All orca
-                </button>
-              </div>
-              <div className="chips">
-                {SPECIES_ORDER.map((sp) => (
-                  <button
-                    key={sp}
-                    type="button"
-                    className={`chip ${species.has(sp) ? 'on' : ''}`}
-                    style={{ '--chip': SPECIES_COLOR[sp] } as CSSProperties}
-                    onClick={() => toggleSpecies(sp)}
-                  >
-                    {labels[sp] || sp}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="field layers">
-              <span>Layers & scoring</span>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={effortBias}
-                  onChange={(e) => setEffortBias(e.target.checked)}
-                />
-                Effort-bias correction (down-weight busy watch water)
-              </label>
-              <label>
-                <input type="checkbox" checked={showRecent} onChange={(e) => setShowRecent(e.target.checked)} />
-                Recent Acartia sightings
-              </label>
-              <label>
-                <input type="checkbox" checked={showHydros} onChange={(e) => setShowHydros(e.target.checked)} />
-                OrcaSound hydrophones
-              </label>
-              <label>
-                <input type="checkbox" checked={showHotspots} onChange={(e) => setShowHotspots(e.target.checked)} />
-                Named corridors
-              </label>
-              <label>
-                <input type="checkbox" checked={showLaunches} onChange={(e) => setShowLaunches(e.target.checked)} />
-                Launch points
-              </label>
-              <label>
-                <input type="checkbox" checked={showHabitat} onChange={(e) => setShowHabitat(e.target.checked)} />
-                NOAA SRKW critical habitat
-              </label>
-              <label>
-                <input type="checkbox" checked={showScatter} onChange={(e) => setShowScatter(e.target.checked)} />
-                Individual historical points
-              </label>
-            </div>
-
+        <nav className="sheet-tabs" aria-label="Panel sections">
+          {(
+            [
+              ['filters', 'Filters'],
+              ['live', 'Live'],
+              ['plan', 'Plan'],
+              ['ideas', 'Ideas'],
+            ] as const
+          ).map(([id, label]) => (
             <button
+              key={id}
               type="button"
-              className="gpx-btn"
-              onClick={() => downloadHotspotsGpx(hotspots, launches)}
+              className={panel === id ? 'on' : ''}
+              onClick={() => openPanel(id)}
             >
-              Download corridors + launches (GPX)
+              {label}
             </button>
-          </div>
+          ))}
+        </nav>
 
-          <div className="tabs three">
-            <button type="button" className={panel === 'live' ? 'on' : ''} onClick={() => setPanel('live')}>
-              Live
-            </button>
-            <button type="button" className={panel === 'plan' ? 'on' : ''} onClick={() => setPanel('plan')}>
-              Trip plan
-            </button>
-            <button type="button" className={panel === 'ideas' ? 'on' : ''} onClick={() => setPanel('ideas')}>
-              Data ideas
-            </button>
-          </div>
+        <div className="sheet-body">
+          {panel === 'filters' && (
+            <div className="panel-block">
+              <div className="field">
+                <span>View mode</span>
+                <div className="seg">
+                  {(
+                    [
+                      ['balanced', 'Balanced'],
+                      ['climatology', 'History'],
+                      ['nowcast', 'Now'],
+                    ] as const
+                  ).map(([id, label]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className={viewMode === id ? 'on' : ''}
+                      onClick={() => setViewMode(id)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="hint">History = multi-year hexes · Now = Acartia + hydrophones</p>
+              </div>
+
+              <label className="field">
+                <span>Month</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={12}
+                  value={month === 'all' ? 0 : month}
+                  onChange={(e) => {
+                    const v = Number(e.target.value)
+                    setMonth(v === 0 ? 'all' : v)
+                  }}
+                />
+                <div className="range-meta">
+                  <span>All year</span>
+                  <strong>{monthLabel}</strong>
+                  <span>Dec</span>
+                </div>
+              </label>
+
+              <div className="field">
+                <span>Species</span>
+                <div className="seg wrap">
+                  <button type="button" onClick={() => presetEcotype('residents')}>
+                    Residents
+                  </button>
+                  <button type="button" onClick={() => presetEcotype('biggs')}>
+                    Bigg’s
+                  </button>
+                  <button type="button" onClick={() => presetEcotype('mysticetes')}>
+                    Humpback+
+                  </button>
+                  <button type="button" onClick={() => presetEcotype('all-orca')}>
+                    All orca
+                  </button>
+                </div>
+                <div className="chips">
+                  {SPECIES_ORDER.map((sp) => (
+                    <button
+                      key={sp}
+                      type="button"
+                      className={`chip ${species.has(sp) ? 'on' : ''}`}
+                      style={{ '--chip': SPECIES_COLOR[sp] } as CSSProperties}
+                      onClick={() => toggleSpecies(sp)}
+                    >
+                      {labels[sp] || sp}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="field layers">
+                <span>Layers</span>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={effortBias}
+                    onChange={(e) => setEffortBias(e.target.checked)}
+                  />
+                  Effort-bias correction
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={showRecent}
+                    onChange={(e) => setShowRecent(e.target.checked)}
+                  />
+                  Recent Acartia sightings
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={showHydros}
+                    onChange={(e) => setShowHydros(e.target.checked)}
+                  />
+                  OrcaSound hydrophones
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={showHotspots}
+                    onChange={(e) => setShowHotspots(e.target.checked)}
+                  />
+                  Named corridors
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={showLaunches}
+                    onChange={(e) => setShowLaunches(e.target.checked)}
+                  />
+                  Launch points
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={showHabitat}
+                    onChange={(e) => setShowHabitat(e.target.checked)}
+                  />
+                  NOAA SRKW habitat
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={showScatter}
+                    onChange={(e) => setShowScatter(e.target.checked)}
+                  />
+                  Individual points
+                </label>
+              </div>
+
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => downloadHotspotsGpx(hotspots, launches)}
+              >
+                Download GPX waypoints
+              </button>
+            </div>
+          )}
 
           {panel === 'live' && (
             <ConditionsPanel
@@ -389,8 +472,8 @@ export default function App() {
 
           {panel === 'plan' && (
             <>
-              <div className="control-card">
-                <h2>Named water</h2>
+              <div className="panel-block">
+                <h3>Named water</h3>
                 <ul className="hotspot-list">
                   {hotspots.map((h) => (
                     <li key={h.id}>
@@ -417,8 +500,8 @@ export default function App() {
                 )}
               </div>
 
-              <div className="control-card">
-                <h2>Seasonality</h2>
+              <div className="panel-block">
+                <h3>Seasonality</h3>
                 <SeasonGrid
                   data={seasonality}
                   labels={labels}
@@ -433,8 +516,8 @@ export default function App() {
               </div>
 
               {etiquette && (
-                <div className="control-card etiquette">
-                  <h2>{etiquette.title}</h2>
+                <div className="panel-block etiquette">
+                  <h3>{etiquette.title}</h3>
                   <ul>
                     {etiquette.rules.map((r) => (
                       <li key={r}>{r}</li>
@@ -449,63 +532,40 @@ export default function App() {
           )}
 
           {panel === 'ideas' && (
-            <div className="control-card ideas">
-              <h2>How this data is pulled</h2>
+            <div className="panel-block ideas">
+              <h3>How the data is pulled</h3>
               <article>
-                <h3>Climatology vs nowcast</h3>
+                <h4>Climatology vs nowcast</h4>
+                <p>Hexes from SalishSea.io; rings from Acartia. Mode toggle chooses which leads.</p>
+              </article>
+              <article>
+                <h4>Ecotype split</h4>
                 <p>
-                  Hexes from SalishSea.io DWCA; rings from Acartia current. Mode toggle changes which
-                  layer leads.
+                  Southern Residents along Haro salmon water; Bigg’s near Cattle Pass seal haul-outs.
                 </p>
               </article>
               <article>
-                <h3>Ecotype split</h3>
-                <p>
-                  `ater` → Southern Resident, `rectipinnus` → Bigg’s. Presets jump the species chips.
-                </p>
+                <h4>Tide + wind</h4>
+                <p>NOAA Friday Harbor tides and Open-Meteo mid-Haro wind gate the small-boat day.</p>
               </article>
               <article>
-                <h3>Tide + wind gates</h3>
-                <p>
-                  NOAA CO-OPS Friday Harbor highs/lows + Open-Meteo 10 m wind / waves at mid-Haro.
-                  Gate dims the basemap when gusts get sporty.
-                </p>
+                <h4>OrcaSound</h4>
+                <p>Lab + North San Juan Channel pulses when whale-category detections land.</p>
               </article>
               <article>
-                <h3>OrcaSound pulse</h3>
-                <p>
-                  Live feeds API for Orcasound Lab + North San Juan Channel; whale-category detections
-                  in the last 2h / 12h drive the pulse.
-                </p>
+                <h4>Effort bias</h4>
+                <p>Busy Lime Kiln cells lose weight versus quieter water with the same counts.</p>
               </article>
-              <article>
-                <h3>Effort-bias correction</h3>
-                <p>
-                  Score = filtered reports × median_effort / (cell_total + 0.5×median). Busy Lime Kiln
-                  cells lose weight vs quieter water with the same counts.
-                </p>
-              </article>
-              <article>
-                <h3>GPX export</h3>
-                <p>Corridors + launches as waypoints for phone / plotter — with a do-not-chase note.</p>
-              </article>
-              <p className="meta-line">
-                Details in <code>notes/data-ideas.md</code> and <code>notes/sources.md</code>.
-              </p>
             </div>
           )}
-        </aside>
-      </main>
 
-      <footer className="foot">
-        <p>
-          Density is opportunistic (effort-biased toward popular water and fair weather), not a
-          probability of whales on your day. Built{' '}
-          {meta ? new Date(meta.builtAt).toUTCString() : '—'}. Live tides/wind/hydro refresh every 5
-          minutes in the browser. Sources: {meta?.sources.map((s) => s.name).join(' · ')} · NOAA
-          CO-OPS · Open-Meteo · OrcaSound.
-        </p>
-      </footer>
+          <p className="sheet-footnote">
+            Opportunistic sightings, not a guarantee. Built{' '}
+            {meta ? new Date(meta.builtAt).toLocaleDateString() : '—'}. Sources refresh live every 5
+            minutes.
+          </p>
+        </div>
+      </aside>
     </div>
   )
 }

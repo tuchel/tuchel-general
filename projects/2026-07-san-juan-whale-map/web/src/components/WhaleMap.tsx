@@ -40,6 +40,7 @@ type Props = {
   onSelectHotspot: (id: string | null) => void
   onHeatScale: (scale: HeatScale | null) => void
   selectedHotspot: string | null
+  layoutKey?: string
 }
 
 export type HexHover = {
@@ -134,6 +135,7 @@ export function WhaleMap({
   onSelectHotspot,
   onHeatScale,
   selectedHotspot,
+  layoutKey = 'default',
 }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MLMap | null>(null)
@@ -162,10 +164,10 @@ export function WhaleMap({
             type: 'raster',
             source: 'osm',
             paint: {
-              'raster-saturation': -0.55,
-              'raster-brightness-min': 0,
-              'raster-brightness-max': 0.58,
-              'raster-contrast': 0.22,
+              'raster-saturation': -0.4,
+              'raster-brightness-min': 0.04,
+              'raster-brightness-max': 0.68,
+              'raster-contrast': 0.16,
             },
           },
         ],
@@ -591,8 +593,8 @@ export function WhaleMap({
   useEffect(() => {
     const map = mapRef.current
     if (!map || !ready || !map.getLayer('osm')) return
-    const sat = windGate === 'no-go' ? -0.75 : windGate === 'caution' ? -0.62 : -0.55
-    const brightMax = windGate === 'no-go' ? 0.42 : windGate === 'caution' ? 0.5 : 0.58
+    const sat = windGate === 'no-go' ? -0.65 : windGate === 'caution' ? -0.5 : -0.4
+    const brightMax = windGate === 'no-go' ? 0.5 : windGate === 'caution' ? 0.58 : 0.68
     map.setPaintProperty('osm', 'raster-saturation', sat)
     map.setPaintProperty('osm', 'raster-brightness-max', brightMax)
   }, [windGate, ready])
@@ -614,6 +616,13 @@ export function WhaleMap({
       '#e8d5a8',
     ])
   }, [selectedHotspot, ready])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready) return
+    const id = window.setTimeout(() => map.resize(), 80)
+    return () => window.clearTimeout(id)
+  }, [layoutKey, ready])
 
   return <div className="map-root" ref={container} role="img" aria-label="Map of whale sighting odds around San Juan Island" />
 }

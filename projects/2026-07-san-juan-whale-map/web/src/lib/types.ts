@@ -68,15 +68,15 @@ export const SPECIES_ORDER: SpeciesKey[] = [
 ]
 
 export const SPECIES_COLOR: Record<SpeciesKey, string> = {
-  srkw: '#3ecfba',
-  biggs: '#f0a35e',
-  orca_unspecified: '#7ec8e3',
-  humpback: '#6b9fdf',
-  gray: '#c4a882',
-  minke: '#9ad0a8',
-  other_baleen: '#8fa3b8',
-  porpoise: '#b8a0d4',
-  other_cetacean: '#a0a8b0',
+  srkw: '#1a7a72',
+  biggs: '#c46b2d',
+  orca_unspecified: '#3d7ea6',
+  humpback: '#3f6fad',
+  gray: '#8a7355',
+  minke: '#4f8f6a',
+  other_baleen: '#6a7d8c',
+  porpoise: '#7a6a96',
+  other_cetacean: '#6e757c',
 }
 
 export const MONTHS = [
