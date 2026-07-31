@@ -27,8 +27,8 @@ NOAA_CH = (
     "All_NMFS_Critical_Habitat/MapServer/195/query"
 )
 
-# Hex size ~0.0065° ≈ 500–720 m — high-res tessellation at San Juan zoom
-HEX_SIZE = 0.0065
+# Hex size ~0.0028° ≈ 215–310 m — fine veil at archipelago zoom (~9.5–12)
+HEX_SIZE = 0.0028
 
 CETACEAN_PREFIXES = (
     "Orcinus",
@@ -128,7 +128,10 @@ def hex_polygon(q: int, r: int, size: float = HEX_SIZE) -> list[list[float]]:
     return ring
 
 
-def fetch(url: str, dest: Path | None = None) -> bytes:
+def fetch(url: str, dest: Path | None = None, *, use_cache: bool = True) -> bytes:
+    if use_cache and dest is not None and dest.exists() and dest.stat().st_size > 0:
+        print(f"  cache hit {dest.name}")
+        return dest.read_bytes()
     req = urllib.request.Request(url, headers={"User-Agent": "tuchel-general-whale-map/0.1"})
     with urllib.request.urlopen(req, timeout=120) as resp:
         data = resp.read()
@@ -140,7 +143,7 @@ def fetch(url: str, dest: Path | None = None) -> bytes:
 
 def load_salishsea() -> list[dict]:
     zpath = RAW / "salishsea-occurrences-v1.zip"
-    print("Downloading SalishSea.io DWCA…")
+    print("Loading SalishSea.io DWCA…")
     fetch(SALISHSEA_ZIP, zpath)
     with zipfile.ZipFile(zpath) as zf:
         text = zf.read("occurrence.txt").decode("utf-8", errors="replace")
