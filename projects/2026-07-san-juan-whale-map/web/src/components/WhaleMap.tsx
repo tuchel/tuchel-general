@@ -53,27 +53,28 @@ export type HexHover = {
   lat: number
 }
 
-/** High-contrast sequential ramp on percentile rank (0–100). */
+/**
+ * Soft translucent sequential ramp on percentile rank (0–100).
+ * Alphas stay low so the basemap reads through — glow carries the density story.
+ */
 const HEAT_COLOR: maplibregl.ExpressionSpecification = [
   'interpolate',
   ['linear'],
   ['get', 'rank'],
   0,
   'rgba(8, 28, 38, 0)',
-  5,
-  '#063a44',
-  20,
-  '#0d6b5c',
-  40,
-  '#b8860b',
-  55,
-  '#e07a1f',
-  70,
-  '#e4572e',
+  10,
+  'rgba(14, 88, 96, 0.06)',
+  28,
+  'rgba(28, 128, 118, 0.10)',
+  48,
+  'rgba(186, 148, 52, 0.14)',
+  68,
+  'rgba(218, 118, 48, 0.18)',
   85,
-  '#ff4d2e',
+  'rgba(228, 86, 52, 0.24)',
   100,
-  '#ffe08a',
+  'rgba(255, 188, 120, 0.30)',
 ]
 
 function hotspotsToGeoJSON(hotspots: Hotspot[]) {
@@ -173,7 +174,7 @@ export function WhaleMap({
         ],
       },
       center: [-123.05, 48.55],
-      zoom: 9.2,
+      zoom: 9.7,
       maxBounds: [
         [-124.2, 47.8],
         [-121.8, 49.3],
@@ -221,6 +222,54 @@ export function WhaleMap({
 
       onHeatScale(scored.scale)
       map.addSource('hexes', { type: 'geojson', data: scored.collection as any })
+      map.addSource('heat-points', { type: 'geojson', data: scored.centroids as any })
+      // Continuous density glow — primary read of the heat field
+      map.addLayer({
+        id: 'heat-glow',
+        type: 'heatmap',
+        source: 'heat-points',
+        filter: ['>', ['get', 'rank'], 0],
+        paint: {
+          'heatmap-weight': [
+            'interpolate',
+            ['linear'],
+            ['get', 'rank'],
+            0,
+            0,
+            25,
+            0.22,
+            55,
+            0.55,
+            100,
+            1,
+          ],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 8, 0.55, 10, 0.78, 12, 0.95],
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 18, 10, 28, 12, 42, 13.5, 52],
+          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 8, 0.42, 11, 0.34, 13.5, 0.18],
+          'heatmap-color': [
+            'interpolate',
+            ['linear'],
+            ['heatmap-density'],
+            0,
+            'rgba(0,0,0,0)',
+            0.08,
+            'rgba(12, 70, 82, 0)',
+            0.2,
+            'rgba(18, 100, 108, 0.22)',
+            0.38,
+            'rgba(36, 140, 124, 0.32)',
+            0.55,
+            'rgba(200, 148, 48, 0.40)',
+            0.72,
+            'rgba(228, 108, 48, 0.48)',
+            0.88,
+            'rgba(236, 92, 56, 0.55)',
+            1,
+            'rgba(255, 190, 120, 0.62)',
+          ],
+        },
+      })
+      // Fine hex veil — structure without blocking the chart / coastline
       map.addLayer({
         id: 'hex-fill',
         type: 'fill',
@@ -231,48 +280,49 @@ export function WhaleMap({
           'fill-opacity': [
             'interpolate',
             ['linear'],
-            ['get', 'rank'],
-            0,
-            0,
-            5,
+            ['zoom'],
+            8,
             0.55,
-            40,
-            0.82,
-            70,
-            0.92,
-            100,
-            0.97,
+            10,
+            0.72,
+            12.5,
+            0.88,
           ],
+          'fill-antialias': true,
         },
       })
       map.addLayer({
         id: 'hex-line',
         type: 'line',
         source: 'hexes',
-        filter: ['>', ['get', 'rank'], 0],
+        filter: ['>', ['get', 'rank'], 12],
         paint: {
           'line-color': [
             'interpolate',
             ['linear'],
             ['get', 'rank'],
-            5,
-            'rgba(120, 160, 160, 0.25)',
-            55,
-            'rgba(255, 200, 120, 0.55)',
-            100,
-            'rgba(255, 245, 210, 0.95)',
-          ],
-          'line-width': [
-            'interpolate',
-            ['linear'],
-            ['get', 'rank'],
-            5,
-            0.5,
+            12,
+            'rgba(255, 255, 255, 0)',
+            40,
+            'rgba(255, 255, 255, 0.05)',
             70,
-            1.35,
+            'rgba(255, 250, 235, 0.12)',
             100,
-            2.2,
+            'rgba(255, 248, 230, 0.22)',
           ],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 9, 0.15, 11, 0.35, 13, 0.55],
+          'line-opacity': ['interpolate', ['linear'], ['zoom'], 9, 0.15, 10.5, 0.55, 12.5, 0.85],
+        },
+      })
+      map.addLayer({
+        id: 'hex-hover',
+        type: 'line',
+        source: 'hexes',
+        filter: ['==', ['get', 'q'], -999999],
+        paint: {
+          'line-color': 'rgba(255, 244, 210, 0.85)',
+          'line-width': 1.4,
+          'line-opacity': 0.9,
         },
       })
 
@@ -431,6 +481,9 @@ export function WhaleMap({
         const f = e.features?.[0]
         if (!f?.properties) {
           onHexHover(null)
+          if (map.getLayer('hex-hover')) {
+            map.setFilter('hex-hover', ['==', ['get', 'q'], -999999])
+          }
           return
         }
         const p = f.properties
@@ -440,6 +493,13 @@ export function WhaleMap({
             typeof p.bySpecies === 'string' ? JSON.parse(p.bySpecies) : (p.bySpecies as Record<string, number>)
         } catch {
           bySpecies = {}
+        }
+        if (map.getLayer('hex-hover') && p.q != null && p.r != null) {
+          map.setFilter('hex-hover', [
+            'all',
+            ['==', ['get', 'q'], Number(p.q)],
+            ['==', ['get', 'r'], Number(p.r)],
+          ])
         }
         onHexHover({
           score: Number(p.score) || 0,
@@ -454,6 +514,9 @@ export function WhaleMap({
       })
       map.on('mouseleave', 'hex-fill', () => {
         onHexHover(null)
+        if (map.getLayer('hex-hover')) {
+          map.setFilter('hex-hover', ['==', ['get', 'q'], -999999])
+        }
         map.getCanvas().style.cursor = ''
       })
 
@@ -465,6 +528,20 @@ export function WhaleMap({
         const id = e.features?.[0]?.properties?.id
         if (id) onSelectHotspot(String(id))
       })
+      const openHydro = (e: MapLayerMouseEvent) => {
+        const url = e.features?.[0]?.properties?.listenUrl
+        if (url) window.open(String(url), '_blank', 'noopener,noreferrer')
+      }
+      map.on('click', 'hydro-cores', openHydro)
+      map.on('click', 'hydro-pulse', openHydro)
+      for (const layer of ['hydro-cores', 'hydro-pulse'] as const) {
+        map.on('mouseenter', layer, () => {
+          map.getCanvas().style.cursor = 'pointer'
+        })
+        map.on('mouseleave', layer, () => {
+          map.getCanvas().style.cursor = ''
+        })
+      }
 
       // Recent tooltip
       const popup = new maplibregl.Popup({
@@ -515,6 +592,8 @@ export function WhaleMap({
       .then((hexes) => {
         const scored = scoreHexCollection(hexes, month, species, effortBias)
         src.setData(scored.collection as any)
+        const pts = map.getSource('heat-points') as GeoJSONSource | undefined
+        pts?.setData(scored.centroids as any)
         onHeatScale(scored.scale)
       })
   }, [month, species, effortBias, ready, onHeatScale])
@@ -547,32 +626,39 @@ export function WhaleMap({
     vis('recent', showRecent && nowOn)
     vis('recent-halo', showRecent && nowOn)
     vis('scatter', showScatter && climOn)
+    vis('heat-glow', climOn)
     vis('hex-fill', climOn)
     vis('hex-line', climOn)
+    vis('hex-hover', climOn)
     vis('hydro-pulse', showHydros && nowOn)
     vis('hydro-cores', showHydros && nowOn)
 
-    // Dim the whole heat layer in nowcast-leaning balanced mode without washing contrast away
     if (map.getLayer('hex-fill')) {
-      const dim = viewMode === 'climatology' ? 1 : viewMode === 'balanced' ? 0.95 : 0.4
+      const mul = viewMode === 'climatology' ? 1 : viewMode === 'balanced' ? 0.85 : 0.22
       map.setPaintProperty('hex-fill', 'fill-opacity', [
-        '*',
-        dim,
-        [
-          'interpolate',
-          ['linear'],
-          ['get', 'rank'],
-          0,
-          0,
-          5,
-          0.55,
-          40,
-          0.82,
-          70,
-          0.92,
-          100,
-          0.97,
-        ],
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        8,
+        0.55 * mul,
+        10,
+        0.72 * mul,
+        12.5,
+        0.88 * mul,
+      ])
+    }
+    if (map.getLayer('heat-glow')) {
+      const glowMul = viewMode === 'climatology' ? 1 : viewMode === 'balanced' ? 0.9 : 0.28
+      map.setPaintProperty('heat-glow', 'heatmap-opacity', [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        8,
+        0.42 * glowMul,
+        11,
+        0.34 * glowMul,
+        13.5,
+        0.18 * glowMul,
       ])
     }
     if (map.getLayer('recent')) {
@@ -679,23 +765,48 @@ function scoreHexCollection(
     ranks.set(s.i, n <= 1 ? 100 : (order / (n - 1)) * 100)
   })
 
-  const features = scored.map((s, i) => ({
-    ...s.f,
-    properties: {
-      ...s.p,
-      bySpecies: s.bySpecies,
-      byMonth: s.byMonth,
-      bySpeciesMonth: s.bySpeciesMonth,
-      score: s.score,
-      raw: s.raw,
-      rank: ranks.get(i) ?? 0,
-    },
-  }))
+  const features = scored.map((s, i) => {
+    const rank = ranks.get(i) ?? 0
+    const lon = Number(s.p.lon)
+    const lat = Number(s.p.lat)
+    return {
+      ...s.f,
+      properties: {
+        ...s.p,
+        bySpecies: s.bySpecies,
+        byMonth: s.byMonth,
+        bySpeciesMonth: s.bySpeciesMonth,
+        score: s.score,
+        raw: s.raw,
+        rank,
+        lon,
+        lat,
+      },
+    }
+  })
+
+  const centroids = {
+    type: 'FeatureCollection' as const,
+    features: features
+      .filter((f) => f.properties.rank > 0 && Number.isFinite(f.properties.lon) && Number.isFinite(f.properties.lat))
+      .map((f) => ({
+        type: 'Feature' as const,
+        properties: {
+          rank: f.properties.rank,
+          score: f.properties.score,
+        },
+        geometry: {
+          type: 'Point' as const,
+          coordinates: [f.properties.lon, f.properties.lat],
+        },
+      })),
+  }
 
   const maxScore = positive.length ? positive[positive.length - 1].score : 0
   const maxRaw = scored.reduce((m, s) => Math.max(m, s.raw), 0)
   return {
     collection: { type: 'FeatureCollection' as const, features },
+    centroids,
     scale: {
       positiveCells: n,
       maxScore,
