@@ -6,6 +6,8 @@ on:
     paths:
       - 'projects/2026-07-metro-budget-tax/web/**'
       - 'projects/2026-07-star-mind/game/**'
+      - 'projects/2026-07-san-juan-whale-map/web/**'
+      - 'projects/2026-07-san-juan-whale-map/scripts/**'
       - '.github/workflows/deploy-pages.yml'
       - '.github/workflows/deploy-metro-budget-tax.yml'
   workflow_dispatch:
@@ -34,6 +36,7 @@ jobs:
           cache-dependency-path: |
             projects/2026-07-metro-budget-tax/web/package-lock.json
             projects/2026-07-star-mind/game/package-lock.json
+            projects/2026-07-san-juan-whale-map/web/package-lock.json
 
       - name: Install & build Metro Budget Tax
         working-directory: projects/2026-07-metro-budget-tax/web
@@ -47,12 +50,19 @@ jobs:
           npm ci
           npm run build
 
+      - name: Install & build San Juan Whale Odds
+        working-directory: projects/2026-07-san-juan-whale-map/web
+        run: |
+          npm ci
+          npm run build
+
       - name: Stage Pages artifact
         run: |
           SITE="${{ github.workspace }}/_site"
-          mkdir -p "$SITE/tax" "$SITE/metro-budget-tax" "$SITE/star-mind"
+          mkdir -p "$SITE/tax" "$SITE/metro-budget-tax" "$SITE/star-mind" "$SITE/whale"
           cp -a projects/2026-07-metro-budget-tax/web/dist/. "$SITE/tax/"
           cp -a projects/2026-07-star-mind/game/dist/. "$SITE/star-mind/"
+          cp -a projects/2026-07-san-juan-whale-map/web/dist/. "$SITE/whale/"
 
           # Keep old metro path working as a redirect
           cat > "$SITE/metro-budget-tax/index.html" <<'HTML'
@@ -105,6 +115,7 @@ jobs:
                 <h1>tuchel-general</h1>
                 <p>Published project surfaces from the personal monorepo.</p>
                 <ul>
+                  <li><a href="whale/">San Juan Whale Odds</a> — boat-renter whale map</li>
                   <li><a href="star-mind/">STAR MIND</a> — Metal Slug–style space shooter</li>
                   <li><a href="tax/">Metro Budget &amp; Tax Explorer</a></li>
                 </ul>
