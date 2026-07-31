@@ -94,7 +94,7 @@ export const MONTHS = [
   'Dec',
 ]
 
-export function hexScore(
+export function hexRawCount(
   props: {
     total: number
     bySpecies: Record<string, number>
@@ -114,3 +114,25 @@ export function hexScore(
     0,
   )
 }
+
+/** Effort proxy = all-time cell total. Down-weights popular watch water. */
+export function hexScore(
+  props: {
+    total: number
+    bySpecies: Record<string, number>
+    byMonth: Record<string, number>
+    bySpeciesMonth: Record<string, number>
+  },
+  month: number | 'all',
+  species: Set<string>,
+  opts?: { effortBias?: boolean; medianEffort?: number },
+): number {
+  const raw = hexRawCount(props, month, species)
+  if (!opts?.effortBias) return raw
+  const effort = Math.max(1, props.total)
+  const med = Math.max(1, opts.medianEffort ?? 20)
+  // Same raw count in a quiet cell scores higher than at Lime Kiln.
+  return raw * (med / (effort + med * 0.5))
+}
+
+export type ViewMode = 'balanced' | 'climatology' | 'nowcast'

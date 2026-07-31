@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import maplibregl, { type GeoJSONSource, type Map as MLMap, type MapLayerMouseEvent } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import type { HydroFeed } from '../lib/live'
 import {
   SPECIES_COLOR,
+  hexRawCount,
   hexScore,
   type Hotspot,
   type Launch,
   type Meta,
   type SpeciesKey,
+  type ViewMode,
 } from '../lib/types'
 
 type Props = {
@@ -18,6 +21,11 @@ type Props = {
   showLaunches: boolean
   showRecent: boolean
   showScatter: boolean
+  showHydros: boolean
+  effortBias: boolean
+  viewMode: ViewMode
+  windGate: 'go' | 'caution' | 'no-go' | null
+  hydroFeeds: HydroFeed[]
   hotspots: Hotspot[]
   launches: Launch[]
   meta: Meta | null
@@ -28,6 +36,7 @@ type Props = {
 
 export type HexHover = {
   score: number
+  raw: number
   total: number
   bySpecies: Record<string, number>
   lon: number
@@ -56,6 +65,23 @@ function launchesToGeoJSON(launches: Launch[]) {
   }
 }
 
+function hydrosToGeoJSON(feeds: HydroFeed[]) {
+  return {
+    type: 'FeatureCollection' as const,
+    features: feeds.map((f) => ({
+      type: 'Feature' as const,
+      properties: {
+        id: f.id,
+        name: f.name,
+        pulse: f.pulse,
+        listenUrl: f.listenUrl,
+        count: f.detectionCount24h,
+      },
+      geometry: { type: 'Point' as const, coordinates: [f.lon, f.lat] },
+    })),
+  }
+}
+
 export function WhaleMap({
   month,
   species,
@@ -64,6 +90,11 @@ export function WhaleMap({
   showLaunches,
   showRecent,
   showScatter,
+  showHydros,
+  effortBias,
+  viewMode,
+  windGate,
+  hydroFeeds,
   hotspots,
   launches,
   meta,
@@ -74,8 +105,8 @@ export function WhaleMap({
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MLMap | null>(null)
   const [ready, setReady] = useState(false)
-  const filtersRef = useRef({ month, species })
-  filtersRef.current = { month, species }
+  const filtersRef = useRef({ month, species, effortBias })
+  filtersRef.current = { month, species, effortBias }
 
   useEffect(() => {
     if (!container.current || mapRef.current) return
@@ -124,8 +155,12 @@ export function WhaleMap({
         fetch('./data/scatter.json').then((r) => r.json()),
       ])
 
-      // Score hexes for default filters
-      const scored = scoreHexCollection(hexes, filtersRef.current.month, filtersRef.current.species)
+      const scored = scoreHexCollection(
+        hexes,
+        filtersRef.current.month,
+        filtersRef.current.species,
+        filtersRef.current.effortBias,
+      )
 
       map.addSource('habitat', { type: 'geojson', data: habitat })
       map.addLayer({
@@ -278,6 +313,53 @@ export function WhaleMap({
         },
       })
 
+      map.addSource('hydros', { type: 'geojson', data: hydrosToGeoJSON([]) })
+      map.addLayer({
+        id: 'hydro-pulse',
+        type: 'circle',
+        source: 'hydros',
+        paint: {
+          'circle-radius': [
+            'match',
+            ['get', 'pulse'],
+            'hot',
+            18,
+            'recent',
+            14,
+            10,
+          ],
+          'circle-color': [
+            'match',
+            ['get', 'pulse'],
+            'hot',
+            '#3ecfba',
+            'recent',
+            '#7ec8e3',
+            '#4a6670',
+          ],
+          'circle-opacity': 0.25,
+        },
+      })
+      map.addLayer({
+        id: 'hydro-cores',
+        type: 'circle',
+        source: 'hydros',
+        paint: {
+          'circle-radius': 6,
+          'circle-color': '#0d1f2a',
+          'circle-stroke-width': 2.5,
+          'circle-stroke-color': [
+            'match',
+            ['get', 'pulse'],
+            'hot',
+            '#3ecfba',
+            'recent',
+            '#7ec8e3',
+            '#8aa',
+          ],
+        },
+      })
+
       map.on('mousemove', 'hex-fill', (e: MapLayerMouseEvent) => {
         const f = e.features?.[0]
         if (!f?.properties) {
@@ -294,6 +376,7 @@ export function WhaleMap({
         }
         onHexHover({
           score: Number(p.score) || 0,
+          raw: Number(p.raw) || 0,
           total: Number(p.total) || 0,
           bySpecies,
           lon: Number(p.lon),
@@ -362,9 +445,9 @@ export function WhaleMap({
     fetch('./data/hexes.json')
       .then((r) => r.json())
       .then((hexes) => {
-        src.setData(scoreHexCollection(hexes, month, species) as any)
+        src.setData(scoreHexCollection(hexes, month, species, effortBias) as any)
       })
-  }, [month, species, ready])
+  }, [month, species, effortBias, ready])
 
   useEffect(() => {
     const map = mapRef.current
@@ -373,24 +456,61 @@ export function WhaleMap({
     hs?.setData(hotspotsToGeoJSON(hotspots))
     const ls = map.getSource('launches') as GeoJSONSource | undefined
     ls?.setData(launchesToGeoJSON(launches))
-  }, [hotspots, launches, ready])
+    const hy = map.getSource('hydros') as GeoJSONSource | undefined
+    hy?.setData(hydrosToGeoJSON(hydroFeeds))
+  }, [hotspots, launches, hydroFeeds, ready])
 
-  // Layer visibility
+  // Layer visibility + view-mode emphasis
   useEffect(() => {
     const map = mapRef.current
     if (!map || !ready) return
     const vis = (id: string, on: boolean) => {
       if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')
     }
+    const climOn = viewMode !== 'nowcast'
+    const nowOn = viewMode !== 'climatology'
     vis('habitat-fill', showHabitat)
     vis('habitat-line', showHabitat)
-    vis('hotspot-rings', showHotspots)
-    vis('hotspot-cores', showHotspots)
+    vis('hotspot-rings', showHotspots && climOn)
+    vis('hotspot-cores', showHotspots && climOn)
     vis('launches', showLaunches)
-    vis('recent', showRecent)
-    vis('recent-halo', showRecent)
-    vis('scatter', showScatter)
-  }, [showHabitat, showHotspots, showLaunches, showRecent, showScatter, ready])
+    vis('recent', showRecent && nowOn)
+    vis('recent-halo', showRecent && nowOn)
+    vis('scatter', showScatter && climOn)
+    vis('hex-fill', climOn)
+    vis('hydro-pulse', showHydros && nowOn)
+    vis('hydro-cores', showHydros && nowOn)
+
+    if (map.getLayer('hex-fill')) {
+      map.setPaintProperty(
+        'hex-fill',
+        'fill-opacity',
+        viewMode === 'climatology' ? 1 : viewMode === 'balanced' ? 0.92 : 0.35,
+      )
+    }
+    if (map.getLayer('recent')) {
+      map.setPaintProperty('recent', 'circle-radius', viewMode === 'nowcast' ? 9 : 7)
+    }
+  }, [
+    showHabitat,
+    showHotspots,
+    showLaunches,
+    showRecent,
+    showScatter,
+    showHydros,
+    viewMode,
+    ready,
+  ])
+
+  // Wind gate washes the map when conditions are rough
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready || !map.getLayer('osm')) return
+    const sat = windGate === 'no-go' ? -0.7 : windGate === 'caution' ? -0.5 : -0.35
+    const brightMax = windGate === 'no-go' ? 0.55 : windGate === 'caution' ? 0.7 : 0.85
+    map.setPaintProperty('osm', 'raster-saturation', sat)
+    map.setPaintProperty('osm', 'raster-brightness-max', brightMax)
+  }, [windGate, ready])
 
   // Highlight selected hotspot
   useEffect(() => {
@@ -422,27 +542,38 @@ type Fc = {
   }[]
 }
 
-function scoreHexCollection(hexes: Fc, month: number | 'all', species: Set<string>) {
-  const features = hexes.features.map((f) => {
+function scoreHexCollection(
+  hexes: Fc,
+  month: number | 'all',
+  species: Set<string>,
+  effortBias: boolean,
+) {
+  const parsed = hexes.features.map((f) => {
     const p = f.properties || {}
     const bySpecies =
       typeof p.bySpecies === 'string' ? JSON.parse(p.bySpecies) : p.bySpecies || {}
     const byMonth = typeof p.byMonth === 'string' ? JSON.parse(p.byMonth) : p.byMonth || {}
     const bySpeciesMonth =
       typeof p.bySpeciesMonth === 'string' ? JSON.parse(p.bySpeciesMonth) : p.bySpeciesMonth || {}
-    const score = hexScore(
-      {
-        total: Number(p.total) || 0,
-        bySpecies: bySpecies as Record<string, number>,
-        byMonth: byMonth as Record<string, number>,
-        bySpeciesMonth: bySpeciesMonth as Record<string, number>,
-      },
-      month,
-      species,
-    )
+    return {
+      f,
+      p,
+      bySpecies: bySpecies as Record<string, number>,
+      byMonth: byMonth as Record<string, number>,
+      bySpeciesMonth: bySpeciesMonth as Record<string, number>,
+      total: Number(p.total) || 0,
+    }
+  })
+  const totals = parsed.map((x) => x.total).filter((t) => t > 0).sort((a, b) => a - b)
+  const medianEffort = totals.length ? totals[Math.floor(totals.length / 2)] : 20
+
+  const features = parsed.map(({ f, p, bySpecies, byMonth, bySpeciesMonth, total }) => {
+    const props = { total, bySpecies, byMonth, bySpeciesMonth }
+    const raw = hexRawCount(props, month, species)
+    const score = hexScore(props, month, species, { effortBias, medianEffort })
     return {
       ...f,
-      properties: { ...p, bySpecies, byMonth, bySpeciesMonth, score },
+      properties: { ...p, bySpecies, byMonth, bySpeciesMonth, score, raw },
     }
   })
   return { type: 'FeatureCollection' as const, features }

@@ -25,3 +25,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-07-29] art | star-mind | Ash outfit flash fixed; rare cybertruck; calm→peak intensity backgrounds all levels
 
 ## [2026-07-31] kickoff | san-juan-whale-map | Interactive whale-odds map: SalishSea.io hex density + Acartia recent pins + NOAA SRKW habitat + trip playbook
+
+## [2026-07-31] build | san-juan-whale-map | Live tides/wind/OrcaSound + effort bias + GPX; GitHub Pages path /whale/

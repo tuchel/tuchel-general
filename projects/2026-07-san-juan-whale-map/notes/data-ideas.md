@@ -66,6 +66,18 @@ For selected month *m* and species set *S*:
 
 Show the ingredients on hover (“12 Aug orca reports 2022–25 · 3 in last 14 months”). No black-box “92% chance.”
 
+## Shipped in the app (2026-07-31)
+
+| Idea | Implementation |
+| --- | --- |
+| Climatology vs nowcast | View mode toggle (balanced / climatology / nowcast) |
+| Ecotype split | Species chips + Residents / Bigg’s / Humpback+ presets |
+| Tide clock | NOAA CO-OPS Friday Harbor 9449880 hi/lo, client refresh 5 min |
+| Weather gate | Open-Meteo 10 m wind + waves at mid-Haro; go / caution / no-go |
+| Hydrophone ear | OrcaSound Lab + North SJC feeds + detection pulse |
+| Effort bias | `score = raw × median / (effort + 0.5×median)` toggle |
+| GPX export | Corridors + launches waypoints download |
+
 ## What not to do
 
 - Promise a sighting rate. Commercial “90%” claims are tour-operator statistics under different effort.

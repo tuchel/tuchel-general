@@ -1,7 +1,17 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { WhaleMap, type HexHover } from './components/WhaleMap'
 import { SeasonGrid } from './components/SeasonGrid'
 import { HourStrip } from './components/HourStrip'
+import { ConditionsPanel } from './components/ConditionsPanel'
+import {
+  downloadHotspotsGpx,
+  fetchHydrophones,
+  fetchTides,
+  fetchWind,
+  type HydroSnapshot,
+  type TideSnapshot,
+  type WindSnapshot,
+} from './lib/live'
 import {
   MONTHS,
   SPECIES_COLOR,
@@ -12,6 +22,7 @@ import {
   type Meta,
   type Seasonality,
   type SpeciesKey,
+  type ViewMode,
 } from './lib/types'
 
 const nowMonth = new Date().getMonth() + 1
@@ -27,14 +38,24 @@ export default function App() {
   const [species, setSpecies] = useState<Set<SpeciesKey>>(
     () => new Set(['srkw', 'biggs', 'orca_unspecified', 'humpback']),
   )
+  const [viewMode, setViewMode] = useState<ViewMode>('balanced')
+  const [effortBias, setEffortBias] = useState(true)
   const [showHabitat, setShowHabitat] = useState(true)
   const [showHotspots, setShowHotspots] = useState(true)
   const [showLaunches, setShowLaunches] = useState(true)
   const [showRecent, setShowRecent] = useState(true)
   const [showScatter, setShowScatter] = useState(false)
+  const [showHydros, setShowHydros] = useState(true)
   const [hexHover, setHexHover] = useState<HexHover | null>(null)
   const [selectedHotspot, setSelectedHotspot] = useState<string | null>('haro-west-side')
-  const [panel, setPanel] = useState<'plan' | 'ideas'>('plan')
+  const [panel, setPanel] = useState<'plan' | 'live' | 'ideas'>('live')
+
+  const [tides, setTides] = useState<TideSnapshot | null>(null)
+  const [wind, setWind] = useState<WindSnapshot | null>(null)
+  const [hydro, setHydro] = useState<HydroSnapshot | null>(null)
+  const [tideError, setTideError] = useState<string | null>(null)
+  const [windError, setWindError] = useState<string | null>(null)
+  const [hydroError, setHydroError] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -52,9 +73,47 @@ export default function App() {
     })
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const t = await fetchTides()
+        if (!cancelled) {
+          setTides(t)
+          setTideError(null)
+        }
+      } catch (e) {
+        if (!cancelled) setTideError(e instanceof Error ? e.message : 'Tide fetch failed')
+      }
+      try {
+        const w = await fetchWind()
+        if (!cancelled) {
+          setWind(w)
+          setWindError(null)
+        }
+      } catch (e) {
+        if (!cancelled) setWindError(e instanceof Error ? e.message : 'Wind fetch failed')
+      }
+      try {
+        const h = await fetchHydrophones()
+        if (!cancelled) {
+          setHydro(h)
+          setHydroError(null)
+        }
+      } catch (e) {
+        if (!cancelled) setHydroError(e instanceof Error ? e.message : 'Hydrophone fetch failed')
+      }
+    }
+    load()
+    const id = window.setInterval(load, 5 * 60 * 1000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [])
+
   const labels = meta?.speciesLabels || {}
   const activeHotspot = hotspots.find((h) => h.id === selectedHotspot) || null
-
   const monthLabel = month === 'all' ? 'All months' : MONTHS[month - 1]
 
   const toggleSpecies = (sp: SpeciesKey) => {
@@ -66,29 +125,15 @@ export default function App() {
     })
   }
 
-  const recentCount = meta?.counts.recentInBbox ?? 0
+  const presetEcotype = (kind: 'residents' | 'biggs' | 'mysticetes' | 'all-orca') => {
+    if (kind === 'residents') setSpecies(new Set(['srkw', 'orca_unspecified']))
+    if (kind === 'biggs') setSpecies(new Set(['biggs', 'orca_unspecified']))
+    if (kind === 'mysticetes') setSpecies(new Set(['humpback', 'minke', 'gray']))
+    if (kind === 'all-orca') setSpecies(new Set(['srkw', 'biggs', 'orca_unspecified']))
+  }
 
-  const ideas = useMemo(
-    () => [
-      {
-        title: 'Climatology vs nowcast',
-        body: 'Heatmap = years of SalishSea.io reports. Rings = Acartia “current” pins from the last days. Use both: park in productive water, then react to this week’s reports.',
-      },
-      {
-        title: 'Ecotype split',
-        body: 'Southern Residents track salmon along Haro; Bigg’s hunt seals near Cattle Pass. Filtering species changes which corridors light up.',
-      },
-      {
-        title: 'Month × species grid',
-        body: 'Click a cell to set both filters. Dense table beats twelve pie charts for a boat-day decision.',
-      },
-      {
-        title: 'Next pulls',
-        body: 'Friday Harbor tides, NWS marine wind, OrcaSound hydrophone pulse, effort-bias correction, GPX export of hotspots — see notes/data-ideas.md.',
-      },
-    ],
-    [],
-  )
+  const recentCount = meta?.counts.recentInBbox ?? 0
+  const hydroHot = hydro?.feeds.some((f) => f.pulse === 'hot') ?? false
 
   return (
     <div className="app">
@@ -98,9 +143,8 @@ export default function App() {
           <p className="brand">San Juan Whale Odds</p>
           <h1>Where should the boat go?</h1>
           <p className="lede">
-            Historical sighting density around San Juan Island, recent cooperative reports, and
-            named corridors — filtered by species and month so a rental group can place itself in
-            productive water.
+            Historical density, live Acartia pins, tides, wind gate, and OrcaSound pulses — filtered
+            by species and month so a rental group can sit in productive water without chasing.
           </p>
         </div>
         <aside className="stat-rail" aria-label="Dataset snapshot">
@@ -113,8 +157,14 @@ export default function App() {
             <span>recent Acartia pins</span>
           </div>
           <div>
-            <strong>{monthLabel}</strong>
-            <span>season filter</span>
+            <strong className={wind ? `gate-text-${wind.gate}` : ''}>
+              {wind?.gate === 'go' ? 'Go' : wind?.gate === 'caution' ? 'Caution' : wind?.gate === 'no-go' ? 'No-go' : '…'}
+            </strong>
+            <span>Haro wind gate</span>
+          </div>
+          <div>
+            <strong className={hydroHot ? 'pulse-hot-text' : ''}>{hydroHot ? 'Calls' : 'Quiet'}</strong>
+            <span>San Juan hydrophones</span>
           </div>
         </aside>
       </header>
@@ -129,6 +179,11 @@ export default function App() {
             showLaunches={showLaunches}
             showRecent={showRecent}
             showScatter={showScatter}
+            showHydros={showHydros}
+            effortBias={effortBias}
+            viewMode={viewMode}
+            windGate={wind?.gate ?? null}
+            hydroFeeds={hydro?.feeds ?? []}
             hotspots={hotspots}
             launches={launches}
             meta={meta}
@@ -137,27 +192,61 @@ export default function App() {
             selectedHotspot={selectedHotspot}
           />
           <div className="map-legend">
-            <span className="swatch heat" /> Low → high report density
+            <span className="swatch heat" /> {effortBias ? 'Effort-adjusted density' : 'Raw report density'}
             <span className="swatch recent" /> Recent pin
-            <span className="swatch hotspot" /> Named corridor
+            <span className="swatch hotspot" /> Corridor
+            <span className="swatch hydro" /> Hydrophone
             <span className="swatch launch" /> Launch
           </div>
           {hexHover && hexHover.score > 0 && (
             <div className="hex-tooltip">
               <strong>
-                {hexHover.score} report{hexHover.score === 1 ? '' : 's'}
+                {effortBias
+                  ? `Index ${hexHover.score.toFixed(1)} (${hexHover.raw} reports)`
+                  : `${hexHover.raw} report${hexHover.raw === 1 ? '' : 's'}`}
               </strong>{' '}
               for current filters
               <span>
-                {hexHover.lat.toFixed(2)}°N {Math.abs(hexHover.lon).toFixed(2)}°W · cell total{' '}
-                {hexHover.total}
+                {hexHover.lat.toFixed(2)}°N {Math.abs(hexHover.lon).toFixed(2)}°W · cell effort{' '}
+                {hexHover.total} all-time
               </span>
             </div>
+          )}
+          {wind?.gate === 'no-go' && (
+            <div className="wind-banner no-go">Wind gate: no-go for open Haro — {wind.gateNote}</div>
+          )}
+          {wind?.gate === 'caution' && (
+            <div className="wind-banner caution">Wind gate: caution — {wind.gateNote}</div>
           )}
         </section>
 
         <aside className="side">
           <div className="control-card">
+            <div className="field">
+              <span>View mode</span>
+              <div className="mode-row">
+                {(
+                  [
+                    ['balanced', 'Balanced'],
+                    ['climatology', 'Climatology'],
+                    ['nowcast', 'Nowcast'],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={viewMode === id ? 'on' : ''}
+                    onClick={() => setViewMode(id)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="bound-note">
+                Climatology = multi-year hexes · Nowcast = Acartia + hydrophones · Balanced keeps both.
+              </p>
+            </div>
+
             <label className="field">
               <span>Month</span>
               <input
@@ -175,14 +264,24 @@ export default function App() {
                 <strong>{monthLabel}</strong>
                 <span>Dec</span>
               </div>
-              <p className="bound-note">
-                Lower bound = ignore season · Upper bound = December · Current = climatology month
-                for the heatmap
-              </p>
             </label>
 
             <div className="field">
-              <span>Species</span>
+              <span>Species / ecotype</span>
+              <div className="preset-row">
+                <button type="button" onClick={() => presetEcotype('residents')}>
+                  Residents
+                </button>
+                <button type="button" onClick={() => presetEcotype('biggs')}>
+                  Bigg’s
+                </button>
+                <button type="button" onClick={() => presetEcotype('mysticetes')}>
+                  Humpback+
+                </button>
+                <button type="button" onClick={() => presetEcotype('all-orca')}>
+                  All orca
+                </button>
+              </div>
               <div className="chips">
                 {SPECIES_ORDER.map((sp) => (
                   <button
@@ -199,10 +298,22 @@ export default function App() {
             </div>
 
             <div className="field layers">
-              <span>Layers</span>
+              <span>Layers & scoring</span>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={effortBias}
+                  onChange={(e) => setEffortBias(e.target.checked)}
+                />
+                Effort-bias correction (down-weight busy watch water)
+              </label>
               <label>
                 <input type="checkbox" checked={showRecent} onChange={(e) => setShowRecent(e.target.checked)} />
-                Recent sightings
+                Recent Acartia sightings
+              </label>
+              <label>
+                <input type="checkbox" checked={showHydros} onChange={(e) => setShowHydros(e.target.checked)} />
+                OrcaSound hydrophones
               </label>
               <label>
                 <input type="checkbox" checked={showHotspots} onChange={(e) => setShowHotspots(e.target.checked)} />
@@ -221,9 +332,20 @@ export default function App() {
                 Individual historical points
               </label>
             </div>
+
+            <button
+              type="button"
+              className="gpx-btn"
+              onClick={() => downloadHotspotsGpx(hotspots, launches)}
+            >
+              Download corridors + launches (GPX)
+            </button>
           </div>
 
-          <div className="tabs">
+          <div className="tabs three">
+            <button type="button" className={panel === 'live' ? 'on' : ''} onClick={() => setPanel('live')}>
+              Live
+            </button>
             <button type="button" className={panel === 'plan' ? 'on' : ''} onClick={() => setPanel('plan')}>
               Trip plan
             </button>
@@ -232,7 +354,18 @@ export default function App() {
             </button>
           </div>
 
-          {panel === 'plan' ? (
+          {panel === 'live' && (
+            <ConditionsPanel
+              tides={tides}
+              wind={wind}
+              hydro={hydro}
+              tideError={tideError}
+              windError={windError}
+              hydroError={hydroError}
+            />
+          )}
+
+          {panel === 'plan' && (
             <>
               <div className="control-card">
                 <h2>Named water</h2>
@@ -291,17 +424,51 @@ export default function App() {
                 </div>
               )}
             </>
-          ) : (
+          )}
+
+          {panel === 'ideas' && (
             <div className="control-card ideas">
-              <h2>How to pull & present this</h2>
-              {ideas.map((idea) => (
-                <article key={idea.title}>
-                  <h3>{idea.title}</h3>
-                  <p>{idea.body}</p>
-                </article>
-              ))}
+              <h2>How this data is pulled</h2>
+              <article>
+                <h3>Climatology vs nowcast</h3>
+                <p>
+                  Hexes from SalishSea.io DWCA; rings from Acartia current. Mode toggle changes which
+                  layer leads.
+                </p>
+              </article>
+              <article>
+                <h3>Ecotype split</h3>
+                <p>
+                  `ater` → Southern Resident, `rectipinnus` → Bigg’s. Presets jump the species chips.
+                </p>
+              </article>
+              <article>
+                <h3>Tide + wind gates</h3>
+                <p>
+                  NOAA CO-OPS Friday Harbor highs/lows + Open-Meteo 10 m wind / waves at mid-Haro.
+                  Gate dims the basemap when gusts get sporty.
+                </p>
+              </article>
+              <article>
+                <h3>OrcaSound pulse</h3>
+                <p>
+                  Live feeds API for Orcasound Lab + North San Juan Channel; whale-category detections
+                  in the last 2h / 12h drive the pulse.
+                </p>
+              </article>
+              <article>
+                <h3>Effort-bias correction</h3>
+                <p>
+                  Score = filtered reports × median_effort / (cell_total + 0.5×median). Busy Lime Kiln
+                  cells lose weight vs quieter water with the same counts.
+                </p>
+              </article>
+              <article>
+                <h3>GPX export</h3>
+                <p>Corridors + launches as waypoints for phone / plotter — with a do-not-chase note.</p>
+              </article>
               <p className="meta-line">
-                Full catalog in <code>notes/data-ideas.md</code> and <code>notes/sources.md</code>.
+                Details in <code>notes/data-ideas.md</code> and <code>notes/sources.md</code>.
               </p>
             </div>
           )}
@@ -310,10 +477,11 @@ export default function App() {
 
       <footer className="foot">
         <p>
-          Density is opportunistic sightings (effort-biased toward popular water and fair weather),
-          not a probability of whales on your day. Built{' '}
-          {meta ? new Date(meta.builtAt).toUTCString() : '—'}. Sources:{' '}
-          {meta?.sources.map((s) => s.name).join(' · ')}.
+          Density is opportunistic (effort-biased toward popular water and fair weather), not a
+          probability of whales on your day. Built{' '}
+          {meta ? new Date(meta.builtAt).toUTCString() : '—'}. Live tides/wind/hydro refresh every 5
+          minutes in the browser. Sources: {meta?.sources.map((s) => s.name).join(' · ')} · NOAA
+          CO-OPS · Open-Meteo · OrcaSound.
         </p>
       </footer>
     </div>

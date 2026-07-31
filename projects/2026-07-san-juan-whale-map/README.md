@@ -2,7 +2,9 @@
 
 Interactive map of the waters around San Juan Island for a group renting a boat and trying to maximize the chance of seeing whales — by place, season, species, time of day, and recent reports.
 
-**Status:** v0 explorer — live Acartia feed + SalishSea.io historical density + curated hotspots / rules of the road.
+**Status:** Live on GitHub Pages after merge — https://tuchel.github.io/tuchel-general/whale/
+
+**Includes:** SalishSea.io hex density · Acartia nowcast · NOAA tides · Open-Meteo wind gate · OrcaSound hydro pulse · effort-bias scoring · GPX export · Be Whale Wise.
 
 ## What it answers
 
@@ -16,8 +18,10 @@ Interactive map of the waters around San Juan Island for a group renting a boat 
 ```bash
 cd projects/2026-07-san-juan-whale-map
 python3 scripts/build_data.py          # refresh public datasets → web/public/data/
-cd web && npm install && npm run dev
+cd web && npm install && npm run dev   # http://localhost:5173/tuchel-general/whale/
 ```
+
+Deploy: push to `main` (or Actions → “Deploy GitHub Pages”). Artifact path `/whale/`.
 
 ## Data sources (public)
 
