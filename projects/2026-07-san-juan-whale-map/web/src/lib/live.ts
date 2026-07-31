@@ -217,21 +217,29 @@ function nearestHourIndex(times: string[]): number {
   return best
 }
 
+async function fetchJsonApi(paths: string[]) {
+  let lastErr: Error | null = null
+  for (const url of paths) {
+    try {
+      const res = await fetch(url, { headers: { Accept: 'application/vnd.api+json' } })
+      if (!res.ok) {
+        lastErr = new Error(`${url} → ${res.status}`)
+        continue
+      }
+      return res.json()
+    } catch (e) {
+      lastErr = e instanceof Error ? e : new Error(String(e))
+    }
+  }
+  throw lastErr || new Error('OrcaSound API unavailable')
+}
+
 export async function fetchHydrophones(): Promise<HydroSnapshot> {
-  const feedsUrl = 'https://live.orcasound.net/api/json/feeds'
-  const detUrl = 'https://live.orcasound.net/api/json/detections?include=feed&page[size]=40'
-
-  const [feedsRes, detRes] = await Promise.all([
-    fetch(feedsUrl, {
-      headers: { Accept: 'application/vnd.api+json' },
-    }),
-    fetch(detUrl, {
-      headers: { Accept: 'application/vnd.api+json' },
-    }),
-  ])
-  if (!feedsRes.ok) throw new Error(`feeds ${feedsRes.status}`)
-
-  const feedsJson = (await feedsRes.json()) as {
+  // live.orcasound.net/api occasionally 500s; beta is the same JSON:API surface.
+  const feedsJson = (await fetchJsonApi([
+    'https://live.orcasound.net/api/json/feeds',
+    'https://beta.orcasound.net/api/json/feeds',
+  ])) as {
     data: {
       id: string
       attributes: {
@@ -243,19 +251,20 @@ export async function fetchHydrophones(): Promise<HydroSnapshot> {
     }[]
   }
 
-  const detJson = detRes.ok
-    ? ((await detRes.json()) as {
-        data: {
-          attributes: { timestamp: string; category: string }
-          relationships: { feed: { data: { id: string } } }
-        }[]
-        included?: {
-          id: string
-          type: string
-          attributes: { name: string; slug: string }
-        }[]
-      })
-    : { data: [], included: [] }
+  let detJson: {
+    data: {
+      attributes: { timestamp: string; category: string }
+      relationships: { feed: { data: { id: string } } }
+    }[]
+  } = { data: [] }
+  try {
+    detJson = (await fetchJsonApi([
+      'https://live.orcasound.net/api/json/detections?include=feed&page[size]=40',
+      'https://beta.orcasound.net/api/json/detections?include=feed&page[size]=40',
+    ])) as typeof detJson
+  } catch {
+    detJson = { data: [] }
+  }
 
   const now = Date.now()
   const day = 24 * 3600 * 1000
@@ -285,7 +294,7 @@ export async function fetchHydrophones(): Promise<HydroSnapshot> {
         slug: f.attributes.slug,
         lat: coords?.[1] ?? 0,
         lon: coords?.[0] ?? 0,
-        listenUrl: `https://live.orcasound.net/${f.attributes.slug}`,
+        listenUrl: `https://live.orcasound.net/listen/${f.attributes.slug}`,
         lastDetectionAt: last,
         detectionCount24h: times.length,
         pulse,

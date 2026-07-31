@@ -39,7 +39,7 @@ Primary / first-party where possible. Aggregators noted as such.
 
 ## Hydrophones & “are they nearby right now?”
 
-- **OrcaSound** — `https://www.orcasound.net/` live streams (Lime Kiln, Port Townsend, etc.).
+- **OrcaSound** — listen pages at `https://live.orcasound.net/listen/{slug}` (e.g. `orcasound-lab`, `north-sjc`). Feeds JSON:API on live/beta.
 - OrcaHello / automated detectors sometimes feed SalishSea.io remarks (see occurrence remarks).
 
 ## Weather / sea state (not yet wired; candidates)

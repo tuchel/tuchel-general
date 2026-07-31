@@ -27,8 +27,8 @@ NOAA_CH = (
     "All_NMFS_Critical_Habitat/MapServer/195/query"
 )
 
-# Hex size ~0.04° ≈ 3–4 km — readable at island scale
-HEX_SIZE = 0.04
+# Hex size ~0.0065° ≈ 500–720 m — high-res tessellation at San Juan zoom
+HEX_SIZE = 0.0065
 
 CETACEAN_PREFIXES = (
     "Orcinus",
