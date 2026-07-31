@@ -30,7 +30,7 @@ export function ConditionsPanel({
   hydroError,
 }: Props) {
   return (
-    <div className="control-card conditions">
+    <div className="conditions">
       <h2>Live conditions</h2>
 
       <section>

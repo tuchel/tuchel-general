@@ -2,7 +2,9 @@
 
 Interactive map of the waters around San Juan Island for a group renting a boat and trying to maximize the chance of seeing whales — by place, season, species, time of day, and recent reports.
 
-**Status:** Live on GitHub Pages after merge — https://tuchel.github.io/tuchel-general/whale/
+**Status:** Live — https://tuchel.github.io/tuchel-general/whale/
+
+Map-first layout: floating brand + live chips on desktop beside a control sheet; full-bleed map + bottom sheet on mobile.
 
 **Includes:** SalishSea.io hex density · Acartia nowcast · NOAA tides · Open-Meteo wind gate · OrcaSound hydro pulse · effort-bias scoring · GPX export · Be Whale Wise.
 
