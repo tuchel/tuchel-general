@@ -69,13 +69,13 @@ const HEAT_COLOR: maplibregl.ExpressionSpecification = [
   25,
   '#148878',
   45,
-  '#c49628',
+  '#c48620',
   65,
-  '#e07630',
+  '#e06028',
   82,
-  '#e65230',
+  '#d43828',
   100,
-  '#ffc46e',
+  '#b41418',
 ]
 
 /** Rank → opacity. Clear enough to see corridors; low enough to read the chart. */
@@ -299,11 +299,11 @@ export function WhaleMap({
             0.45,
             'rgba(40, 150, 120, 0.45)',
             0.65,
-            'rgba(210, 140, 40, 0.55)',
+            'rgba(210, 120, 40, 0.55)',
             0.85,
-            'rgba(230, 90, 45, 0.65)',
+            'rgba(210, 55, 40, 0.65)',
             1,
-            'rgba(255, 190, 110, 0.75)',
+            'rgba(180, 20, 24, 0.75)',
           ],
         },
       })
