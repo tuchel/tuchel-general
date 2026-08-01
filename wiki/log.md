@@ -29,3 +29,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-07-31] build | san-juan-whale-map | Live tides/wind/OrcaSound + effort bias + GPX; GitHub Pages path /whale/
 
 ## [2026-07-31] polish | san-juan-whale-map | Fine translucent heat veil (0.0028° hexes + glow) and fixed OrcaSound /listen/ links
+
+## [2026-07-31] fix | san-juan-whale-map | Heat cells invisible after double-alpha polish; restore solid ramp + rank opacity
