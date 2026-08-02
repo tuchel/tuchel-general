@@ -31,6 +31,8 @@ type Props = {
   showScatter: boolean
   showHydros: boolean
   showSocial: boolean
+  socialTrail: boolean
+  activeSocialId?: string | null
   effortBias: boolean
   viewMode: ViewMode
   windGate: 'go' | 'caution' | 'no-go' | null
@@ -170,6 +172,8 @@ export function WhaleMap({
   showScatter,
   showHydros,
   showSocial,
+  socialTrail,
+  activeSocialId = null,
   effortBias,
   viewMode,
   windGate,
@@ -510,14 +514,58 @@ export function WhaleMap({
       })
 
       map.addSource('social', { type: 'geojson', data: socialToGeoJSON([]) })
+      // Time heat: weight = recency (1 = newest) so red reads as recent activity
+      map.addLayer({
+        id: 'social-heat',
+        type: 'heatmap',
+        source: 'social',
+        paint: {
+          'heatmap-weight': ['interpolate', ['linear'], ['get', 'recency'], 0, 0.05, 0.35, 0.35, 1, 1],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 8, 0.55, 11, 0.95],
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 18, 10, 28, 12, 40],
+          'heatmap-opacity': 0.72,
+          'heatmap-color': [
+            'interpolate',
+            ['linear'],
+            ['heatmap-density'],
+            0,
+            'rgba(0,0,0,0)',
+            0.15,
+            'rgba(30, 90, 100, 0.25)',
+            0.35,
+            'rgba(50, 140, 120, 0.4)',
+            0.55,
+            'rgba(220, 140, 50, 0.55)',
+            0.75,
+            'rgba(220, 70, 45, 0.7)',
+            1,
+            'rgba(190, 20, 30, 0.85)',
+          ],
+        },
+      })
       map.addLayer({
         id: 'social-halo',
         type: 'circle',
         source: 'social',
         paint: {
-          'circle-radius': 12,
-          'circle-color': '#b85c6e',
-          'circle-opacity': 0.18,
+          'circle-radius': [
+            'case',
+            ['==', ['get', 'active'], 1],
+            18,
+            12,
+          ],
+          'circle-color': [
+            'interpolate',
+            ['linear'],
+            ['get', 'recency'],
+            0,
+            '#2a6a72',
+            0.5,
+            '#c48620',
+            1,
+            '#b41418',
+          ],
+          'circle-opacity': 0.22,
         },
       })
       map.addLayer({
@@ -525,10 +573,40 @@ export function WhaleMap({
         type: 'circle',
         source: 'social',
         paint: {
-          'circle-radius': 5.5,
-          'circle-color': '#f7e8ec',
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#b85c6e',
+          'circle-radius': [
+            'case',
+            ['==', ['get', 'active'], 1],
+            8,
+            5.5,
+          ],
+          'circle-color': [
+            'interpolate',
+            ['linear'],
+            ['get', 'recency'],
+            0,
+            '#dce8ea',
+            0.45,
+            '#f3e0c0',
+            1,
+            '#ffd0c8',
+          ],
+          'circle-stroke-width': [
+            'case',
+            ['==', ['get', 'active'], 1],
+            3,
+            2,
+          ],
+          'circle-stroke-color': [
+            'interpolate',
+            ['linear'],
+            ['get', 'recency'],
+            0,
+            '#2a6a72',
+            0.5,
+            '#c48620',
+            1,
+            '#b41418',
+          ],
         },
       })
 
@@ -693,8 +771,8 @@ export function WhaleMap({
     const hy = map.getSource('hydros') as GeoJSONSource | undefined
     hy?.setData(hydrosToGeoJSON(hydroFeeds))
     const so = map.getSource('social') as GeoJSONSource | undefined
-    so?.setData(socialToGeoJSON(socialPosts))
-  }, [hotspots, launches, hydroFeeds, socialPosts, ready])
+    so?.setData(socialToGeoJSON(socialPosts, activeSocialId))
+  }, [hotspots, launches, hydroFeeds, socialPosts, activeSocialId, ready])
 
   // Layer visibility + view-mode emphasis
   useEffect(() => {
@@ -703,13 +781,15 @@ export function WhaleMap({
     const vis = (id: string, on: boolean) => {
       if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')
     }
-    const climOn = viewMode !== 'nowcast'
-    const nowOn = viewMode !== 'climatology'
-    vis('habitat-fill', showHabitat)
-    vis('habitat-line', showHabitat)
+    const trail = socialTrail
+    const climOn = !trail && viewMode !== 'nowcast'
+    const nowOn = !trail && viewMode !== 'climatology'
+    const socialOn = showSocial || trail
+    vis('habitat-fill', showHabitat && !trail)
+    vis('habitat-line', showHabitat && !trail)
     vis('hotspot-rings', showHotspots && climOn)
     vis('hotspot-cores', showHotspots && climOn)
-    vis('launches', showLaunches)
+    vis('launches', showLaunches && !trail)
     vis('recent', showRecent && nowOn)
     vis('recent-halo', showRecent && nowOn)
     vis('scatter', showScatter && climOn)
@@ -719,8 +799,9 @@ export function WhaleMap({
     vis('hex-hover', climOn)
     vis('hydro-pulse', showHydros && nowOn)
     vis('hydro-cores', showHydros && nowOn)
-    vis('social', showSocial && nowOn)
-    vis('social-halo', showSocial && nowOn)
+    vis('social-heat', trail)
+    vis('social', socialOn)
+    vis('social-halo', socialOn)
 
     if (map.getLayer('hex-fill')) {
       const mul = viewMode === 'climatology' ? 1 : viewMode === 'balanced' ? 0.9 : 0.28
@@ -734,6 +815,9 @@ export function WhaleMap({
     if (map.getLayer('recent')) {
       map.setPaintProperty('recent', 'circle-radius', viewMode === 'nowcast' ? 9 : 7)
     }
+    if (map.getLayer('social-heat')) {
+      map.setPaintProperty('social-heat', 'heatmap-opacity', trail ? 0.78 : 0)
+    }
   }, [
     showHabitat,
     showHotspots,
@@ -742,6 +826,7 @@ export function WhaleMap({
     showScatter,
     showHydros,
     showSocial,
+    socialTrail,
     viewMode,
     ready,
   ])

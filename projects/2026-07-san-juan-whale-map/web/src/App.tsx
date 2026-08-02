@@ -1,8 +1,9 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { WhaleMap, type HeatScale, type HexHover } from './components/WhaleMap'
 import { SeasonGrid } from './components/SeasonGrid'
 import { HourStrip } from './components/HourStrip'
 import { ConditionsPanel } from './components/ConditionsPanel'
+import { SocialCarousel } from './components/SocialCarousel'
 import {
   downloadHotspotsGpx,
   fetchHydrophones,
@@ -13,6 +14,7 @@ import {
   type WindSnapshot,
 } from './lib/live'
 import {
+  browseableSocialPosts,
   fetchSocialPosts,
   formatSightingWhen,
   pickLatestSighting,
@@ -54,6 +56,9 @@ export default function App() {
   const [showScatter, setShowScatter] = useState(false)
   const [showHydros, setShowHydros] = useState(true)
   const [showSocial, setShowSocial] = useState(true)
+  const [socialTrail, setSocialTrail] = useState(false)
+  const [socialIndex, setSocialIndex] = useState(0)
+  const [mapClear, setMapClear] = useState(false)
   const [hexHover, setHexHover] = useState<HexHover | null>(null)
   const [heatScale, setHeatScale] = useState<HeatScale | null>(null)
   const [selectedHotspot, setSelectedHotspot] = useState<string | null>('haro-west-side')
@@ -69,6 +74,12 @@ export default function App() {
   const [hydroError, setHydroError] = useState<string | null>(null)
   const [socialError, setSocialError] = useState<string | null>(null)
   const [focusSocial, setFocusSocial] = useState<{ lon: number; lat: number } | null>(null)
+
+  const trailPosts = useMemo(
+    () => browseableSocialPosts(social?.posts ?? social?.mapped ?? []),
+    [social],
+  )
+  const activeTrail = trailPosts[socialIndex] ?? null
 
   useEffect(() => {
     Promise.all([
@@ -153,7 +164,18 @@ export default function App() {
     const onResize = () => window.dispatchEvent(new Event('resize'))
     const t = window.setTimeout(onResize, 320)
     return () => window.clearTimeout(t)
-  }, [sheetOpen])
+  }, [sheetOpen, mapClear, socialTrail])
+
+  // Keep map camera on the active Bluesky trail post
+  useEffect(() => {
+    if (!socialTrail || !activeTrail || activeTrail.lon == null || activeTrail.lat == null) return
+    setFocusSocial({ lon: activeTrail.lon, lat: activeTrail.lat })
+  }, [socialTrail, activeTrail])
+
+  useEffect(() => {
+    if (!socialTrail || !trailPosts.length) return
+    if (socialIndex >= trailPosts.length) setSocialIndex(0)
+  }, [socialTrail, trailPosts.length, socialIndex])
 
   const labels = meta?.speciesLabels || {}
   const activeHotspot = hotspots.find((h) => h.id === selectedHotspot) || null
@@ -162,6 +184,14 @@ export default function App() {
   const hydroHot = hydro?.feeds.some((f) => f.pulse === 'hot') ?? false
   const gateLabel =
     wind?.gate === 'go' ? 'Go' : wind?.gate === 'caution' ? 'Caution' : wind?.gate === 'no-go' ? 'No-go' : '…'
+
+  const enterSocialTrail = () => {
+    setSocialTrail(true)
+    setShowSocial(true)
+    setSocialIndex(0)
+    setMapClear(false)
+    setSheetOpen(false)
+  }
 
   const toggleSpecies = (sp: SpeciesKey) => {
     setSpecies((prev) => {
@@ -185,7 +215,9 @@ export default function App() {
   }
 
   return (
-    <div className={`app ${sheetOpen ? 'sheet-open' : ''}`}>
+    <div
+      className={`app ${sheetOpen ? 'sheet-open' : ''} ${mapClear ? 'map-clear' : ''} ${socialTrail ? 'social-trail' : ''}`}
+    >
       <div className="atmosphere" aria-hidden>
         <div className="mist mist-a" />
         <div className="mist mist-b" />
@@ -203,11 +235,13 @@ export default function App() {
           showScatter={showScatter}
           showHydros={showHydros}
           showSocial={showSocial}
+          socialTrail={socialTrail}
+          activeSocialId={socialTrail ? activeTrail?.id ?? null : social?.latest?.id ?? null}
           effortBias={effortBias}
           viewMode={viewMode}
           windGate={wind?.gate ?? null}
           hydroFeeds={hydro?.feeds ?? []}
-          socialPosts={social?.mapped ?? []}
+          socialPosts={socialTrail ? trailPosts : (social?.mapped ?? [])}
           hotspots={hotspots}
           launches={launches}
           meta={meta}
@@ -219,103 +253,88 @@ export default function App() {
           onHeatScale={setHeatScale}
           selectedHotspot={selectedHotspot}
           focusTarget={focusSocial}
-          layoutKey={sheetOpen ? 'open' : 'closed'}
+          layoutKey={`${sheetOpen ? 'open' : 'closed'}-${mapClear ? 'clear' : 'ui'}-${socialTrail ? 'trail' : 'odds'}`}
         />
 
-        <div className="chrome-left">
-          <header className="brand-float">
-            <p className="brand">San Juan Whale Odds</p>
-            <p className="tagline">Where should the boat go?</p>
-          </header>
+        {!mapClear && (
+          <div className="chrome-left">
+            <header className="brand-float">
+              <p className="brand">San Juan Whale Odds</p>
+              <p className="tagline">Where should the boat go?</p>
+            </header>
 
-          <div className="status-float" aria-label="Live status">
-            <div className="status-chip">
-              <em>{meta?.counts.historicalInBbox.toLocaleString() ?? '—'}</em>
-              <span>reports</span>
-            </div>
-            <div className="status-chip">
-              <em>{recentCount}</em>
-              <span>recent</span>
-            </div>
-            <div className={`status-chip gate-${wind?.gate || 'unknown'}`}>
-              <em>{gateLabel}</em>
-              <span>wind</span>
-            </div>
-            <div className={`status-chip ${hydroHot ? 'pulse' : ''}`}>
-              <em>{hydroHot ? 'Calls' : 'Quiet'}</em>
-              <span>hydro</span>
-            </div>
-          </div>
-
-          {social?.latest && (
-            <div className="last-sighting">
-              <button
-                type="button"
-                className="last-sighting-body"
-                onClick={() => {
-                  const p = social.latest
-                  if (!p) return
-                  setShowSocial(true)
-                  if (p.lon != null && p.lat != null) {
-                    setFocusSocial({ lon: p.lon, lat: p.lat })
-                  }
-                  openPanel('live')
-                }}
-              >
-                <div className="last-sighting-kicker">
-                  <span>Last live sighting</span>
-                  <span>Bluesky</span>
+            {!socialTrail && (
+              <div className="status-float" aria-label="Live status">
+                <div className="status-chip">
+                  <em>{meta?.counts.historicalInBbox.toLocaleString() ?? '—'}</em>
+                  <span>reports</span>
                 </div>
-                <p className="last-sighting-title">
-                  {speciesLabel(social.latest.species, labels)}
-                  {social.latest.place ? ` · ${social.latest.place}` : ''}
-                </p>
-                <p className="last-sighting-meta">
-                  {(() => {
-                    const when = formatSightingWhen(social.latest.createdAt)
-                    const bits = [when.absolute]
-                    if (when.relative) bits.push(when.relative)
-                    if (social.latest.direction) bits.push(social.latest.direction)
-                    if (social.latest.place && social.latest.geocodePrecision === 'place_name') {
-                      bits.push('approx place')
-                    }
-                    return bits.join(' · ')
-                  })()}
-                </p>
-                <p className="last-sighting-text">{social.latest.text.slice(0, 140)}</p>
-              </button>
-              <a
-                className="last-sighting-cta"
-                href={social.latest.url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open post →
-              </a>
-            </div>
-          )}
-        </div>
+                <div className="status-chip">
+                  <em>{recentCount}</em>
+                  <span>recent</span>
+                </div>
+                <div className={`status-chip gate-${wind?.gate || 'unknown'}`}>
+                  <em>{gateLabel}</em>
+                  <span>wind</span>
+                </div>
+                <div className={`status-chip ${hydroHot ? 'pulse' : ''}`}>
+                  <em>{hydroHot ? 'Calls' : 'Quiet'}</em>
+                  <span>hydro</span>
+                </div>
+              </div>
+            )}
 
-        <div className="map-legend">
-          <div className="heat-scale" aria-label="Sighting density scale">
-            <div className="heat-scale-bar" />
-            <div className="heat-scale-labels">
-              <span>Low</span>
-              <span>Mid</span>
-              <span>Hot</span>
-            </div>
-            <p>
-              {effortBias ? 'Effort-adjusted' : 'Raw'} · {heatScale?.positiveCells ?? '—'} cells
-              {heatScale
-                ? ` · peak ${
-                    effortBias ? heatScale.maxScore.toFixed(1) : `${heatScale.maxRaw} reports`
-                  }`
-                : ''}
-            </p>
+            {!socialTrail && social?.latest && (
+              <div className="last-sighting">
+                <button type="button" className="last-sighting-body" onClick={enterSocialTrail}>
+                  <div className="last-sighting-kicker">
+                    <span>Last live sighting</span>
+                    <span>Bluesky</span>
+                  </div>
+                  <p className="last-sighting-title">
+                    {speciesLabel(social.latest.species, labels)}
+                    {social.latest.place ? ` · ${social.latest.place}` : ''}
+                  </p>
+                  <p className="last-sighting-meta">
+                    {(() => {
+                      const when = formatSightingWhen(social.latest.createdAt)
+                      return [when.absolute, when.relative, social.latest.direction]
+                        .filter(Boolean)
+                        .join(' · ')
+                    })()}
+                  </p>
+                  <p className="last-sighting-text">{social.latest.text.slice(0, 110)}</p>
+                </button>
+                <button type="button" className="last-sighting-cta" onClick={enterSocialTrail}>
+                  Browse trail · swipe by time →
+                </button>
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
-        {hexHover && hexHover.score > 0 && (
+        {!mapClear && !socialTrail && (
+          <div className="map-legend">
+            <div className="heat-scale" aria-label="Sighting density scale">
+              <div className="heat-scale-bar" />
+              <div className="heat-scale-labels">
+                <span>Low</span>
+                <span>Mid</span>
+                <span>Hot</span>
+              </div>
+              <p>
+                {effortBias ? 'Effort-adjusted' : 'Raw'} · {heatScale?.positiveCells ?? '—'} cells
+                {heatScale
+                  ? ` · peak ${
+                      effortBias ? heatScale.maxScore.toFixed(1) : `${heatScale.maxRaw} reports`
+                    }`
+                  : ''}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {!mapClear && hexHover && hexHover.score > 0 && !socialTrail && (
           <div className="hex-tooltip">
             <strong>
               {effortBias
@@ -329,24 +348,58 @@ export default function App() {
           </div>
         )}
 
-        {wind?.gate === 'no-go' && (
+        {!mapClear && wind?.gate === 'no-go' && (
           <div className="wind-banner no-go">No-go for open Haro — {wind.gateNote}</div>
         )}
-        {wind?.gate === 'caution' && (
+        {!mapClear && wind?.gate === 'caution' && (
           <div className="wind-banner caution">Caution — {wind.gateNote}</div>
         )}
 
-        <button
-          type="button"
-          className="sheet-launch"
-          onClick={() => setSheetOpen(true)}
-          aria-expanded={sheetOpen}
-        >
-          <span className="sheet-launch-label">Plan the day</span>
-          <span className="sheet-launch-meta">
-            {monthLabel} · {viewMode}
-          </span>
-        </button>
+        {!mapClear && socialTrail && (
+          <SocialCarousel
+            posts={trailPosts}
+            index={socialIndex}
+            onIndexChange={setSocialIndex}
+            speciesLabels={labels}
+          />
+        )}
+
+        {!mapClear && !socialTrail && (
+          <button
+            type="button"
+            className="sheet-launch"
+            onClick={() => setSheetOpen(true)}
+            aria-expanded={sheetOpen}
+          >
+            <span className="sheet-launch-label">Plan the day</span>
+            <span className="sheet-launch-meta">
+              {monthLabel} · {viewMode}
+            </span>
+          </button>
+        )}
+
+        <div className="map-fabs">
+          {socialTrail && !mapClear && (
+            <button
+              type="button"
+              className="map-fab"
+              onClick={() => setSocialTrail(false)}
+            >
+              Exit trail
+            </button>
+          )}
+          <button
+            type="button"
+            className="map-fab primary"
+            onClick={() => {
+              setMapClear((v) => !v)
+              if (!mapClear) setSheetOpen(false)
+            }}
+            aria-pressed={mapClear}
+          >
+            {mapClear ? 'Show UI' : 'Clear map'}
+          </button>
+        </div>
       </div>
 
       {sheetOpen && (
@@ -508,6 +561,17 @@ export default function App() {
                     onChange={(e) => setShowSocial(e.target.checked)}
                   />
                   Bluesky social pins
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={socialTrail}
+                    onChange={(e) => {
+                      if (e.target.checked) enterSocialTrail()
+                      else setSocialTrail(false)
+                    }}
+                  />
+                  Bluesky time trail (heat + swipe)
                 </label>
                 <label>
                   <input

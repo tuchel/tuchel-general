@@ -37,3 +37,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-02] build | san-juan-whale-map | Bluesky social ingest (396 posts / 134 geocoded); X/Reddit unavailable without credentials
 
 ## [2026-08-02] polish | san-juan-whale-map | Last live sighting callout from Bluesky; drop crypto whale-alert noise
+
+## [2026-08-02] polish | san-juan-whale-map | Clear-map FAB + Bluesky time-heat trail with swipe carousel
