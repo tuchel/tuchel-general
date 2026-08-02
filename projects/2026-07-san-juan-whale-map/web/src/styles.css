@@ -198,6 +198,82 @@ button {
   animation: pulse-soft 1.8s ease-in-out infinite;
 }
 
+.last-sighting {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.7rem 0.8rem 0.65rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 3px solid #b85c6e;
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow);
+  animation: rise 0.9s 0.08s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.last-sighting-body {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.last-sighting-kicker {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #a34d5e;
+}
+
+.last-sighting-title {
+  margin: 0.25rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.last-sighting-meta {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  line-height: 1.35;
+}
+
+.last-sighting-text {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.last-sighting-cta {
+  align-self: flex-start;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #a34d5e;
+  text-decoration: none;
+}
+
+.last-sighting-cta:hover {
+  text-decoration: underline;
+}
+
 .map-legend {
   position: absolute;
   left: 0.85rem;
@@ -1119,6 +1195,18 @@ button {
 
   .status-float {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .last-sighting {
+    padding: 0.6rem 0.7rem 0.55rem;
+  }
+
+  .last-sighting-title {
+    font-size: 0.98rem;
+  }
+
+  .last-sighting-text {
+    -webkit-line-clamp: 2;
   }
 
   .status-chip {

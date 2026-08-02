@@ -12,7 +12,13 @@ import {
   type TideSnapshot,
   type WindSnapshot,
 } from './lib/live'
-import { fetchSocialPosts, type SocialSnapshot } from './lib/social'
+import {
+  fetchSocialPosts,
+  formatSightingWhen,
+  pickLatestSighting,
+  speciesLabel,
+  type SocialSnapshot,
+} from './lib/social'
 import {
   MONTHS,
   SPECIES_COLOR,
@@ -62,6 +68,7 @@ export default function App() {
   const [windError, setWindError] = useState<string | null>(null)
   const [hydroError, setHydroError] = useState<string | null>(null)
   const [socialError, setSocialError] = useState<string | null>(null)
+  const [focusSocial, setFocusSocial] = useState<{ lon: number; lat: number } | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -123,6 +130,7 @@ export default function App() {
             setSocial({
               posts,
               mapped: posts.filter((p) => p.lat != null && p.lon != null),
+              latest: baked.latest || pickLatestSighting(posts),
               fetchedAt: baked.meta?.builtAt || new Date().toISOString(),
               sourceNote: 'Baked social.json (live Bluesky refresh failed)',
             })
@@ -210,6 +218,7 @@ export default function App() {
           }}
           onHeatScale={setHeatScale}
           selectedHotspot={selectedHotspot}
+          focusTarget={focusSocial}
           layoutKey={sheetOpen ? 'open' : 'closed'}
         />
 
@@ -236,11 +245,55 @@ export default function App() {
               <em>{hydroHot ? 'Calls' : 'Quiet'}</em>
               <span>hydro</span>
             </div>
-            <div className="status-chip">
-              <em>{social?.mapped.length ?? '…'}</em>
-              <span>social</span>
-            </div>
           </div>
+
+          {social?.latest && (
+            <div className="last-sighting">
+              <button
+                type="button"
+                className="last-sighting-body"
+                onClick={() => {
+                  const p = social.latest
+                  if (!p) return
+                  setShowSocial(true)
+                  if (p.lon != null && p.lat != null) {
+                    setFocusSocial({ lon: p.lon, lat: p.lat })
+                  }
+                  openPanel('live')
+                }}
+              >
+                <div className="last-sighting-kicker">
+                  <span>Last live sighting</span>
+                  <span>Bluesky</span>
+                </div>
+                <p className="last-sighting-title">
+                  {speciesLabel(social.latest.species, labels)}
+                  {social.latest.place ? ` · ${social.latest.place}` : ''}
+                </p>
+                <p className="last-sighting-meta">
+                  {(() => {
+                    const when = formatSightingWhen(social.latest.createdAt)
+                    const bits = [when.absolute]
+                    if (when.relative) bits.push(when.relative)
+                    if (social.latest.direction) bits.push(social.latest.direction)
+                    if (social.latest.place && social.latest.geocodePrecision === 'place_name') {
+                      bits.push('approx place')
+                    }
+                    return bits.join(' · ')
+                  })()}
+                </p>
+                <p className="last-sighting-text">{social.latest.text.slice(0, 140)}</p>
+              </button>
+              <a
+                className="last-sighting-cta"
+                href={social.latest.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open post →
+              </a>
+            </div>
+          )}
         </div>
 
         <div className="map-legend">

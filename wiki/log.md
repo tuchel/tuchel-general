@@ -35,3 +35,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-01] polish | san-juan-whale-map | Heat ramp ends at deep red (no yellow/white tip)
 
 ## [2026-08-02] build | san-juan-whale-map | Bluesky social ingest (396 posts / 134 geocoded); X/Reddit unavailable without credentials
+
+## [2026-08-02] polish | san-juan-whale-map | Last live sighting callout from Bluesky; drop crypto whale-alert noise
