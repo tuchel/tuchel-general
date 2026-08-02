@@ -14,11 +14,13 @@ export type SocialPost = {
   lon: number | null
   geocodePrecision: 'place_name' | 'none'
   sightingHint: boolean
+  direction: string | null
 }
 
 export type SocialSnapshot = {
   posts: SocialPost[]
   mapped: SocialPost[]
+  latest: SocialPost | null
   fetchedAt: string
   sourceNote: string
 }
@@ -36,7 +38,6 @@ const HANDLES = [
   'orcasound.bsky.social',
   'sanjuanorcas.bsky.social',
   'acs-ps.bsky.social',
-  'whale-alert.io',
   'ourwildpugetsound.com',
   'orcavision.org',
 ]
@@ -85,7 +86,27 @@ const CETACEAN_RE =
 const SIGHTING_HINT_RE =
   /\b(reported|sighting|spotted|seen|northbound|southbound|eastbound|westbound|foraging|milling|breaching|spyhop|vocaliz|calls?\b|blow|fluke)\b/i
 
+/** Crypto “whale” transfer spam (e.g. whale-alert mirrors). */
+const CRYPTO_NOISE_RE =
+  /\$btc|\$xrp|\$eth|\$usdc|\$usdt|#ripple|transferred from|unlocked at|unknown wallet|crypto/i
+
+const DIRECTION_RE =
+  /\b(northbound|southbound|eastbound|westbound|inbound|outbound)\b|\b(NB|SB|EB|WB)\b/i
+
 const BBOX = { south: 47.0, north: 50.3, west: -125.5, east: -122.0 }
+
+const SPECIES_LABELS: Record<string, string> = {
+  srkw: 'Southern Resident orca',
+  biggs: 'Bigg’s (transient) orca',
+  orca_unspecified: 'Orca',
+  humpback: 'Humpback',
+  gray: 'Gray whale',
+  minke: 'Minke',
+  porpoise: 'Porpoise',
+  other_baleen: 'Baleen whale',
+  other_cetacean: 'Whale',
+  unknown: 'Unspecified',
+}
 
 function detectSpecies(text: string): string {
   const t = text.toLowerCase()
@@ -113,11 +134,89 @@ function postUrl(handle: string, uri: string) {
   return `https://bsky.app/profile/${handle}/post/${rkey}`
 }
 
+function detectDirection(text: string): string | null {
+  const m = text.match(DIRECTION_RE)
+  if (!m) return null
+  const raw = m[1] || m[2] || ''
+  const map: Record<string, string> = {
+    NB: 'northbound',
+    SB: 'southbound',
+    EB: 'eastbound',
+    WB: 'westbound',
+  }
+  return map[raw] || raw.toLowerCase()
+}
+
+function isCryptoNoise(text: string) {
+  return CRYPTO_NOISE_RE.test(text)
+}
+
 function relevant(text: string, handle: string) {
+  if (isCryptoNoise(text)) return false
   if (handle === 'pugetsoundwhales.bsky.social' || handle === 'wscrqb.bsky.social') {
     return text.trim().length > 0
   }
   return CETACEAN_RE.test(text)
+}
+
+function qualityScore(p: SocialPost): number {
+  let score = 0
+  if (p.sightingHint) score += 4
+  if (p.place) score += 3
+  if (p.lat != null) score += 1
+  if (p.direction) score += 1
+  if (
+    p.handle === 'pugetsoundwhales.bsky.social' ||
+    p.handle === 'wscrqb.bsky.social' ||
+    p.handle === 'orcanetwork.bsky.social'
+  ) {
+    score += 2
+  }
+  return score
+}
+
+/** Newest real cetacean report — recent first, then place/sighting quality. */
+export function pickLatestSighting(posts: SocialPost[]): SocialPost | null {
+  const clean = posts
+    .filter((p) => !isCryptoNoise(p.text) && p.species !== 'unknown')
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+  if (!clean.length) return null
+
+  const now = Date.now()
+  const recent = clean.filter((p) => {
+    const t = Date.parse(p.createdAt)
+    return Number.isFinite(t) && now - t <= 72 * 3600 * 1000
+  })
+  const pool = recent.length ? recent : clean.slice(0, 25)
+  return pool.reduce((best, p) => {
+    if (!best) return p
+    const dq = qualityScore(p) - qualityScore(best)
+    if (dq > 0) return p
+    if (dq < 0) return best
+    return (p.createdAt || '') > (best.createdAt || '') ? p : best
+  }, null as SocialPost | null)
+}
+
+export function speciesLabel(species: string, labels?: Record<string, string>) {
+  return labels?.[species] || SPECIES_LABELS[species] || species
+}
+
+export function formatSightingWhen(iso: string): { absolute: string; relative: string } {
+  const t = new Date(iso)
+  if (Number.isNaN(t.getTime())) return { absolute: iso, relative: '' }
+  const absolute = t.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+  const mins = Math.round((Date.now() - t.getTime()) / 60000)
+  let relative = ''
+  if (mins < 1) relative = 'just now'
+  else if (mins < 60) relative = `${mins}m ago`
+  else if (mins < 60 * 24) relative = `${Math.round(mins / 60)}h ago`
+  else relative = `${Math.round(mins / (60 * 24))}d ago`
+  return { absolute, relative }
 }
 
 async function pullHandle(handle: string, limit = 40): Promise<SocialPost[]> {
@@ -157,6 +256,7 @@ async function pullHandle(handle: string, limit = 40): Promise<SocialPost[]> {
       lon: geo?.lon ?? null,
       geocodePrecision: geo ? 'place_name' : 'none',
       sightingHint: SIGHTING_HINT_RE.test(text),
+      direction: detectDirection(text),
     })
   }
   return out
@@ -184,9 +284,11 @@ export async function fetchSocialPosts(): Promise<SocialSnapshot> {
       p.lon >= BBOX.west &&
       p.lon <= BBOX.east,
   )
+  const trimmed = posts.slice(0, 200)
   return {
-    posts: posts.slice(0, 200),
+    posts: trimmed,
     mapped,
+    latest: pickLatestSighting(trimmed),
     fetchedAt: new Date().toISOString(),
     sourceNote:
       'Bluesky public feeds · place-name geocode (approx) · X/Reddit unavailable without credentials',

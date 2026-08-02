@@ -43,6 +43,7 @@ type Props = {
   onSelectHotspot: (id: string | null) => void
   onHeatScale: (scale: HeatScale | null) => void
   selectedHotspot: string | null
+  focusTarget?: { lon: number; lat: number } | null
   layoutKey?: string
 }
 
@@ -181,6 +182,7 @@ export function WhaleMap({
   onSelectHotspot,
   onHeatScale,
   selectedHotspot,
+  focusTarget = null,
   layoutKey = 'default',
 }: Props) {
   const container = useRef<HTMLDivElement>(null)
@@ -778,6 +780,17 @@ export function WhaleMap({
     const id = window.setTimeout(() => map.resize(), 80)
     return () => window.clearTimeout(id)
   }, [layoutKey, ready])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready || !focusTarget) return
+    map.flyTo({
+      center: [focusTarget.lon, focusTarget.lat],
+      zoom: Math.max(map.getZoom(), 10.6),
+      essential: true,
+      duration: 1100,
+    })
+  }, [focusTarget, ready])
 
   return <div className="map-root" ref={container} role="img" aria-label="Map of whale sighting odds around San Juan Island" />
 }

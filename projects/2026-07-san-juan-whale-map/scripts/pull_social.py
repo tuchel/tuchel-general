@@ -36,7 +36,6 @@ HANDLES = [
     "sanjuanorcas.bsky.social",
     "sjiwhalewatch.bsky.social",
     "acs-ps.bsky.social",
-    "whale-alert.io",
     "ourwildpugetsound.com",
     "orcavision.org",
 ]
@@ -108,6 +107,17 @@ SIGHTING_HINT_RE = re.compile(
     re.I,
 )
 
+CRYPTO_NOISE_RE = re.compile(
+    r"\$btc|\$xrp|\$eth|\$usdc|\$usdt|#ripple|transferred from|unlocked at|"
+    r"unknown wallet|crypto",
+    re.I,
+)
+
+DIRECTION_RE = re.compile(
+    r"\b(northbound|southbound|eastbound|westbound|inbound|outbound)\b|\b(NB|SB|EB|WB)\b",
+    re.I,
+)
+
 BBOX = dict(south=47.0, north=50.3, west=-125.5, east=-122.0)
 FOCUS = dict(south=48.3, north=48.95, west=-123.45, east=-122.55)
 
@@ -167,7 +177,18 @@ def post_url(handle: str, uri: str) -> str:
     return f"https://bsky.app/profile/{handle}/post/{rkey}"
 
 
+def detect_direction(text: str) -> str | None:
+    m = DIRECTION_RE.search(text)
+    if not m:
+        return None
+    raw = m.group(1) or m.group(2) or ""
+    abbr = {"NB": "northbound", "SB": "southbound", "EB": "eastbound", "WB": "westbound"}
+    return abbr.get(raw.upper(), raw.lower())
+
+
 def relevant(text: str, handle: str) -> bool:
+    if CRYPTO_NOISE_RE.search(text):
+        return False
     if handle in (
         "pugetsoundwhales.bsky.social",
         "wscrqb.bsky.social",
@@ -208,6 +229,7 @@ def pull_author(handle: str, limit: int = 60) -> list[dict]:
             "lon": geo[1] if geo else None,
             "geocodePrecision": "place_name" if geo else "none",
             "sightingHint": bool(SIGHTING_HINT_RE.search(text)),
+            "direction": detect_direction(text),
         }
         out.append(row)
     return out
@@ -290,8 +312,48 @@ def main() -> None:
         ),
     }
 
+    # Newest first among real cetacean posts; quality breaks ties within 72h.
+    def quality(p: dict) -> int:
+        score = 0
+        if p.get("sightingHint"):
+            score += 4
+        if p.get("place"):
+            score += 3
+        if p.get("lat") is not None:
+            score += 1
+        if p.get("direction"):
+            score += 1
+        if p.get("handle") in (
+            "pugetsoundwhales.bsky.social",
+            "wscrqb.bsky.social",
+            "orcanetwork.bsky.social",
+        ):
+            score += 2
+        return score
+
+    candidates = sorted(
+        [p for p in posts if p.get("species") not in (None, "unknown")],
+        key=lambda p: p.get("createdAt") or "",
+        reverse=True,
+    )
+    latest = None
+    if candidates:
+        now = datetime.now(timezone.utc)
+
+        def age_h(p: dict) -> float:
+            try:
+                t = datetime.fromisoformat((p.get("createdAt") or "").replace("Z", "+00:00"))
+                return (now - t).total_seconds() / 3600
+            except ValueError:
+                return 1e9
+
+        recent = [p for p in candidates if age_h(p) <= 72]
+        pool = recent or candidates[:25]
+        latest = max(pool, key=lambda p: (quality(p), p.get("createdAt") or ""))
+
     payload = {
         "meta": meta,
+        "latest": latest,
         "posts": posts[:200],
         "geojson": fc,
     }
