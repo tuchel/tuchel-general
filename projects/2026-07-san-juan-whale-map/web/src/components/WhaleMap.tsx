@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import maplibregl, { type GeoJSONSource, type Map as MLMap, type MapLayerMouseEvent } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { HydroFeed } from '../lib/live'
+import { socialToGeoJSON, type SocialPost } from '../lib/social'
 import {
   SPECIES_COLOR,
   hexRawCount,
@@ -29,10 +30,12 @@ type Props = {
   showRecent: boolean
   showScatter: boolean
   showHydros: boolean
+  showSocial: boolean
   effortBias: boolean
   viewMode: ViewMode
   windGate: 'go' | 'caution' | 'no-go' | null
   hydroFeeds: HydroFeed[]
+  socialPosts: SocialPost[]
   hotspots: Hotspot[]
   launches: Launch[]
   meta: Meta | null
@@ -165,10 +168,12 @@ export function WhaleMap({
   showRecent,
   showScatter,
   showHydros,
+  showSocial,
   effortBias,
   viewMode,
   windGate,
   hydroFeeds,
+  socialPosts,
   hotspots,
   launches,
   meta,
@@ -502,6 +507,29 @@ export function WhaleMap({
         },
       })
 
+      map.addSource('social', { type: 'geojson', data: socialToGeoJSON([]) })
+      map.addLayer({
+        id: 'social-halo',
+        type: 'circle',
+        source: 'social',
+        paint: {
+          'circle-radius': 12,
+          'circle-color': '#b85c6e',
+          'circle-opacity': 0.18,
+        },
+      })
+      map.addLayer({
+        id: 'social',
+        type: 'circle',
+        source: 'social',
+        paint: {
+          'circle-radius': 5.5,
+          'circle-color': '#f7e8ec',
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#b85c6e',
+        },
+      })
+
       map.on('mousemove', 'hex-fill', (e: MapLayerMouseEvent) => {
         const f = e.features?.[0]
         if (!f?.properties) {
@@ -568,6 +596,36 @@ export function WhaleMap({
         })
       }
 
+      const socialPopup = new maplibregl.Popup({
+        closeButton: false,
+        closeOnClick: false,
+        offset: 12,
+        className: 'whale-popup',
+      })
+      map.on('mouseenter', 'social', (e) => {
+        map.getCanvas().style.cursor = 'pointer'
+        const f = e.features?.[0]
+        if (!f || !e.lngLat) return
+        const p = f.properties || {}
+        socialPopup
+          .setLngLat(e.lngLat)
+          .setHTML(
+            `<strong>${escapeHtml(String(p.displayName || p.handle || 'Bluesky'))}</strong>` +
+              (p.place ? `<br/><span class="muted">${escapeHtml(String(p.place))} · approx</span>` : '') +
+              `<br/>${escapeHtml(String(p.text || '').slice(0, 180))}` +
+              `<br/><span class="muted">Bluesky · place-name pin</span>`,
+          )
+          .addTo(map)
+      })
+      map.on('mouseleave', 'social', () => {
+        map.getCanvas().style.cursor = ''
+        socialPopup.remove()
+      })
+      map.on('click', 'social', (e) => {
+        const url = e.features?.[0]?.properties?.url
+        if (url) window.open(String(url), '_blank', 'noopener,noreferrer')
+      })
+
       // Recent tooltip
       const popup = new maplibregl.Popup({
         closeButton: false,
@@ -632,7 +690,9 @@ export function WhaleMap({
     ls?.setData(launchesToGeoJSON(launches))
     const hy = map.getSource('hydros') as GeoJSONSource | undefined
     hy?.setData(hydrosToGeoJSON(hydroFeeds))
-  }, [hotspots, launches, hydroFeeds, ready])
+    const so = map.getSource('social') as GeoJSONSource | undefined
+    so?.setData(socialToGeoJSON(socialPosts))
+  }, [hotspots, launches, hydroFeeds, socialPosts, ready])
 
   // Layer visibility + view-mode emphasis
   useEffect(() => {
@@ -657,6 +717,8 @@ export function WhaleMap({
     vis('hex-hover', climOn)
     vis('hydro-pulse', showHydros && nowOn)
     vis('hydro-cores', showHydros && nowOn)
+    vis('social', showSocial && nowOn)
+    vis('social-halo', showSocial && nowOn)
 
     if (map.getLayer('hex-fill')) {
       const mul = viewMode === 'climatology' ? 1 : viewMode === 'balanced' ? 0.9 : 0.28
@@ -677,6 +739,7 @@ export function WhaleMap({
     showRecent,
     showScatter,
     showHydros,
+    showSocial,
     viewMode,
     ready,
   ])

@@ -42,6 +42,13 @@ Primary / first-party where possible. Aggregators noted as such.
 - **OrcaSound** — listen pages at `https://live.orcasound.net/listen/{slug}` (e.g. `orcasound-lab`, `north-sjc`). Feeds JSON:API on live/beta.
 - OrcaHello / automated detectors sometimes feed SalishSea.io remarks (see occurrence remarks).
 
+## Social media (nowcast supplement)
+
+- **Bluesky (wired)** — public AppView `getAuthorFeed` for curated Salish Sea whale accounts (Puget Sound Whale Sightings, Campbell River spotters, Orca Network, OBI, PWWA, Whale Museum, CWR, OrcaSound, etc.). Place names in post text are gazetteer-matched to approximate coords. Script: `scripts/pull_social.py` → `web/public/data/social.json`; client also refreshes live.
+- **X / Twitter (not wired)** — API is paid; no credentials in this environment. Do not scrape.
+- **Reddit (not wired here)** — `/r/orcas` JSON returns 403 from this host’s IP; would need a registered Reddit app + OAuth.
+- Prefer Acartia / Orca Network for vetted sightings; social pins are unverified and often duplicate those feeds.
+
 ## Weather / sea state (not yet wired; candidates)
 
 - NWS marine forecasts — `https://www.weather.gov/` zones PZZ132 / PZZ133 (Northern Inland Waters / Admiralty Inlet).

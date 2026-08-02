@@ -811,6 +811,45 @@ button {
   color: #3d7ea6;
 }
 
+.social-list {
+  list-style: none;
+  margin: 0.4rem 0;
+  padding: 0;
+  font-size: 0.8rem;
+}
+
+.social-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.social-list li div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.social-list li span {
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+}
+
+.social-list .social-text {
+  color: var(--ink);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.social-list a {
+  flex-shrink: 0;
+  color: #a34d5e;
+}
+
 .conditions a,
 .etiquette a {
   color: var(--sea);

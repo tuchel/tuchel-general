@@ -1,6 +1,7 @@
 raw/*.zip
 raw/*.geojson
 raw/acartia-current.json
+raw/social/
 web/node_modules/
 web/dist/
 __pycache__/

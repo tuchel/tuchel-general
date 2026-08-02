@@ -77,6 +77,7 @@ Show the ingredients on hover (“12 Aug orca reports 2022–25 · 3 in last 14 
 | Hydrophone ear | OrcaSound Lab + North SJC feeds + detection pulse |
 | Effort bias | `score = raw × median / (effort + 0.5×median)` toggle |
 | GPX export | Corridors + launches waypoints download |
+| Social nowcast | Bluesky author feeds → place-tagged pins + Live tab list (X/Reddit blocked) |
 
 ## What not to do
 
