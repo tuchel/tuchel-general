@@ -1,12 +1,15 @@
 import type { HydroSnapshot, TideSnapshot, WindSnapshot } from '../lib/live'
+import type { SocialSnapshot } from '../lib/social'
 
 type Props = {
   tides: TideSnapshot | null
   wind: WindSnapshot | null
   hydro: HydroSnapshot | null
+  social: SocialSnapshot | null
   tideError?: string | null
   windError?: string | null
   hydroError?: string | null
+  socialError?: string | null
 }
 
 function fmtTide(t: string) {
@@ -25,10 +28,13 @@ export function ConditionsPanel({
   tides,
   wind,
   hydro,
+  social,
   tideError,
   windError,
   hydroError,
+  socialError,
 }: Props) {
+  const socialPreview = (social?.posts || []).slice(0, 8)
   return (
     <div className="conditions">
       <h2>Live conditions</h2>
@@ -120,6 +126,50 @@ export function ConditionsPanel({
           </>
         ) : (
           !hydroError && <p className="meta-line">Loading hydrophones…</p>
+        )}
+      </section>
+
+      <section>
+        <h3>Social · Bluesky</h3>
+        {socialError && <p className="err">{socialError}</p>}
+        {social ? (
+          <>
+            <p className="meta-line">
+              {social.mapped.length} place-tagged pins · {social.posts.length} recent posts ·{' '}
+              {social.sourceNote}
+            </p>
+            <ul className="social-list">
+              {socialPreview.map((p) => (
+                <li key={p.id}>
+                  <div>
+                    <strong>{p.displayName || p.handle}</strong>
+                    <span>
+                      {p.place ? `${p.place} · ` : ''}
+                      {p.species !== 'unknown' ? p.species.replace('_', ' ') : 'cetacean?'}
+                      {p.createdAt
+                        ? ` · ${new Date(p.createdAt).toLocaleString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          })}`
+                        : ''}
+                    </span>
+                    <span className="social-text">{p.text.slice(0, 160)}</span>
+                  </div>
+                  <a href={p.url} target="_blank" rel="noreferrer">
+                    Open
+                  </a>
+                </li>
+              ))}
+            </ul>
+            <p className="meta-line">
+              Coords are place-name matches (approx), not GPS. X and Reddit are not wired — no API
+              credentials / host blocked.
+            </p>
+          </>
+        ) : (
+          !socialError && <p className="meta-line">Loading social feeds…</p>
         )}
       </section>
     </div>

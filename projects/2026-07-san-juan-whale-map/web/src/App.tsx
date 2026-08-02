@@ -12,6 +12,7 @@ import {
   type TideSnapshot,
   type WindSnapshot,
 } from './lib/live'
+import { fetchSocialPosts, type SocialSnapshot } from './lib/social'
 import {
   MONTHS,
   SPECIES_COLOR,
@@ -46,6 +47,7 @@ export default function App() {
   const [showRecent, setShowRecent] = useState(true)
   const [showScatter, setShowScatter] = useState(false)
   const [showHydros, setShowHydros] = useState(true)
+  const [showSocial, setShowSocial] = useState(true)
   const [hexHover, setHexHover] = useState<HexHover | null>(null)
   const [heatScale, setHeatScale] = useState<HeatScale | null>(null)
   const [selectedHotspot, setSelectedHotspot] = useState<string | null>('haro-west-side')
@@ -55,9 +57,11 @@ export default function App() {
   const [tides, setTides] = useState<TideSnapshot | null>(null)
   const [wind, setWind] = useState<WindSnapshot | null>(null)
   const [hydro, setHydro] = useState<HydroSnapshot | null>(null)
+  const [social, setSocial] = useState<SocialSnapshot | null>(null)
   const [tideError, setTideError] = useState<string | null>(null)
   const [windError, setWindError] = useState<string | null>(null)
   const [hydroError, setHydroError] = useState<string | null>(null)
+  const [socialError, setSocialError] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -104,6 +108,29 @@ export default function App() {
         }
       } catch (e) {
         if (!cancelled) setHydroError(e instanceof Error ? e.message : 'Hydrophone fetch failed')
+      }
+      try {
+        const s = await fetchSocialPosts()
+        if (!cancelled) {
+          setSocial(s)
+          setSocialError(null)
+        }
+      } catch (e) {
+        if (!cancelled) {
+          try {
+            const baked = await fetch('./data/social.json').then((r) => r.json())
+            const posts = (baked.posts || []) as SocialSnapshot['posts']
+            setSocial({
+              posts,
+              mapped: posts.filter((p) => p.lat != null && p.lon != null),
+              fetchedAt: baked.meta?.builtAt || new Date().toISOString(),
+              sourceNote: 'Baked social.json (live Bluesky refresh failed)',
+            })
+            setSocialError(null)
+          } catch {
+            setSocialError(e instanceof Error ? e.message : 'Social fetch failed')
+          }
+        }
       }
     }
     load()
@@ -167,10 +194,12 @@ export default function App() {
           showRecent={showRecent}
           showScatter={showScatter}
           showHydros={showHydros}
+          showSocial={showSocial}
           effortBias={effortBias}
           viewMode={viewMode}
           windGate={wind?.gate ?? null}
           hydroFeeds={hydro?.feeds ?? []}
+          socialPosts={social?.mapped ?? []}
           hotspots={hotspots}
           launches={launches}
           meta={meta}
@@ -206,6 +235,10 @@ export default function App() {
             <div className={`status-chip ${hydroHot ? 'pulse' : ''}`}>
               <em>{hydroHot ? 'Calls' : 'Quiet'}</em>
               <span>hydro</span>
+            </div>
+            <div className="status-chip">
+              <em>{social?.mapped.length ?? '…'}</em>
+              <span>social</span>
             </div>
           </div>
         </div>
@@ -418,6 +451,14 @@ export default function App() {
                 <label>
                   <input
                     type="checkbox"
+                    checked={showSocial}
+                    onChange={(e) => setShowSocial(e.target.checked)}
+                  />
+                  Bluesky social pins
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
                     checked={showHotspots}
                     onChange={(e) => setShowHotspots(e.target.checked)}
                   />
@@ -464,9 +505,11 @@ export default function App() {
               tides={tides}
               wind={wind}
               hydro={hydro}
+              social={social}
               tideError={tideError}
               windError={windError}
               hydroError={hydroError}
+              socialError={socialError}
             />
           )}
 

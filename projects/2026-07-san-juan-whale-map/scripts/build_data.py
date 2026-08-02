@@ -611,6 +611,20 @@ def main() -> None:
     write_json(OUT / "hotspots.json", curated_hotspots())
     write_json(OUT / "launches.json", launch_points())
     write_json(OUT / "etiquette.json", etiquette())
+
+    # Social nowcast (Bluesky). Soft-fail so offline hex builds still succeed.
+    try:
+        import subprocess
+        import sys
+
+        print("Pulling social feeds (Bluesky)…")
+        subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "pull_social.py")],
+            check=False,
+        )
+    except Exception as e:  # noqa: BLE001
+        print(f"  social pull skipped: {e}")
+
     print("Done.")
 
 

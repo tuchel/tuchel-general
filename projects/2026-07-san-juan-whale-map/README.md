@@ -6,7 +6,7 @@ Interactive map of the waters around San Juan Island for a group renting a boat 
 
 Map-first layout: floating brand + live chips on desktop beside a control sheet; full-bleed map + bottom sheet on mobile.
 
-**Includes:** SalishSea.io hex density · Acartia nowcast · NOAA tides · Open-Meteo wind gate · OrcaSound hydro pulse · effort-bias scoring · GPX export · Be Whale Wise.
+**Includes:** SalishSea.io hex density · Acartia nowcast · Bluesky social pins · NOAA tides · Open-Meteo wind gate · OrcaSound hydro pulse · effort-bias scoring · GPX export · Be Whale Wise.
 
 ## What it answers
 
@@ -33,6 +33,8 @@ Deploy: push to `main` (or Actions → “Deploy GitHub Pages”). Artifact path
 | [Acartia / SSEMMI](https://acartia.io/) `GET /api/v1/sightings/current` | Recent cooperative sightings | Open current feed |
 | [NOAA SRKW critical habitat](https://maps.fisheries.noaa.gov/server/rest/services/All_NMFS_Critical_Habitat/MapServer/195) | Habitat polygon overlay | ArcGIS REST → GeoJSON |
 | [iNaturalist](https://api.inaturalist.org/v1/observations) | Cross-check density (optional pull) | Public API |
+| [Bluesky](https://docs.bsky.app/) Salish Sea whale accounts | Social nowcast pins (place-name geocode) | Public AppView; `scripts/pull_social.py` |
+| X / Reddit | Not wired — paid API / host blocked | Needs credentials |
 | Curated hotspots / calendar | Boat-renter heuristics from NPS, WA Parks, Whale Museum literature | See `notes/` |
 
 Raw downloads stay under `raw/` (gitignored where large). Distilled JSON for the app lives in `web/public/data/`.
