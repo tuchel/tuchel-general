@@ -295,28 +295,58 @@ export async function fetchSocialPosts(): Promise<SocialSnapshot> {
   }
 }
 
-export function socialToGeoJSON(posts: SocialPost[]) {
+/** Hours after which a post contributes ~0 weight to the Bluesky time heat. */
+export const SOCIAL_HEAT_WINDOW_H = 7 * 24
+
+export function postRecency(createdAt: string, nowMs = Date.now()): number {
+  const t = Date.parse(createdAt)
+  if (!Number.isFinite(t)) return 0
+  const ageH = Math.max(0, (nowMs - t) / 3600000)
+  return Math.max(0, Math.min(1, 1 - ageH / SOCIAL_HEAT_WINDOW_H))
+}
+
+/** Mapped posts newest-first for the swipe trail. */
+export function browseableSocialPosts(posts: SocialPost[]): SocialPost[] {
+  return posts
+    .filter(
+      (p) =>
+        p.lat != null &&
+        p.lon != null &&
+        !isCryptoNoise(p.text) &&
+        p.species !== 'unknown',
+    )
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+}
+
+export function socialToGeoJSON(posts: SocialPost[], activeId?: string | null) {
+  const now = Date.now()
   return {
     type: 'FeatureCollection' as const,
     features: posts
       .filter((p) => p.lat != null && p.lon != null)
-      .map((p) => ({
-        type: 'Feature' as const,
-        properties: {
-          id: p.id,
-          handle: p.handle,
-          displayName: p.displayName,
-          text: p.text,
-          createdAt: p.createdAt,
-          url: p.url,
-          species: p.species,
-          place: p.place,
-          sightingHint: p.sightingHint,
-        },
-        geometry: {
-          type: 'Point' as const,
-          coordinates: [p.lon as number, p.lat as number],
-        },
-      })),
+      .map((p) => {
+        const recency = postRecency(p.createdAt, now)
+        return {
+          type: 'Feature' as const,
+          properties: {
+            id: p.id,
+            handle: p.handle,
+            displayName: p.displayName,
+            text: p.text,
+            createdAt: p.createdAt,
+            url: p.url,
+            species: p.species,
+            place: p.place,
+            sightingHint: p.sightingHint,
+            direction: p.direction,
+            recency,
+            active: activeId && p.id === activeId ? 1 : 0,
+          },
+          geometry: {
+            type: 'Point' as const,
+            coordinates: [p.lon as number, p.lat as number],
+          },
+        }
+      }),
   }
 }

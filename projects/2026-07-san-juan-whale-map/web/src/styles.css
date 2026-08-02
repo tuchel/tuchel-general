@@ -274,6 +274,165 @@ button {
   text-decoration: underline;
 }
 
+button.last-sighting-cta {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #a34d5e;
+  text-align: left;
+}
+
+.map-fabs {
+  position: absolute;
+  /* Sit under MapLibre zoom controls */
+  top: calc(6.4rem + var(--safe-top));
+  right: 0.85rem;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+}
+
+.map-fab {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow);
+  padding: 0.55rem 0.75rem;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.map-fab.primary {
+  background: rgba(20, 55, 62, 0.92);
+  border-color: rgba(20, 55, 62, 0.92);
+  color: #f4fafb;
+}
+
+.app.map-clear .map-fabs {
+  top: auto;
+  bottom: calc(1.1rem + var(--safe-bottom));
+}
+
+.social-carousel {
+  position: absolute;
+  left: 0.85rem;
+  right: 0.85rem;
+  bottom: calc(1rem + var(--safe-bottom));
+  z-index: 5;
+  padding: 0.7rem 0.75rem 0.55rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 3px solid #b41418;
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow);
+  touch-action: pan-y;
+  animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.social-carousel-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #a34d5e;
+}
+
+.social-carousel-main {
+  display: grid;
+  grid-template-columns: 2.2rem 1fr 2.2rem;
+  gap: 0.35rem;
+  align-items: stretch;
+  margin-top: 0.35rem;
+}
+
+.social-carousel-nav {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--ink);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.social-carousel-nav:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.social-carousel-card {
+  min-width: 0;
+}
+
+.social-carousel-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.social-carousel-meta,
+.social-carousel-hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  line-height: 1.35;
+}
+
+.social-carousel-text {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.social-carousel-link {
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #a34d5e;
+  text-decoration: none;
+}
+
+.social-carousel-hint {
+  margin-top: 0.4rem;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+
+.social-carousel-scale {
+  height: 0.35rem;
+  margin: 0.4rem 0 0.15rem;
+}
+
+.heat-scale-bar.social-heat-bar {
+  background: linear-gradient(
+    90deg,
+    rgba(42, 106, 114, 0.65) 0%,
+    rgba(196, 134, 32, 0.8) 45%,
+    rgba(180, 20, 24, 0.95) 100%
+  );
+}
+
 .map-legend {
   position: absolute;
   left: 0.85rem;
@@ -1117,6 +1276,25 @@ button {
 
   .sheet-launch {
     display: block;
+  }
+
+  .app.map-clear .sheet-launch,
+  .app.social-trail .sheet-launch {
+    display: none;
+  }
+
+  .app.social-trail .map-fabs {
+    top: auto;
+    bottom: calc(11.5rem + var(--safe-bottom));
+  }
+
+  .app.map-clear .chrome-left,
+  .app.map-clear .map-legend,
+  .app.map-clear .hex-tooltip,
+  .app.map-clear .wind-banner,
+  .app.map-clear .social-carousel,
+  .app.map-clear .last-sighting {
+    display: none !important;
   }
 
   .sheet-scrim {
