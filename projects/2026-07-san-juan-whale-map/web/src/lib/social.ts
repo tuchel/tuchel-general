@@ -516,6 +516,51 @@ export function browseableSocialPosts(posts: SocialPost[]): SocialPost[] {
     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
 }
 
+/** Match PSW day-root labels like "Mon, Aug 3" in Pacific local time. */
+export function formatPswDayLabel(
+  date = new Date(),
+  timeZone = 'America/Los_Angeles',
+): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  }).formatToParts(date)
+  const wd = parts.find((p) => p.type === 'weekday')?.value || ''
+  const mo = parts.find((p) => p.type === 'month')?.value || ''
+  const day = parts.find((p) => p.type === 'day')?.value || ''
+  return `${wd}, ${mo} ${day}`
+}
+
+/** Prefer today's PSW day thread; fall back to newest thread if still within ~30h. */
+export function pickTodaysDayThread(
+  threads: SocialDayThread[],
+  now = new Date(),
+): SocialDayThread | null {
+  if (!threads.length) return null
+  const label = formatPswDayLabel(now).toLowerCase()
+  const exact = threads.find((t) => {
+    const raw = (t.dateLabel || '').toLowerCase().replace(/\s+/g, ' ')
+    return raw.includes(label)
+  })
+  if (exact) return exact
+
+  const newest = [...threads].sort((a, b) =>
+    (b.createdAt || '').localeCompare(a.createdAt || ''),
+  )[0]
+  const t = Date.parse(newest.createdAt)
+  if (Number.isFinite(t) && now.getTime() - t <= 30 * 3600 * 1000) return newest
+  return null
+}
+
+export function mappedThreadUpdates(thread: SocialDayThread | null): SocialPost[] {
+  if (!thread) return []
+  return thread.updates
+    .filter((u) => u.lat != null && u.lon != null && u.species !== 'unknown')
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+}
+
 export function socialToGeoJSON(posts: SocialPost[], activeId?: string | null) {
   const now = Date.now()
   return {

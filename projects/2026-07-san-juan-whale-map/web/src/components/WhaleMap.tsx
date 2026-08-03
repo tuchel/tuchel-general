@@ -55,6 +55,10 @@ type Props = {
   onWindowPointCount?: (n: number) => void
   selectedHotspot: string | null
   focusTarget?: { lon: number; lat: number } | null
+  /** Fit map to these lon/lat pairs (e.g. today's sightings). */
+  fitBoundsTarget?: { lon: number; lat: number }[] | null
+  /** Bump to re-run fitBounds even if coordinates are unchanged. */
+  fitBoundsKey?: number | string
   layoutKey?: string
 }
 
@@ -198,6 +202,8 @@ export function WhaleMap({
   onWindowPointCount,
   selectedHotspot,
   focusTarget = null,
+  fitBoundsTarget = null,
+  fitBoundsKey = 0,
   layoutKey = 'default',
 }: Props) {
   const container = useRef<HTMLDivElement>(null)
@@ -1030,6 +1036,31 @@ export function WhaleMap({
       duration: 1100,
     })
   }, [focusTarget, ready])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready || !fitBoundsTarget?.length) return
+    if (fitBoundsTarget.length === 1) {
+      map.flyTo({
+        center: [fitBoundsTarget[0].lon, fitBoundsTarget[0].lat],
+        zoom: Math.max(map.getZoom(), 10.8),
+        essential: true,
+        duration: 1200,
+      })
+      return
+    }
+    const bounds = new maplibregl.LngLatBounds(
+      [fitBoundsTarget[0].lon, fitBoundsTarget[0].lat],
+      [fitBoundsTarget[0].lon, fitBoundsTarget[0].lat],
+    )
+    for (const p of fitBoundsTarget) bounds.extend([p.lon, p.lat])
+    map.fitBounds(bounds, {
+      padding: { top: 100, bottom: 160, left: 56, right: 56 },
+      maxZoom: 11.2,
+      duration: 1200,
+      essential: true,
+    })
+  }, [fitBoundsTarget, fitBoundsKey, ready])
 
   return <div className="map-root" ref={container} role="img" aria-label="Map of whale sighting odds around San Juan Island" />
 }
