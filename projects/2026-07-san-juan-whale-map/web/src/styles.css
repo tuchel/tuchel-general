@@ -1145,6 +1145,163 @@ button.last-sighting-cta {
   color: #a34d5e;
 }
 
+.day-log {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.35rem;
+}
+
+.day-log-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.day-log-tabs button {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--ink-soft);
+  padding: 0.35rem 0.5rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.day-log-tabs button em {
+  font-style: normal;
+  font-size: 0.64rem;
+  color: var(--sea-deep);
+  opacity: 0.85;
+}
+
+.day-log-tabs button.on,
+.day-log-tabs button:hover {
+  border-color: rgba(26, 107, 114, 0.4);
+  background: rgba(26, 107, 114, 0.1);
+  color: var(--sea-deep);
+}
+
+.day-log-panel {
+  border-top: 1px solid var(--line);
+  padding-top: 0.55rem;
+}
+
+.day-log-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.day-log-kicker {
+  margin: 0;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.day-log-head h4 {
+  margin: 0.15rem 0 0;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.day-log-summary {
+  margin: 0.45rem 0 0.25rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.day-log-updates {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.day-log-updates li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem 0.55rem;
+  align-items: start;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.day-log-update {
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.day-log-update:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.day-log-update-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+}
+
+.day-log-update-top span {
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.day-log-dir {
+  font-size: 0.7rem;
+  color: var(--sea-deep);
+  text-transform: lowercase;
+}
+
+.day-log-text {
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+
+.day-log-fly {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--sea);
+}
+
+.day-log-fly.muted {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.day-log-open {
+  font-size: 0.7rem;
+  color: #a34d5e;
+  align-self: start;
+  margin-top: 0.15rem;
+}
+
 .conditions a,
 .etiquette a {
   color: var(--sea);

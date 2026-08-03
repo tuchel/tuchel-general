@@ -1,5 +1,6 @@
 import type { HydroSnapshot, TideSnapshot, WindSnapshot } from '../lib/live'
-import type { SocialSnapshot } from '../lib/social'
+import type { SocialPost, SocialSnapshot } from '../lib/social'
+import { DayThreadLog } from './DayThreadLog'
 
 type Props = {
   tides: TideSnapshot | null
@@ -10,6 +11,7 @@ type Props = {
   windError?: string | null
   hydroError?: string | null
   socialError?: string | null
+  onFocusSocial?: (post: SocialPost) => void
 }
 
 function fmtTide(t: string) {
@@ -33,8 +35,12 @@ export function ConditionsPanel({
   windError,
   hydroError,
   socialError,
+  onFocusSocial,
 }: Props) {
-  const socialPreview = (social?.posts || []).slice(0, 8)
+  const socialPreview = (social?.posts || [])
+    .filter((p) => p.role !== 'day_root')
+    .slice(0, 8)
+  const dayThreads = social?.dayThreads || []
   return (
     <div className="conditions">
       <h2>Live conditions</h2>
@@ -130,13 +136,35 @@ export function ConditionsPanel({
       </section>
 
       <section>
-        <h3>Social · Bluesky</h3>
+        <h3>Puget Sound Whales · day log</h3>
         {socialError && <p className="err">{socialError}</p>}
         {social ? (
           <>
             <p className="meta-line">
+              Daily threads from{' '}
+              <a
+                href="https://bsky.app/profile/pugetsoundwhales.bsky.social"
+                target="_blank"
+                rel="noreferrer"
+              >
+                @pugetsoundwhales
+              </a>
+              — timed updates under each day root. Tap a place-tagged update to fly the map.
+            </p>
+            <DayThreadLog threads={dayThreads} onFocusPost={onFocusSocial} />
+          </>
+        ) : (
+          !socialError && <p className="meta-line">Loading day threads…</p>
+        )}
+      </section>
+
+      <section>
+        <h3>Social · Bluesky</h3>
+        {social ? (
+          <>
+            <p className="meta-line">
               {social.mapped.length} place-tagged pins · {social.posts.length} recent posts ·{' '}
-              {social.sourceNote}
+              {dayThreads.length} day threads · {social.sourceNote}
             </p>
             <ul className="social-list">
               {socialPreview.map((p) => (
@@ -144,6 +172,7 @@ export function ConditionsPanel({
                   <div>
                     <strong>{p.displayName || p.handle}</strong>
                     <span>
+                      {p.dayLabel ? `${p.dayLabel} · ` : ''}
                       {p.place ? `${p.place} · ` : ''}
                       {p.species !== 'unknown' ? p.species.replace('_', ' ') : 'cetacean?'}
                       {p.createdAt
@@ -164,8 +193,8 @@ export function ConditionsPanel({
               ))}
             </ul>
             <p className="meta-line">
-              Coords are place-name matches (approx), not GPS. X and Reddit are not wired — no API
-              credentials / host blocked.
+              Coords are place-name matches (approx), not GPS. Public replies on day threads are
+              omitted — author updates only.
             </p>
           </>
         ) : (
