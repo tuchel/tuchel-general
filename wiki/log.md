@@ -43,3 +43,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-03] build | san-juan-whale-map | Heat time filter (all / 90d / 30d / 7d / 24h) with crossfade + history.json
 
 ## [2026-08-03] build | san-juan-whale-map | Puget Sound Whales day threads → Live day log (getPostThread)
+
+## [2026-08-03] polish | san-juan-whale-map | One-tap TODAY'S SIGHTINGS highlights today's PSW thread on the map

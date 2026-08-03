@@ -318,9 +318,129 @@ button.last-sighting-cta {
   color: #f4fafb;
 }
 
+.map-fab.today {
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  background: rgba(164, 61, 61, 0.92);
+  border-color: rgba(120, 36, 36, 0.95);
+  color: #fff8f6;
+}
+
+.map-fab.today.on {
+  background: rgba(20, 55, 62, 0.92);
+  border-color: rgba(20, 55, 62, 0.92);
+  color: #f4fafb;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
 .app.map-clear .map-fabs {
   top: auto;
   bottom: calc(1.1rem + var(--safe-bottom));
+}
+
+.today-sightings-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  width: min(17.5rem, calc(100vw - 1.7rem));
+  margin-top: 0.55rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(120, 36, 36, 0.35);
+  background: linear-gradient(
+    135deg,
+    rgba(164, 61, 61, 0.95) 0%,
+    rgba(120, 42, 42, 0.92) 100%
+  );
+  color: #fff8f6;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  text-align: left;
+  animation: rise 0.9s 0.08s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.today-sightings-btn:hover {
+  filter: brightness(1.05);
+}
+
+.today-sightings-kicker {
+  margin: 0;
+  font-size: 0.64rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.today-sightings-label {
+  font-size: 1.05rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+
+.today-sightings-meta {
+  font-size: 0.72rem;
+  opacity: 0.9;
+}
+
+.today-sightings-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: min(17.5rem, calc(100vw - 1.7rem));
+  margin-top: 0.55rem;
+  padding: 0.7rem 0.8rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px);
+  animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.today-sightings-title {
+  margin: 0.15rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.today-sightings-text {
+  margin: 0.3rem 0 0;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: var(--ink-soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.today-sightings-actions {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.today-sightings-actions a {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #a34d5e;
+  text-decoration: none;
+}
+
+.today-sightings-actions button {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--ink);
+  padding: 0.35rem 0.6rem;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .social-carousel {
@@ -1510,6 +1630,8 @@ button.last-sighting-cta {
   .app.map-clear .hex-tooltip,
   .app.map-clear .wind-banner,
   .app.map-clear .social-carousel,
+  .app.map-clear .today-sightings-btn,
+  .app.map-clear .today-sightings-banner,
   .app.map-clear .last-sighting {
     display: none !important;
   }
@@ -1590,6 +1712,15 @@ button.last-sighting-cta {
 
   .status-float {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .today-sightings-btn,
+  .today-sightings-banner {
+    width: min(100%, calc(100vw - 1.7rem));
+  }
+
+  .today-sightings-label {
+    font-size: 0.95rem;
   }
 
   .last-sighting {
