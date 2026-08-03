@@ -215,6 +215,7 @@ export default function App() {
   const gateLabel =
     wind?.gate === 'go' ? 'Go' : wind?.gate === 'caution' ? 'Caution' : wind?.gate === 'no-go' ? 'No-go' : '…'
   const windowMode = heatWindow !== 'all'
+  const latestWhen = social?.latest ? formatSightingWhen(social.latest.createdAt) : null
 
   const enterSocialTrail = () => {
     setTodaySightings(false)
@@ -313,8 +314,9 @@ export default function App() {
           layoutKey={`${sheetOpen ? 'open' : 'closed'}-${mapClear ? 'clear' : 'ui'}-${todaySightings ? `today-${todayFitKey}` : socialTrail ? 'trail' : 'odds'}`}
         />
 
+        {/* Desktop: richer floating chrome beside the sheet */}
         {!mapClear && (
-          <div className="chrome-left">
+          <div className="chrome-left chrome-desktop">
             <header className="brand-float">
               <p className="brand">San Juan Whale Odds</p>
               <p className="tagline">Where should the boat go?</p>
@@ -391,12 +393,9 @@ export default function App() {
                     {social.latest.place ? ` · ${social.latest.place}` : ''}
                   </p>
                   <p className="last-sighting-meta">
-                    {(() => {
-                      const when = formatSightingWhen(social.latest.createdAt)
-                      return [when.absolute, when.relative, social.latest.direction]
-                        .filter(Boolean)
-                        .join(' · ')
-                    })()}
+                    {[latestWhen?.absolute, latestWhen?.relative, social.latest.direction]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </p>
                   <p className="last-sighting-text">{social.latest.text.slice(0, 110)}</p>
                 </button>
@@ -408,8 +407,46 @@ export default function App() {
           </div>
         )}
 
+        {/* Mobile: map-first — slim top + bottom dock only */}
+        {!mapClear && (
+          <div className="chrome-mobile">
+            <header className="mobile-top">
+              <div className="mobile-brand-row">
+                <p className="brand">San Juan Whale Odds</p>
+                {!socialFocus && (
+                  <div className="mobile-signals" aria-label="Live signals">
+                    <span className={`mobile-sig gate-${wind?.gate || 'unknown'}`}>{gateLabel}</span>
+                    <span className={`mobile-sig ${hydroHot ? 'pulse' : ''}`}>
+                      {hydroHot ? 'Calls' : 'Quiet'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </header>
+
+            {todaySightings && todaysThread && (
+              <div className="today-sightings-banner mobile-mode-banner" aria-live="polite">
+                <div>
+                  <p className="today-sightings-kicker">Today&apos;s sightings</p>
+                  <p className="today-sightings-title">
+                    {todaysThread.dateLabel} · {todayPosts.length} pins
+                  </p>
+                </div>
+                <div className="today-sightings-actions">
+                  <a href={todaysThread.url} target="_blank" rel="noreferrer">
+                    Thread
+                  </a>
+                  <button type="button" onClick={exitTodaysSightings}>
+                    Exit
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {!mapClear && !socialFocus && (
-          <div className="map-legend">
+          <div className="map-legend chrome-desktop">
             <label className="heat-window">
               <span className="heat-window-kicker">Heat window</span>
               <input
@@ -465,6 +502,41 @@ export default function App() {
           </div>
         )}
 
+        {!mapClear && !socialFocus && (
+          <nav className="mobile-dock" aria-label="Map actions">
+            {todayPosts.length > 0 && (
+              <button type="button" className="dock-btn dock-today" onClick={enterTodaysSightings}>
+                Today
+              </button>
+            )}
+            {social?.latest ? (
+              <button type="button" className="dock-latest" onClick={enterSocialTrail}>
+                <span className="dock-latest-kicker">Latest</span>
+                <span className="dock-latest-title">
+                  {speciesLabel(social.latest.species, labels)}
+                  {social.latest.place ? ` · ${social.latest.place}` : ''}
+                </span>
+                <span className="dock-latest-meta">
+                  {[latestWhen?.relative, social.latest.direction].filter(Boolean).join(' · ')}
+                </span>
+              </button>
+            ) : (
+              <button type="button" className="dock-latest bare" onClick={() => openPanel('live')}>
+                <span className="dock-latest-kicker">Live</span>
+                <span className="dock-latest-title">Conditions & day log</span>
+              </button>
+            )}
+            <button
+              type="button"
+              className="dock-btn dock-plan"
+              onClick={() => openPanel('filters')}
+              aria-expanded={sheetOpen}
+            >
+              Adjust
+            </button>
+          </nav>
+        )}
+
         {!mapClear && hexHover && hexHover.score > 0 && !socialFocus && (
           <div className="hex-tooltip">
             <strong>
@@ -498,7 +570,7 @@ export default function App() {
         {!mapClear && !socialFocus && (
           <button
             type="button"
-            className="sheet-launch"
+            className="sheet-launch chrome-desktop"
             onClick={() => setSheetOpen(true)}
             aria-expanded={sheetOpen}
           >
@@ -513,7 +585,7 @@ export default function App() {
           {todayPosts.length > 0 && !mapClear && (
             <button
               type="button"
-              className={`map-fab today ${todaySightings ? 'on' : ''}`}
+              className={`map-fab today chrome-desktop ${todaySightings ? 'on' : ''}`}
               onClick={() => (todaySightings ? exitTodaysSightings() : enterTodaysSightings())}
               aria-pressed={todaySightings}
             >
@@ -538,7 +610,7 @@ export default function App() {
             }}
             aria-pressed={mapClear}
           >
-            {mapClear ? 'Show UI' : 'Clear map'}
+            {mapClear ? 'Show UI' : 'Map only'}
           </button>
         </div>
       </div>

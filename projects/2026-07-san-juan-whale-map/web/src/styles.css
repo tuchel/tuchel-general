@@ -1564,13 +1564,203 @@ button.last-sighting-cta {
   }
 }
 
+/* Mobile chrome primitives (hidden on desktop) */
+.chrome-mobile,
+.mobile-dock {
+  display: none;
+}
+
+.mobile-top {
+  position: absolute;
+  top: calc(0.65rem + var(--safe-top));
+  left: 0.7rem;
+  right: 4.6rem;
+  z-index: 5;
+  pointer-events: none;
+  animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.mobile-brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  padding: 0.45rem 0.65rem;
+  background: rgba(247, 251, 252, 0.78);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(14px) saturate(1.1);
+  box-shadow: 0 10px 28px rgba(15, 40, 50, 0.1);
+  pointer-events: auto;
+}
+
+.mobile-brand-row .brand {
+  font-size: 1.05rem;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-signals {
+  display: flex;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.mobile-sig {
+  font-size: 0.62rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding: 0.18rem 0.35rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.mobile-sig.gate-go {
+  color: var(--ok);
+  border-color: rgba(31, 122, 92, 0.35);
+}
+
+.mobile-sig.gate-caution {
+  color: var(--warn);
+  border-color: rgba(176, 122, 32, 0.4);
+}
+
+.mobile-sig.gate-no-go {
+  color: var(--danger);
+  border-color: rgba(196, 92, 62, 0.4);
+}
+
+.mobile-sig.pulse {
+  color: var(--sea);
+  border-color: rgba(26, 107, 114, 0.4);
+}
+
+.mobile-mode-banner {
+  position: absolute;
+  top: calc(3.55rem + var(--safe-top));
+  left: 0.7rem;
+  right: 0.7rem;
+  z-index: 5;
+  width: auto;
+  margin-top: 0;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.55rem 0.7rem;
+}
+
+.mobile-mode-banner .today-sightings-text {
+  display: none;
+}
+
+.mobile-dock {
+  position: absolute;
+  left: 0.7rem;
+  right: 0.7rem;
+  bottom: calc(0.7rem + var(--safe-bottom));
+  z-index: 6;
+  display: none;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.4rem;
+  align-items: stretch;
+  animation: rise 0.75s 0.05s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.mobile-dock:has(.dock-today) {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.dock-btn {
+  border: 1px solid var(--line);
+  background: rgba(247, 251, 252, 0.9);
+  color: var(--ink);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 10px 28px rgba(15, 40, 50, 0.1);
+  padding: 0.7rem 0.75rem;
+  font-family: var(--font-ui, var(--font-body));
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dock-today {
+  background: rgba(164, 61, 61, 0.94);
+  border-color: rgba(120, 36, 36, 0.95);
+  color: #fff8f6;
+}
+
+.dock-plan {
+  background: rgba(20, 55, 62, 0.94);
+  border-color: rgba(20, 55, 62, 0.94);
+  color: #f4fafb;
+}
+
+.dock-latest {
+  border: 1px solid var(--line);
+  background: rgba(247, 251, 252, 0.9);
+  color: var(--ink);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 10px 28px rgba(15, 40, 50, 0.1);
+  padding: 0.45rem 0.65rem;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  justify-content: center;
+}
+
+.dock-latest.bare .dock-latest-title {
+  font-weight: 600;
+}
+
+.dock-latest-kicker {
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 650;
+}
+
+.dock-latest-title {
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dock-latest-meta {
+  font-size: 0.66rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Desktop: map breathes beside the sheet */
 @media (min-width: 981px) {
   .map-stage {
     right: min(26rem, 38vw);
   }
 
-  .sheet-launch {
+  .chrome-mobile,
+  .mobile-dock {
+    display: none !important;
+  }
+
+  .sheet-launch.chrome-desktop {
     display: none !important;
   }
 
@@ -1591,48 +1781,80 @@ button.last-sighting-cta {
   }
 }
 
-/* Mobile / tablet: full-bleed map + bottom sheet */
+/* Mobile / tablet: full-bleed map + bottom sheet — map is the signal */
 @media (max-width: 980px) {
   .map-stage {
     inset: 0;
   }
 
-  .chrome-left {
-    width: calc(100vw - 1.7rem);
+  .chrome-desktop {
+    display: none !important;
+  }
+
+  .chrome-mobile {
+    display: block;
+  }
+
+  .mobile-dock {
+    display: grid;
+  }
+
+  .app.sheet-open .mobile-dock {
+    display: none !important;
   }
 
   .map-legend {
-    bottom: calc(5.5rem + var(--safe-bottom));
-    width: min(14rem, calc(100vw - 1.7rem));
+    display: none !important;
   }
 
   .hex-tooltip {
     top: auto;
-    bottom: calc(10.5rem + var(--safe-bottom));
+    bottom: calc(5.4rem + var(--safe-bottom));
+    left: 0.7rem;
+    max-width: calc(100vw - 1.4rem);
   }
 
   .sheet-launch {
-    display: block;
+    display: none !important;
   }
 
-  .app.map-clear .sheet-launch,
-  .app.social-trail .sheet-launch {
-    display: none;
+  .map-fabs {
+    top: calc(0.65rem + var(--safe-top));
+    right: 0.7rem;
   }
 
-  .app.social-trail .map-fabs {
+  .map-fab {
+    padding: 0.45rem 0.6rem;
+    font-size: 0.7rem;
+  }
+
+  .map-fab.today.chrome-desktop {
+    display: none !important;
+  }
+
+  .app.social-trail .map-fabs,
+  .app.today-sightings .map-fabs {
     top: auto;
-    bottom: calc(11.5rem + var(--safe-bottom));
+    bottom: calc(11.2rem + var(--safe-bottom));
   }
 
-  .app.map-clear .chrome-left,
-  .app.map-clear .map-legend,
+  .app.today-sightings .mobile-dock,
+  .app.social-trail .mobile-dock {
+    display: none !important;
+  }
+
+  .social-carousel {
+    left: 0.7rem;
+    right: 0.7rem;
+    bottom: calc(0.7rem + var(--safe-bottom));
+  }
+
+  .app.map-clear .chrome-mobile,
+  .app.map-clear .mobile-dock,
   .app.map-clear .hex-tooltip,
   .app.map-clear .wind-banner,
   .app.map-clear .social-carousel,
-  .app.map-clear .today-sightings-btn,
-  .app.map-clear .today-sightings-banner,
-  .app.map-clear .last-sighting {
+  .app.map-clear .today-sightings-banner {
     display: none !important;
   }
 
@@ -1691,61 +1913,26 @@ button.last-sighting-cta {
   }
 
   .wind-banner {
-    top: calc(5.5rem + var(--safe-top));
+    top: calc(3.6rem + var(--safe-top));
     left: 50%;
-    width: calc(100vw - 1.7rem);
+    width: calc(100vw - 1.4rem);
+    font-size: 0.78rem;
+    padding: 0.45rem 0.65rem;
   }
 }
 
 @media (max-width: 560px) {
-  .brand-float {
-    padding: 0.7rem 0.85rem 0.75rem;
-  }
-
-  .brand {
-    font-size: 1.45rem;
-  }
-
-  .tagline {
-    font-size: 0.86rem;
-  }
-
-  .status-float {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .today-sightings-btn,
-  .today-sightings-banner {
-    width: min(100%, calc(100vw - 1.7rem));
-  }
-
-  .today-sightings-label {
-    font-size: 0.95rem;
-  }
-
-  .last-sighting {
-    padding: 0.6rem 0.7rem 0.55rem;
-  }
-
-  .last-sighting-title {
+  .mobile-brand-row .brand {
     font-size: 0.98rem;
   }
 
-  .last-sighting-text {
-    -webkit-line-clamp: 2;
+  .dock-btn {
+    padding: 0.65rem 0.55rem;
+    font-size: 0.68rem;
   }
 
-  .status-chip {
-    padding: 0.35rem 0.45rem;
-  }
-
-  .status-chip em {
-    font-size: 0.95rem;
-  }
-
-  .map-legend {
-    width: calc(100vw - 1.7rem);
-    padding: 0.55rem 0.65rem;
+  .dock-latest-title {
+    font-size: 0.74rem;
   }
 
   .season-row {
