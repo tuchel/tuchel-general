@@ -150,6 +150,7 @@ export default function App() {
               posts,
               mapped: posts.filter((p) => p.lat != null && p.lon != null),
               latest: baked.latest || pickLatestSighting(posts),
+              dayThreads: baked.dayThreads || [],
               fetchedAt: baked.meta?.builtAt || new Date().toISOString(),
               sourceNote: 'Baked social.json (live Bluesky refresh failed)',
             })
@@ -302,7 +303,11 @@ export default function App() {
                 <button type="button" className="last-sighting-body" onClick={enterSocialTrail}>
                   <div className="last-sighting-kicker">
                     <span>Last live sighting</span>
-                    <span>Bluesky</span>
+                    <span>
+                      {social.latest.handle === 'pugetsoundwhales.bsky.social'
+                        ? 'PSW day log'
+                        : 'Bluesky'}
+                    </span>
                   </div>
                   <p className="last-sighting-title">
                     {speciesLabel(social.latest.species, labels)}
@@ -699,6 +704,13 @@ export default function App() {
               windError={windError}
               hydroError={hydroError}
               socialError={socialError}
+              onFocusSocial={(post) => {
+                if (post.lon == null || post.lat == null) return
+                setFocusSocial({ lon: post.lon, lat: post.lat })
+                setShowSocial(true)
+                setMapClear(false)
+                setSheetOpen(false)
+              }}
             />
           )}
 

@@ -15,20 +15,39 @@ export type SocialPost = {
   geocodePrecision: 'place_name' | 'none'
   sightingHint: boolean
   direction: string | null
+  threadRootId?: string | null
+  dayLabel?: string | null
+  role?: 'day_root' | 'update' | 'standalone'
+}
+
+export type SocialDayThread = {
+  id: string
+  dateLabel: string
+  createdAt: string
+  url: string
+  summary: string
+  handle: string
+  displayName: string
+  updateCount: number
+  mappedCount: number
+  updates: SocialPost[]
 }
 
 export type SocialSnapshot = {
   posts: SocialPost[]
   mapped: SocialPost[]
   latest: SocialPost | null
+  dayThreads: SocialDayThread[]
   fetchedAt: string
   sourceNote: string
 }
 
 const BSKY = 'https://public.api.bsky.app/xrpc'
+export const PSW_HANDLE = 'pugetsoundwhales.bsky.social'
+const PSW_DAY_THREAD_LIMIT = 6
 
 const HANDLES = [
-  'pugetsoundwhales.bsky.social',
+  PSW_HANDLE,
   'wscrqb.bsky.social',
   'orcanetwork.bsky.social',
   'orcabehaviorinstitute.org',
@@ -62,6 +81,30 @@ const PLACES: [string, number, number, string][] = [
   ['point robinson', 47.388, -122.374, 'Point Robinson'],
   ['commencement bay', 47.28, -122.42, 'Commencement Bay'],
   ['admiralty inlet', 48.1, -122.7, 'Admiralty Inlet'],
+  ['saratoga passage', 48.1, -122.5, 'Saratoga Passage'],
+  ['possession sound', 47.95, -122.25, 'Possession Sound'],
+  ['port susan', 48.15, -122.4, 'Port Susan'],
+  ['camano', 48.2, -122.45, 'Camano Island'],
+  ['elliott bay', 47.6, -122.38, 'Elliott Bay'],
+  ['elliot bay', 47.6, -122.38, 'Elliott Bay'],
+  ['hood canal', 47.7, -122.85, 'Hood Canal'],
+  ['apple tree point', 47.94, -122.45, 'Apple Tree Point'],
+  ['kingston', 47.81, -122.5, 'Kingston'],
+  ['richmond beach', 47.77, -122.39, 'Richmond Beach'],
+  ['carkeek', 47.71, -122.38, 'Carkeek Park'],
+  ['jefferson head', 47.75, -122.48, 'Jefferson Head'],
+  ['point jefferson', 47.75, -122.48, 'Jefferson Head'],
+  ['president point', 47.75, -122.44, 'President Point'],
+  ['prez pt', 47.75, -122.44, 'President Point'],
+  ['eglon', 47.87, -122.5, 'Eglon'],
+  ['langley', 48.04, -122.41, 'Langley'],
+  ['harbor island', 47.57, -122.35, 'Harbor Island'],
+  ['andrews bay', 47.64, -122.4, 'Andrews Bay'],
+  ['naval station everett', 48.0, -122.22, 'Naval Station Everett'],
+  ['navy base', 48.0, -122.22, 'Naval Station Everett'],
+  ['everett', 48.0, -122.2, 'Everett'],
+  ['tacoma', 47.27, -122.42, 'Tacoma'],
+  ['turn island', 48.53, -122.97, 'Turn Island'],
   ['hat island', 48.02, -122.3, 'Hat Island'],
   ['whidbey', 48.2, -122.6, 'Whidbey Island'],
   ['orcas island', 48.65, -122.95, 'Orcas Island'],
@@ -86,12 +129,19 @@ const CETACEAN_RE =
 const SIGHTING_HINT_RE =
   /\b(reported|sighting|spotted|seen|northbound|southbound|eastbound|westbound|foraging|milling|breaching|spyhop|vocaliz|calls?\b|blow|fluke)\b/i
 
-/** Crypto “whale” transfer spam (e.g. whale-alert mirrors). */
 const CRYPTO_NOISE_RE =
   /\$btc|\$xrp|\$eth|\$usdc|\$usdt|#ripple|transferred from|unlocked at|unknown wallet|crypto/i
 
 const DIRECTION_RE =
   /\b(northbound|southbound|eastbound|westbound|inbound|outbound)\b|\b(NB|SB|EB|WB)\b/i
+
+const DAY_ROOT_RE =
+  /\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\b/i
+
+const CLOCK_RE = /\b(\d{1,2}):(\d{2})\s*[-–—]/
+
+const SPECIES_HEADER_RE =
+  /\b(ORCAS?|SRKWs?|HUMPBACKS?|GRAYS?|BIGG|TRANSIENT|PORPOISE|DOLPHIN)\b/i
 
 const BBOX = { south: 47.0, north: 50.3, west: -125.5, east: -122.0 }
 
@@ -106,6 +156,25 @@ const SPECIES_LABELS: Record<string, string> = {
   other_baleen: 'Baleen whale',
   other_cetacean: 'Whale',
   unknown: 'Unspecified',
+}
+
+type BskyPost = {
+  uri: string
+  indexedAt?: string
+  replyCount?: number
+  author: { handle: string; displayName?: string; did?: string }
+  record: {
+    $type?: string
+    text?: string
+    createdAt?: string
+    reply?: { root?: { uri?: string }; parent?: { uri?: string } }
+  }
+}
+
+type BskyThreadNode = {
+  post?: BskyPost
+  replies?: BskyThreadNode[]
+  $type?: string
 }
 
 function detectSpecies(text: string): string {
@@ -151,12 +220,69 @@ function isCryptoNoise(text: string) {
   return CRYPTO_NOISE_RE.test(text)
 }
 
+function dayLabelFromText(text: string): string | null {
+  const m = text.match(DAY_ROOT_RE)
+  return m ? m[0] : null
+}
+
+function isDayRoot(record: BskyPost['record']): boolean {
+  if (record.reply) return false
+  return DAY_ROOT_RE.test(record.text || '')
+}
+
 function relevant(text: string, handle: string) {
   if (isCryptoNoise(text)) return false
-  if (handle === 'pugetsoundwhales.bsky.social' || handle === 'wscrqb.bsky.social') {
-    return text.trim().length > 0
+  if (handle === PSW_HANDLE) {
+    if (DAY_ROOT_RE.test(text)) return true
+    if (CLOCK_RE.test(text)) return true
+    if (SPECIES_HEADER_RE.test(text) && text.length > 40) return true
+    if (CETACEAN_RE.test(text) && (SIGHTING_HINT_RE.test(text) || text.length > 80)) return true
+    return false
   }
+  if (handle === 'wscrqb.bsky.social') return text.trim().length > 0
   return CETACEAN_RE.test(text)
+}
+
+function postToRow(
+  post: BskyPost,
+  opts: {
+    fallbackHandle: string
+    threadRootId?: string | null
+    dayLabel?: string | null
+    role?: SocialPost['role']
+  },
+): SocialPost | null {
+  const record = post.record || {}
+  if (record.$type && record.$type !== 'app.bsky.feed.post') return null
+  const text = record.text || ''
+  const h = post.author?.handle || opts.fallbackHandle
+  if (!text || !relevant(text, h)) return null
+  const geo = geocode(text)
+  const uri = post.uri || ''
+  const role = opts.role || 'standalone'
+  const rootUri =
+    opts.threadRootId ||
+    record.reply?.root?.uri ||
+    (role === 'day_root' ? uri : null)
+  return {
+    id: uri || `${h}:${record.createdAt}`,
+    platform: 'bluesky',
+    handle: h,
+    displayName: post.author?.displayName || h,
+    text: text.replace(/https?:\/\/\S+/g, '').trim().slice(0, 400),
+    createdAt: record.createdAt || post.indexedAt || '',
+    url: uri ? postUrl(h, uri) : `https://bsky.app/profile/${h}`,
+    species: detectSpecies(text),
+    place: geo?.place ?? null,
+    lat: geo?.lat ?? null,
+    lon: geo?.lon ?? null,
+    geocodePrecision: geo ? 'place_name' : 'none',
+    sightingHint: SIGHTING_HINT_RE.test(text) || CLOCK_RE.test(text),
+    direction: detectDirection(text),
+    threadRootId: rootUri,
+    dayLabel: opts.dayLabel ?? null,
+    role,
+  }
 }
 
 function qualityScore(p: SocialPost): number {
@@ -166,19 +292,25 @@ function qualityScore(p: SocialPost): number {
   if (p.lat != null) score += 1
   if (p.direction) score += 1
   if (
-    p.handle === 'pugetsoundwhales.bsky.social' ||
+    p.handle === PSW_HANDLE ||
     p.handle === 'wscrqb.bsky.social' ||
     p.handle === 'orcanetwork.bsky.social'
   ) {
     score += 2
   }
+  if (p.role === 'update') score += 1
   return score
 }
 
 /** Newest real cetacean report — recent first, then place/sighting quality. */
 export function pickLatestSighting(posts: SocialPost[]): SocialPost | null {
   const clean = posts
-    .filter((p) => !isCryptoNoise(p.text) && p.species !== 'unknown')
+    .filter(
+      (p) =>
+        !isCryptoNoise(p.text) &&
+        p.species !== 'unknown' &&
+        p.role !== 'day_root',
+    )
     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
   if (!clean.length) return null
 
@@ -223,58 +355,122 @@ async function pullHandle(handle: string, limit = 40): Promise<SocialPost[]> {
   const url = `${BSKY}/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(handle)}&limit=${limit}`
   const res = await fetch(url)
   if (!res.ok) throw new Error(`${handle} → ${res.status}`)
-  const data = (await res.json()) as {
-    feed?: {
-      post: {
-        uri: string
-        indexedAt?: string
-        author: { handle: string; displayName?: string }
-        record: { $type?: string; text?: string; createdAt?: string }
-      }
-    }[]
-  }
+  const data = (await res.json()) as { feed?: { post: BskyPost }[] }
   const out: SocialPost[] = []
   for (const item of data.feed || []) {
     const post = item.post
     const record = post.record || {}
-    if (record.$type && record.$type !== 'app.bsky.feed.post') continue
-    const text = record.text || ''
-    if (!text || !relevant(text, handle)) continue
-    const h = post.author?.handle || handle
-    const geo = geocode(text)
-    out.push({
-      id: post.uri || `${h}:${record.createdAt}`,
-      platform: 'bluesky',
-      handle: h,
-      displayName: post.author?.displayName || h,
-      text: text.replace(/https?:\/\/\S+/g, '').trim().slice(0, 400),
-      createdAt: record.createdAt || post.indexedAt || '',
-      url: post.uri ? postUrl(h, post.uri) : `https://bsky.app/profile/${h}`,
-      species: detectSpecies(text),
-      place: geo?.place ?? null,
-      lat: geo?.lat ?? null,
-      lon: geo?.lon ?? null,
-      geocodePrecision: geo ? 'place_name' : 'none',
-      sightingHint: SIGHTING_HINT_RE.test(text),
-      direction: detectDirection(text),
+    const role =
+      handle === PSW_HANDLE && isDayRoot(record) ? 'day_root' : 'standalone'
+    const day = role === 'day_root' ? dayLabelFromText(record.text || '') : null
+    const row = postToRow(post, {
+      fallbackHandle: handle,
+      dayLabel: day,
+      role,
+      threadRootId: role === 'day_root' ? post.uri : null,
     })
+    if (row) out.push(row)
   }
   return out
 }
 
-export async function fetchSocialPosts(): Promise<SocialSnapshot> {
-  const chunks = await Promise.all(
-    HANDLES.map(async (h) => {
+function walkAuthorPosts(node: BskyThreadNode | undefined, authorHandle: string, out: BskyPost[]) {
+  if (!node) return
+  if (node.post && node.post.author?.handle === authorHandle) out.push(node.post)
+  for (const child of node.replies || []) walkAuthorPosts(child, authorHandle, out)
+}
+
+async function pullPswDayThreads(limit = PSW_DAY_THREAD_LIMIT): Promise<{
+  threads: SocialDayThread[]
+  posts: SocialPost[]
+}> {
+  const feedRes = await fetch(
+    `${BSKY}/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(PSW_HANDLE)}&limit=80`,
+  )
+  if (!feedRes.ok) throw new Error(`PSW feed → ${feedRes.status}`)
+  const feed = (await feedRes.json()) as { feed?: { post: BskyPost }[] }
+  const roots: BskyPost[] = []
+  for (const item of feed.feed || []) {
+    if (isDayRoot(item.post.record || {})) roots.push(item.post)
+    if (roots.length >= limit) break
+  }
+
+  const threads: SocialDayThread[] = []
+  const posts: SocialPost[] = []
+
+  await Promise.all(
+    roots.map(async (root) => {
+      const uri = root.uri
+      if (!uri) return
       try {
-        return await pullHandle(h)
+        const thrRes = await fetch(
+          `${BSKY}/app.bsky.feed.getPostThread?uri=${encodeURIComponent(uri)}&depth=110`,
+        )
+        if (!thrRes.ok) return
+        const thr = (await thrRes.json()) as { thread?: BskyThreadNode }
+        const authorPosts: BskyPost[] = []
+        walkAuthorPosts(thr.thread, PSW_HANDLE, authorPosts)
+        const day = dayLabelFromText(root.record?.text || '') || 'Day log'
+        const updates: SocialPost[] = []
+        for (const post of authorPosts) {
+          const isRoot = post.uri === uri
+          const row = postToRow(post, {
+            fallbackHandle: PSW_HANDLE,
+            threadRootId: uri,
+            dayLabel: day,
+            role: isRoot ? 'day_root' : 'update',
+          })
+          if (!row) continue
+          posts.push(row)
+          if (!isRoot) updates.push(row)
+        }
+        updates.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''))
+        threads.push({
+          id: uri,
+          dateLabel: day,
+          createdAt: root.record?.createdAt || root.indexedAt || '',
+          url: postUrl(PSW_HANDLE, uri),
+          summary: (root.record?.text || '').replace(/https?:\/\/\S+/g, '').trim().slice(0, 500),
+          handle: PSW_HANDLE,
+          displayName: root.author?.displayName || 'Puget Sound Whales',
+          updateCount: updates.length,
+          mappedCount: updates.filter((u) => u.lat != null).length,
+          updates,
+        })
       } catch {
-        return [] as SocialPost[]
+        /* soft-fail per thread */
       }
     }),
   )
+
+  threads.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+  return { threads, posts }
+}
+
+export async function fetchSocialPosts(): Promise<SocialSnapshot> {
+  const [chunks, dayPack] = await Promise.all([
+    Promise.all(
+      HANDLES.map(async (h) => {
+        try {
+          return await pullHandle(h, h === PSW_HANDLE ? 80 : 40)
+        } catch {
+          return [] as SocialPost[]
+        }
+      }),
+    ),
+    pullPswDayThreads().catch(() => ({ threads: [] as SocialDayThread[], posts: [] as SocialPost[] })),
+  ])
+
   const byId = new Map<string, SocialPost>()
-  for (const p of chunks.flat()) byId.set(p.id, p)
-  const posts = [...byId.values()].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+  for (const p of [...chunks.flat(), ...dayPack.posts]) {
+    const prev = byId.get(p.id)
+    if (!prev || ((p.role === 'day_root' || p.role === 'update') && prev.role === 'standalone')) {
+      byId.set(p.id, p)
+    }
+  }
+  const posts = [...byId.values()].sort((a, b) =>
+    (b.createdAt || '').localeCompare(a.createdAt || ''),
+  )
   const mapped = posts.filter(
     (p) =>
       p.lat != null &&
@@ -284,14 +480,15 @@ export async function fetchSocialPosts(): Promise<SocialSnapshot> {
       p.lon >= BBOX.west &&
       p.lon <= BBOX.east,
   )
-  const trimmed = posts.slice(0, 200)
+  const trimmed = posts.slice(0, 280)
   return {
     posts: trimmed,
     mapped,
     latest: pickLatestSighting(trimmed),
+    dayThreads: dayPack.threads,
     fetchedAt: new Date().toISOString(),
     sourceNote:
-      'Bluesky public feeds · place-name geocode (approx) · X/Reddit unavailable without credentials',
+      'Bluesky · Puget Sound Whales day threads · place-name geocode (approx) · X/Reddit unavailable',
   }
 }
 
@@ -313,7 +510,8 @@ export function browseableSocialPosts(posts: SocialPost[]): SocialPost[] {
         p.lat != null &&
         p.lon != null &&
         !isCryptoNoise(p.text) &&
-        p.species !== 'unknown',
+        p.species !== 'unknown' &&
+        p.role !== 'day_root',
     )
     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
 }
@@ -323,7 +521,7 @@ export function socialToGeoJSON(posts: SocialPost[], activeId?: string | null) {
   return {
     type: 'FeatureCollection' as const,
     features: posts
-      .filter((p) => p.lat != null && p.lon != null)
+      .filter((p) => p.lat != null && p.lon != null && p.role !== 'day_root')
       .map((p) => {
         const recency = postRecency(p.createdAt, now)
         return {
@@ -339,6 +537,7 @@ export function socialToGeoJSON(posts: SocialPost[], activeId?: string | null) {
             place: p.place,
             sightingHint: p.sightingHint,
             direction: p.direction,
+            dayLabel: p.dayLabel,
             recency,
             active: activeId && p.id === activeId ? 1 : 0,
           },
