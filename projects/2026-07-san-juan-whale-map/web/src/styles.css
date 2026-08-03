@@ -1574,7 +1574,7 @@ button.last-sighting-cta {
   position: absolute;
   top: calc(0.65rem + var(--safe-top));
   left: 0.7rem;
-  right: 4.6rem;
+  right: 0.7rem;
   z-index: 5;
   pointer-events: none;
   animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -1584,8 +1584,8 @@ button.last-sighting-cta {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.55rem;
-  padding: 0.45rem 0.65rem;
+  gap: 0.45rem;
+  padding: 0.4rem 0.45rem 0.4rem 0.65rem;
   background: rgba(247, 251, 252, 0.78);
   border: 1px solid var(--line);
   backdrop-filter: blur(14px) saturate(1.1);
@@ -1594,17 +1594,40 @@ button.last-sighting-cta {
 }
 
 .mobile-brand-row .brand {
-  font-size: 1.05rem;
+  font-size: 1rem;
   line-height: 1.05;
   letter-spacing: -0.03em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.mobile-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 0 0 auto;
+}
+
+.mobile-map-only {
+  border: 1px solid rgba(20, 55, 62, 0.35);
+  background: rgba(20, 55, 62, 0.92);
+  color: #f4fafb;
+  padding: 0.35rem 0.5rem;
+  font-family: inherit;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .mobile-signals {
   display: flex;
-  gap: 0.3rem;
+  gap: 0.25rem;
   flex-shrink: 0;
 }
 
@@ -1665,14 +1688,10 @@ button.last-sighting-cta {
   bottom: calc(0.7rem + var(--safe-bottom));
   z-index: 6;
   display: none;
-  grid-template-columns: minmax(0, 1fr) auto;
+  flex-flow: row nowrap;
   gap: 0.4rem;
   align-items: stretch;
   animation: rise 0.75s 0.05s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.mobile-dock:has(.dock-today) {
-  grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
 .dock-btn {
@@ -1681,14 +1700,15 @@ button.last-sighting-cta {
   color: var(--ink);
   backdrop-filter: blur(14px);
   box-shadow: 0 10px 28px rgba(15, 40, 50, 0.1);
-  padding: 0.7rem 0.75rem;
+  padding: 0.65rem 0.7rem;
   font-family: var(--font-ui, var(--font-body));
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
   white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .dock-today {
@@ -1709,11 +1729,14 @@ button.last-sighting-cta {
   color: var(--ink);
   backdrop-filter: blur(14px);
   box-shadow: 0 10px 28px rgba(15, 40, 50, 0.1);
-  padding: 0.45rem 0.65rem;
+  padding: 0.4rem 0.6rem;
   text-align: left;
   cursor: pointer;
   font-family: inherit;
+  flex: 1 1 0;
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 0.08rem;
@@ -1796,7 +1819,7 @@ button.last-sighting-cta {
   }
 
   .mobile-dock {
-    display: grid;
+    display: flex;
   }
 
   .app.sheet-open .mobile-dock {
@@ -1818,9 +1841,26 @@ button.last-sighting-cta {
     display: none !important;
   }
 
-  .map-fabs {
+  /* Keep zoom/compass clear of top chrome — park above the dock */
+  .map-stage .maplibregl-ctrl-top-right {
+    top: auto;
+    right: 0.65rem;
+    bottom: calc(5.15rem + var(--safe-bottom));
+  }
+
+  .app.social-trail .map-stage .maplibregl-ctrl-top-right,
+  .app.today-sightings .map-stage .maplibregl-ctrl-top-right {
+    bottom: calc(11.4rem + var(--safe-bottom));
+  }
+
+  .app.map-clear .map-stage .maplibregl-ctrl-top-right {
     top: calc(0.65rem + var(--safe-top));
-    right: 0.7rem;
+    bottom: auto;
+  }
+
+  /* Default mobile: no floating FABs — Map only lives in the top bar */
+  .map-fabs {
+    display: none;
   }
 
   .map-fab {
@@ -1828,13 +1868,33 @@ button.last-sighting-cta {
     font-size: 0.7rem;
   }
 
-  .map-fab.today.chrome-desktop {
+  .map-fab.today.chrome-desktop,
+  .map-fab.desktop-map-only {
     display: none !important;
+  }
+
+  .mobile-exit-mode {
+    display: none;
+  }
+
+  /* Show UI after Map only; exit controls during focused modes */
+  .app.map-clear .map-fabs,
+  .app.social-trail .map-fabs,
+  .app.today-sightings .map-fabs {
+    display: flex;
+    top: auto;
+    right: 0.7rem;
+    bottom: calc(0.7rem + var(--safe-bottom));
+  }
+
+  .app.map-clear .map-fabs .map-fab.desktop-map-only,
+  .app.social-trail .map-fabs .map-fab:not(.today):not(.desktop-map-only),
+  .app.today-sightings .map-fabs .mobile-exit-mode {
+    display: block !important;
   }
 
   .app.social-trail .map-fabs,
   .app.today-sightings .map-fabs {
-    top: auto;
     bottom: calc(11.2rem + var(--safe-bottom));
   }
 
@@ -1923,16 +1983,20 @@ button.last-sighting-cta {
 
 @media (max-width: 560px) {
   .mobile-brand-row .brand {
-    font-size: 0.98rem;
+    font-size: 0.92rem;
+  }
+
+  .mobile-signals {
+    display: none;
   }
 
   .dock-btn {
-    padding: 0.65rem 0.55rem;
-    font-size: 0.68rem;
+    padding: 0.6rem 0.55rem;
+    font-size: 0.66rem;
   }
 
   .dock-latest-title {
-    font-size: 0.74rem;
+    font-size: 0.72rem;
   }
 
   .season-row {

@@ -413,14 +413,26 @@ export default function App() {
             <header className="mobile-top">
               <div className="mobile-brand-row">
                 <p className="brand">San Juan Whale Odds</p>
-                {!socialFocus && (
-                  <div className="mobile-signals" aria-label="Live signals">
-                    <span className={`mobile-sig gate-${wind?.gate || 'unknown'}`}>{gateLabel}</span>
-                    <span className={`mobile-sig ${hydroHot ? 'pulse' : ''}`}>
-                      {hydroHot ? 'Calls' : 'Quiet'}
-                    </span>
-                  </div>
-                )}
+                <div className="mobile-top-actions">
+                  {!socialFocus && (
+                    <div className="mobile-signals" aria-label="Live signals">
+                      <span className={`mobile-sig gate-${wind?.gate || 'unknown'}`}>{gateLabel}</span>
+                      <span className={`mobile-sig ${hydroHot ? 'pulse' : ''}`}>
+                        {hydroHot ? 'Calls' : 'Quiet'}
+                      </span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    className="mobile-map-only"
+                    onClick={() => {
+                      setMapClear(true)
+                      setSheetOpen(false)
+                    }}
+                  >
+                    Map only
+                  </button>
+                </div>
               </div>
             </header>
 
@@ -581,7 +593,7 @@ export default function App() {
           </button>
         )}
 
-        <div className="map-fabs">
+        <div className={`map-fabs ${mapClear ? 'map-clear-fabs' : ''}`}>
           {todayPosts.length > 0 && !mapClear && (
             <button
               type="button"
@@ -601,9 +613,14 @@ export default function App() {
               Exit trail
             </button>
           )}
+          {todaySightings && !mapClear && (
+            <button type="button" className="map-fab mobile-exit-mode" onClick={exitTodaysSightings}>
+              Exit today
+            </button>
+          )}
           <button
             type="button"
-            className="map-fab primary"
+            className="map-fab primary desktop-map-only"
             onClick={() => {
               setMapClear((v) => !v)
               if (!mapClear) setSheetOpen(false)
