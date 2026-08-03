@@ -559,6 +559,63 @@ def main() -> None:
         ],
     }
 
+    # Dated points for sliding heat windows (all-time / 90d / 30d / 7d / 24h)
+    history_features = []
+    for r in hist:
+        d = r.get("date") or ""
+        if len(d) < 10:
+            continue
+        try:
+            # noon UTC proxy when time absent — enough for day-scale windows
+            ts = datetime.fromisoformat(d[:10]).replace(tzinfo=timezone.utc).timestamp()
+        except ValueError:
+            continue
+        if r.get("hour") is not None:
+            ts += int(r["hour"]) * 3600
+        history_features.append(
+            {
+                "type": "Feature",
+                "properties": {
+                    "species": r["species"],
+                    "date": d[:10],
+                    "t": int(ts * 1000),
+                    "source": r.get("source") or "salishsea.io",
+                },
+                "geometry": {"type": "Point", "coordinates": [r["lon"], r["lat"]]},
+            }
+        )
+    for r in recent:
+        created = (r.get("created") or r.get("date") or "").replace(" ", "T")
+        t_ms = None
+        if created:
+            try:
+                # Acartia often "YYYY-MM-DD HH:MM:SS"
+                iso = created if "T" in created else created[:10]
+                if len(iso) == 10:
+                    iso = iso + "T12:00:00+00:00"
+                elif iso.endswith("Z") or "+" in iso[10:]:
+                    pass
+                else:
+                    iso = iso + "+00:00"
+                t_ms = int(datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp() * 1000)
+            except ValueError:
+                t_ms = None
+        if t_ms is None:
+            continue
+        history_features.append(
+            {
+                "type": "Feature",
+                "properties": {
+                    "species": r.get("species") or "other_cetacean",
+                    "date": (r.get("date") or "")[:10],
+                    "t": t_ms,
+                    "source": r.get("source") or "acartia",
+                },
+                "geometry": {"type": "Point", "coordinates": [r["lon"], r["lat"]]},
+            }
+        )
+    history_fc = {"type": "FeatureCollection", "features": history_features}
+
     meta = {
         "builtAt": datetime.now(timezone.utc).isoformat(),
         "bbox": BBOX,
@@ -568,6 +625,7 @@ def main() -> None:
             "hexCells": len(hexes["features"]),
             "recentInBbox": len(recent),
             "scatterSample": len(scatter),
+            "historyPoints": len(history_features),
         },
         "sources": [
             {
@@ -604,6 +662,7 @@ def main() -> None:
 
     write_json(OUT / "meta.json", meta)
     write_json(OUT / "hexes.json", hexes)
+    write_json(OUT / "history.json", history_fc)
     write_json(OUT / "seasonality.json", seasonality)
     write_json(OUT / "scatter.json", scatter_fc)
     write_json(OUT / "recent.json", recent_fc)

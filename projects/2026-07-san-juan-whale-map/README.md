@@ -6,7 +6,7 @@ Interactive map of the waters around San Juan Island for a group renting a boat 
 
 Map-first layout: floating brand + live chips on desktop beside a control sheet; full-bleed map + bottom sheet on mobile.
 
-**Includes:** SalishSea.io hex density · Acartia nowcast · Bluesky social pins · NOAA tides · Open-Meteo wind gate · OrcaSound hydro pulse · effort-bias scoring · GPX export · Be Whale Wise.
+**Includes:** SalishSea.io hex density · sliding heat windows (all / 90d / 30d / 7d / 24h) · Acartia nowcast · Bluesky social pins · NOAA tides · Open-Meteo wind gate · OrcaSound hydro pulse · effort-bias scoring · GPX export · Be Whale Wise.
 
 ## What it answers
 

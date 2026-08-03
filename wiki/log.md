@@ -39,3 +39,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-02] polish | san-juan-whale-map | Last live sighting callout from Bluesky; drop crypto whale-alert noise
 
 ## [2026-08-02] polish | san-juan-whale-map | Clear-map FAB + Bluesky time-heat trail with swipe carousel
+
+## [2026-08-03] build | san-juan-whale-map | Heat time filter (all / 90d / 30d / 7d / 24h) with crossfade + history.json
