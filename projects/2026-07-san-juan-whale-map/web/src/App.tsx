@@ -17,7 +17,9 @@ import {
   browseableSocialPosts,
   fetchSocialPosts,
   formatSightingWhen,
+  mappedThreadUpdates,
   pickLatestSighting,
+  pickTodaysDayThread,
   speciesLabel,
   type SocialSnapshot,
 } from './lib/social'
@@ -64,8 +66,10 @@ export default function App() {
   const [showHydros, setShowHydros] = useState(true)
   const [showSocial, setShowSocial] = useState(true)
   const [socialTrail, setSocialTrail] = useState(false)
+  const [todaySightings, setTodaySightings] = useState(false)
   const [socialIndex, setSocialIndex] = useState(0)
   const [mapClear, setMapClear] = useState(false)
+  const [todayFitKey, setTodayFitKey] = useState(0)
   const [hexHover, setHexHover] = useState<HexHover | null>(null)
   const [heatScale, setHeatScale] = useState<HeatScale | null>(null)
   const [windowPointCount, setWindowPointCount] = useState<number | null>(null)
@@ -88,6 +92,16 @@ export default function App() {
     [social],
   )
   const activeTrail = trailPosts[socialIndex] ?? null
+  const todaysThread = useMemo(
+    () => pickTodaysDayThread(social?.dayThreads ?? []),
+    [social],
+  )
+  const todayPosts = useMemo(() => mappedThreadUpdates(todaysThread), [todaysThread])
+  const todayBounds = useMemo(
+    () => todayPosts.map((p) => ({ lon: p.lon as number, lat: p.lat as number })),
+    [todayPosts],
+  )
+  const socialFocus = socialTrail || todaySightings
 
   useEffect(() => {
     Promise.all([
@@ -173,18 +187,23 @@ export default function App() {
     const onResize = () => window.dispatchEvent(new Event('resize'))
     const t = window.setTimeout(onResize, 320)
     return () => window.clearTimeout(t)
-  }, [sheetOpen, mapClear, socialTrail])
+  }, [sheetOpen, mapClear, socialTrail, todaySightings])
 
   // Keep map camera on the active Bluesky trail post
   useEffect(() => {
-    if (!socialTrail || !activeTrail || activeTrail.lon == null || activeTrail.lat == null) return
+    if (!socialTrail || todaySightings) return
+    if (!activeTrail || activeTrail.lon == null || activeTrail.lat == null) return
     setFocusSocial({ lon: activeTrail.lon, lat: activeTrail.lat })
-  }, [socialTrail, activeTrail])
+  }, [socialTrail, todaySightings, activeTrail])
 
   useEffect(() => {
     if (!socialTrail || !trailPosts.length) return
     if (socialIndex >= trailPosts.length) setSocialIndex(0)
   }, [socialTrail, trailPosts.length, socialIndex])
+
+  useEffect(() => {
+    if (todaySightings && !todaysThread) setTodaySightings(false)
+  }, [todaySightings, todaysThread])
 
   const labels = meta?.speciesLabels || {}
   const activeHotspot = hotspots.find((h) => h.id === selectedHotspot) || null
@@ -198,12 +217,26 @@ export default function App() {
   const windowMode = heatWindow !== 'all'
 
   const enterSocialTrail = () => {
+    setTodaySightings(false)
     setSocialTrail(true)
     setShowSocial(true)
     setSocialIndex(0)
     setMapClear(false)
     setSheetOpen(false)
   }
+
+  const enterTodaysSightings = () => {
+    if (!todaysThread || !todayPosts.length) return
+    setSocialTrail(false)
+    setTodaySightings(true)
+    setShowSocial(true)
+    setMapClear(false)
+    setSheetOpen(false)
+    setFocusSocial(null)
+    setTodayFitKey((k) => k + 1)
+  }
+
+  const exitTodaysSightings = () => setTodaySightings(false)
 
   const toggleSpecies = (sp: SpeciesKey) => {
     setSpecies((prev) => {
@@ -228,7 +261,7 @@ export default function App() {
 
   return (
     <div
-      className={`app ${sheetOpen ? 'sheet-open' : ''} ${mapClear ? 'map-clear' : ''} ${socialTrail ? 'social-trail' : ''}`}
+      className={`app ${sheetOpen ? 'sheet-open' : ''} ${mapClear ? 'map-clear' : ''} ${socialTrail ? 'social-trail' : ''} ${todaySightings ? 'today-sightings' : ''}`}
     >
       <div className="atmosphere" aria-hidden>
         <div className="mist mist-a" />
@@ -246,15 +279,23 @@ export default function App() {
           showRecent={showRecent}
           showScatter={showScatter}
           showHydros={showHydros}
-          showSocial={showSocial}
-          socialTrail={socialTrail}
-          activeSocialId={socialTrail ? activeTrail?.id ?? null : social?.latest?.id ?? null}
+          showSocial={showSocial || todaySightings}
+          socialTrail={socialFocus}
+          activeSocialId={
+            todaySightings
+              ? todayPosts[0]?.id ?? null
+              : socialTrail
+                ? activeTrail?.id ?? null
+                : social?.latest?.id ?? null
+          }
           heatWindow={heatWindow}
           effortBias={effortBias}
           viewMode={viewMode}
           windGate={wind?.gate ?? null}
           hydroFeeds={hydro?.feeds ?? []}
-          socialPosts={socialTrail ? trailPosts : (social?.mapped ?? [])}
+          socialPosts={
+            todaySightings ? todayPosts : socialTrail ? trailPosts : (social?.mapped ?? [])
+          }
           hotspots={hotspots}
           launches={launches}
           meta={meta}
@@ -266,8 +307,10 @@ export default function App() {
           onHeatScale={setHeatScale}
           onWindowPointCount={setWindowPointCount}
           selectedHotspot={selectedHotspot}
-          focusTarget={focusSocial}
-          layoutKey={`${sheetOpen ? 'open' : 'closed'}-${mapClear ? 'clear' : 'ui'}-${socialTrail ? 'trail' : 'odds'}`}
+          focusTarget={todaySightings ? null : focusSocial}
+          fitBoundsTarget={todaySightings && todayBounds.length ? todayBounds : null}
+          fitBoundsKey={todaySightings ? todayFitKey : 0}
+          layoutKey={`${sheetOpen ? 'open' : 'closed'}-${mapClear ? 'clear' : 'ui'}-${todaySightings ? `today-${todayFitKey}` : socialTrail ? 'trail' : 'odds'}`}
         />
 
         {!mapClear && (
@@ -277,7 +320,7 @@ export default function App() {
               <p className="tagline">Where should the boat go?</p>
             </header>
 
-            {!socialTrail && (
+            {!socialFocus && (
               <div className="status-float" aria-label="Live status">
                 <div className="status-chip">
                   <em>{meta?.counts.historicalInBbox.toLocaleString() ?? '—'}</em>
@@ -298,7 +341,41 @@ export default function App() {
               </div>
             )}
 
-            {!socialTrail && social?.latest && (
+            {todayPosts.length > 0 && !todaySightings && !socialTrail && (
+              <button
+                type="button"
+                className="today-sightings-btn"
+                onClick={enterTodaysSightings}
+              >
+                <span className="today-sightings-kicker">Puget Sound Whales</span>
+                <span className="today-sightings-label">Today&apos;s sightings</span>
+                <span className="today-sightings-meta">
+                  {todaysThread?.dateLabel || 'Today'} · {todayPosts.length} on map · one tap
+                </span>
+              </button>
+            )}
+
+            {todaySightings && todaysThread && (
+              <div className="today-sightings-banner" aria-live="polite">
+                <div>
+                  <p className="today-sightings-kicker">Today&apos;s sightings</p>
+                  <p className="today-sightings-title">
+                    {todaysThread.dateLabel} · {todayPosts.length} place-tagged
+                  </p>
+                  <p className="today-sightings-text">{todaysThread.summary.slice(0, 120)}</p>
+                </div>
+                <div className="today-sightings-actions">
+                  <a href={todaysThread.url} target="_blank" rel="noreferrer">
+                    Open thread
+                  </a>
+                  <button type="button" onClick={exitTodaysSightings}>
+                    Exit
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!socialFocus && social?.latest && (
               <div className="last-sighting">
                 <button type="button" className="last-sighting-body" onClick={enterSocialTrail}>
                   <div className="last-sighting-kicker">
@@ -331,7 +408,7 @@ export default function App() {
           </div>
         )}
 
-        {!mapClear && !socialTrail && (
+        {!mapClear && !socialFocus && (
           <div className="map-legend">
             <label className="heat-window">
               <span className="heat-window-kicker">Heat window</span>
@@ -388,7 +465,7 @@ export default function App() {
           </div>
         )}
 
-        {!mapClear && hexHover && hexHover.score > 0 && !socialTrail && (
+        {!mapClear && hexHover && hexHover.score > 0 && !socialFocus && (
           <div className="hex-tooltip">
             <strong>
               {effortBias
@@ -409,7 +486,7 @@ export default function App() {
           <div className="wind-banner caution">Caution — {wind.gateNote}</div>
         )}
 
-        {!mapClear && socialTrail && (
+        {!mapClear && socialTrail && !todaySightings && (
           <SocialCarousel
             posts={trailPosts}
             index={socialIndex}
@@ -418,7 +495,7 @@ export default function App() {
           />
         )}
 
-        {!mapClear && !socialTrail && (
+        {!mapClear && !socialFocus && (
           <button
             type="button"
             className="sheet-launch"
@@ -433,6 +510,16 @@ export default function App() {
         )}
 
         <div className="map-fabs">
+          {todayPosts.length > 0 && !mapClear && (
+            <button
+              type="button"
+              className={`map-fab today ${todaySightings ? 'on' : ''}`}
+              onClick={() => (todaySightings ? exitTodaysSightings() : enterTodaysSightings())}
+              aria-pressed={todaySightings}
+            >
+              {todaySightings ? 'Exit today' : "Today's sightings"}
+            </button>
+          )}
           {socialTrail && !mapClear && (
             <button
               type="button"
