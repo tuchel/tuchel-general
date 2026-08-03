@@ -438,13 +438,73 @@ button.last-sighting-cta {
   left: 0.85rem;
   bottom: calc(5.5rem + var(--safe-bottom));
   z-index: 5;
-  width: min(15.5rem, calc(100vw - 1.7rem));
+  width: min(17.5rem, calc(100vw - 1.7rem));
   padding: 0.65rem 0.75rem;
   background: var(--panel);
   border: 1px solid var(--line);
   backdrop-filter: blur(14px);
   box-shadow: var(--shadow);
   animation: rise 1s 0.12s cubic-bezier(0.22, 1, 0.36, 1) both;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.heat-window {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.heat-window-kicker {
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.heat-window input[type='range'] {
+  width: 100%;
+  accent-color: var(--sea);
+  margin: 0.1rem 0;
+}
+
+.heat-window-ticks {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.15rem;
+}
+
+.heat-window-ticks button {
+  border: 0;
+  background: transparent;
+  padding: 0.15rem 0;
+  font-size: 0.62rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.heat-window-ticks button.on {
+  color: var(--sea-deep);
+  font-weight: 700;
+}
+
+.heat-window-bound {
+  margin: 0;
+  font-size: 0.66rem;
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+
+.field.dimmed {
+  opacity: 0.45;
+}
+
+.field.dimmed input[type='range'] {
+  pointer-events: none;
 }
 
 .heat-scale {

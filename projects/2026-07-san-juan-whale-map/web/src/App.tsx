@@ -22,6 +22,12 @@ import {
   type SocialSnapshot,
 } from './lib/social'
 import {
+  HEAT_WINDOWS,
+  heatWindowFromIndex,
+  heatWindowIndex,
+  type HeatWindow,
+} from './lib/heatWindow'
+import {
   MONTHS,
   SPECIES_COLOR,
   SPECIES_ORDER,
@@ -44,6 +50,7 @@ export default function App() {
   const [etiquette, setEtiquette] = useState<Etiquette | null>(null)
 
   const [month, setMonth] = useState<number | 'all'>(nowMonth)
+  const [heatWindow, setHeatWindow] = useState<HeatWindow>('all')
   const [species, setSpecies] = useState<Set<SpeciesKey>>(
     () => new Set(['srkw', 'biggs', 'orca_unspecified', 'humpback']),
   )
@@ -61,6 +68,7 @@ export default function App() {
   const [mapClear, setMapClear] = useState(false)
   const [hexHover, setHexHover] = useState<HexHover | null>(null)
   const [heatScale, setHeatScale] = useState<HeatScale | null>(null)
+  const [windowPointCount, setWindowPointCount] = useState<number | null>(null)
   const [selectedHotspot, setSelectedHotspot] = useState<string | null>('haro-west-side')
   const [panel, setPanel] = useState<'filters' | 'live' | 'plan' | 'ideas'>('filters')
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -180,10 +188,13 @@ export default function App() {
   const labels = meta?.speciesLabels || {}
   const activeHotspot = hotspots.find((h) => h.id === selectedHotspot) || null
   const monthLabel = month === 'all' ? 'All year' : MONTHS[month - 1]
+  const heatWindowMeta = HEAT_WINDOWS[heatWindowIndex(heatWindow)]
+  const heatWindowLabel = heatWindowMeta.label
   const recentCount = meta?.counts.recentInBbox ?? 0
   const hydroHot = hydro?.feeds.some((f) => f.pulse === 'hot') ?? false
   const gateLabel =
     wind?.gate === 'go' ? 'Go' : wind?.gate === 'caution' ? 'Caution' : wind?.gate === 'no-go' ? 'No-go' : '…'
+  const windowMode = heatWindow !== 'all'
 
   const enterSocialTrail = () => {
     setSocialTrail(true)
@@ -237,6 +248,7 @@ export default function App() {
           showSocial={showSocial}
           socialTrail={socialTrail}
           activeSocialId={socialTrail ? activeTrail?.id ?? null : social?.latest?.id ?? null}
+          heatWindow={heatWindow}
           effortBias={effortBias}
           viewMode={viewMode}
           windGate={wind?.gate ?? null}
@@ -251,6 +263,7 @@ export default function App() {
             openPanel('plan')
           }}
           onHeatScale={setHeatScale}
+          onWindowPointCount={setWindowPointCount}
           selectedHotspot={selectedHotspot}
           focusTarget={focusSocial}
           layoutKey={`${sheetOpen ? 'open' : 'closed'}-${mapClear ? 'clear' : 'ui'}-${socialTrail ? 'trail' : 'odds'}`}
@@ -315,6 +328,39 @@ export default function App() {
 
         {!mapClear && !socialTrail && (
           <div className="map-legend">
+            <label className="heat-window">
+              <span className="heat-window-kicker">Heat window</span>
+              <input
+                type="range"
+                min={0}
+                max={HEAT_WINDOWS.length - 1}
+                step={1}
+                value={heatWindowIndex(heatWindow)}
+                onChange={(e) => setHeatWindow(heatWindowFromIndex(Number(e.target.value)))}
+                aria-valuetext={heatWindowLabel}
+                aria-label="Heat time window"
+              />
+              <div className="heat-window-ticks" aria-hidden>
+                {HEAT_WINDOWS.map((w) => (
+                  <button
+                    key={w.id}
+                    type="button"
+                    className={heatWindow === w.id ? 'on' : ''}
+                    onClick={() => setHeatWindow(w.id)}
+                    tabIndex={-1}
+                  >
+                    {w.id === 'all' ? 'All' : w.id}
+                  </button>
+                ))}
+              </div>
+              <p className="heat-window-bound">
+                {heatWindow === 'all'
+                  ? 'Lower bound: multi-year hex climatology · Upper: last 24 hours'
+                  : heatWindowMeta.hours != null
+                    ? `Showing dated sightings from the last ${heatWindowLabel.toLowerCase()} (newer = hotter)`
+                    : heatWindowLabel}
+              </p>
+            </label>
             <div className="heat-scale" aria-label="Sighting density scale">
               <div className="heat-scale-bar" />
               <div className="heat-scale-labels">
@@ -323,12 +369,15 @@ export default function App() {
                 <span>Hot</span>
               </div>
               <p>
-                {effortBias ? 'Effort-adjusted' : 'Raw'} · {heatScale?.positiveCells ?? '—'} cells
-                {heatScale
-                  ? ` · peak ${
-                      effortBias ? heatScale.maxScore.toFixed(1) : `${heatScale.maxRaw} reports`
-                    }`
-                  : ''}
+                {windowMode
+                  ? `${windowPointCount ?? '—'} sightings · ${heatWindowLabel}`
+                  : `${effortBias ? 'Effort-adjusted' : 'Raw'} · ${heatScale?.positiveCells ?? '—'} cells${
+                      heatScale
+                        ? ` · peak ${
+                            effortBias ? heatScale.maxScore.toFixed(1) : `${heatScale.maxRaw} reports`
+                          }`
+                        : ''
+                    }`}
               </p>
             </div>
           </div>
@@ -373,7 +422,7 @@ export default function App() {
           >
             <span className="sheet-launch-label">Plan the day</span>
             <span className="sheet-launch-meta">
-              {monthLabel} · {viewMode}
+              {heatWindowLabel} · {windowMode ? 'window' : monthLabel} · {viewMode}
             </span>
           </button>
         )}
@@ -479,12 +528,35 @@ export default function App() {
               </div>
 
               <label className="field">
-                <span>Month</span>
+                <span>Heat window</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={HEAT_WINDOWS.length - 1}
+                  step={1}
+                  value={heatWindowIndex(heatWindow)}
+                  onChange={(e) => setHeatWindow(heatWindowFromIndex(Number(e.target.value)))}
+                  aria-valuetext={heatWindowLabel}
+                />
+                <div className="range-meta">
+                  <span>All time</span>
+                  <strong>{heatWindowLabel}</strong>
+                  <span>24 hrs</span>
+                </div>
+                <p className="hint">
+                  All time = multi-year hexes. Shorter windows use dated SalishSea + Acartia points;
+                  heat crossfades as you slide.
+                </p>
+              </label>
+
+              <label className={`field ${windowMode ? 'dimmed' : ''}`}>
+                <span>Month {windowMode ? '(All time only)' : ''}</span>
                 <input
                   type="range"
                   min={0}
                   max={12}
                   value={month === 'all' ? 0 : month}
+                  disabled={windowMode}
                   onChange={(e) => {
                     const v = Number(e.target.value)
                     setMonth(v === 0 ? 'all' : v)

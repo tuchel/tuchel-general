@@ -4,6 +4,13 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import type { HydroFeed } from '../lib/live'
 import { socialToGeoJSON, type SocialPost } from '../lib/social'
 import {
+  filterHistoryPoints,
+  historyToHeatGeoJSON,
+  parseHistoryCollection,
+  type HeatWindow,
+  type HistoryPoint,
+} from '../lib/heatWindow'
+import {
   SPECIES_COLOR,
   hexRawCount,
   hexScore,
@@ -33,6 +40,7 @@ type Props = {
   showSocial: boolean
   socialTrail: boolean
   activeSocialId?: string | null
+  heatWindow: HeatWindow
   effortBias: boolean
   viewMode: ViewMode
   windGate: 'go' | 'caution' | 'no-go' | null
@@ -44,6 +52,7 @@ type Props = {
   onHexHover: (info: HexHover | null) => void
   onSelectHotspot: (id: string | null) => void
   onHeatScale: (scale: HeatScale | null) => void
+  onWindowPointCount?: (n: number) => void
   selectedHotspot: string | null
   focusTarget?: { lon: number; lat: number } | null
   layoutKey?: string
@@ -174,6 +183,7 @@ export function WhaleMap({
   showSocial,
   socialTrail,
   activeSocialId = null,
+  heatWindow,
   effortBias,
   viewMode,
   windGate,
@@ -185,12 +195,15 @@ export function WhaleMap({
   onHexHover,
   onSelectHotspot,
   onHeatScale,
+  onWindowPointCount,
   selectedHotspot,
   focusTarget = null,
   layoutKey = 'default',
 }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MLMap | null>(null)
+  const historyRef = useRef<HistoryPoint[]>([])
+  const heatFadeRef = useRef(0)
   const [ready, setReady] = useState(false)
   const filtersRef = useRef({ month, species, effortBias })
   filtersRef.current = { month, species, effortBias }
@@ -235,12 +248,16 @@ export function WhaleMap({
     map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }), 'bottom-right')
 
     map.on('load', async () => {
-      const [hexes, habitat, recent, scatter] = await Promise.all([
+      const [hexes, habitat, recent, scatter, history] = await Promise.all([
         fetch('./data/hexes.json').then((r) => r.json()),
         fetch('./data/habitat.json').then((r) => r.json()),
         fetch('./data/recent.json').then((r) => r.json()),
         fetch('./data/scatter.json').then((r) => r.json()),
+        fetch('./data/history.json')
+          .then((r) => r.json())
+          .catch(() => ({ type: 'FeatureCollection', features: [] })),
       ])
+      historyRef.current = parseHistoryCollection(history)
 
       const scored = scoreHexCollection(
         hexes,
@@ -315,6 +332,40 @@ export function WhaleMap({
             'rgba(210, 55, 40, 0.65)',
             1,
             'rgba(180, 20, 24, 0.75)',
+          ],
+        },
+      })
+      // Sliding calendar-window heat (90d / 30d / 7d / 24h) from dated points
+      map.addSource('window-points', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      })
+      map.addLayer({
+        id: 'window-heat',
+        type: 'heatmap',
+        source: 'window-points',
+        layout: { visibility: 'none' },
+        paint: {
+          'heatmap-weight': ['get', 'weight'],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 8, 0.65, 11, 1.05],
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 20, 10, 32, 12, 46],
+          'heatmap-opacity': 0.7,
+          'heatmap-color': [
+            'interpolate',
+            ['linear'],
+            ['heatmap-density'],
+            0,
+            'rgba(0,0,0,0)',
+            0.12,
+            'rgba(10, 70, 82, 0)',
+            0.28,
+            'rgba(20, 120, 110, 0.35)',
+            0.5,
+            'rgba(200, 140, 40, 0.5)',
+            0.72,
+            'rgba(220, 70, 40, 0.65)',
+            1,
+            'rgba(180, 20, 24, 0.85)',
           ],
         },
       })
@@ -744,22 +795,127 @@ export function WhaleMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount once
   }, [])
 
-  // Rescore hexes when filters change
+  // Rescore hexes / window heat when filters or time window change
   useEffect(() => {
     const map = mapRef.current
     if (!map || !ready) return
-    const src = map.getSource('hexes') as GeoJSONSource | undefined
-    if (!src) return
-    fetch('./data/hexes.json')
-      .then((r) => r.json())
-      .then((hexes) => {
-        const scored = scoreHexCollection(hexes, month, species, effortBias)
-        src.setData(scored.collection as any)
-        const pts = map.getSource('heat-points') as GeoJSONSource | undefined
-        pts?.setData(scored.centroids as any)
-        onHeatScale(scored.scale)
+    let cancelled = false
+    const gen = ++heatFadeRef.current
+
+    const tweenOpacity = (layer: string, prop: string, to: number, ms = 280) =>
+      new Promise<void>((resolve) => {
+        if (!map.getLayer(layer)) {
+          resolve()
+          return
+        }
+        const fromRaw = map.getPaintProperty(layer, prop)
+        const from = typeof fromRaw === 'number' ? fromRaw : to
+        if (ms <= 0 || Math.abs(from - to) < 0.01) {
+          map.setPaintProperty(layer, prop, to)
+          resolve()
+          return
+        }
+        const t0 = performance.now()
+        const step = (now: number) => {
+          if (cancelled || heatFadeRef.current !== gen) {
+            resolve()
+            return
+          }
+          const u = Math.min(1, (now - t0) / ms)
+          const eased = u * u * (3 - 2 * u)
+          map.setPaintProperty(layer, prop, from + (to - from) * eased)
+          if (u < 1) requestAnimationFrame(step)
+          else resolve()
+        }
+        requestAnimationFrame(step)
       })
-  }, [month, species, effortBias, ready, onHeatScale])
+
+    const run = async () => {
+      const useWindow = heatWindow !== 'all'
+      const hexSrc = map.getSource('hexes') as GeoJSONSource | undefined
+      const glowSrc = map.getSource('heat-points') as GeoJSONSource | undefined
+      const winSrc = map.getSource('window-points') as GeoJSONSource | undefined
+
+      // Fade current heat down before swapping geometry
+      await Promise.all([
+        tweenOpacity('heat-glow', 'heatmap-opacity', 0.04),
+        tweenOpacity('window-heat', 'heatmap-opacity', 0.04),
+        tweenOpacity('hex-fill', 'fill-opacity', useWindow ? 0.05 : 0.12),
+      ])
+      if (cancelled || heatFadeRef.current !== gen) return
+
+      if (useWindow) {
+        const filtered = filterHistoryPoints(historyRef.current, heatWindow, species)
+        const fc = historyToHeatGeoJSON(filtered, heatWindow)
+        winSrc?.setData(fc as any)
+        onWindowPointCount?.(filtered.length)
+        onHeatScale({
+          positiveCells: filtered.length,
+          maxScore: filtered.length ? 1 : 0,
+          maxRaw: filtered.length,
+          effortBias: false,
+        })
+      } else {
+        const hexes = await fetch('./data/hexes.json').then((r) => r.json())
+        if (cancelled || heatFadeRef.current !== gen) return
+        const scored = scoreHexCollection(hexes, month, species, effortBias)
+        hexSrc?.setData(scored.collection as any)
+        glowSrc?.setData(scored.centroids as any)
+        onHeatScale(scored.scale)
+        onWindowPointCount?.(scored.scale.positiveCells)
+      }
+
+      // Visibility for the active heat mode (social trail handled elsewhere)
+      if (!socialTrail) {
+        const showHex = !useWindow && viewMode !== 'nowcast'
+        const showWin = useWindow
+        if (map.getLayer('hex-fill')) {
+          map.setLayoutProperty('hex-fill', 'visibility', showHex ? 'visible' : 'none')
+        }
+        if (map.getLayer('hex-line')) {
+          map.setLayoutProperty('hex-line', 'visibility', showHex ? 'visible' : 'none')
+        }
+        if (map.getLayer('heat-glow')) {
+          map.setLayoutProperty('heat-glow', 'visibility', showHex ? 'visible' : 'none')
+        }
+        if (map.getLayer('window-heat')) {
+          map.setLayoutProperty('window-heat', 'visibility', showWin ? 'visible' : 'none')
+        }
+      }
+
+      const glowTarget =
+        viewMode === 'climatology' ? 0.5 : viewMode === 'balanced' ? 0.45 : 0.14
+      const hexMul = viewMode === 'climatology' ? 1 : viewMode === 'balanced' ? 0.9 : 0.28
+      await Promise.all([
+        useWindow
+          ? tweenOpacity('window-heat', 'heatmap-opacity', 0.72, 360)
+          : Promise.all([
+              tweenOpacity('heat-glow', 'heatmap-opacity', glowTarget, 360),
+              (async () => {
+                // restore rank-based fill opacity via paint expression
+                if (map.getLayer('hex-fill') && map.getLayoutProperty('hex-fill', 'visibility') !== 'none') {
+                  map.setPaintProperty('hex-fill', 'fill-opacity', heatFillOpacity(hexMul))
+                }
+              })(),
+            ]),
+      ])
+    }
+
+    run()
+    return () => {
+      cancelled = true
+    }
+  }, [
+    month,
+    species,
+    effortBias,
+    heatWindow,
+    viewMode,
+    socialTrail,
+    ready,
+    onHeatScale,
+    onWindowPointCount,
+  ])
 
   useEffect(() => {
     const map = mapRef.current
@@ -782,9 +938,13 @@ export function WhaleMap({
       if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')
     }
     const trail = socialTrail
+    const useWindow = heatWindow !== 'all'
     const climOn = !trail && viewMode !== 'nowcast'
     const nowOn = !trail && viewMode !== 'climatology'
     const socialOn = showSocial || trail
+    const showHex = climOn && !useWindow
+    // Time windows always drive point heat (view mode only dims other layers)
+    const showWin = !trail && useWindow
     vis('habitat-fill', showHabitat && !trail)
     vis('habitat-line', showHabitat && !trail)
     vis('hotspot-rings', showHotspots && climOn)
@@ -793,25 +953,18 @@ export function WhaleMap({
     vis('recent', showRecent && nowOn)
     vis('recent-halo', showRecent && nowOn)
     vis('scatter', showScatter && climOn)
-    vis('heat-glow', climOn)
-    vis('hex-fill', climOn)
-    vis('hex-line', climOn)
-    vis('hex-hover', climOn)
+    vis('heat-glow', showHex)
+    vis('hex-fill', showHex)
+    vis('hex-line', showHex)
+    vis('hex-hover', showHex)
+    vis('window-heat', showWin)
     vis('hydro-pulse', showHydros && nowOn)
     vis('hydro-cores', showHydros && nowOn)
     vis('social-heat', trail)
     vis('social', socialOn)
     vis('social-halo', socialOn)
 
-    if (map.getLayer('hex-fill')) {
-      const mul = viewMode === 'climatology' ? 1 : viewMode === 'balanced' ? 0.9 : 0.28
-      map.setPaintProperty('hex-fill', 'fill-opacity', heatFillOpacity(mul))
-    }
-    if (map.getLayer('heat-glow')) {
-      const glow =
-        viewMode === 'climatology' ? 0.5 : viewMode === 'balanced' ? 0.45 : 0.14
-      map.setPaintProperty('heat-glow', 'heatmap-opacity', glow)
-    }
+    // Heat opacities are owned by the rescore crossfade effect — do not snap here.
     if (map.getLayer('recent')) {
       map.setPaintProperty('recent', 'circle-radius', viewMode === 'nowcast' ? 9 : 7)
     }
@@ -827,6 +980,7 @@ export function WhaleMap({
     showHydros,
     showSocial,
     socialTrail,
+    heatWindow,
     viewMode,
     ready,
   ])

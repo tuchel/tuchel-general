@@ -17,6 +17,7 @@ export type Meta = {
     hexCells: number
     recentInBbox: number
     scatterSample: number
+    historyPoints?: number
   }
   sources: { id: string; name: string; url: string; license: string }[]
   speciesLabels: Record<string, string>
