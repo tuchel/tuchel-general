@@ -340,6 +340,10 @@ button.last-sighting-cta {
   bottom: calc(1.1rem + var(--safe-bottom));
 }
 
+.mobile-exit-mode {
+  display: none;
+}
+
 .today-sightings-btn {
   display: flex;
   flex-direction: column;
