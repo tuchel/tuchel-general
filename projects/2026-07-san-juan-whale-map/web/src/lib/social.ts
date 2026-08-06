@@ -40,6 +40,8 @@ export type SocialSnapshot = {
   dayThreads: SocialDayThread[]
   fetchedAt: string
   sourceNote: string
+  /** True when posts came from a live Bluesky AppView pull in this session. */
+  live?: boolean
 }
 
 const BSKY = 'https://public.api.bsky.app/xrpc'
@@ -353,7 +355,7 @@ export function formatSightingWhen(iso: string): { absolute: string; relative: s
 
 async function pullHandle(handle: string, limit = 40): Promise<SocialPost[]> {
   const url = `${BSKY}/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(handle)}&limit=${limit}`
-  const res = await fetch(url)
+  const res = await fetch(url, { cache: 'no-store' })
   if (!res.ok) throw new Error(`${handle} → ${res.status}`)
   const data = (await res.json()) as { feed?: { post: BskyPost }[] }
   const out: SocialPost[] = []
@@ -386,6 +388,7 @@ async function pullPswDayThreads(limit = PSW_DAY_THREAD_LIMIT): Promise<{
 }> {
   const feedRes = await fetch(
     `${BSKY}/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(PSW_HANDLE)}&limit=80`,
+    { cache: 'no-store' },
   )
   if (!feedRes.ok) throw new Error(`PSW feed → ${feedRes.status}`)
   const feed = (await feedRes.json()) as { feed?: { post: BskyPost }[] }
@@ -398,68 +401,89 @@ async function pullPswDayThreads(limit = PSW_DAY_THREAD_LIMIT): Promise<{
   const threads: SocialDayThread[] = []
   const posts: SocialPost[] = []
 
-  await Promise.all(
-    roots.map(async (root) => {
-      const uri = root.uri
-      if (!uri) return
-      try {
-        const thrRes = await fetch(
-          `${BSKY}/app.bsky.feed.getPostThread?uri=${encodeURIComponent(uri)}&depth=110`,
-        )
-        if (!thrRes.ok) return
-        const thr = (await thrRes.json()) as { thread?: BskyThreadNode }
-        const authorPosts: BskyPost[] = []
-        walkAuthorPosts(thr.thread, PSW_HANDLE, authorPosts)
-        const day = dayLabelFromText(root.record?.text || '') || 'Day log'
-        const updates: SocialPost[] = []
-        for (const post of authorPosts) {
-          const isRoot = post.uri === uri
-          const row = postToRow(post, {
-            fallbackHandle: PSW_HANDLE,
-            threadRootId: uri,
-            dayLabel: day,
-            role: isRoot ? 'day_root' : 'update',
-          })
-          if (!row) continue
-          posts.push(row)
-          if (!isRoot) updates.push(row)
-        }
-        updates.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''))
-        threads.push({
-          id: uri,
-          dateLabel: day,
-          createdAt: root.record?.createdAt || root.indexedAt || '',
-          url: postUrl(PSW_HANDLE, uri),
-          summary: (root.record?.text || '').replace(/https?:\/\/\S+/g, '').trim().slice(0, 500),
-          handle: PSW_HANDLE,
-          displayName: root.author?.displayName || 'Puget Sound Whales',
-          updateCount: updates.length,
-          mappedCount: updates.filter((u) => u.lat != null).length,
-          updates,
+  // Sequential thread pulls — parallel fan-out trips Bluesky rate limits in some browsers
+  for (const root of roots) {
+    const uri = root.uri
+    if (!uri) continue
+    try {
+      const thrRes = await fetch(
+        `${BSKY}/app.bsky.feed.getPostThread?uri=${encodeURIComponent(uri)}&depth=110`,
+        { cache: 'no-store' },
+      )
+      if (!thrRes.ok) continue
+      const thr = (await thrRes.json()) as { thread?: BskyThreadNode }
+      const authorPosts: BskyPost[] = []
+      walkAuthorPosts(thr.thread, PSW_HANDLE, authorPosts)
+      const day = dayLabelFromText(root.record?.text || '') || 'Day log'
+      const updates: SocialPost[] = []
+      for (const post of authorPosts) {
+        const isRoot = post.uri === uri
+        const row = postToRow(post, {
+          fallbackHandle: PSW_HANDLE,
+          threadRootId: uri,
+          dayLabel: day,
+          role: isRoot ? 'day_root' : 'update',
         })
-      } catch {
-        /* soft-fail per thread */
+        if (!row) continue
+        posts.push(row)
+        if (!isRoot) updates.push(row)
       }
-    }),
-  )
+      updates.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''))
+      threads.push({
+        id: uri,
+        dateLabel: day,
+        createdAt: root.record?.createdAt || root.indexedAt || '',
+        url: postUrl(PSW_HANDLE, uri),
+        summary: (root.record?.text || '').replace(/https?:\/\/\S+/g, '').trim().slice(0, 500),
+        handle: PSW_HANDLE,
+        displayName: root.author?.displayName || 'Puget Sound Whales',
+        updateCount: updates.length,
+        mappedCount: updates.filter((u) => u.lat != null).length,
+        updates,
+      })
+    } catch {
+      /* soft-fail per thread */
+    }
+  }
 
   threads.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
   return { threads, posts }
 }
 
+/** Load the committed snapshot (fast path / offline fallback). */
+export async function loadBakedSocial(): Promise<SocialSnapshot> {
+  const res = await fetch(`./data/social.json?t=${Date.now()}`, { cache: 'no-store' })
+  if (!res.ok) throw new Error(`social.json → ${res.status}`)
+  const baked = await res.json()
+  const posts = (baked.posts || []) as SocialPost[]
+  const mapped = posts.filter((p) => p.lat != null && p.lon != null)
+  return {
+    posts,
+    mapped,
+    latest: baked.latest || pickLatestSighting(posts),
+    dayThreads: baked.dayThreads || [],
+    fetchedAt: baked.meta?.builtAt || new Date().toISOString(),
+    sourceNote: 'Baked social.json snapshot · live Bluesky refresh pending',
+    live: false,
+  }
+}
+
 export async function fetchSocialPosts(): Promise<SocialSnapshot> {
-  const [chunks, dayPack] = await Promise.all([
-    Promise.all(
-      HANDLES.map(async (h) => {
-        try {
-          return await pullHandle(h, h === PSW_HANDLE ? 80 : 40)
-        } catch {
-          return [] as SocialPost[]
-        }
-      }),
-    ),
-    pullPswDayThreads().catch(() => ({ threads: [] as SocialDayThread[], posts: [] as SocialPost[] })),
-  ])
+  let handleErrors = 0
+  const chunks = await Promise.all(
+    HANDLES.map(async (h) => {
+      try {
+        return await pullHandle(h, h === PSW_HANDLE ? 80 : 40)
+      } catch {
+        handleErrors += 1
+        return [] as SocialPost[]
+      }
+    }),
+  )
+  const dayPack = await pullPswDayThreads().catch(() => ({
+    threads: [] as SocialDayThread[],
+    posts: [] as SocialPost[],
+  }))
 
   const byId = new Map<string, SocialPost>()
   for (const p of [...chunks.flat(), ...dayPack.posts]) {
@@ -471,6 +495,13 @@ export async function fetchSocialPosts(): Promise<SocialSnapshot> {
   const posts = [...byId.values()].sort((a, b) =>
     (b.createdAt || '').localeCompare(a.createdAt || ''),
   )
+  if (!posts.length) {
+    throw new Error(
+      handleErrors === HANDLES.length
+        ? 'All Bluesky author feeds failed'
+        : 'Bluesky returned no relevant posts',
+    )
+  }
   const mapped = posts.filter(
     (p) =>
       p.lat != null &&
@@ -481,14 +512,17 @@ export async function fetchSocialPosts(): Promise<SocialSnapshot> {
       p.lon <= BBOX.east,
   )
   const trimmed = posts.slice(0, 280)
+  const liveThreads = dayPack.threads.length
   return {
     posts: trimmed,
     mapped,
     latest: pickLatestSighting(trimmed),
     dayThreads: dayPack.threads,
     fetchedAt: new Date().toISOString(),
-    sourceNote:
-      'Bluesky · Puget Sound Whales day threads · place-name geocode (approx) · X/Reddit unavailable',
+    sourceNote: liveThreads
+      ? `Live Bluesky · ${liveThreads} day thread${liveThreads === 1 ? '' : 's'} · place-name geocode (approx)`
+      : 'Live Bluesky feeds · day threads unavailable this pull · place-name geocode (approx)',
+    live: true,
   }
 }
 

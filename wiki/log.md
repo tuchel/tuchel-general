@@ -47,3 +47,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-03] polish | san-juan-whale-map | One-tap TODAY'S SIGHTINGS highlights today's PSW thread on the map
 
 ## [2026-08-03] polish | san-juan-whale-map | Mobile chrome rethink: slim top + bottom dock, map-first
+
+## [2026-08-06] fix | san-juan-whale-map | Live Bluesky refresh on every page load + deploy-time social pull

@@ -50,6 +50,11 @@ jobs:
           npm ci
           npm run build
 
+      - name: Refresh Bluesky social snapshot
+        working-directory: projects/2026-07-san-juan-whale-map
+        continue-on-error: true
+        run: python3 scripts/pull_social.py
+
       - name: Install & build San Juan Whale Odds
         working-directory: projects/2026-07-san-juan-whale-map/web
         run: |

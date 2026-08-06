@@ -33,7 +33,7 @@ Deploy: push to `main` (or Actions → “Deploy GitHub Pages”). Artifact path
 | [Acartia / SSEMMI](https://acartia.io/) `GET /api/v1/sightings/current` | Recent cooperative sightings | Open current feed |
 | [NOAA SRKW critical habitat](https://maps.fisheries.noaa.gov/server/rest/services/All_NMFS_Critical_Habitat/MapServer/195) | Habitat polygon overlay | ArcGIS REST → GeoJSON |
 | [iNaturalist](https://api.inaturalist.org/v1/observations) | Cross-check density (optional pull) | Public API |
-| [Bluesky](https://docs.bsky.app/) Salish Sea whale accounts | Social nowcast pins (place-name geocode) | Public AppView; `scripts/pull_social.py` |
+| [Bluesky](https://docs.bsky.app/) Salish Sea whale accounts | Social nowcast pins (place-name geocode) | Public AppView on every page load (+ baked `social.json` fallback); `scripts/pull_social.py` also runs on Pages deploy |
 | [Puget Sound Whales](https://bsky.app/profile/pugetsoundwhales.bsky.social) | Day-organized sighting threads → Live day log | `getAuthorFeed` + `getPostThread` (author updates only) |
 | X / Reddit | Not wired — paid API / host blocked | Needs credentials |
 | Curated hotspots / calendar | Boat-renter heuristics from NPS, WA Parks, Whale Museum literature | See `notes/` |
