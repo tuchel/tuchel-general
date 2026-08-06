@@ -53,3 +53,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-06] polish | san-juan-whale-map | Satellite basemap + continuous heat bloom; finer hex micro-detail
 
 ## [2026-08-06] fix | san-juan-whale-map | Stale Bluesky: latest picks newest (not old quality), Pages deploy no longer cancels mid-flight, 3h social bake cron
+
+## [2026-08-06] schema | AGENTS.md | Draft prior-art search gate on project kickoff (external search before recreating solved products)
