@@ -6,6 +6,8 @@ Interactive map of the waters around San Juan Island for a group renting a boat 
 
 Map-first layout: floating brand + live chips on desktop beside a control sheet; on mobile a slim top bar + bottom dock (Today / Latest / Adjust) so the map stays open — details live in the sheet.
 
+Basemap is Esri World Imagery + CARTO retina labels (MapLibre). Heat is a continuous WebGL bloom from scored sightings; fine hex mesh appears only when zoomed in. Google Maps is not used — it needs a billing-enabled API key, which this Pages deploy does not carry.
+
 **Includes:** SalishSea.io hex density · sliding heat windows (all / 90d / 30d / 7d / 24h) · Acartia nowcast · Bluesky social pins · NOAA tides · Open-Meteo wind gate · OrcaSound hydro pulse · effort-bias scoring · GPX export · Be Whale Wise.
 
 ## What it answers
