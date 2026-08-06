@@ -150,6 +150,16 @@ export function ConditionsPanel({
                 @pugetsoundwhales
               </a>
               — timed updates under each day root. Tap a place-tagged update to fly the map.
+              {social?.fetchedAt
+                ? ` · ${social.live ? 'Live pull' : 'Snapshot'} ${new Date(
+                    social.fetchedAt,
+                  ).toLocaleString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}`
+                : ''}
             </p>
             <DayThreadLog threads={dayThreads} onFocusPost={onFocusSocial} />
           </>

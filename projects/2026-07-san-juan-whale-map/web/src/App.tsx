@@ -17,8 +17,8 @@ import {
   browseableSocialPosts,
   fetchSocialPosts,
   formatSightingWhen,
+  loadBakedSocial,
   mappedThreadUpdates,
-  pickLatestSighting,
   pickTodaysDayThread,
   speciesLabel,
   type SocialSnapshot,
@@ -121,7 +121,15 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false
-    const load = async () => {
+    let hasSocial = false
+    const applySocial = (s: SocialSnapshot) => {
+      if (cancelled) return
+      hasSocial = true
+      setSocial(s)
+      setSocialError(null)
+    }
+
+    const loadLiveConditions = async () => {
       try {
         const t = await fetchTides()
         if (!cancelled) {
@@ -149,34 +157,48 @@ export default function App() {
       } catch (e) {
         if (!cancelled) setHydroError(e instanceof Error ? e.message : 'Hydrophone fetch failed')
       }
-      try {
-        const s = await fetchSocialPosts()
-        if (!cancelled) {
-          setSocial(s)
-          setSocialError(null)
+    }
+
+    const loadSocial = async (initial: boolean) => {
+      // First paint: committed snapshot, then overlay a live Bluesky pull
+      if (initial) {
+        try {
+          applySocial(await loadBakedSocial())
+        } catch {
+          /* live path may still succeed */
         }
+      }
+      try {
+        applySocial(await fetchSocialPosts())
       } catch (e) {
-        if (!cancelled) {
+        if (cancelled) return
+        if (!hasSocial) {
           try {
-            const baked = await fetch('./data/social.json').then((r) => r.json())
-            const posts = (baked.posts || []) as SocialSnapshot['posts']
-            setSocial({
-              posts,
-              mapped: posts.filter((p) => p.lat != null && p.lon != null),
-              latest: baked.latest || pickLatestSighting(posts),
-              dayThreads: baked.dayThreads || [],
-              fetchedAt: baked.meta?.builtAt || new Date().toISOString(),
-              sourceNote: 'Baked social.json (live Bluesky refresh failed)',
-            })
-            setSocialError(null)
+            applySocial(await loadBakedSocial())
           } catch {
             setSocialError(e instanceof Error ? e.message : 'Social fetch failed')
           }
+        } else {
+          setSocial((prev) =>
+            prev && !prev.live
+              ? {
+                  ...prev,
+                  sourceNote: `Baked social.json (live Bluesky refresh failed: ${
+                    e instanceof Error ? e.message : 'error'
+                  })`,
+                }
+              : prev,
+          )
         }
       }
     }
-    load()
-    const id = window.setInterval(load, 5 * 60 * 1000)
+
+    const load = async (initial = false) => {
+      await Promise.all([loadLiveConditions(), loadSocial(initial)])
+    }
+
+    load(true)
+    const id = window.setInterval(() => load(false), 5 * 60 * 1000)
     return () => {
       cancelled = true
       window.clearInterval(id)
