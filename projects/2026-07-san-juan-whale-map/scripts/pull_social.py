@@ -328,7 +328,7 @@ def walk_author_posts(node: dict | None, author_handle: str, out: list[dict]) ->
 
 def pull_psw_day_threads(limit: int = PSW_DAY_THREAD_LIMIT) -> tuple[list[dict], list[dict]]:
     """Expand recent PSW day-root posts into full author-only threads."""
-    q = urllib.parse.urlencode({"actor": PSW_HANDLE, "limit": "80"})
+    q = urllib.parse.urlencode({"actor": PSW_HANDLE, "limit": "100"})
     feed = fetch_json(f"{BSKY}/app.bsky.feed.getAuthorFeed?{q}")
     roots: list[dict] = []
     for item in feed.get("feed") or []:
@@ -492,7 +492,7 @@ def main() -> None:
         ),
     }
 
-    # Newest first among real cetacean posts; quality breaks ties within 72h.
+    # Newest cetacean post by time; quality only breaks ties within 2h.
     def quality(p: dict) -> int:
         score = 0
         if p.get("sightingHint"):
@@ -520,18 +520,25 @@ def main() -> None:
     )
     latest = None
     if candidates:
-        now = datetime.now(timezone.utc)
+        newest = candidates[0]
 
-        def age_h(p: dict) -> float:
+        def parse_t(p: dict) -> datetime | None:
             try:
-                t = datetime.fromisoformat((p.get("createdAt") or "").replace("Z", "+00:00"))
-                return (now - t).total_seconds() / 3600
+                return datetime.fromisoformat((p.get("createdAt") or "").replace("Z", "+00:00"))
             except ValueError:
-                return 1e9
+                return None
 
-        recent = [p for p in candidates if age_h(p) <= 72]
-        pool = recent or candidates[:25]
-        latest = max(pool, key=lambda p: (quality(p), p.get("createdAt") or ""))
+        newest_t = parse_t(newest)
+        if newest_t is None:
+            latest = newest
+        else:
+            near = []
+            for p in candidates:
+                t = parse_t(p)
+                if t is not None and (newest_t - t).total_seconds() <= 2 * 3600:
+                    near.append(p)
+            pool = near or [newest]
+            latest = max(pool, key=lambda p: (quality(p), p.get("createdAt") or ""))
 
     # Trim thread update payloads for the baked JSON (full updates kept, roots light)
     threads_out = []

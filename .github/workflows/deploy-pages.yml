@@ -10,6 +10,9 @@ on:
       - 'projects/2026-07-san-juan-whale-map/scripts/**'
       - '.github/workflows/deploy-pages.yml'
       - '.github/workflows/deploy-metro-budget-tax.yml'
+  # Re-bake Bluesky social.json even when no code landed (PSW day threads move hourly)
+  schedule:
+    - cron: '25 */3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -19,7 +22,9 @@ permissions:
 
 concurrency:
   group: github-pages
-  cancel-in-progress: true
+  # Never cancel an in-flight Pages deploy — deploy-pages cancels the GitHub
+  # deployment on abort, which left whale social.json stuck on stale snapshots.
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -144,3 +149,7 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          # Pages status can sit in queued/in_progress for several minutes;
+          # default 10m is fine, but make it explicit and avoid early cancel.
+          timeout: 900000

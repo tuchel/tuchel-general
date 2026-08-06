@@ -304,7 +304,11 @@ function qualityScore(p: SocialPost): number {
   return score
 }
 
-/** Newest real cetacean report — recent first, then place/sighting quality. */
+/**
+ * Newest real cetacean report by time.
+ * Quality only breaks ties within a 2h window — otherwise a high-scoring older
+ * post (e.g. a place-tagged gray from days ago) freezes the "Latest" card.
+ */
 export function pickLatestSighting(posts: SocialPost[]): SocialPost | null {
   const clean = posts
     .filter(
@@ -316,19 +320,86 @@ export function pickLatestSighting(posts: SocialPost[]): SocialPost | null {
     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
   if (!clean.length) return null
 
-  const now = Date.now()
-  const recent = clean.filter((p) => {
+  const newest = clean[0]
+  const newestT = Date.parse(newest.createdAt)
+  if (!Number.isFinite(newestT)) return newest
+
+  // Among posts within 2h of the newest, prefer clearer sighting cards.
+  const windowMs = 2 * 3600 * 1000
+  const near = clean.filter((p) => {
     const t = Date.parse(p.createdAt)
-    return Number.isFinite(t) && now - t <= 72 * 3600 * 1000
+    return Number.isFinite(t) && newestT - t <= windowMs
   })
-  const pool = recent.length ? recent : clean.slice(0, 25)
-  return pool.reduce((best, p) => {
+  return near.reduce((best, p) => {
     if (!best) return p
     const dq = qualityScore(p) - qualityScore(best)
-    if (dq > 0) return p
-    if (dq < 0) return best
+    if (dq !== 0) return dq > 0 ? p : best
     return (p.createdAt || '') > (best.createdAt || '') ? p : best
   }, null as SocialPost | null)
+}
+
+/** Merge day threads by id — keep the richer / newer copy; never drop baked threads. */
+export function mergeDayThreads(
+  baked: SocialDayThread[],
+  live: SocialDayThread[],
+): SocialDayThread[] {
+  const byId = new Map<string, SocialDayThread>()
+  for (const t of baked) byId.set(t.id, t)
+  for (const t of live) {
+    const prev = byId.get(t.id)
+    if (!prev || t.updateCount >= prev.updateCount || (t.createdAt || '') > (prev.createdAt || '')) {
+      byId.set(t.id, t)
+    }
+  }
+  return [...byId.values()].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+}
+
+/** Overlay a live Bluesky pull onto a baked snapshot without losing day threads. */
+export function mergeSocialSnapshots(
+  baked: SocialSnapshot | null,
+  live: SocialSnapshot,
+): SocialSnapshot {
+  if (!baked) return live
+
+  const byId = new Map<string, SocialPost>()
+  for (const p of baked.posts) byId.set(p.id, p)
+  for (const p of live.posts) {
+    const prev = byId.get(p.id)
+    if (
+      !prev ||
+      ((p.role === 'day_root' || p.role === 'update') && prev.role === 'standalone') ||
+      (p.createdAt || '') >= (prev.createdAt || '')
+    ) {
+      byId.set(p.id, p)
+    }
+  }
+  const posts = [...byId.values()].sort((a, b) =>
+    (b.createdAt || '').localeCompare(a.createdAt || ''),
+  )
+  const trimmed = posts.slice(0, 280)
+  const dayThreads = live.dayThreads.length
+    ? mergeDayThreads(baked.dayThreads, live.dayThreads)
+    : baked.dayThreads
+  const mapped = trimmed.filter(
+    (p) =>
+      p.lat != null &&
+      p.lon != null &&
+      p.lat >= BBOX.south &&
+      p.lat <= BBOX.north &&
+      p.lon >= BBOX.west &&
+      p.lon <= BBOX.east,
+  )
+  return {
+    posts: trimmed,
+    mapped,
+    latest: pickLatestSighting(trimmed),
+    dayThreads,
+    fetchedAt: live.fetchedAt,
+    sourceNote: live.dayThreads.length
+      ? live.sourceNote
+      : `${live.sourceNote} · day threads from snapshot`,
+    live: true,
+  }
 }
 
 export function speciesLabel(species: string, labels?: Record<string, string>) {
@@ -387,7 +458,7 @@ async function pullPswDayThreads(limit = PSW_DAY_THREAD_LIMIT): Promise<{
   posts: SocialPost[]
 }> {
   const feedRes = await fetch(
-    `${BSKY}/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(PSW_HANDLE)}&limit=80`,
+    `${BSKY}/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(PSW_HANDLE)}&limit=100`,
     { cache: 'no-store' },
   )
   if (!feedRes.ok) throw new Error(`PSW feed → ${feedRes.status}`)
