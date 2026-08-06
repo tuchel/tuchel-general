@@ -19,6 +19,7 @@ import {
   formatSightingWhen,
   loadBakedSocial,
   mappedThreadUpdates,
+  mergeSocialSnapshots,
   pickTodaysDayThread,
   speciesLabel,
   type SocialSnapshot,
@@ -169,7 +170,14 @@ export default function App() {
         }
       }
       try {
-        applySocial(await fetchSocialPosts())
+        const live = await fetchSocialPosts()
+        if (cancelled) return
+        // Merge onto whatever we have so a partial live pull cannot wipe day threads
+        setSocial((prev) => {
+          hasSocial = true
+          return mergeSocialSnapshots(prev, live)
+        })
+        setSocialError(null)
       } catch (e) {
         if (cancelled) return
         if (!hasSocial) {
