@@ -73,9 +73,34 @@ export type HexHover = {
 }
 
 /**
- * Sequential ramp on percentile rank (0–100).
- * Colors are opaque; transparency comes only from fill-opacity so the layer
- * stays readable as an overlay (rgba-in-color × opacity was painting invisible).
+ * Continuous bloom ramp (heatmap density). Soft teal → amber → deep crimson.
+ * Hex polygons are micro-detail only — this is the primary visual.
+ */
+const HEAT_BLOOM: maplibregl.ExpressionSpecification = [
+  'interpolate',
+  ['linear'],
+  ['heatmap-density'],
+  0,
+  'rgba(0,0,0,0)',
+  0.08,
+  'rgba(8, 48, 58, 0)',
+  0.18,
+  'rgba(12, 90, 98, 0.35)',
+  0.32,
+  'rgba(22, 140, 128, 0.5)',
+  0.48,
+  'rgba(180, 150, 48, 0.55)',
+  0.62,
+  'rgba(220, 110, 40, 0.65)',
+  0.78,
+  'rgba(210, 48, 36, 0.78)',
+  1,
+  'rgba(160, 12, 22, 0.9)',
+]
+
+/**
+ * Sequential ramp on percentile rank (0–100) for fine hex micro-detail.
+ * Colors are opaque; transparency comes only from fill-opacity.
  */
 const HEAT_COLOR: maplibregl.ExpressionSpecification = [
   'interpolate',
@@ -97,42 +122,26 @@ const HEAT_COLOR: maplibregl.ExpressionSpecification = [
   '#b41418',
 ]
 
-/** Rank → opacity. Clear enough to see corridors; low enough to read the chart. */
-const HEAT_FILL_OPACITY: maplibregl.ExpressionSpecification = [
-  'interpolate',
-  ['linear'],
-  ['get', 'rank'],
-  0,
-  0,
-  8,
-  0.28,
-  30,
-  0.4,
-  55,
-  0.52,
-  80,
-  0.62,
-  100,
-  0.7,
-]
-
 function heatFillOpacity(mul: number): maplibregl.ExpressionSpecification {
+  // Zoom gates micro-hex detail; rank sets relative strength within a cell.
   return [
-    'interpolate',
-    ['linear'],
-    ['get', 'rank'],
-    0,
-    0,
-    8,
-    0.28 * mul,
-    30,
-    0.4 * mul,
-    55,
-    0.52 * mul,
-    80,
-    0.62 * mul,
-    100,
-    0.7 * mul,
+    '*',
+    ['interpolate', ['linear'], ['zoom'], 9.4, 0, 10.6, 0.55 * mul, 12.5, mul],
+    [
+      'interpolate',
+      ['linear'],
+      ['get', 'rank'],
+      0,
+      0,
+      8,
+      0.16,
+      35,
+      0.28,
+      65,
+      0.38,
+      100,
+      0.5,
+    ],
   ]
 }
 
@@ -222,33 +231,60 @@ export function WhaleMap({
       style: {
         version: 8,
         sources: {
-          osm: {
+          // High-res satellite for coastal context (sharper than OSM raster)
+          satellite: {
             type: 'raster',
-            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+            tiles: [
+              'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            ],
             tileSize: 256,
-            attribution: '© OpenStreetMap',
+            attribution:
+              'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+            maxzoom: 18,
+          },
+          // Retina place labels only — keeps water readable under the heat bloom
+          labels: {
+            type: 'raster',
+            tiles: [
+              'https://a.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}@2x.png',
+              'https://b.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}@2x.png',
+              'https://c.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}@2x.png',
+            ],
+            tileSize: 256,
+            attribution: '© CARTO © OpenStreetMap',
+            maxzoom: 20,
           },
         },
         layers: [
           {
-            id: 'osm',
+            id: 'satellite',
             type: 'raster',
-            source: 'osm',
+            source: 'satellite',
             paint: {
-              'raster-saturation': -0.4,
-              'raster-brightness-min': 0.04,
-              'raster-brightness-max': 0.68,
-              'raster-contrast': 0.16,
+              'raster-saturation': -0.18,
+              'raster-brightness-min': 0.02,
+              'raster-brightness-max': 0.78,
+              'raster-contrast': 0.06,
+            },
+          },
+          {
+            id: 'labels',
+            type: 'raster',
+            source: 'labels',
+            paint: {
+              'raster-opacity': 0.92,
             },
           },
         ],
       },
       center: [-123.05, 48.55],
-      zoom: 9.7,
+      zoom: 9.85,
+      pitch: 0,
       maxBounds: [
         [-124.2, 47.8],
         [-121.8, 49.3],
       ],
+      pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
     })
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), 'top-right')
     map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }), 'bottom-right')
@@ -278,8 +314,8 @@ export function WhaleMap({
         type: 'fill',
         source: 'habitat',
         paint: {
-          'fill-color': '#2a6f7a',
-          'fill-opacity': 0.06,
+          'fill-color': '#7ec8d4',
+          'fill-opacity': 0.07,
         },
       })
       map.addLayer({
@@ -287,17 +323,17 @@ export function WhaleMap({
         type: 'line',
         source: 'habitat',
         paint: {
-          'line-color': '#3a8a96',
-          'line-width': 1,
-          'line-opacity': 0.4,
-          'line-dasharray': [2, 2],
+          'line-color': '#9ad4dc',
+          'line-width': 1.2,
+          'line-opacity': 0.45,
+          'line-dasharray': [1.5, 1.5],
         },
       })
 
       onHeatScale(scored.scale)
       map.addSource('hexes', { type: 'geojson', data: scored.collection as any })
       map.addSource('heat-points', { type: 'geojson', data: scored.centroids as any })
-      // Soft under-glow blends fine cells into corridors (hex fill is the readable layer)
+      // Primary visual: continuous WebGL bloom from scored centroids (not chunky cells)
       map.addLayer({
         id: 'heat-glow',
         type: 'heatmap',
@@ -310,35 +346,41 @@ export function WhaleMap({
             ['get', 'rank'],
             0,
             0,
-            20,
-            0.3,
-            50,
-            0.65,
+            12,
+            0.25,
+            40,
+            0.55,
+            70,
+            0.85,
             100,
             1,
           ],
-          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 8, 0.7, 10, 0.95, 12, 1.15],
-          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 22, 10, 34, 12, 48],
-          'heatmap-opacity': 0.45,
-          'heatmap-color': [
+          'heatmap-intensity': [
             'interpolate',
             ['linear'],
-            ['heatmap-density'],
-            0,
-            'rgba(0,0,0,0)',
-            0.12,
-            'rgba(10, 70, 82, 0)',
-            0.25,
-            'rgba(16, 110, 112, 0.35)',
-            0.45,
-            'rgba(40, 150, 120, 0.45)',
-            0.65,
-            'rgba(210, 120, 40, 0.55)',
+            ['zoom'],
+            8,
             0.85,
-            'rgba(210, 55, 40, 0.65)',
-            1,
-            'rgba(180, 20, 24, 0.75)',
+            10,
+            1.15,
+            12,
+            1.45,
           ],
+          'heatmap-radius': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            8,
+            28,
+            10,
+            42,
+            12,
+            58,
+            13.5,
+            72,
+          ],
+          'heatmap-opacity': 0.78,
+          'heatmap-color': HEAT_BLOOM,
         },
       })
       // Sliding calendar-window heat (90d / 30d / 7d / 24h) from dated points
@@ -353,28 +395,13 @@ export function WhaleMap({
         layout: { visibility: 'none' },
         paint: {
           'heatmap-weight': ['get', 'weight'],
-          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 8, 0.65, 11, 1.05],
-          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 20, 10, 32, 12, 46],
-          'heatmap-opacity': 0.7,
-          'heatmap-color': [
-            'interpolate',
-            ['linear'],
-            ['heatmap-density'],
-            0,
-            'rgba(0,0,0,0)',
-            0.12,
-            'rgba(10, 70, 82, 0)',
-            0.28,
-            'rgba(20, 120, 110, 0.35)',
-            0.5,
-            'rgba(200, 140, 40, 0.5)',
-            0.72,
-            'rgba(220, 70, 40, 0.65)',
-            1,
-            'rgba(180, 20, 24, 0.85)',
-          ],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 8, 0.8, 11, 1.25],
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 26, 10, 40, 12, 56],
+          'heatmap-opacity': 0.82,
+          'heatmap-color': HEAT_BLOOM,
         },
       })
+      // Micro-detail hex mesh — fades in only when zoomed; hit-target for hover
       map.addLayer({
         id: 'hex-fill',
         type: 'fill',
@@ -382,7 +409,7 @@ export function WhaleMap({
         filter: ['>', ['get', 'rank'], 0],
         paint: {
           'fill-color': HEAT_COLOR,
-          'fill-opacity': HEAT_FILL_OPACITY,
+          'fill-opacity': heatFillOpacity(0.65),
           'fill-antialias': true,
         },
       })
@@ -390,21 +417,22 @@ export function WhaleMap({
         id: 'hex-line',
         type: 'line',
         source: 'hexes',
-        filter: ['>', ['get', 'rank'], 20],
+        filter: ['>', ['get', 'rank'], 35],
+        minzoom: 10.5,
         paint: {
           'line-color': [
             'interpolate',
             ['linear'],
             ['get', 'rank'],
-            20,
-            'rgba(255, 255, 255, 0.08)',
-            60,
-            'rgba(255, 245, 220, 0.22)',
+            35,
+            'rgba(255, 255, 255, 0.04)',
+            70,
+            'rgba(255, 248, 230, 0.14)',
             100,
-            'rgba(255, 248, 230, 0.4)',
+            'rgba(255, 250, 235, 0.28)',
           ],
-          'line-width': ['interpolate', ['linear'], ['zoom'], 9, 0.2, 11, 0.45, 13, 0.7],
-          'line-opacity': ['interpolate', ['linear'], ['zoom'], 9, 0.35, 11, 0.75, 13, 0.95],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 10.5, 0.15, 13, 0.55],
+          'line-opacity': 0.85,
         },
       })
       map.addLayer({
@@ -413,11 +441,16 @@ export function WhaleMap({
         source: 'hexes',
         filter: ['==', ['get', 'q'], -999999],
         paint: {
-          'line-color': 'rgba(255, 244, 210, 0.95)',
-          'line-width': 1.6,
+          'line-color': 'rgba(255, 248, 220, 0.95)',
+          'line-width': 1.8,
           'line-opacity': 1,
         },
       })
+
+      // Labels sit above heat so place names stay readable
+      if (map.getLayer('labels')) {
+        map.moveLayer('labels')
+      }
 
       map.addSource('scatter', { type: 'geojson', data: scatter })
       map.addLayer({
@@ -580,24 +613,8 @@ export function WhaleMap({
           'heatmap-weight': ['interpolate', ['linear'], ['get', 'recency'], 0, 0.05, 0.35, 0.35, 1, 1],
           'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 8, 0.55, 11, 0.95],
           'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 18, 10, 28, 12, 40],
-          'heatmap-opacity': 0.72,
-          'heatmap-color': [
-            'interpolate',
-            ['linear'],
-            ['heatmap-density'],
-            0,
-            'rgba(0,0,0,0)',
-            0.15,
-            'rgba(30, 90, 100, 0.25)',
-            0.35,
-            'rgba(50, 140, 120, 0.4)',
-            0.55,
-            'rgba(220, 140, 50, 0.55)',
-            0.75,
-            'rgba(220, 70, 45, 0.7)',
-            1,
-            'rgba(190, 20, 30, 0.85)',
-          ],
+          'heatmap-opacity': 0.78,
+          'heatmap-color': HEAT_BLOOM,
         },
       })
       map.addLayer({
@@ -666,6 +683,9 @@ export function WhaleMap({
           ],
         },
       })
+
+      // Keep place labels above data layers
+      if (map.getLayer('labels')) map.moveLayer('labels')
 
       map.on('mousemove', 'hex-fill', (e: MapLayerMouseEvent) => {
         const f = e.features?.[0]
@@ -890,15 +910,14 @@ export function WhaleMap({
       }
 
       const glowTarget =
-        viewMode === 'climatology' ? 0.5 : viewMode === 'balanced' ? 0.45 : 0.14
-      const hexMul = viewMode === 'climatology' ? 1 : viewMode === 'balanced' ? 0.9 : 0.28
+        viewMode === 'climatology' ? 0.82 : viewMode === 'balanced' ? 0.74 : 0.22
+      const hexMul = viewMode === 'climatology' ? 0.85 : viewMode === 'balanced' ? 0.65 : 0.2
       await Promise.all([
         useWindow
-          ? tweenOpacity('window-heat', 'heatmap-opacity', 0.72, 360)
+          ? tweenOpacity('window-heat', 'heatmap-opacity', 0.82, 360)
           : Promise.all([
               tweenOpacity('heat-glow', 'heatmap-opacity', glowTarget, 360),
               (async () => {
-                // restore rank-based fill opacity via paint expression
                 if (map.getLayer('hex-fill') && map.getLayoutProperty('hex-fill', 'visibility') !== 'none') {
                   map.setPaintProperty('hex-fill', 'fill-opacity', heatFillOpacity(hexMul))
                 }
@@ -991,14 +1010,14 @@ export function WhaleMap({
     ready,
   ])
 
-  // Wind gate washes the map when conditions are rough
+  // Wind gate washes the basemap when conditions are rough
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !ready || !map.getLayer('osm')) return
-    const sat = windGate === 'no-go' ? -0.65 : windGate === 'caution' ? -0.5 : -0.4
-    const brightMax = windGate === 'no-go' ? 0.5 : windGate === 'caution' ? 0.58 : 0.68
-    map.setPaintProperty('osm', 'raster-saturation', sat)
-    map.setPaintProperty('osm', 'raster-brightness-max', brightMax)
+    if (!map || !ready || !map.getLayer('satellite')) return
+    const sat = windGate === 'no-go' ? -0.45 : windGate === 'caution' ? -0.28 : -0.18
+    const brightMax = windGate === 'no-go' ? 0.55 : windGate === 'caution' ? 0.68 : 0.78
+    map.setPaintProperty('satellite', 'raster-saturation', sat)
+    map.setPaintProperty('satellite', 'raster-brightness-max', brightMax)
   }, [windGate, ready])
 
   // Highlight selected hotspot

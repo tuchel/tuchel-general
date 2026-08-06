@@ -27,8 +27,9 @@ NOAA_CH = (
     "All_NMFS_Critical_Habitat/MapServer/195/query"
 )
 
-# Hex size ~0.0028° ≈ 215–310 m — fine veil at archipelago zoom (~9.5–12)
-HEX_SIZE = 0.0028
+# Hex size ~0.0015° ≈ 115–165 m — continuous heat reads at archipelago zoom;
+# polygon micro-detail only appears when zoomed in.
+HEX_SIZE = 0.0015
 
 CETACEAN_PREFIXES = (
     "Orcinus",
