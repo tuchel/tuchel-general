@@ -86,7 +86,7 @@ Run periodically or on request:
 
 When asked to start a project for `{name}`:
 
-1. **Run prior-art search first** (below) — before scaffolding folders or writing substantial code. Surface results and wait for direction when overlap is strong.
+1. **Run prior-art search first** (below) — before scaffolding folders or writing substantial code. Surface results and wait for direction when a named incumbent already does the core job.
 2. Create `projects/{yyyy-mm}-{slug}/` with at least `README.md` (purpose, status, open questions, prior-art notes).
 3. Add `raw/`, `notes/`, or code folders only as needed.
 4. Run internal proactive surfacing (below) and record pointers in the README.
@@ -103,14 +103,14 @@ When kicking off a **new project** or a **substantial new capability** (new user
 3. Search **inside the repo** (`wiki/`, `projects/`) for related threads.
 4. Report **3–5 closest matches** before writing substantial code. For each: name, URL (or install path), what job it covers, and the gap vs our goal (if any). Include “no close match found” with what was searched when that is the honest answer.
 5. Recommend one of:
-   - **Adopt / stop** — an existing tool already does the job; prefer using it (and optionally documenting why in `wiki/`).
+   - **Adopt / stop** — an existing tool already does the core job; prefer using it (and optionally documenting why in `wiki/`).
    - **Differentiate** — proceed only with a named delta the incumbent lacks (narrower audience, offline, different data, learning exercise, etc.).
    - **Rebuild for learning** — intentional recreation; state what skill or proof the rebuild is for.
    - **Proceed** — no close match; greenfield is justified.
-6. **Strong overlap (≥80% of the job already shipped elsewhere):** pause. Do not scaffold a competing app or pour sessions into parity features until the human chooses adopt, differentiate, or rebuild-for-learning. Inspiration and competitive notes are fine; silent reimplementation is not.
-7. File the search in the project `README.md` (or `notes/prior-art.md`) so later agents do not repeat the miss.
+6. **Named incumbent already does the core job:** pause. Do not scaffold a competing app or pour sessions into parity features until the human chooses adopt, differentiate, or rebuild-for-learning. “Core job” means the primary decision or action in step 1 — not a fuzzy feature-overlap percentage. Adjacent tools and inspiration still count as findings; they do not by themselves trigger the pause.
+7. **Always file the search** in the project `README.md` (or `notes/prior-art.md`), including inspiration-only matches and honest “no close match” notes, so later agents do not repeat the miss.
 
-Prior-art search is **max autonomy**. Choosing to build anyway under strong external overlap is **human-in-loop**.
+Prior-art search is **max autonomy**. Choosing to build anyway when a named incumbent already does the core job is **human-in-loop**.
 
 ### Proactive surfacing (internal — on task start)
 
@@ -119,7 +119,7 @@ When opening or continuing project work (after kickoff prior-art is on file, or 
 1. Extract topic keywords from path, headers, and existing content.
 2. Search `wiki/concepts/`, `wiki/methods/`, `wiki/lessons/`, and prior `projects/`.
 3. Print the top 3–5 relevant prior-work pointers with a one-line reason each.
-4. If **internal** prior art overlaps strongly (≥80%), recommend reuse vs branch.
+4. If an existing project already does the **core job**, recommend reuse vs branch.
 5. If the task has grown into a new end-to-end product shape and no external prior-art note exists yet, run the external prior-art search above before expanding scope.
 
 ---
@@ -201,8 +201,8 @@ Solo repo. No co-author merge theater.
 
 ### Autonomy ladder
 
-- **Max autonomy:** wiki ingest, summarization, cross-references, index/log updates, lint cleanups, prior-art search + report, scaffolding empty project folders when prior-art does not strongly overlap.
-- **Human-in-loop by default:** new wiki pages that assert load-bearing claims, new lessons (framing matters), anything user-facing that will be shared outside the repo, deletions/renames of existing content, **building a new app/capability when external prior art already covers ≥80% of the job**.
+- **Max autonomy:** wiki ingest, summarization, cross-references, index/log updates, lint cleanups, prior-art search + report (always file), scaffolding empty project folders when no named incumbent already does the core job.
+- **Human-in-loop by default:** new wiki pages that assert load-bearing claims, new lessons (framing matters), anything user-facing that will be shared outside the repo, deletions/renames of existing content, **building a new app/capability when a named external incumbent already does the core job**.
 - **Explicit confirmation:** irreversible ops (force-push, deleting remote branches you did not create for this task, publishing/deploying, scheduled cron, secrets handling).
 - When in doubt: take the action as a draft on a branch, surface it for review. Do not block on small decisions.
 

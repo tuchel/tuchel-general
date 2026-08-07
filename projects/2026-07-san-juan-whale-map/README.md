@@ -44,6 +44,7 @@ Raw downloads stay under `raw/` (gitignored where large). Distilled JSON for the
 
 ## Docs in this project
 
+- [`notes/prior-art.md`](notes/prior-art.md) — external tools that already do (or touch) this job; see also [wiki lesson](../../wiki/lessons/search-prior-art-before-building.md)
 - [`notes/data-ideas.md`](notes/data-ideas.md) — ways to pull, organize, and present the data
 - [`notes/sources.md`](notes/sources.md) — source catalog + citation URLs
 - [`notes/boat-playbook.md`](notes/boat-playbook.md) — practical trip heuristics (not guarantees)

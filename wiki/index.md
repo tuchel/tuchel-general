@@ -27,4 +27,4 @@ _None yet._
 
 ## Lessons
 
-_None yet._
+- [Search prior art before building](lessons/search-prior-art-before-building.md) — external incumbent check at kickoff; whale-map / Whale Locator case
