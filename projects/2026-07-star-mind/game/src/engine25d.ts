@@ -98,9 +98,13 @@ export function drawShadow(
   const rw = radius * sp.scale * 1.1;
   const rh = radius * sp.scale * 0.28;
   ctx.save();
-  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
   ctx.beginPath();
   ctx.ellipse(sp.sx, sp.groundSy - 2, rw, rh, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(232,93,4,0.12)";
+  ctx.beginPath();
+  ctx.ellipse(sp.sx, sp.groundSy - 2, rw * 0.7, rh * 0.7, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -119,15 +123,15 @@ export function drawGroundDeck(
   // Deck fill (trapezoid) — translucent so painted parallax road can read underneath
   const g = ctx.createLinearGradient(0, farY, 0, H);
   if (mode === "pad") {
-    g.addColorStop(0, "rgba(42,34,24,0.72)");
-    g.addColorStop(0.55, "rgba(26,21,16,0.82)");
-    g.addColorStop(1, "rgba(12,10,8,0.92)");
+    g.addColorStop(0, "rgba(42,34,24,0.28)");
+    g.addColorStop(0.55, "rgba(26,21,16,0.38)");
+    g.addColorStop(1, "rgba(12,10,8,0.55)");
   } else if (mode === "sky") {
-    g.addColorStop(0, "rgba(30,45,70,0.12)");
-    g.addColorStop(1, "rgba(5,8,16,0.5)");
+    g.addColorStop(0, "rgba(30,45,70,0.06)");
+    g.addColorStop(1, "rgba(5,8,16,0.28)");
   } else {
-    g.addColorStop(0, "rgba(20,40,70,0.18)");
-    g.addColorStop(1, "rgba(5,8,16,0.65)");
+    g.addColorStop(0, "rgba(20,40,70,0.08)");
+    g.addColorStop(1, "rgba(5,8,16,0.32)");
   }
   ctx.fillStyle = g;
   ctx.beginPath();
@@ -214,9 +218,9 @@ export function drawGroundDeck(
 /** Soft fog strip between mid and far for depth cue */
 export function drawDepthFog(ctx: CanvasRenderingContext2D, stage: Stage25D) {
   const g = ctx.createLinearGradient(0, stage.farGroundY - 80, 0, stage.nearGroundY);
-  g.addColorStop(0, "rgba(11,18,32,0.35)");
+  g.addColorStop(0, "rgba(11,18,32,0.18)");
   g.addColorStop(0.55, "transparent");
-  g.addColorStop(1, "rgba(0,0,0,0.15)");
+  g.addColorStop(1, "rgba(0,0,0,0.08)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
 }

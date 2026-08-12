@@ -10,14 +10,23 @@ import {
   type WeaponId,
 } from "./types";
 import {
-  art,
-  blitCover,
-  blitParallaxEvolve,
-  blitSprite,
-  bossAnimLib,
-  enemyAnimLib,
-  enemySpriteId,
-} from "./assets";
+  drawColorGrade,
+  drawEarthLimb,
+  drawExplosion,
+  drawHeatHaze,
+  drawLetterbox,
+  drawLightning,
+  drawMuzzle,
+  drawParticle,
+  drawPips,
+  drawPlate,
+  drawRain,
+  drawSignalMeter,
+  drawSodiumPools,
+  drawStarTwinkle,
+  type Boom,
+  type ParticleKind,
+} from "./fx";
 import {
   CLIPS,
   animFrameIndex,
@@ -26,6 +35,15 @@ import {
   tickAnim,
   type AnimPlayerState,
 } from "./anim";
+import {
+  art,
+  blitCover,
+  blitParallaxEvolve,
+  blitSprite,
+  bossAnimLib,
+  enemyAnimLib,
+  enemySpriteId,
+} from "./assets";
 import {
   STAGE_GROUND,
   STAGE_SKY,
@@ -200,6 +218,7 @@ interface Particle {
   life: number;
   color: string;
   size: number;
+  kind: ParticleKind;
 }
 
 interface ScorePop {
@@ -338,6 +357,8 @@ export class Game {
   private hintT = 0;
   private bestScore = 0;
   private lowHpWarn = 0;
+  private booms: Boom[] = [];
+  private lightning = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -571,6 +592,7 @@ export class Game {
     this.bullets = [];
     this.particles = [];
     this.pickups = [];
+    this.booms = [];
     this.boss = null;
     this.camX = 0;
     this.score = 0;
@@ -602,6 +624,7 @@ export class Game {
     this.muzzle = 0;
     this.landSquash = 0;
     this.hintT = 0;
+    this.lightning = 0;
 
     if (id === 1) {
       this.stage = this.withMobileZoom(STAGE_GROUND);
@@ -986,6 +1009,7 @@ export class Game {
       this.player.dead = true;
       this.mode = "dead";
       this.burst(this.player.x, this.player.z, this.player.hop, C.pad, 28);
+      this.boom(this.player.x, this.player.z, this.player.hop, 1.6, "fire");
       this.announce("SIGNAL LOST · ASH DOWN", 99);
       sfx.death();
     }
@@ -1029,10 +1053,20 @@ export class Game {
     return (bestHop - this.player.hop) * 0.62;
   }
 
-  private burst(x: number, z: number, hop: number, color: string, n = 12) {
+  private burst(x: number, z: number, hop: number, color: string, n = 12, kind: ParticleKind = "spark") {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = 40 + Math.random() * 140;
+      const k: ParticleKind =
+        kind !== "spark"
+          ? kind
+          : i % 5 === 0
+            ? "smoke"
+            : i % 5 === 1
+              ? "ember"
+              : i % 5 === 2
+                ? "debris"
+                : "spark";
       this.particles.push({
         x,
         z,
@@ -1042,9 +1076,14 @@ export class Game {
         vHop: Math.sin(a) * sp * 0.4,
         life: 0.3 + Math.random() * 0.5,
         color,
-        size: 2 + Math.random() * 3,
+        size: k === "smoke" ? 5 + Math.random() * 4 : 2 + Math.random() * 3,
+        kind: k,
       });
     }
+  }
+
+  private boom(x: number, z: number, hop: number, scale = 1, kind: Boom["kind"] = "fire") {
+    this.booms.push({ x, z, hop, life: 0.42, max: 0.42, scale, kind });
   }
 
   private spawnBullet(partial: Omit<Bullet, "hits" | "look"> & { hits?: Set<number>; look?: BulletLook }): Bullet {
@@ -1114,6 +1153,20 @@ export class Game {
     this.player.shooting = true;
     this.muzzle = 0.06;
     this.camX += dir * (def.id === "rocket" ? 4 : 1.5);
+    if (this.player.kind === "ground") {
+      this.particles.push({
+        x: this.player.x + dir * 8,
+        z: this.player.z,
+        hop: this.player.hop + 14,
+        vx: -dir * (40 + Math.random() * 30),
+        vz: 0,
+        vHop: 80 + Math.random() * 40,
+        life: 0.45,
+        color: C.warn,
+        size: 2,
+        kind: "shell",
+      });
+    }
     playAnim(this.player.anim, "shoot", 0.2, true);
     sfx.shoot(def.id);
   }
@@ -1177,6 +1230,7 @@ export class Game {
       this.boss.flash = 0.2;
     }
     this.burst(p.x, p.z, p.hop, C.cyan, 28);
+    this.boom(p.x, p.z, p.hop, 1.8, "emp");
     this.shake = 9;
     this.hitStop = 0.08;
     this.empPulse = 1;
@@ -1189,6 +1243,7 @@ export class Game {
     if (e.dead) return;
     e.dead = true;
     this.burst(e.x, e.z, e.hop, e.kind === "spine" ? C.warn : C.cyan, 16);
+    this.boom(e.x, e.z, e.hop, e.kind === "walker" || e.kind === "spine" ? 1.4 : 0.9, e.kind === "spine" ? "ion" : "fire");
     this.combo += 1;
     this.comboTimer = 2.15;
     const base = KILL_SCORE[e.kind] ?? 100;
@@ -1585,6 +1640,10 @@ export class Game {
     this.muzzle = Math.max(0, this.muzzle - dt);
     this.hintT += dt;
     this.lowHpWarn += dt;
+    this.lightning = Math.max(0, this.lightning - dt * 3.2);
+    if (this.levelId === 1 && this.bgThreat > 0.35 && Math.random() < 0.012 + this.bgThreat * 0.02) {
+      this.lightning = 1;
+    }
     const mob = 1 + this.upgrades.mobility * 0.08;
 
     if (this.levelId === 1) {
@@ -1722,6 +1781,7 @@ export class Game {
           life: 0.25,
           color: Math.random() > 0.5 ? C.pad : C.warn,
           size: 3,
+          kind: "ember",
         });
       }
 
@@ -1787,6 +1847,7 @@ export class Game {
           life: 0.22,
           color: C.cyan,
           size: 2,
+          kind: "ember",
         });
       }
       if (ax) this.player.facing = ax > 0 ? 1 : -1;
@@ -1890,6 +1951,7 @@ export class Game {
                 boss.dead = true;
                 this.level.bossDefeated = true;
                 this.burst(boss.x, boss.z, boss.hop, C.cyan, 40);
+                this.boom(boss.x, boss.z, boss.hop, 2.4, "ion");
                 this.scrap += boss.scrap ?? 40;
                 this.score += 2500;
                 this.popScore(boss.x, boss.z, boss.hop, "+2500", C.cyan);
@@ -1984,6 +2046,8 @@ export class Game {
       p.life -= dt;
     }
     this.particles = this.particles.filter((p) => p.life > 0);
+    for (const b of this.booms) b.life -= dt;
+    this.booms = this.booms.filter((b) => b.life > 0);
     for (const pop of this.scorePops) {
       pop.life -= dt;
       pop.hop += 28 * dt;
@@ -2011,6 +2075,7 @@ export class Game {
 
   private aoe(x: number, z: number, hop: number, r: number, dmg: number, skipUid?: number) {
     this.burst(x, z, hop, C.pad, 16);
+    this.boom(x, z, hop, 1.2, "fire");
     sfx.explode();
     for (const e of this.enemies) {
       if (e.dead || e.uid === skipUid) continue;
@@ -2179,17 +2244,9 @@ export class Game {
         threat,
         20,
       );
-      // rain densifies with threat
-      const rainN = 28 + Math.floor(threat * 36);
-      ctx.strokeStyle = `rgba(174,198,220,${0.14 + threat * 0.16})`;
-      for (let i = 0; i < rainN; i++) {
-        const x = ((i * 97 + this.frame * (8 + threat * 10)) % (W + 40)) - 20;
-        const y = ((i * 53 + this.frame * (14 + threat * 12)) % (H + 40)) - 20;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x - 2 - threat * 2, y + 12 + threat * 6);
-        ctx.stroke();
-      }
+      drawSodiumPools(ctx, this.camX, threat);
+      drawRain(ctx, this.frame, threat, this.camX);
+      drawLightning(ctx, this.lightning);
     } else if (this.levelId === 2) {
       blitParallaxEvolve(
         ctx,
@@ -2201,8 +2258,9 @@ export class Game {
         -30,
       );
       const alt = this.level.scroll / this.level.length;
-      ctx.fillStyle = `rgba(5,7,14,${Math.min(0.55, alt * 0.4 + threat * 0.25)})`;
-      ctx.fillRect(0, 0, W, H * 0.35);
+      ctx.fillStyle = `rgba(5,7,14,${Math.min(0.35, alt * 0.28 + threat * 0.18)})`;
+      ctx.fillRect(0, 0, W, H * 0.28);
+      drawHeatHaze(ctx, this.frame, threat);
     } else {
       blitParallaxEvolve(
         ctx,
@@ -2213,6 +2271,8 @@ export class Game {
         threat,
         0,
       );
+      drawStarTwinkle(ctx, this.frame);
+      drawEarthLimb(ctx, this.frame);
     }
 
     this.renderThreatAtmosphere(threat);
@@ -2247,14 +2307,13 @@ export class Game {
     const ctx = this.ctx;
     const t = threat;
 
-    // Warm/red wash — dystopian heat
-    ctx.fillStyle = `rgba(180, 40, 12, ${0.04 + t * 0.14})`;
+    // Warm wash — keep the painted plates readable
+    ctx.fillStyle = `rgba(180, 40, 12, ${0.02 + t * 0.08})`;
     ctx.fillRect(0, 0, W, H * 0.55);
 
-    // Vignette crush at peak
     const g = ctx.createRadialGradient(W / 2, H * 0.45, 80, W / 2, H * 0.5, 520);
     g.addColorStop(0, "transparent");
-    g.addColorStop(1, `rgba(5, 4, 8, ${0.15 + t * 0.45})`);
+    g.addColorStop(1, `rgba(5, 4, 8, ${0.08 + t * 0.28})`);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
 
@@ -2713,10 +2772,12 @@ export class Game {
           blitSprite(ctx, art.frame(frameId), sp.sx, sp.sy - 4, {
             h: 78,
             scale: sp.scale,
+            outline: true,
           }) ||
           blitSprite(ctx, art.sprite("truck"), sp.sx, sp.sy - 4, {
             h: 78,
             scale: sp.scale,
+            outline: true,
           });
         if (!ok) drawTruck(ctx, sp.sx, sp.sy, truck.hp / truck.maxHp, truck.moving);
         rr(ctx, sp.sx - 32 * sp.scale, sp.sy - 42 * sp.scale, 64 * sp.scale, 5, C.soot);
@@ -2759,12 +2820,14 @@ export class Game {
         const sp = project(e, this.stage);
         drawShadow(ctx, sp, e.kind === "walker" ? 28 : 18);
         const baseH = e.kind === "spine" ? 88 : e.kind === "walker" ? 78 : 68;
+        const ghostA = e.kind === "ghost" ? ((e.revealed ?? 0) > 0 ? 0.85 : 0.08) : e.flash > 0 ? 0.55 : 1;
         const ok = blitSprite(ctx, this.animImage(e), sp.sx, sp.sy, {
           facing: e.facing,
           h: baseH,
           scale: sp.scale,
-          alpha: e.kind === "ghost" ? ((e.revealed ?? 0) > 0 ? 0.85 : 0.08) : e.flash > 0 ? 0.55 : 1,
+          alpha: ghostA,
           flash: e.flash > 0,
+          outline: e.kind !== "ghost" || ghostA > 0.4,
         });
         if (!ok) {
           if (e.kind === "spine") drawSpine(ctx, sp.sx, sp.sy, this.frame);
@@ -2806,6 +2869,7 @@ export class Game {
           scale: sp.scale,
           alpha: boss.flash > 0 ? 0.6 : 1,
           flash: boss.flash > 0,
+          outline: true,
         });
         if (!ok) {
           drawBoss(ctx, boss.kind, sp.sx, sp.sy, this.frame, boss.hp / boss.maxHp, boss.phase);
@@ -2816,12 +2880,13 @@ export class Game {
         const inv = this.invuln > 0 && Math.floor(this.frame / 2) % 2 === 0;
         if (this.player.kind === "ship") {
           if (this.muzzle > 0) {
-            glow(ctx, sp.sx + 28 * sp.scale, sp.sy, 18 * sp.scale, C.warn, 0.5);
+            drawMuzzle(ctx, sp.sx, sp.sy, 1, this.muzzle / 0.06, sp.scale);
           }
           const ok = blitSprite(ctx, this.animImage(this.player), sp.sx, sp.sy, {
             h: 72,
             scale: sp.scale,
             alpha: inv ? 0.4 : this.player.flash > 0 ? 0.65 : 1,
+            outline: true,
           });
           if (!ok) drawShip(ctx, sp.sx, sp.sy, this.shipThrust, this.player.flash > 0);
           else if (this.shipThrust > 0) {
@@ -2844,14 +2909,13 @@ export class Game {
           if (this.landSquash > 0) bob += 5 * (this.landSquash / 0.12) * sp.scale;
           const squash = this.landSquash > 0 ? 1 - this.landSquash * 1.4 : 1;
           if (this.muzzle > 0) {
-            const dir = this.player.facing;
-            glow(
+            drawMuzzle(
               ctx,
-              sp.sx + dir * 22 * sp.scale,
-              sp.sy - 10 * sp.scale + bob,
-              16 * sp.scale,
-              C.warn,
-              0.55,
+              sp.sx,
+              sp.sy + bob,
+              this.player.facing,
+              this.muzzle / 0.06,
+              sp.scale,
             );
           }
           if (this.weapon === "rail" && this.railCharge > 0.1) {
@@ -2864,6 +2928,7 @@ export class Game {
             alpha: inv ? 0.4 : this.player.flash > 0 ? 0.65 : 1,
             bob,
             anchor: this.player.kind === "ground" ? "feet" : "center",
+            outline: true,
           });
           if (!ok) {
             drawAsh(
@@ -2886,9 +2951,11 @@ export class Game {
     }
     for (const p of this.particles) {
       const sp = project(p, this.stage);
-      ctx.globalAlpha = clamp(p.life * 2, 0, 1);
-      rr(ctx, sp.sx, sp.sy, p.size * sp.scale, p.size * sp.scale, p.color);
-      ctx.globalAlpha = 1;
+      drawParticle(ctx, sp.sx, sp.sy, p.size * sp.scale, p.color, p.life, p.kind);
+    }
+    for (const b of this.booms) {
+      const sp = project(b, this.stage);
+      drawExplosion(ctx, sp.sx, sp.sy, b.life / b.max, b.scale * sp.scale, b.kind);
     }
     if (this.empPulse > 0) {
       const sp = project(this.player, this.stage);
@@ -2922,66 +2989,83 @@ export class Game {
   private renderHud() {
     const ctx = this.ctx;
     const touch = isTouchPrimary();
-    const fs = touch ? 14 : 12;
-    const barH = touch ? 56 : 50;
-    ctx.fillStyle = "rgba(11,18,32,0.82)";
-    ctx.fillRect(0, 0, W, barH);
-    ctx.fillStyle = "rgba(46,196,182,0.35)";
-    ctx.fillRect(0, barH - 1, W, 1);
-
     const hpRatio = clamp(this.player.hp / this.player.maxHp, 0, 1);
-    ctx.fillStyle = C.bone;
-    ctx.font = `${fs}px 'Share Tech Mono', monospace`;
-    ctx.fillText(`HP ${Math.ceil(this.player.hp)}`, 12, 18);
-    rr(ctx, 78, 8, 120, 12, C.soot);
-    rr(ctx, 78, 8, 120 * hpRatio, 12, hpRatio < 0.28 ? C.blood : C.pad);
+    const fade = ctx.createLinearGradient(0, 0, 0, 64);
+    fade.addColorStop(0, "rgba(5,8,16,0.55)");
+    fade.addColorStop(1, "transparent");
+    ctx.fillStyle = fade;
+    ctx.fillRect(0, 0, W, 64);
 
+    drawPlate(ctx, 8, 6, 196, 28, hpRatio < 0.28 ? C.blood : C.pad);
+    ctx.fillStyle = C.bone;
+    ctx.font = "11px 'Share Tech Mono', monospace";
+    ctx.fillText("HP", 14, 17);
+    drawPips(ctx, 36, 10, 10, Math.ceil(hpRatio * 10), hpRatio < 0.28 ? C.blood : C.pad, C.soot);
+    ctx.fillStyle = C.bone;
+    ctx.fillText(`${Math.ceil(this.player.hp)}`, 150, 24);
+
+    drawPlate(ctx, 210, 6, 168, 28, C.cyan);
     ctx.fillStyle = C.cyan;
-    ctx.fillText(WEAPONS[this.weapon].name, 210, 18);
+    ctx.font = "12px 'Black Ops One', sans-serif";
+    ctx.fillText(WEAPONS[this.weapon].name, 218, 24);
     ctx.fillStyle = C.warn;
-    ctx.fillText(this.weapon === "pistol" ? "∞" : `${this.ammo}`, 352, 18);
+    ctx.font = "12px 'Share Tech Mono', monospace";
+    ctx.fillText(this.weapon === "pistol" ? "∞" : `${this.ammo}`, 338, 24);
     if (this.weapon === "rail" && this.railCharge > 0) {
-      rr(ctx, 348, 22, 56, 5, C.soot);
-      rr(ctx, 348, 22, 56 * clamp(this.railCharge / 1.15, 0, 1), 5, C.earth);
+      ctx.fillStyle = C.soot;
+      ctx.fillRect(218, 28, 56, 3);
+      ctx.fillStyle = C.earth;
+      ctx.fillRect(218, 28, 56 * clamp(this.railCharge / 1.15, 0, 1), 3);
     }
     if (WEAPONS[this.weapon].heat) {
-      rr(ctx, 348, 22, 56, 5, C.soot);
-      rr(ctx, 348, 22, 56 * clamp(this.heat, 0, 1), 5, this.heat > 0.9 ? C.blood : C.cyan);
+      ctx.fillStyle = C.soot;
+      ctx.fillRect(218, 28, 56, 3);
+      ctx.fillStyle = this.heat > 0.9 ? C.blood : C.cyan;
+      ctx.fillRect(218, 28, 56 * clamp(this.heat, 0, 1), 3);
     }
-    ctx.fillStyle = C.bone;
-    ctx.fillText(`EMP ${this.special}/${this.specialMax}`, 420, 18);
-    ctx.fillText(`SCRAP ${this.scrap}`, 530, 18);
+
+    drawPlate(ctx, 384, 6, 88, 28, C.warn);
     ctx.fillStyle = C.warn;
-    ctx.fillText(`${this.score}`, 640, 18);
+    ctx.font = "11px 'Share Tech Mono', monospace";
+    ctx.fillText(`EMP ${this.special}`, 392, 24);
+
+    drawPlate(ctx, 478, 6, 100, 28, C.pad);
+    ctx.fillStyle = C.bone;
+    ctx.fillText(`SCRAP ${this.scrap}`, 486, 24);
+
+    drawPlate(ctx, 584, 6, 118, 28, C.warn);
+    ctx.fillStyle = C.warn;
+    ctx.font = "13px 'Black Ops One', sans-serif";
+    ctx.fillText(`${this.score}`, 592, 25);
     if (this.combo > 1) {
       ctx.fillStyle = C.pad;
-      ctx.font = `${touch ? 16 : 14}px 'Black Ops One', sans-serif`;
-      ctx.fillText(`x${this.combo}`, 720, 20);
-      ctx.font = `${fs}px 'Share Tech Mono', monospace`;
+      ctx.fillText(`x${this.combo}`, 700, 25);
     }
 
     ctx.fillStyle = C.cyan;
     ctx.font = `${touch ? 12 : 11}px 'Share Tech Mono', monospace`;
-    ctx.fillText(this.level.objective, 12, 38);
+    ctx.fillText(this.level.objective, 12, 48);
 
-    ctx.fillStyle = "rgba(11,18,32,0.55)";
-    ctx.fillRect(W - 28, 80, 14, 120);
-    rr(ctx, W - 26, 82 + (1 - this.player.z) * 100, 10, 12, C.warn);
+    ctx.strokeStyle = C.cyan;
+    ctx.globalAlpha = 0.55;
+    ctx.strokeRect(W - 26.5, 78.5, 12, 118);
+    ctx.globalAlpha = 1;
+    rr(ctx, W - 24, 82 + (1 - this.player.z) * 100, 8, 12, C.warn);
     const objZ = this.objectiveDepthZ();
     if (objZ !== null) {
       const pulse = 0.55 + 0.45 * Math.sin(this.frame * 0.2);
       ctx.fillStyle = C.cyan;
       ctx.globalAlpha = pulse;
-      ctx.fillRect(W - 30, 82 + (1 - objZ) * 100 + 4, 18, 3);
+      ctx.fillRect(W - 28, 82 + (1 - objZ) * 100 + 4, 16, 3);
       ctx.globalAlpha = 1;
     }
     ctx.fillStyle = C.cyan;
-    ctx.font = "9px monospace";
-    ctx.fillText("NEAR", W - 42, 210);
-    ctx.fillText("FAR", W - 36, 78);
+    ctx.font = "9px 'Share Tech Mono', monospace";
+    ctx.fillText("NEAR", W - 44, 208);
+    ctx.fillText("FAR", W - 38, 76);
 
     const depthHint = touch ? "stick ↑↓ depth" : "W/S depth";
-    const y2 = touch ? 72 : 66;
+    const y2 = 62;
     if (this.levelId === 1) {
       const urgent = this.level.killClock < 30;
       ctx.fillStyle = urgent ? C.blood : C.warn;
@@ -2997,7 +3081,7 @@ export class Game {
       } else if (this.level.goalPhase === 2) {
         phaseHint = this.level.bossSpawned ? " · FIGHT UP THE GANTRY →" : " · CLIMB RIGHT →";
       }
-      ctx.font = `${fs}px 'Share Tech Mono', monospace`;
+      ctx.font = `${touch ? 13 : 12}px 'Share Tech Mono', monospace`;
       ctx.fillText(
         `CLOCK ${Math.ceil(this.level.killClock)}s · TECHS ${this.rescued}/${this.techs.length}${truckHp}${phaseHint}`,
         12,
@@ -3007,7 +3091,7 @@ export class Game {
     }
     if (this.levelId === 2) {
       ctx.fillStyle = C.warn;
-      ctx.font = `${fs}px 'Share Tech Mono', monospace`;
+      ctx.font = `${touch ? 13 : 12}px 'Share Tech Mono', monospace`;
       let line: string;
       if (this.level.goalPhase === 1) {
         line = `GATES ${this.level.gatesCleared}/${this.gates.length} · fly THROUGH the ring · ${depthHint}`;
@@ -3020,7 +3104,7 @@ export class Game {
     }
     if (this.levelId === 3) {
       ctx.fillStyle = C.warn;
-      ctx.font = `${fs}px 'Share Tech Mono', monospace`;
+      ctx.font = `${touch ? 13 : 12}px 'Share Tech Mono', monospace`;
       let line: string;
       if (this.level.goalPhase === 1) {
         line = `SPINES ${this.level.spinesDown}/${this.level.spinesNeeded} · beetles first · keep RIGHT`;
@@ -3035,37 +3119,27 @@ export class Game {
 
     if (this.boss && !this.boss.dead) {
       const name = BOSS[this.levelId].name;
-      const by = 90;
-      ctx.fillStyle = "rgba(11,18,32,0.8)";
-      ctx.fillRect(W / 2 - 180, by, 360, 28);
+      const by = 78;
+      drawPlate(ctx, W / 2 - 190, by, 380, 32, C.cyan);
       ctx.fillStyle = C.cyan;
       ctx.font = "11px 'Share Tech Mono', monospace";
-      ctx.fillText(`SIGNAL · ${name} · P${this.boss.phase}`, W / 2 - 170, by + 12);
-      rr(ctx, W / 2 - 170, by + 16, 340, 8, C.soot);
-      rr(
-        ctx,
-        W / 2 - 170,
-        by + 16,
-        340 * clamp(this.boss.hp / this.boss.maxHp, 0, 1),
-        8,
-        this.boss.phase >= 3 ? C.pad : C.cyan,
-      );
+      ctx.fillText(`SIGNAL INTEGRITY · ${name} · P${this.boss.phase}`, W / 2 - 178, by + 13);
+      drawSignalMeter(ctx, W / 2 - 178, by + 16, 356, this.boss.hp / this.boss.maxHp, this.boss.phase);
     }
 
     if (this.msgTimer > 0 || this.mode === "dead") {
-      ctx.fillStyle = "rgba(0,0,0,0.45)";
-      ctx.fillRect(W / 2 - 220, H / 2 - 30, 440, this.mode === "dead" ? 58 : 40);
+      drawPlate(ctx, W / 2 - 230, H / 2 - 34, 460, this.mode === "dead" ? 62 : 44, C.warn);
       ctx.fillStyle = C.warn;
-      ctx.font = "16px 'Black Ops One', sans-serif";
+      ctx.font = "18px 'Black Ops One', sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText(this.msg, W / 2, H / 2 - 4);
+      ctx.fillText(this.msg, W / 2, H / 2 - 6);
       if (this.mode === "dead") {
-        ctx.fillStyle = "rgba(244,237,228,0.7)";
+        ctx.fillStyle = "rgba(244,237,228,0.75)";
         ctx.font = "12px 'Share Tech Mono', monospace";
         ctx.fillText(
           isTouchPrimary() ? "OK retry · TITLE quit" : "ENTER / J retry · ESC title",
           W / 2,
-          H / 2 + 18,
+          H / 2 + 16,
         );
       }
       ctx.textAlign = "left";
@@ -3153,15 +3227,19 @@ export class Game {
     }
     const kind = this.levelId === 1 ? "pad" : this.levelId === 2 ? "sky" : "void";
     if (this.levelId === 1) {
-      for (let i = 0; i < 3; i++) {
-        const x = ((i * 420 - this.camX * 1.35) % (W + 220)) - 60;
+      for (let i = 0; i < 5; i++) {
+        const x = ((i * 340 - this.camX * 1.45) % (W + 260)) - 80;
         const img =
           i % 2 === 0 ? art.sprite("prop-crate-near") : art.sprite("prop-gantry-near");
-        blitSprite(ctx, img, x, H - 70, { h: 110, alpha: 0.9 });
+        blitSprite(ctx, img, x, H - 58, { h: 130, alpha: 0.92, outline: true });
       }
+      ctx.fillStyle = "rgba(5,6,10,0.55)";
+      ctx.fillRect(0, H - 18, W, 18);
     } else {
       drawForegroundProps(ctx, this.camX, this.frame, kind);
     }
+    drawColorGrade(ctx, this.levelId, this.bgThreat);
+    if (this.mode === "boss") drawLetterbox(ctx, 0.85);
     ctx.restore();
 
     if (this.mode === "briefing") this.renderBriefingOverlay();
@@ -3183,38 +3261,32 @@ export class Game {
     if (!painted) {
       ctx.fillStyle = C.navy;
       ctx.fillRect(0, 0, W, H);
-    } else {
-      ctx.fillStyle = "rgba(5,8,16,0.55)";
-      ctx.fillRect(0, 70, W, 160);
     }
-    // miniature ground deck for 2.5D tease
-    drawGroundDeck(ctx, { ...STAGE_GROUND, nearGroundY: 520, farGroundY: 400 }, "pad");
+    drawRain(ctx, this.frame, 0.55, 0);
+    drawLetterbox(ctx, 1);
+    const vg = ctx.createLinearGradient(0, 0, 0, H);
+    vg.addColorStop(0, "rgba(5,8,16,0.15)");
+    vg.addColorStop(0.45, "transparent");
+    vg.addColorStop(1, "rgba(5,8,16,0.55)");
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, W, H);
 
     ctx.textAlign = "center";
     ctx.fillStyle = C.cyan;
-    ctx.font = "14px 'Share Tech Mono', monospace";
-    ctx.fillText("OPERATION ORBITAL BREAK · 2.5D", W / 2, 110);
-    ctx.fillStyle = C.bone;
+    ctx.font = "13px 'Share Tech Mono', monospace";
+    ctx.fillText("OPERATION ORBITAL BREAK", W / 2, 52);
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
     ctx.font = "64px 'Black Ops One', sans-serif";
-    ctx.fillText("STAR MIND", W / 2, 175);
+    ctx.fillText("STAR MIND", W / 2 + 3, 118);
     ctx.fillStyle = C.pad;
-    ctx.font = "14px 'Share Tech Mono', monospace";
-    ctx.fillText("METAL SLUG DNA  ·  DEPTH LANES  ·  SPACE-PUNK", W / 2, 205);
+    ctx.fillText("STAR MIND", W / 2, 115);
+    ctx.fillStyle = C.bone;
+    ctx.font = "13px 'Share Tech Mono', monospace";
+    ctx.fillText("METAL SLUG DNA  ·  DEPTH LANES  ·  SPACE-PUNK", W / 2, 148);
     if (this.bestScore > 0) {
       ctx.fillStyle = C.warn;
       ctx.font = "12px 'Share Tech Mono', monospace";
-      ctx.fillText(`BEST ${this.bestScore}`, W / 2, 228);
-    }
-
-    // rain over title
-    ctx.strokeStyle = "rgba(174,198,220,0.22)";
-    for (let i = 0; i < 36; i++) {
-      const x = ((i * 97 + this.frame * 8) % (W + 40)) - 20;
-      const y = ((i * 53 + this.frame * 14) % (H + 40)) - 20;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x - 2, y + 12);
-      ctx.stroke();
+      ctx.fillText(`BEST ${this.bestScore}`, W / 2, 172);
     }
 
     const items = [
@@ -3224,24 +3296,22 @@ export class Game {
       "PRACTICE · ORBIT",
     ];
     items.forEach((label, i) => {
-      const y = 372 + i * 30;
+      const y = 368 + i * 34;
       const sel = i === this.menuIndex;
-      if (sel) {
-        ctx.fillStyle = "rgba(11,18,32,0.72)";
-        ctx.fillRect(W / 2 - 180, y - 20, 360, 28);
-      }
+      drawPlate(ctx, W / 2 - 190, y - 22, 380, 30, sel ? C.warn : C.cyan);
+      ctx.textAlign = "center";
       ctx.fillStyle = sel ? C.warn : C.bone;
       ctx.font = sel ? "18px 'Black Ops One', sans-serif" : "15px 'Share Tech Mono', monospace";
       ctx.fillText(`${sel ? "▸ " : "  "}${label}`, W / 2, y);
     });
-    ctx.fillStyle = "rgba(244,237,228,0.55)";
+    ctx.fillStyle = "rgba(244,237,228,0.7)";
     ctx.font = "12px 'Share Tech Mono', monospace";
     ctx.fillText(
       isTouchPrimary()
         ? "▲▼ select · OK · stick move · FIRE hold · JUMP · EMP · II pause"
         : "A/D strafe · W/S depth · SPACE jump · J shoot · K EMP · P pause · ESC back",
       W / 2,
-      510,
+      H - 28,
     );
     ctx.textAlign = "left";
     this.frame++;
