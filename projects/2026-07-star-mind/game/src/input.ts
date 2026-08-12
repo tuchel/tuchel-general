@@ -16,6 +16,7 @@ export class Input {
   private touchSpecialEdge = false;
   private touchConfirmEdge = false;
   private touchBackEdge = false;
+  private touchPauseEdge = false;
   private touchMenuEdge = 0; // -1 | 0 | 1
 
   constructor() {
@@ -40,6 +41,7 @@ export class Input {
             "x",
             "enter",
             "escape",
+            "p",
           ].includes(k) ||
           e.code === "Space"
         ) {
@@ -76,6 +78,7 @@ export class Input {
     this.touchSpecialEdge = false;
     this.touchConfirmEdge = false;
     this.touchBackEdge = false;
+    this.touchPauseEdge = false;
     this.touchMenuEdge = 0;
   }
 
@@ -108,6 +111,10 @@ export class Input {
 
   pulseTouchBack() {
     this.touchBackEdge = true;
+  }
+
+  pulseTouchPause() {
+    this.touchPauseEdge = true;
   }
 
   pulseTouchMenu(dir: -1 | 1) {
@@ -153,6 +160,15 @@ export class Input {
 
   jumpJust() {
     return this.just(" ") || this.touchJumpEdge;
+  }
+
+  jumpHeld() {
+    return this.hold(" ") || this.touchJumpHeld;
+  }
+
+  /** P / II — does not include Escape (Escape pauses in play, quits from pause). */
+  pauseJust() {
+    return this.just("p") || this.touchPauseEdge;
   }
 
   shoot() {

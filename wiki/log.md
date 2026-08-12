@@ -59,3 +59,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-07] schema | AGENTS.md | Prior-art pause = named incumbent does core job; always file findings
 
 ## [2026-08-07] lesson | search-prior-art-before-building | Whale Locator already did the Salish Sea live-locator job the whale map was chasing
+
+## [2026-08-12] polish | star-mind | Arcade overhaul: audio, combo, EMP/rail/flame feel, pause, coyote jump, L2 gate alignment, dual-path HUD

@@ -23,6 +23,71 @@ export function rr(
   }
 }
 
+export type BulletLook =
+  | "pellet"
+  | "shard"
+  | "flame"
+  | "rocket"
+  | "beam"
+  | "rail"
+  | "hostile"
+  | "claw";
+
+export function drawBullet(
+  ctx: CanvasRenderingContext2D,
+  sx: number,
+  sy: number,
+  scale: number,
+  vx: number,
+  vHop: number,
+  r: number,
+  color: string,
+  look: BulletLook,
+) {
+  const sc = Math.max(0.6, scale);
+  ctx.save();
+  ctx.translate(sx, sy);
+  ctx.rotate(Math.atan2(-vHop * 0.45, vx || 1));
+  const rr0 = r * sc;
+  if (look === "flame") {
+    glow(ctx, 0, 0, rr0 * 4, color, 0.45);
+    ctx.fillStyle = C.warn;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rr0 * 2.4, rr0 * 1.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = C.pad;
+    ctx.beginPath();
+    ctx.ellipse(-rr0 * 0.4, 0, rr0 * 1.4, rr0 * 0.6, 0, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (look === "rocket") {
+    glow(ctx, -rr0, 0, rr0 * 5, C.pad, 0.4);
+    rr(ctx, -rr0 * 2.2, -rr0 * 0.7, rr0 * 4.4, rr0 * 1.4, color, C.soot);
+    rr(ctx, rr0 * 1.4, -rr0 * 0.4, rr0 * 1.2, rr0 * 0.8, C.warn);
+  } else if (look === "beam" || look === "rail") {
+    glow(ctx, 0, 0, rr0 * 5, color, look === "rail" ? 0.5 : 0.32);
+    rr(ctx, -rr0 * 4, -rr0 * 0.45, rr0 * 8, rr0 * 0.9, color);
+    if (look === "rail") rr(ctx, -rr0 * 4, -rr0 * 0.2, rr0 * 8, rr0 * 0.4, C.white);
+  } else if (look === "shard") {
+    glow(ctx, 0, 0, rr0 * 3, color, 0.28);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(rr0 * 2.2, 0);
+    ctx.lineTo(-rr0, rr0);
+    ctx.lineTo(-rr0 * 0.4, 0);
+    ctx.lineTo(-rr0, -rr0);
+    ctx.closePath();
+    ctx.fill();
+  } else if (look === "claw") {
+    glow(ctx, 0, 0, rr0 * 4, C.warn, 0.4);
+    rr(ctx, -rr0, -rr0 * 2, rr0 * 2, rr0 * 4, color, C.soot);
+  } else {
+    glow(ctx, 0, 0, rr0 * 3.2, color, look === "hostile" ? 0.35 : 0.25);
+    rr(ctx, -rr0, -rr0, rr0 * 2, rr0 * 2, color);
+    if (look === "hostile") rr(ctx, -rr0 * 0.4, -rr0 * 0.4, rr0 * 0.8, rr0 * 0.8, C.white);
+  }
+  ctx.restore();
+}
+
 export function glow(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -352,7 +417,7 @@ export function drawCircRing(
   ctx.strokeStyle = hit ? C.metal : C.cyan;
   ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.ellipse(0, 0, 36, 22, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, 42, 26, 0, 0, Math.PI * 2);
   ctx.stroke();
   if (!hit) glow(ctx, 0, 0, 30, C.cyan, 0.3);
   ctx.restore();

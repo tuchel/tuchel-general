@@ -11,10 +11,12 @@ export type LevelId = 1 | 2 | 3;
 
 export type Mode =
   | "title"
+  | "howto"
   | "briefing"
   | "upgrade"
   | "play"
   | "boss"
+  | "pause"
   | "clear"
   | "dead"
   | "victory";

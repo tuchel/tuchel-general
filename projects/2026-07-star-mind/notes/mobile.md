@@ -23,8 +23,9 @@ Live: https://tuchel.github.io/tuchel-general/star-mind/
 |--------|---------|--------|
 | Strafe X / depth Z | A/D · W/S (arrows) | Left virtual stick |
 | Fire | Hold J / Z | Hold **FIRE** |
-| Jump / thrust | Space | **JUMP** |
+| Jump / thrust | Space (hold in orbit) | **JUMP** |
 | EMP | K / X | **EMP** (tap) |
+| Pause | P / Esc | **II** |
 | Menu select | W/S | ▲ / ▼ |
 | Confirm | Enter / Space / J | **OK** |
 | Back / title | Escape | **TITLE** (when shown) |
@@ -59,8 +60,8 @@ When adding a new action: extend `Input` first, wire keyboard + touch, then call
 ## Smoke checklist (before merge touching controls)
 
 1. Desktop: keyboard play L1, full screen toggle, title → briefing → play.
-2. Touch DevTools (or phone): title ▲▼ / OK, briefing OK, stick + FIRE + JUMP + EMP.
+2. Touch DevTools (or phone): title ▲▼ / OK, briefing OK, stick + FIRE + JUMP + EMP + II pause.
 3. Portrait sheet + landscape overlay both respond; rotate mid-run.
-4. Dead: OK retries, TITLE returns; victory OK → title.
+4. Dead: OK retries, TITLE returns; victory OK → title. Pause: OK resumes, TITLE quits.
 5. No page scroll / rubber-band / double-tap zoom while interacting.
 6. Canvas art: no clipped HUD, no stick knob “jump” on first touch, controls don’t cover critical center of play in landscape.
