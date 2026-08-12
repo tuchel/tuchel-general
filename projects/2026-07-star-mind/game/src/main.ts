@@ -1,3 +1,4 @@
+import { sfx } from "./audio";
 import "./style.css";
 import { art } from "./assets";
 import { Game } from "./game";
@@ -88,6 +89,8 @@ if (ctx) {
 }
 
 const game = new Game(canvas);
+window.addEventListener("pointerdown", () => sfx.unlock(), { once: true });
+window.addEventListener("keydown", () => sfx.unlock(), { once: true });
 
 let touch: TouchControls | null = null;
 

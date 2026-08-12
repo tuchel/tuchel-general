@@ -256,7 +256,8 @@ export function drawForegroundProps(
 
 export function sortByDepth<T extends { z: number; hop?: number }>(items: T[]): T[] {
   return [...items].sort((a, b) => {
-    if (a.z !== b.z) return a.z - b.z; // far (high z) first
+    // Painter: far (high z) first so near sprites occlude
+    if (a.z !== b.z) return b.z - a.z;
     return (a.hop ?? 0) - (b.hop ?? 0);
   });
 }

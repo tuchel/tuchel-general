@@ -375,6 +375,20 @@ body.is-touch #touch-layer.touch-sheet {
   color: var(--warn);
 }
 
+.touch-btn-pause {
+  position: absolute;
+  top: -2.4rem;
+  right: 0.1rem;
+  width: 44px;
+  height: 38px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: rgba(11, 18, 32, 0.72);
+}
+
 .touch-btn.is-active {
   transform: scale(0.94);
   background: color-mix(in srgb, var(--pad) 40%, #0b1220);

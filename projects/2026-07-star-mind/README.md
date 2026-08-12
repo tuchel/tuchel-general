@@ -35,9 +35,9 @@ After merge to `main`, GitHub Actions deploys to:
 Hub: https://tuchel.github.io/tuchel-general/  
 Manual redeploy: Actions → “Deploy GitHub Pages” → Run workflow.
 
-Controls (desktop): **A/D** strafe · **W/S** depth · **Space** jump · **J / Z** shoot · **K / X** EMP · **Enter** confirm · **F** full screen
+Controls (desktop): **A/D** strafe · **W/S** depth · **Space** jump (hold to thrust in orbit) · **J / Z** shoot (hold Mag-Spike to charge) · **K / X** EMP · **P** pause · **Esc** pause / back · **Enter** confirm · **F** full screen
 
-Controls (mobile): virtual **stick** · hold **FIRE** · **JUMP** · **EMP** · menu **▲ / OK / ▼** · **TITLE** back. Landscape preferred. See [`notes/mobile.md`](notes/mobile.md) — both input paths stay supported in one build.
+Controls (mobile): virtual **stick** · hold **FIRE** · **JUMP** · **EMP** · **II** pause · menu **▲ / OK / ▼** · **TITLE** back. Landscape preferred. See [`notes/mobile.md`](notes/mobile.md) — both input paths stay supported in one build.
 
 Engine is **Metal Slug–style 2.5D** (depth lanes, perspective ground, scale-by-Z). See [`notes/engine-25d.md`](notes/engine-25d.md).
 

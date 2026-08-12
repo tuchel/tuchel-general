@@ -1,3 +1,4 @@
+import { music, sfx } from "./audio";
 import { C, H, W } from "./palette";
 import { Input } from "./input";
 import {
@@ -49,6 +50,7 @@ import {
 import {
   drawAsh,
   drawBoss,
+  drawBullet,
   drawCircRing,
   drawEnemy,
   drawGantryDeck,
@@ -59,6 +61,7 @@ import {
   drawTruck,
   glow,
   rr,
+  type BulletLook,
 } from "./draw";
 
 /** L1 truck fuel-drop destination (world X) */
@@ -75,6 +78,71 @@ function laneLabel(z: number): string {
   if (z < 0.34) return "NEAR";
   if (z < 0.66) return "MID";
   return "FAR";
+}
+
+const WEAPON_RANK: Record<WeaponId, number> = {
+  pistol: 0,
+  coil: 1,
+  flame: 2,
+  spread: 3,
+  beam: 4,
+  rocket: 5,
+  rail: 6,
+};
+
+const KILL_SCORE: Record<string, number> = {
+  drone: 120,
+  crab: 160,
+  turret: 220,
+  hackbot: 280,
+  walker: 450,
+  climber: 140,
+  wasp: 200,
+  mine: 130,
+  gridsat: 220,
+  mirror: 320,
+  beetle: 380,
+  ghost: 240,
+  spine: 600,
+};
+
+const UPGRADE_BLURB: Record<keyof Upgrades, string> = {
+  damage: "+12% shot damage",
+  fireRate: "−8% fire delay",
+  armor: "+20 max HP",
+  mag: "+25 / +15 ammo",
+  special: "+1 EMP charge",
+  mobility: "+8% move speed",
+};
+
+function weaponLook(id: WeaponId): BulletLook {
+  if (id === "flame") return "flame";
+  if (id === "rocket") return "rocket";
+  if (id === "beam") return "beam";
+  if (id === "rail") return "rail";
+  if (id === "spread") return "shard";
+  return "pellet";
+}
+
+function readBest(): number {
+  try {
+    return Math.max(0, Number(localStorage.getItem("starmind-best") || 0) || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function writeBest(n: number) {
+  try {
+    localStorage.setItem("starmind-best", String(n));
+  } catch {
+    /* private mode */
+  }
+}
+
+let nextUid = 1;
+function uid() {
+  return nextUid++;
 }
 
 interface Actor {
@@ -99,6 +167,9 @@ interface Actor {
   anim: AnimPlayerState;
   animLib: string;
   shooting?: boolean;
+  stun?: number;
+  revealed?: number;
+  uid: number;
 }
 
 interface Bullet {
@@ -115,6 +186,8 @@ interface Bullet {
   pierce?: boolean;
   blast?: number;
   color: string;
+  hits: Set<number>;
+  look: BulletLook;
 }
 
 interface Particle {
@@ -129,11 +202,20 @@ interface Particle {
   size: number;
 }
 
+interface ScorePop {
+  x: number;
+  z: number;
+  hop: number;
+  text: string;
+  life: number;
+  color: string;
+}
+
 interface Pickup {
   x: number;
   z: number;
   hop: number;
-  kind: "scrap" | WeaponId;
+  kind: "scrap" | "health" | WeaponId;
   life: number;
 }
 
@@ -238,12 +320,40 @@ export class Game {
   private stinger = false;
   private camLean = 0;
   private walkDustLatch = -1;
+  private hitStop = 0;
+  private combo = 0;
+  private comboTimer = 0;
+  private scorePops: ScorePop[] = [];
+  private railCharge = 0;
+  private wasShooting = false;
+  private continues = 0;
+  private pausedFrom: Mode | null = null;
+  private camXTarget = 0;
+  private coyote = 0;
+  private jumpBuf = 0;
+  private screenFlash = 0;
+  private empPulse = 0;
+  private muzzle = 0;
+  private landSquash = 0;
+  private hintT = 0;
+  private bestScore = 0;
+  private lowHpWarn = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("2D context unavailable");
     this.ctx = ctx;
     ctx.imageSmoothingEnabled = true;
+    this.bestScore = readBest();
+    document.addEventListener("visibilitychange", () => {
+      if (
+        document.hidden &&
+        (this.mode === "play" || this.mode === "boss")
+      ) {
+        this.pausedFrom = this.mode;
+        this.mode = "pause";
+      }
+    });
   }
 
   start() {
@@ -251,8 +361,12 @@ export class Game {
     this.last = performance.now();
     const loop = (now: number) => {
       if (!this.running) return;
-      const dt = Math.min(0.033, (now - this.last) / 1000);
+      let dt = Math.min(0.033, (now - this.last) / 1000);
       this.last = now;
+      if (this.hitStop > 0) {
+        this.hitStop = Math.max(0, this.hitStop - dt);
+        dt *= 0.12;
+      }
       this.update(dt);
       this.render();
       this.input.tick();
@@ -266,8 +380,10 @@ export class Game {
     if (this.mode === "play" || this.mode === "boss") return "play";
     if (
       this.mode === "title" ||
+      this.mode === "howto" ||
       this.mode === "briefing" ||
       this.mode === "upgrade" ||
+      this.mode === "pause" ||
       this.mode === "clear" ||
       this.mode === "dead" ||
       this.mode === "victory"
@@ -277,17 +393,17 @@ export class Game {
     return "hidden";
   }
 
-  /** TITLE/back button — not on the title select screen itself */
   showTouchBack(): boolean {
     return (
       this.mode === "briefing" ||
       this.mode === "upgrade" ||
+      this.mode === "pause" ||
+      this.mode === "howto" ||
       this.mode === "dead" ||
       this.mode === "victory"
     );
   }
 
-  /** ▲▼ menu strip — title level pick + fabricator only */
   showTouchNav(): boolean {
     return this.mode === "title" || this.mode === "upgrade";
   }
@@ -426,6 +542,9 @@ export class Game {
       anim: createAnimState("idle"),
       animLib,
       shooting: false,
+      stun: 0,
+      revealed: 0,
+      uid: uid(),
     };
     this.weapon = "coil";
     this.ammo = 80 + this.upgrades.mag * 25;
@@ -470,6 +589,19 @@ export class Game {
     this.intensity = sampleIntensity(id, 1, 0);
     this.bgThreat = this.intensity.intensity;
     this.camLean = 0;
+    this.combo = 0;
+    this.comboTimer = 0;
+    this.scorePops = [];
+    this.railCharge = 0;
+    this.hitStop = 0;
+    this.pausedFrom = null;
+    this.coyote = 0;
+    this.jumpBuf = 0;
+    this.screenFlash = 0;
+    this.empPulse = 0;
+    this.muzzle = 0;
+    this.landSquash = 0;
+    this.hintT = 0;
 
     if (id === 1) {
       this.stage = this.withMobileZoom(STAGE_GROUND);
@@ -696,8 +828,8 @@ export class Game {
       const lull = this.intensity.intensity <= 0.22;
       if ((rising || lull) && prev && this.msgTimer < 0.35) {
         this.announce(
-          rising ? `THREAT · ${this.intensity.beat}` : `LULL · ${this.intensity.beat}`,
-          1.35,
+          rising ? "NIX: Contact spike — stay mobile!" : "NIX: Window. Push the objective.",
+          1.2,
         );
       }
     }
@@ -796,6 +928,9 @@ export class Game {
             : "walk",
       ),
       animLib: enemyAnimLib(kind),
+      stun: 0,
+      revealed: kind === "ghost" ? 0 : 1,
+      uid: uid(),
     });
   }
 
@@ -825,26 +960,73 @@ export class Game {
       scrap: 40,
       anim: createAnimState("idle"),
       animLib: bossAnimLib(b.id),
+      stun: 0,
+      uid: uid(),
     };
     this.level.bossSpawned = true;
     this.mode = "boss";
     this.announce(`BOSS · ${b.name}`, 2.5);
     this.shake = 10;
+    this.hitStop = 0.12;
+    sfx.boss();
   }
 
   private hurtPlayer(dmg: number) {
     if (this.invuln > 0 || this.player.dead) return;
     this.player.hp -= dmg;
-    this.player.flash = 0.2;
-    this.invuln = 0.9;
-    this.shake = 8;
+    this.player.flash = 0.25;
+    this.invuln = 0.85;
+    this.shake = Math.max(this.shake, 7);
+    this.combo = 0;
+    this.comboTimer = 0;
+    this.screenFlash = Math.max(this.screenFlash, 0.16);
+    sfx.hurt();
     if (this.player.hp <= 0) {
       this.player.hp = 0;
       this.player.dead = true;
       this.mode = "dead";
-      this.burst(this.player.x, this.player.z, this.player.hop, C.pad, 24);
+      this.burst(this.player.x, this.player.z, this.player.hop, C.pad, 28);
       this.announce("SIGNAL LOST · ASH DOWN", 99);
+      sfx.death();
     }
+  }
+
+  private popScore(x: number, z: number, hop: number, text: string, color?: string) {
+    this.scorePops.push({ x, z, hop: hop + 24, text, life: 0.85, color: color ?? C.warn });
+  }
+
+  private hitRadius(a: Actor): number {
+    const body = Math.max(a.w, a.h) * 0.48;
+    return body * (1.28 - a.z * 0.42);
+  }
+
+  private axes(): { ax: number; az: number } {
+    let ax = this.input.axisX();
+    let az = this.input.axisZ();
+    const mag = Math.hypot(ax, az);
+    if (mag > 1) {
+      ax /= mag;
+      az /= mag;
+    }
+    return { ax, az };
+  }
+
+  private aimHopBias(): number {
+    const dir = this.player.kind === "ship" ? 1 : this.player.facing;
+    let bestHop = this.player.hop;
+    let bestD = 300;
+    const consider = (e: Actor) => {
+      const dx = (e.x - this.player.x) * dir;
+      if (dx < 16 || dx > 340) return;
+      if (!zOverlap(this.player.z, e.z, 0.4)) return;
+      if (dx < bestD) {
+        bestD = dx;
+        bestHop = e.hop;
+      }
+    };
+    for (const e of this.enemies) if (!e.dead) consider(e);
+    if (this.boss && !this.boss.dead) consider(this.boss);
+    return (bestHop - this.player.hop) * 0.62;
   }
 
   private burst(x: number, z: number, hop: number, color: string, n = 12) {
@@ -865,6 +1047,16 @@ export class Game {
     }
   }
 
+  private spawnBullet(partial: Omit<Bullet, "hits" | "look"> & { hits?: Set<number>; look?: BulletLook }): Bullet {
+    const b: Bullet = {
+      ...partial,
+      hits: partial.hits ?? new Set(),
+      look: partial.look ?? (partial.friendly ? "pellet" : "hostile"),
+    };
+    this.bullets.push(b);
+    return b;
+  }
+
   private fireWeapon() {
     const def = WEAPONS[this.weapon];
     const cdMul = 1 - this.upgrades.fireRate * 0.08;
@@ -872,29 +1064,39 @@ export class Game {
     if (def.heat && this.heat > 1) return;
     const dmgMul = 1 + this.upgrades.damage * 0.12;
     const dir = this.player.kind === "ship" ? 1 : this.player.facing;
-    const shootOne = (zBias = 0, hopBias = 0) => {
-      this.bullets.push({
+    const hopAim = this.aimHopBias();
+    const shootOne = (zBias = 0, hopBias = 0, extra?: Partial<Bullet>) => {
+      this.spawnBullet({
         x: this.player.x + dir * 18,
         z: clamp01(this.player.z + zBias),
-        hop: this.player.hop + 18 + hopBias,
+        hop: this.player.hop + 18 + hopBias + hopAim,
         vx: def.speed * dir + (this.player.kind === "ship" ? 80 : 0),
-        vz: zBias * 0.8,
-        vHop: hopBias * 0.2,
-        r: def.blast ? 5 : 3,
+        vz: zBias * 1.6,
+        vHop: hopBias * 0.35 + hopAim * 0.4,
+        r: extra?.r ?? (def.blast ? 5 : 3),
         dmg: def.damage * dmgMul,
-        life: def.pierce ? 0.9 : 0.7,
+        life: extra?.life ?? (def.pierce ? 0.9 : 0.7),
         friendly: true,
-        pierce: def.pierce,
-        blast: def.blast,
+        pierce: extra?.pierce ?? def.pierce,
+        blast: extra?.blast ?? def.blast,
         color: def.color,
+        look: extra?.look ?? weaponLook(def.id),
       });
     };
     if (def.spread) {
-      shootOne(-0.08, 8);
+      shootOne(-0.12, 14);
       shootOne(0, 0);
-      shootOne(0.08, -8);
+      shootOne(0.12, -14);
     } else if (def.id === "flame") {
-      for (let i = 0; i < 3; i++) shootOne((Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 10);
+      for (let i = 0; i < 5; i++) {
+        shootOne((Math.random() - 0.5) * 0.16, (Math.random() - 0.5) * 16, {
+          life: 0.22,
+          r: 5,
+        });
+      }
+    } else if (def.id === "rocket") {
+      shootOne(0, 0, { r: 6, life: 0.85 });
+      this.shake = Math.max(this.shake, 3);
     } else {
       shootOne(0, 0);
     }
@@ -907,42 +1109,98 @@ export class Game {
         this.announce("SIDEARM ONLY");
       }
     }
-    if (def.heat) this.heat = Math.min(1.4, this.heat + 0.04);
+    if (def.heat) this.heat = Math.min(1.4, this.heat + 0.045);
     this.burst(this.player.x + dir * 20, this.player.z, this.player.hop + 16, C.warn, 3);
     this.player.shooting = true;
+    this.muzzle = 0.06;
+    this.camX += dir * (def.id === "rocket" ? 4 : 1.5);
     playAnim(this.player.anim, "shoot", 0.2, true);
+    sfx.shoot(def.id);
+  }
+
+  private fireRail(charge: number) {
+    const def = WEAPONS.rail;
+    const dmgMul = 1 + this.upgrades.damage * 0.12;
+    const dir = this.player.kind === "ship" ? 1 : this.player.facing;
+    const power = clamp(charge / 0.85, 0.35, 1.25);
+    this.spawnBullet({
+      x: this.player.x + dir * 18,
+      z: this.player.z,
+      hop: this.player.hop + 18 + this.aimHopBias(),
+      vx: def.speed * dir,
+      vz: 0,
+      vHop: this.aimHopBias() * 0.5,
+      r: 4 + power * 3,
+      dmg: def.damage * dmgMul * power,
+      life: 0.95,
+      friendly: true,
+      pierce: true,
+      color: C.earth,
+      look: "rail",
+    });
+    this.cooldown = def.cooldown * (1 - this.upgrades.fireRate * 0.08);
+    if (this.weapon !== "pistol") {
+      this.ammo -= 1;
+      if (this.ammo <= 0) {
+        this.weapon = "pistol";
+        this.ammo = 999;
+      }
+    }
+    this.shake = Math.max(this.shake, 5 + power * 6);
+    this.hitStop = 0.045;
+    this.muzzle = 0.1;
+    this.screenFlash = 0.08 * power;
+    this.player.shooting = true;
+    playAnim(this.player.anim, "shoot", 0.22, true);
+    sfx.shoot("rail");
   }
 
   private fireSpecial() {
     if (this.special <= 0) return;
     this.special -= 1;
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
-      this.bullets.push({
-        x: this.player.x,
-        z: this.player.z,
-        hop: this.player.hop + 10,
-        vx: Math.cos(a) * 280,
-        vz: Math.sin(a) * 0.35,
-        vHop: Math.sin(a) * 120,
-        r: 4,
-        dmg: 28 + this.upgrades.damage * 4,
-        life: 0.45,
-        friendly: true,
-        color: C.cyan,
-        blast: 20,
-      });
+    const p = this.player;
+    const R = 320;
+    const inBlast = (x: number, z: number) =>
+      Math.hypot(x - p.x, (z - p.z) * 160) < R;
+    this.bullets = this.bullets.filter((b) => b.friendly || !inBlast(b.x, b.z));
+    for (const e of this.enemies) {
+      if (e.dead || !inBlast(e.x, e.z)) continue;
+      e.stun = 1.35;
+      e.flash = 0.25;
+      e.hp -= 16 + this.upgrades.damage * 3;
+      if (e.kind === "mirror") e.stun = 2.2;
+      if (e.hp <= 0) this.killEnemy(e);
     }
-    this.burst(this.player.x, this.player.z, this.player.hop, C.cyan, 20);
-    this.shake = 6;
-    this.announce("EMP BURST");
+    if (this.boss && !this.boss.dead && inBlast(this.boss.x, this.boss.z)) {
+      this.boss.stun = 0.55;
+      this.boss.hp -= 36 + this.upgrades.damage * 6;
+      this.boss.flash = 0.2;
+    }
+    this.burst(p.x, p.z, p.hop, C.cyan, 28);
+    this.shake = 9;
+    this.hitStop = 0.08;
+    this.empPulse = 1;
+    this.screenFlash = 0.22;
+    this.announce("EMP · GRID DOWN");
+    sfx.emp();
   }
 
   private killEnemy(e: Actor) {
+    if (e.dead) return;
     e.dead = true;
-    this.burst(e.x, e.z, e.hop, e.kind === "spine" ? C.warn : C.cyan, 14);
-    this.score += e.kind === "spine" ? 400 : 100;
+    this.burst(e.x, e.z, e.hop, e.kind === "spine" ? C.warn : C.cyan, 16);
+    this.combo += 1;
+    this.comboTimer = 2.15;
+    const base = KILL_SCORE[e.kind] ?? 100;
+    const mult = Math.min(4, 1 + this.combo * 0.12);
+    const gained = Math.round(base * mult);
+    this.score += gained;
     this.scrap += e.scrap ?? 2;
+    this.popScore(e.x, e.z, e.hop, this.combo > 1 ? `${gained} x${this.combo}` : `+${gained}`);
+    this.shake = Math.max(this.shake, 3);
+    this.hitStop = Math.max(this.hitStop, e.kind === "walker" || e.kind === "spine" ? 0.07 : 0.03);
+    sfx.kill();
+    if (this.combo === 5 || this.combo === 10 || this.combo === 15) sfx.combo();
     if (e.kind === "spine") {
       this.level.spinesDown += 1;
       this.announce(`SPINE SEVERED ${this.level.spinesDown}/${this.level.spinesNeeded}`);
@@ -950,8 +1208,8 @@ export class Game {
         this.unlockPrimeArena();
       }
     }
-    if (Math.random() < 0.22 && e.kind !== "spine") {
-      const pool: WeaponId[] = ["spread", "beam", "rocket", "flame", "rail", "coil"];
+    if (Math.random() < 0.18 && e.kind !== "spine") {
+      const pool: WeaponId[] = ["spread", "beam", "rocket", "flame", "rail"];
       this.pickups.push({
         x: e.x,
         z: e.z,
@@ -959,56 +1217,80 @@ export class Game {
         kind: pool[Math.floor(Math.random() * pool.length)]!,
         life: 8,
       });
-    } else if (Math.random() < 0.45) {
+    } else if (Math.random() < 0.12) {
+      this.pickups.push({ x: e.x, z: e.z, hop: e.hop, kind: "health", life: 8 });
+    } else if (Math.random() < 0.42) {
       this.pickups.push({ x: e.x, z: e.z, hop: e.hop, kind: "scrap", life: 8 });
     }
   }
 
   private enemyShot(e: Actor, speed: number, dmg: number, heavy = false) {
     const dx = this.player.x - e.x;
-    const dz = this.player.z - e.z;
-    const dh = this.player.hop - e.hop;
-    const len = Math.hypot(dx, dz * 200, dh) || 1;
-    this.bullets.push({
+    const dzWorld = (this.player.z - e.z) * 180;
+    const dh = this.player.hop + 12 - (e.hop + 10);
+    const len = Math.hypot(dx, dzWorld, dh) || 1;
+    this.spawnBullet({
       x: e.x,
       z: e.z,
       hop: e.hop + 10,
       vx: (dx / len) * speed,
-      vz: (dz / len) * 0.35,
-      vHop: (dh / len) * speed * 0.25,
+      vz: (dzWorld / len) * (speed / 180),
+      vHop: (dh / len) * speed,
       r: heavy ? 5 : 3,
       dmg,
       life: 2.2,
       friendly: false,
       color: heavy ? C.pad : C.cyan,
+      look: "hostile",
     });
   }
 
   private updateEnemy(e: Actor, dt: number) {
-    e.timer += dt;
     e.flash = Math.max(0, e.flash - dt);
+    if (e.stun && e.stun > 0) {
+      e.stun -= dt;
+      e.z = clamp01(e.z);
+      return;
+    }
+    e.timer += dt;
     const pz = this.player.z;
     const agg = this.intensity.aggression;
     const fire = (base: number) => base / agg;
     const move = (base: number) => base * (0.75 + 0.35 * agg);
+    const fireNow = (base: number, speed: number, dmg: number, heavy = false) => {
+      const period = fire(base);
+      if (e.timer > period - 0.2) e.flash = Math.max(e.flash, 0.08);
+      if (e.timer > period) {
+        e.timer = 0.01;
+        this.enemyShot(e, speed, dmg, heavy);
+        if (e.kind === "ghost") e.revealed = 0.9;
+        playAnim(e.anim, "attack", 0.2);
+      }
+    };
 
     switch (e.kind) {
       case "drone":
       case "climber":
       case "gridsat":
-      case "ghost":
         e.hop += Math.sin(e.timer * 2) * 18 * dt;
         e.z += Math.sin(e.timer * 1.3) * 0.12 * dt;
         e.x += move(this.levelId === 1 ? -40 : -30) * dt;
-        if (e.timer > fire(1.2)) {
-          e.timer = 0;
-          this.enemyShot(e, 240, 8);
-        }
+        fireNow(1.15, 260, 8);
+        break;
+      case "ghost":
+        e.hop += Math.sin(e.timer * 2) * 18 * dt;
+        e.z += Math.sin(e.timer * 1.3) * 0.12 * dt;
+        e.x += move(-32) * dt;
+        e.revealed = Math.max(0, (e.revealed ?? 0) - dt);
+        fireNow(1.35, 240, 9);
         break;
       case "crab":
         e.x += move(-55) * dt;
-        e.z += (pz - e.z) * 0.6 * dt;
-        if (Math.random() < 0.008 + 0.006 * agg) e.vHop = 220;
+        e.z += (pz - e.z) * 0.9 * dt;
+        if (Math.abs(this.player.x - e.x) < 160 && Math.random() < 0.012 + 0.01 * agg) {
+          e.vHop = 260;
+          playAnim(e.anim, "attack", 0.3);
+        }
         e.vHop -= 700 * dt;
         e.hop += e.vHop * dt;
         if (e.hop <= 0) {
@@ -1017,18 +1299,26 @@ export class Game {
         }
         break;
       case "turret":
-        if (e.timer > fire(1.4)) {
-          e.timer = 0;
-          this.enemyShot(e, 260, 10);
-        }
+        fireNow(1.25, 280, 10);
         break;
       case "hackbot":
         e.x += Math.sign(this.player.x - e.x) * move(70) * dt;
         e.z += (pz - e.z) * 1.4 * dt;
-        if (e.timer > fire(2) && Math.hypot(this.player.x - e.x, (pz - e.z) * 180) < 50 && zOverlap(pz, e.z, 0.22)) {
-          e.timer = 0;
+        if (
+          e.timer > fire(1.8) &&
+          Math.hypot(this.player.x - e.x, (pz - e.z) * 180) < 50 &&
+          zOverlap(pz, e.z, 0.22)
+        ) {
+          e.timer = 0.01;
           if (this.weapon !== "pistol") {
-            this.announce("WEAPON JAMMED!");
+            this.announce("WEAPON STOLEN!");
+            this.pickups.push({
+              x: e.x - 30,
+              z: e.z,
+              hop: 8,
+              kind: this.weapon,
+              life: 6,
+            });
             this.weapon = "pistol";
             this.ammo = 999;
           }
@@ -1038,25 +1328,21 @@ export class Game {
       case "walker":
         e.x += move(-35) * dt;
         e.z += (pz - e.z) * 0.4 * dt;
-        if (e.timer > fire(1.6)) {
-          e.timer = 0;
-          this.enemyShot(e, 300, 14, true);
-        }
+        fireNow(1.5, 320, 14, true);
         break;
       case "wasp":
         e.x += move(-90) * dt;
-        e.z += Math.sin(e.timer * 3) * 0.2 * dt;
-        if (e.timer > fire(0.9)) {
-          e.timer = 0;
-          this.enemyShot(e, 200, 12);
-        }
+        e.z += (pz - e.z) * 1.15 * dt + Math.sin(e.timer * 3) * 0.08 * dt;
+        e.hop += (this.player.hop - e.hop) * 0.7 * dt;
+        fireNow(0.85, 220, 12);
         break;
       case "mine":
         e.hop += Math.sin(e.timer) * 6 * dt;
         if (Math.hypot(this.player.x - e.x, (pz - e.z) * 160) < 55 && zOverlap(pz, e.z, 0.25)) {
           this.burst(e.x, e.z, e.hop, C.blood, 18);
           this.hurtPlayer(22);
-          e.dead = true;
+          this.killEnemy(e);
+          sfx.explode();
         }
         break;
       case "mirror":
@@ -1065,27 +1351,28 @@ export class Game {
         break;
       case "beetle":
         e.x += move(-40) * dt;
-        if (e.timer > fire(1.5)) {
-          e.timer = 0;
+        if (e.timer > fire(1.4)) {
+          e.timer = 0.01;
           for (const o of this.enemies) {
-            if (!o.dead && o !== e && Math.hypot(o.x - e.x, (o.z - e.z) * 160) < 140) {
-              o.hp = Math.min(o.maxHp, o.hp + 8);
-              this.burst(o.x, o.z, o.hop, C.warn, 4);
+            if (o.dead || o === e || o.kind !== "spine") continue;
+            if (Math.hypot(o.x - e.x, (o.z - e.z) * 160) < 180) {
+              o.hp = Math.min(o.maxHp, o.hp + 12);
+              o.flash = 0.15;
+              this.burst(o.x, o.z, o.hop, C.warn, 5);
             }
           }
         }
         break;
       case "spine":
         e.hop += Math.sin(e.timer * 1.2) * 8 * dt;
-        if (e.timer > fire(1.8)) {
-          e.timer = 0;
-          this.enemyShot(e, 240, 12);
-        }
+        fireNow(1.7, 250, 12);
         break;
     }
 
     e.z = clamp01(e.z);
+    const ghostHidden = e.kind === "ghost" && (e.revealed ?? 0) <= 0;
     if (
+      !ghostHidden &&
       zOverlap(this.player.z, e.z, 0.2) &&
       Math.hypot(this.player.x - e.x, this.player.hop - e.hop) < 36
     ) {
@@ -1097,27 +1384,50 @@ export class Game {
   private updateBoss(dt: number) {
     const b = this.boss;
     if (!b || b.dead) return;
-    b.timer += dt;
     b.flash = Math.max(0, b.flash - dt);
+    if (b.stun && b.stun > 0) {
+      b.stun -= dt;
+      return;
+    }
+    b.timer += dt;
     const ratio = b.hp / b.maxHp;
-    b.phase = ratio > 0.66 ? 1 : ratio > 0.33 ? 2 : 3;
+    const nextPhase = ratio > 0.66 ? 1 : ratio > 0.33 ? 2 : 3;
+    if (nextPhase !== b.phase) {
+      b.phase = nextPhase;
+      this.announce(
+        b.kind === "reaper"
+          ? b.phase === 2
+            ? "REAPER · LASER EYE"
+            : "REAPER · CLAW EMBED — CORE OPEN"
+          : b.kind === "seraph"
+            ? b.phase === 3
+              ? "SERAPH · SPEAR DIVE — BELLY OPEN"
+              : "SERAPH · MIRROR WINGS"
+            : b.phase === 3
+              ? "PRIME · CORE EXPOSED"
+              : "PRIME · PETAL SHIELD",
+        2.2,
+      );
+      sfx.boss();
+      this.shake = 8;
+    }
     b.z = 0.45 + Math.sin(b.timer * 0.7) * 0.12;
 
     if (b.kind === "reaper") {
-      // Hold the upper gantry / boarding deck — player walks right into the fight
       b.x = BOARD_X - 20 + Math.sin(b.timer * 0.5) * 30;
       b.hop = BOARD_HOP - 20;
-      if (b.timer > (b.phase === 1 ? 1.4 : 0.9)) {
+      const period = b.phase === 1 ? 1.5 : b.phase === 2 ? 1.05 : 1.3;
+      if (b.timer > period) {
         b.timer = 0;
         if (b.phase === 1) this.enemyShot(b, 280, 14, true);
         else if (b.phase === 2) {
           for (let i = -1; i <= 1; i++) {
-            this.bullets.push({
+            this.spawnBullet({
               x: b.x - 40,
               z: clamp01(b.z + i * 0.12),
               hop: b.hop,
-              vx: -320,
-              vz: i * 0.15,
+              vx: -340,
+              vz: i * 0.18,
               vHop: 0,
               r: 4,
               dmg: 12,
@@ -1126,43 +1436,46 @@ export class Game {
               color: C.cyan,
             });
           }
-          if (Math.random() < 0.5) this.spawnEnemy("drone", b.x - 100, 0.5, 40);
+          if (Math.random() < 0.45) this.spawnEnemy("drone", b.x - 100, 0.5, 40);
         } else {
-          this.bullets.push({
+          this.announce("CLAW!", 0.55);
+          this.spawnBullet({
             x: this.player.x,
             z: this.player.z,
-            hop: 120,
+            hop: 150,
             vx: 0,
             vz: 0,
-            vHop: -420,
-            r: 8,
-            dmg: 22,
-            life: 1.2,
+            vHop: -480,
+            r: 9,
+            dmg: 24,
+            life: 1.15,
             friendly: false,
             color: C.warn,
-            blast: 40,
+            blast: 44,
+            look: "claw",
           });
         }
       }
     } else if (b.kind === "seraph") {
       b.x = this.camX + W - 160;
-      b.z += (this.player.z - b.z) * 1.4 * dt;
-      if (b.timer > (b.phase === 3 ? 0.7 : 1.1)) {
+      b.z += (this.player.z - b.z) * 1.8 * dt;
+      b.hop += (this.player.hop - b.hop) * 1.1 * dt;
+      if (b.timer > (b.phase === 3 ? 0.85 : 1.1)) {
         b.timer = 0;
         if (b.phase < 3) {
-          for (let i = 0; i < b.phase + 1; i++) this.enemyShot(b, 300, 12);
+          for (let i = 0; i < b.phase + 1; i++) this.enemyShot(b, 310, 12);
           if (b.phase === 2) this.spawnEnemy("climber", b.x - 80, 0.5, 20);
         } else {
-          this.bullets.push({
+          this.spawnBullet({
             x: b.x,
             z: b.z,
             hop: b.hop,
-            vx: -520,
-            vz: (this.player.z - b.z) * 0.5,
-            vHop: (this.player.hop - b.hop) * 0.5,
-            r: 7,
+            vx: -560,
+            vz: (this.player.z - b.z) * 0.9,
+            vHop: (this.player.hop - b.hop) * 0.8,
+            r: 8,
             dmg: 26,
-            life: 1.4,
+            life: 1.3,
             friendly: false,
             color: C.pad,
             blast: 36,
@@ -1172,12 +1485,12 @@ export class Game {
     } else if (b.kind === "prime") {
       b.x = this.camX + W - 200;
       b.hop = 40 + Math.sin(b.timer * 0.5) * 20;
-      if (b.timer > (b.phase === 3 ? 0.55 : 1.0)) {
+      if (b.timer > (b.phase === 3 ? 0.55 : 1.05)) {
         b.timer = 0;
         const n = 6 + b.phase * 2;
         for (let i = 0; i < n; i++) {
           const a = (i / n) * Math.PI * 2;
-          this.bullets.push({
+          this.spawnBullet({
             x: b.x,
             z: clamp01(b.z + Math.cos(a) * 0.2),
             hop: b.hop,
@@ -1248,8 +1561,8 @@ export class Game {
 
   private recycleMissedGates() {
     for (const g of this.gates) {
-      if (!g.hit && this.level.scroll > g.x + 100) {
-        g.x = this.level.scroll + 350 + Math.random() * 80;
+      if (!g.hit && this.player.x > g.x + 90) {
+        g.x = this.player.x + 380 + Math.random() * 80;
         g.z = 0.2 + Math.random() * 0.6;
         this.announce(`GATE REQUEUED · match ${laneLabel(g.z)}`, 1.6);
       }
@@ -1264,10 +1577,26 @@ export class Game {
     this.heat = Math.max(0, this.heat - dt * 0.35);
     this.msgTimer = Math.max(0, this.msgTimer - dt);
     this.shake = Math.max(0, this.shake - dt * 20);
+    this.player.flash = Math.max(0, this.player.flash - dt);
+    this.comboTimer = Math.max(0, this.comboTimer - dt);
+    if (this.comboTimer <= 0) this.combo = 0;
+    this.screenFlash = Math.max(0, this.screenFlash - dt * 2.4);
+    this.empPulse = Math.max(0, this.empPulse - dt * 1.6);
+    this.muzzle = Math.max(0, this.muzzle - dt);
+    this.hintT += dt;
+    this.lowHpWarn += dt;
     const mob = 1 + this.upgrades.mobility * 0.08;
 
     if (this.levelId === 1) {
+      const prevClock = this.level.killClock;
       this.level.killClock = Math.max(0, this.level.killClock - dt);
+      if (
+        this.level.killClock < 12 &&
+        this.level.killClock > 0 &&
+        Math.ceil(this.level.killClock) !== Math.ceil(prevClock)
+      ) {
+        sfx.warn();
+      }
       if (this.level.killClock <= 0 && !this.level.bossDefeated) {
         this.hurtPlayer(999);
         this.announce("KILL-CLOCK ZERO");
@@ -1299,15 +1628,22 @@ export class Game {
 
     // --- Player movement (2.5D) ---
     if (this.player.kind === "ground") {
-      const ax = this.input.axisX();
-      const az = this.input.axisZ();
-      this.player.vx = ax * 210 * mob;
+      const { ax, az } = this.axes();
+      const targetVx = ax * 220 * mob;
+      const rate = ax !== 0 ? 14 : 18;
+      this.player.vx += (targetVx - this.player.vx) * (1 - Math.exp(-rate * dt));
       this.player.vz = az * 0.55 * mob;
       if (ax) this.player.facing = ax > 0 ? 1 : -1;
       this.player.vHop -= 1400 * dt;
-      if (this.input.jumpJust() && this.player.grounded) {
+      if (this.input.jumpJust()) this.jumpBuf = 0.14;
+      else this.jumpBuf = Math.max(0, this.jumpBuf - dt);
+      this.coyote = this.player.grounded ? 0.12 : Math.max(0, this.coyote - dt);
+      if (this.jumpBuf > 0 && this.coyote > 0) {
         this.player.vHop = 520;
         this.player.grounded = false;
+        this.coyote = 0;
+        this.jumpBuf = 0;
+        sfx.jump();
       }
       this.player.x += this.player.vx * dt;
       this.player.z = clamp01(this.player.z + this.player.vz * dt);
@@ -1330,13 +1666,20 @@ export class Game {
           this.player.hop = p.hop;
           this.player.vHop = 0;
           onGround = true;
-          // Soft Z pull onto the deck so walk-right climbs stay forgiving
           this.player.z += (p.z - this.player.z) * 0.35;
         }
       }
+      if (onGround && !this.player.grounded) {
+        this.burst(this.player.x, this.player.z, 0, C.metal, 6);
+        this.landSquash = 0.12;
+        sfx.land();
+      }
       this.player.grounded = onGround;
+      this.landSquash = Math.max(0, this.landSquash - dt);
       this.player.x = clamp(this.player.x, 40, this.level.length - 40);
-      this.camX = clamp(this.player.x - W * 0.35, 0, this.level.length - W);
+      const look = this.player.facing * 70;
+      this.camXTarget = clamp(this.player.x - W * 0.36 + look, 0, this.level.length - W);
+      this.camX += (this.camXTarget - this.camX) * (1 - Math.exp(-7 * dt));
       this.camLean += (az * 0.08 - this.camLean) * 4 * dt;
 
       // L1 boarding: after Reaper, walk right into BLACK FINCH
@@ -1356,27 +1699,42 @@ export class Game {
       this.level.scroll += 140 * dt;
       this.camX = this.level.scroll;
       this.recycleMissedGates();
-      const ax = this.input.axisX();
-      const az = this.input.axisZ();
-      this.player.vx = ax * 220 * mob;
-      this.player.vz = az * 0.7 * mob;
-      this.shipThrust = Math.abs(ax) + Math.abs(az) > 0 ? 1 : 0.35;
-      this.player.x = clamp(this.player.x + this.player.vx * dt, this.camX + 60, this.camX + W - 80);
+      const { ax, az } = this.axes();
+      const tvx = ax * 230 * mob;
+      const tvz = az * 0.72 * mob;
+      this.player.vx += (tvx - this.player.vx) * (1 - Math.exp(-11 * dt));
+      this.player.vz += (tvz - this.player.vz) * (1 - Math.exp(-11 * dt));
+      this.shipThrust = Math.hypot(ax, az) > 0.12 ? 1 : 0.35;
+      const padL = isTouchPrimary() ? 90 : 60;
+      const padR = isTouchPrimary() ? 130 : 80;
+      this.player.x = clamp(this.player.x + this.player.vx * dt, this.camX + padL, this.camX + W - padR);
       this.player.z = clamp01(this.player.z + this.player.vz * dt);
       this.player.hop = 30 + (1 - this.player.z) * 50;
       this.camLean += (az * 0.1 - this.camLean) * 5 * dt;
+      if (this.shipThrust > 0.6 && this.frame % 2 === 0) {
+        this.particles.push({
+          x: this.player.x - 22,
+          z: this.player.z,
+          hop: this.player.hop,
+          vx: -80 - Math.random() * 40,
+          vz: (Math.random() - 0.5) * 0.1,
+          vHop: (Math.random() - 0.5) * 20,
+          life: 0.25,
+          color: Math.random() > 0.5 ? C.pad : C.warn,
+          size: 3,
+        });
+      }
 
       for (const g of this.gates) {
-        if (
-          !g.hit &&
-          Math.abs(this.level.scroll - g.x) < 45 &&
-          zOverlap(this.player.z, g.z, 0.22)
-        ) {
+        if (!g.hit && Math.abs(this.player.x - g.x) < 88 && zOverlap(this.player.z, g.z, 0.24)) {
           g.hit = true;
           this.level.gatesCleared++;
           this.scrap += 5;
+          this.score += 250;
+          this.popScore(this.player.x, this.player.z, this.player.hop, "+GATE");
           this.announce(`GATE ${this.level.gatesCleared}/${this.gates.length} · ${laneLabel(g.z)}`);
           this.burst(this.player.x, this.player.z, this.player.hop, C.warn, 10);
+          sfx.gate();
           if (this.level.gatesCleared >= this.gates.length) {
             this.setGoalPhase2();
             this.announce("NIX: Corridor clean — SERAPH inbound ahead!", 2.8);
@@ -1386,16 +1744,19 @@ export class Game {
       for (const ring of this.circRings) {
         if (
           !ring.hit &&
-          Math.abs(this.level.scroll - ring.x) < 55 &&
-          zOverlap(this.player.z, ring.z, 0.3)
+          Math.abs(this.player.x - ring.x) < 80 &&
+          zOverlap(this.player.z, ring.z, 0.28)
         ) {
           ring.hit = true;
           this.level.circCleared++;
           this.scrap += 6;
+          this.score += 300;
+          this.popScore(this.player.x, this.player.z, this.player.hop, "+CIRC");
           this.announce(
             `CIRC ${this.level.circCleared}/${this.level.circNeeded} · ${laneLabel(ring.z)}`,
           );
           this.burst(this.player.x, this.player.z, this.player.hop, C.cyan, 12);
+          sfx.gate();
           if (this.level.circCleared >= this.level.circNeeded) {
             this.mode = "clear";
             this.announce("LEO INSERTION · CLEAN", 3);
@@ -1404,23 +1765,42 @@ export class Game {
         }
       }
     } else {
-      // EVA — full 2.5D free flight
+      // EVA — hold JUMP for thrust, S/stick-down still depth; hop damps with dt
       if (this.level.goalPhase === 2) this.level.scroll += 40 * dt;
-      this.camX = clamp(this.player.x - W * 0.4, 0, Math.max(this.level.length - W, this.level.scroll));
-      if (this.level.goalPhase === 2) this.camX = Math.max(this.camX, this.level.scroll);
-      const ax = this.input.axisX();
-      const az = this.input.axisZ();
+      const { ax, az } = this.axes();
       this.player.vx += ax * 420 * dt * mob;
       this.player.vz += az * 0.9 * dt * mob;
-      this.player.vx *= 0.96;
-      this.player.vz *= 0.96;
-      if (this.input.jumpJust()) this.player.vHop = 280;
-      this.player.vHop -= 200 * dt;
+      const drag = Math.exp(-2.4 * dt);
+      this.player.vx *= drag;
+      this.player.vz *= drag;
+      if (this.input.jumpHeld()) this.player.vHop += 520 * dt * mob;
+      else this.player.vHop -= 260 * dt;
+      if (this.input.jumpJust()) sfx.jump();
+      if (this.input.jumpHeld() && this.frame % 2 === 0) {
+        this.particles.push({
+          x: this.player.x,
+          z: this.player.z,
+          hop: this.player.hop - 8,
+          vx: (Math.random() - 0.5) * 20,
+          vz: 0,
+          vHop: -40 - Math.random() * 30,
+          life: 0.22,
+          color: C.cyan,
+          size: 2,
+        });
+      }
       if (ax) this.player.facing = ax > 0 ? 1 : -1;
       this.player.x += this.player.vx * dt;
       this.player.z = clamp01(this.player.z + this.player.vz * dt);
       this.player.hop = clamp(this.player.hop + this.player.vHop * dt, 0, 160);
       this.player.x = clamp(this.player.x, 40, this.level.length - 40);
+      this.camXTarget = clamp(
+        this.player.x - W * 0.4,
+        0,
+        Math.max(this.level.length - W, this.level.scroll),
+      );
+      if (this.level.goalPhase === 2) this.camXTarget = Math.max(this.camXTarget, this.level.scroll);
+      this.camX += (this.camXTarget - this.camX) * (1 - Math.exp(-6 * dt));
       this.camLean += (az * 0.12 - this.camLean) * 5 * dt;
       for (const p of this.level.platforms) {
         if (
@@ -1435,7 +1815,15 @@ export class Game {
     }
 
     this.syncStage();
-    if (this.input.shoot()) this.fireWeapon();
+    const shooting = this.input.shoot();
+    if (this.weapon === "rail") {
+      if (shooting) this.railCharge = Math.min(1.15, this.railCharge + dt);
+      else if (this.wasShooting && this.railCharge > 0.15) {
+        this.fireRail(this.railCharge);
+        this.railCharge = 0;
+      } else this.railCharge = 0;
+    } else if (shooting) this.fireWeapon();
+    this.wasShooting = shooting;
     if (this.input.specialJust()) this.fireSpecial();
     this.drivePlayerAnim(dt);
 
@@ -1457,57 +1845,75 @@ export class Game {
       if (b.friendly) {
         for (const e of this.enemies) {
           if (e.dead) continue;
+          if (b.hits.has(e.uid)) continue;
           if (
-            zOverlap(b.z, e.z, 0.28) &&
-            Math.hypot(b.x - e.x, b.hop - (e.hop + 10)) < 28 * (0.7 + e.z * 0.3)
+            zOverlap(b.z, e.z, 0.32) &&
+            Math.hypot(b.x - e.x, b.hop - (e.hop + e.h * 0.2)) < this.hitRadius(e)
           ) {
-            if (e.kind === "mirror" && e.flash <= 0 && Math.random() < 0.6) {
+            if (e.kind === "mirror" && !(e.stun && e.stun > 0) && Math.random() < 0.55) {
               b.vx *= -1;
               b.friendly = false;
               b.color = C.blood;
+              e.stun = 0.35;
               continue;
             }
-            e.hp -= b.dmg;
+            let dmg = b.dmg;
+            if (e.kind === "walker" && this.player.x > e.x) dmg *= 1.85;
+            e.hp -= dmg;
             e.flash = 0.1;
+            b.hits.add(e.uid);
+            sfx.hit();
             if (!b.pierce) b.life = 0;
-            if (b.blast) this.aoe(b.x, b.z, b.hop, b.blast, b.dmg * 0.6);
+            if (b.blast) this.aoe(b.x, b.z, b.hop, b.blast, b.dmg * 0.6, e.uid);
             if (e.hp <= 0) this.killEnemy(e);
+            if (!b.pierce) break;
           }
         }
-        if (this.boss && !this.boss.dead) {
+        if (this.boss && !this.boss.dead && b.life > 0) {
           const boss = this.boss;
-          if (
-            zOverlap(b.z, boss.z, 0.35) &&
-            Math.hypot(b.x - boss.x, b.hop - boss.hop) < 55
-          ) {
-            boss.hp -= b.dmg;
-            boss.flash = 0.12;
-            if (!b.pierce) b.life = 0;
-            this.burst(b.x, b.z, b.hop, C.warn, 4);
-            if (boss.hp <= 0) {
-              boss.dead = true;
-              this.level.bossDefeated = true;
-              this.burst(boss.x, boss.z, boss.hop, C.cyan, 40);
-              this.scrap += boss.scrap ?? 40;
-              this.score += 2500;
-              this.shake = 16;
-              if (this.levelId === 2) {
-                this.circRings = [
-                  { x: this.level.scroll + 280, z: 0.35, hit: false },
-                  { x: this.level.scroll + 480, z: 0.65, hit: false },
-                  { x: this.level.scroll + 680, z: 0.45, hit: false },
-                ];
-                this.level.circCleared = 0;
-                this.announce("NIX: Hold circularization — thread the rings ahead!", 3.2);
-                this.mode = "play";
-              } else if (this.levelId === 1) {
-                this.boardReady = true;
-                this.mode = "play";
-                this.announce("NIX: Path clear — keep RIGHT, board BLACK FINCH!", 3.2);
-              } else {
-                this.mode = "clear";
-                this.announce(`${BOSS[this.levelId].name} DOWN`, 3);
-                if (this.levelId === 3) this.stinger = true;
+          if (!b.hits.has(boss.uid)) {
+            if (
+              zOverlap(b.z, boss.z, 0.35) &&
+              Math.hypot(b.x - boss.x, b.hop - boss.hop) < this.hitRadius(boss)
+            ) {
+              let dmg = b.dmg;
+              if (boss.kind === "prime" && boss.phase === 2) dmg *= 0.4;
+              if (boss.kind === "reaper" && boss.phase < 3) dmg *= 0.7;
+              if (boss.kind === "seraph" && boss.phase < 3) dmg *= 0.75;
+              boss.hp -= dmg;
+              boss.flash = 0.12;
+              b.hits.add(boss.uid);
+              if (!b.pierce) b.life = 0;
+              this.burst(b.x, b.z, b.hop, C.warn, 4);
+              sfx.hit();
+              if (boss.hp <= 0) {
+                boss.dead = true;
+                this.level.bossDefeated = true;
+                this.burst(boss.x, boss.z, boss.hop, C.cyan, 40);
+                this.scrap += boss.scrap ?? 40;
+                this.score += 2500;
+                this.popScore(boss.x, boss.z, boss.hop, "+2500", C.cyan);
+                this.shake = 16;
+                this.hitStop = 0.16;
+                sfx.explode();
+                if (this.levelId === 2) {
+                  this.circRings = [
+                    { x: this.player.x + 280, z: 0.35, hit: false },
+                    { x: this.player.x + 520, z: 0.65, hit: false },
+                    { x: this.player.x + 760, z: 0.45, hit: false },
+                  ];
+                  this.level.circCleared = 0;
+                  this.announce("NIX: Hold circularization — thread the rings ahead!", 3.2);
+                  this.mode = "play";
+                } else if (this.levelId === 1) {
+                  this.boardReady = true;
+                  this.mode = "play";
+                  this.announce("NIX: Path clear — keep RIGHT, board BLACK FINCH!", 3.2);
+                } else {
+                  this.mode = "clear";
+                  this.announce(`${BOSS[this.levelId].name} DOWN`, 3);
+                  if (this.levelId === 3) this.stinger = true;
+                }
               }
             }
           }
@@ -1527,17 +1933,43 @@ export class Game {
     for (const p of this.pickups) {
       p.life -= dt;
       p.hop += Math.sin(this.frame * 0.2) * 0.2;
+      const pull = Math.hypot(
+        this.player.x - p.x,
+        (this.player.z - p.z) * 160,
+        this.player.hop - p.hop,
+      );
+      if (pull < 120) {
+        const k = 6 * dt;
+        p.x += (this.player.x - p.x) * k;
+        p.z += (this.player.z - p.z) * k;
+        p.hop += (this.player.hop - p.hop) * k * 0.4;
+      }
       if (
         zOverlap(this.player.z, p.z, 0.25) &&
         Math.hypot(this.player.x - p.x, this.player.hop - p.hop) < 36
       ) {
         if (p.kind === "scrap") {
           this.scrap += 4;
+          this.score += 40;
           this.announce("+SCRAP");
+          sfx.pickup();
+        } else if (p.kind === "health") {
+          const heal = 22 + this.upgrades.armor * 4;
+          this.player.hp = Math.min(this.player.maxHp, this.player.hp + heal);
+          this.announce(`+${heal} HP`);
+          this.popScore(p.x, p.z, p.hop, `+${heal} HP`, C.pad);
+          sfx.heal();
         } else {
-          this.weapon = p.kind;
-          this.ammo = 40 + this.upgrades.mag * 15;
-          this.announce(WEAPONS[p.kind].name);
+          const incoming = WEAPON_RANK[p.kind];
+          const current = WEAPON_RANK[this.weapon];
+          if (incoming < current && this.ammo > 12 && this.weapon !== "pistol") {
+            this.announce(`LEFT ${WEAPONS[p.kind].name}`);
+          } else {
+            this.weapon = p.kind;
+            this.ammo = 40 + this.upgrades.mag * 15;
+            this.announce(WEAPONS[p.kind].name);
+          }
+          sfx.pickup();
         }
         p.life = 0;
         this.burst(p.x, p.z, p.hop, C.warn, 6);
@@ -1552,6 +1984,11 @@ export class Game {
       p.life -= dt;
     }
     this.particles = this.particles.filter((p) => p.life > 0);
+    for (const pop of this.scorePops) {
+      pop.life -= dt;
+      pop.hop += 28 * dt;
+    }
+    this.scorePops = this.scorePops.filter((p) => p.life > 0);
 
     if (this.levelId === 1) {
       for (const tech of this.techs) {
@@ -1565,15 +2002,19 @@ export class Game {
           this.scrap += 8;
           this.score += 300;
           this.announce(`TECH RESCUED ${this.rescued}/${this.techs.length}`);
+          sfx.pickup();
+          this.popScore(tech.x, tech.z, 20, "+300");
         }
       }
     }
   }
 
-  private aoe(x: number, z: number, hop: number, r: number, dmg: number) {
+  private aoe(x: number, z: number, hop: number, r: number, dmg: number, skipUid?: number) {
     this.burst(x, z, hop, C.pad, 16);
+    sfx.explode();
     for (const e of this.enemies) {
-      if (!e.dead && Math.hypot(e.x - x, (e.z - z) * 160) < r && zOverlap(e.z, z, 0.35)) {
+      if (e.dead || e.uid === skipUid) continue;
+      if (Math.hypot(e.x - x, (e.z - z) * 160) < r && zOverlap(e.z, z, 0.35)) {
         e.hp -= dmg;
         e.flash = 0.1;
         if (e.hp <= 0) this.killEnemy(e);
@@ -1582,15 +2023,54 @@ export class Game {
   }
 
   private update(dt: number) {
+    if (this.mode === "play" || this.mode === "boss") {
+      if (this.input.pauseJust() || this.input.just("escape")) {
+        this.pausedFrom = this.mode;
+        this.mode = "pause";
+        sfx.ui();
+        return;
+      }
+    }
+    music.tick(
+      dt,
+      this.bgThreat,
+      this.mode === "play" || this.mode === "boss",
+    );
+    if (this.mode === "pause") {
+      if (this.input.confirm() || this.input.pauseJust()) {
+        this.mode = this.pausedFrom ?? "play";
+        this.pausedFrom = null;
+        sfx.ui();
+      } else if (this.input.back()) {
+        this.mode = "title";
+        this.pausedFrom = null;
+        sfx.ui();
+      }
+      return;
+    }
+    if (this.mode === "howto") {
+      if (this.input.confirm() || this.input.back()) {
+        this.mode = "title";
+        sfx.ui();
+      }
+      return;
+    }
     if (this.mode === "title") {
       const nav = this.input.menuNav();
-      if (nav === 1) this.menuIndex = (this.menuIndex + 1) % 3;
-      if (nav === -1) this.menuIndex = (this.menuIndex + 2) % 3;
+      if (nav === 1) this.menuIndex = (this.menuIndex + 1) % 4;
+      if (nav === -1) this.menuIndex = (this.menuIndex + 3) % 4;
       if (this.input.confirm()) {
+        sfx.confirm();
         this.scrap = 0;
         this.upgrades = defaultUpgrades();
         this.totalScore = 0;
-        this.beginLevel((this.menuIndex + 1) as LevelId);
+        this.continues = 0;
+        if (this.menuIndex === 1) {
+          this.mode = "howto";
+          return;
+        }
+        const id = (this.menuIndex === 0 ? 1 : this.menuIndex === 2 ? 2 : 3) as LevelId;
+        this.beginLevel(id);
       }
       return;
     }
@@ -1598,6 +2078,7 @@ export class Game {
       if (this.input.confirm()) {
         this.mode = "play";
         this.announce("GO!", 1);
+        sfx.confirm();
       }
       if (this.input.back()) this.mode = "title";
       return;
@@ -1626,12 +2107,17 @@ export class Game {
           if (next <= 3) this.beginLevel(next);
           else this.mode = "victory";
         } else {
-          const cost = 8 + this.upgrades[pick] * 6;
-          if (this.scrap >= cost) {
-            this.scrap -= cost;
-            this.upgrades[pick] += 1;
-            this.announce(`UPGRADED ${pick.toUpperCase()}`);
-          } else this.announce("NEED MORE SCRAP");
+          if (this.upgrades[pick] >= 5) {
+            this.announce("MAXED");
+          } else {
+            const cost = 8 + this.upgrades[pick] * 6;
+            if (this.scrap >= cost) {
+              this.scrap -= cost;
+              this.upgrades[pick] += 1;
+              this.announce(`UPGRADED ${pick.toUpperCase()}`);
+              sfx.pickup();
+            } else this.announce("NEED MORE SCRAP");
+          }
         }
       }
       return;
@@ -1640,6 +2126,9 @@ export class Game {
       this.msgTimer -= dt;
       if (this.input.confirm() || this.msgTimer < -1) {
         this.totalScore += this.score;
+        this.score = 0;
+        this.bestScore = Math.max(this.bestScore, this.totalScore);
+        writeBest(this.bestScore);
         if (this.levelId === 3) this.mode = "victory";
         else {
           this.mode = "upgrade";
@@ -1650,7 +2139,10 @@ export class Game {
       return;
     }
     if (this.mode === "dead") {
-      if (this.input.confirm()) this.beginLevel(this.levelId);
+      if (this.input.confirm()) {
+        this.continues += 1;
+        this.beginLevel(this.levelId);
+      }
       if (this.input.back()) this.mode = "title";
       return;
     }
@@ -2195,6 +2687,15 @@ export class Game {
           scale: sp.scale,
           bob: Math.sin(this.frame * 0.2) * 3,
         }) || drawPickup(ctx, p.kind === "scrap" ? "scrap" : "weapon", sp.sx, sp.sy, this.frame);
+        ctx.fillStyle = p.kind === "scrap" ? C.warn : p.kind === "health" ? C.pad : C.cyan;
+        ctx.font = "10px 'Share Tech Mono', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(
+          p.kind === "scrap" ? "SCRAP" : p.kind === "health" ? "+HP" : WEAPONS[p.kind].name,
+          sp.sx,
+          sp.sy - 28 * sp.scale,
+        );
+        ctx.textAlign = "left";
       } else if (item.kind === "tech") {
         const t = item.ref;
         const sp = project({ x: t.x, z: t.z, hop: 0 }, this.stage);
@@ -2229,8 +2730,7 @@ export class Game {
         );
       } else if (item.kind === "gate") {
         const g = item.ref;
-        const worldX = this.levelId === 2 ? g.x - this.level.scroll + this.camX + 300 : g.x;
-        const sp = project({ x: worldX, z: g.z, hop: 40 }, this.stage);
+        const sp = project({ x: g.x, z: g.z, hop: 40 }, this.stage);
         if (item.circ) {
           drawCircRing(ctx, sp.sx, sp.sy, false);
           const idx = this.circRings.indexOf(g) + 1;
@@ -2263,7 +2763,7 @@ export class Game {
           facing: e.facing,
           h: baseH,
           scale: sp.scale,
-          alpha: e.kind === "ghost" ? 0.55 : e.flash > 0 ? 0.55 : 1,
+          alpha: e.kind === "ghost" ? ((e.revealed ?? 0) > 0 ? 0.85 : 0.08) : e.flash > 0 ? 0.55 : 1,
           flash: e.flash > 0,
         });
         if (!ok) {
@@ -2277,6 +2777,25 @@ export class Game {
           ctx.fillText(`SPINE · ${laneLabel(e.z)}`, sp.sx, sp.sy - 55 * sp.scale);
           ctx.textAlign = "left";
           glow(ctx, sp.sx, sp.sy, 40 * sp.scale, C.warn, 0.2);
+        }
+        if (!e.dead && (e.kind === "walker" || e.kind === "spine" || e.kind === "beetle")) {
+          const bw = 28 * sp.scale;
+          rr(ctx, sp.sx - bw / 2, sp.sy - (e.h + 14) * sp.scale, bw, 3, C.soot);
+          rr(
+            ctx,
+            sp.sx - bw / 2,
+            sp.sy - (e.h + 14) * sp.scale,
+            bw * clamp(e.hp / e.maxHp, 0, 1),
+            3,
+            e.kind === "walker" ? C.pad : C.cyan,
+          );
+        }
+        if (e.kind === "walker") {
+          ctx.fillStyle = C.warn;
+          ctx.font = "9px 'Share Tech Mono', monospace";
+          ctx.textAlign = "center";
+          ctx.fillText("REAR", sp.sx + 18 * sp.scale, sp.sy - 8 * sp.scale);
+          ctx.textAlign = "left";
         }
       } else if (item.kind === "boss") {
         const boss = item.ref;
@@ -2296,10 +2815,13 @@ export class Game {
         drawShadow(ctx, sp, this.player.kind === "ship" ? 30 : 18);
         const inv = this.invuln > 0 && Math.floor(this.frame / 2) % 2 === 0;
         if (this.player.kind === "ship") {
+          if (this.muzzle > 0) {
+            glow(ctx, sp.sx + 28 * sp.scale, sp.sy, 18 * sp.scale, C.warn, 0.5);
+          }
           const ok = blitSprite(ctx, this.animImage(this.player), sp.sx, sp.sy, {
             h: 72,
             scale: sp.scale,
-            alpha: inv ? 0.4 : 1,
+            alpha: inv ? 0.4 : this.player.flash > 0 ? 0.65 : 1,
           });
           if (!ok) drawShip(ctx, sp.sx, sp.sy, this.shipThrust, this.player.flash > 0);
           else if (this.shipThrust > 0) {
@@ -2317,14 +2839,29 @@ export class Game {
               clip && clip.frames.length
                 ? ((this.player.anim.time * clip.fps) % clip.frames.length) / clip.frames.length
                 : 0;
-            // Two steps per cycle: lift on pass, plant on contact
             bob = -Math.abs(Math.sin(phase * Math.PI * 2)) * 4.5 * sp.scale;
+          }
+          if (this.landSquash > 0) bob += 5 * (this.landSquash / 0.12) * sp.scale;
+          const squash = this.landSquash > 0 ? 1 - this.landSquash * 1.4 : 1;
+          if (this.muzzle > 0) {
+            const dir = this.player.facing;
+            glow(
+              ctx,
+              sp.sx + dir * 22 * sp.scale,
+              sp.sy - 10 * sp.scale + bob,
+              16 * sp.scale,
+              C.warn,
+              0.55,
+            );
+          }
+          if (this.weapon === "rail" && this.railCharge > 0.1) {
+            glow(ctx, sp.sx, sp.sy - 8 * sp.scale, 18 * sp.scale * this.railCharge, C.earth, 0.35);
           }
           const ok = blitSprite(ctx, this.animImage(this.player), sp.sx, sp.sy, {
             facing: this.player.facing,
             h: this.player.kind === "eva" ? 84 : 78,
-            scale: sp.scale,
-            alpha: inv ? 0.4 : 1,
+            scale: sp.scale * squash,
+            alpha: inv ? 0.4 : this.player.flash > 0 ? 0.65 : 1,
             bob,
             anchor: this.player.kind === "ground" ? "feet" : "center",
           });
@@ -2345,8 +2882,7 @@ export class Game {
     // bullets + particles (projected)
     for (const b of this.bullets) {
       const sp = project(b, this.stage);
-      glow(ctx, sp.sx, sp.sy, b.r * 3 * sp.scale, b.color, 0.25);
-      rr(ctx, sp.sx - b.r * sp.scale, sp.sy - b.r * sp.scale, b.r * 2 * sp.scale, b.r * 2 * sp.scale, b.color);
+      drawBullet(ctx, sp.sx, sp.sy, sp.scale, b.vx, b.vHop, b.r, b.color, b.look);
     }
     for (const p of this.particles) {
       const sp = project(p, this.stage);
@@ -2354,122 +2890,166 @@ export class Game {
       rr(ctx, sp.sx, sp.sy, p.size * sp.scale, p.size * sp.scale, p.color);
       ctx.globalAlpha = 1;
     }
+    if (this.empPulse > 0) {
+      const sp = project(this.player, this.stage);
+      const u = 1 - this.empPulse;
+      ctx.save();
+      ctx.strokeStyle = C.cyan;
+      ctx.globalAlpha = this.empPulse * 0.85;
+      ctx.lineWidth = 3 + (1 - u) * 4;
+      ctx.beginPath();
+      ctx.arc(sp.sx, sp.sy, 20 + u * 220, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = C.warn;
+      ctx.globalAlpha = this.empPulse * 0.4;
+      ctx.beginPath();
+      ctx.arc(sp.sx, sp.sy, 12 + u * 160, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+    ctx.textAlign = "center";
+    for (const pop of this.scorePops) {
+      const sp = project(pop, this.stage);
+      ctx.globalAlpha = clamp(pop.life * 1.6, 0, 1);
+      ctx.fillStyle = pop.color;
+      ctx.font = "13px 'Black Ops One', sans-serif";
+      ctx.fillText(pop.text, sp.sx, sp.sy);
+      ctx.globalAlpha = 1;
+    }
+    ctx.textAlign = "left";
   }
 
   private renderHud() {
     const ctx = this.ctx;
-    ctx.fillStyle = "rgba(11,18,32,0.72)";
-    ctx.fillRect(0, 0, W, 36);
-    ctx.fillStyle = C.bone;
-    ctx.font = "12px 'Share Tech Mono', monospace";
-    ctx.fillText(`HP ${Math.ceil(this.player.hp)}/${this.player.maxHp}`, 12, 22);
-    rr(ctx, 110, 12, 120, 10, C.soot);
-    rr(
-      ctx,
-      110,
-      12,
-      120 * clamp(this.player.hp / this.player.maxHp, 0, 1),
-      10,
-      this.player.hp < 30 ? C.blood : C.pad,
-    );
-    ctx.fillStyle = C.cyan;
-    ctx.fillText(WEAPONS[this.weapon].name, 250, 22);
-    ctx.fillStyle = C.warn;
-    ctx.fillText(this.weapon === "pistol" ? "∞" : `AMMO ${this.ammo}`, 400, 22);
-    ctx.fillStyle = C.bone;
-    ctx.fillText(`EMP ${this.special}`, 500, 22);
-    ctx.fillText(`SCRAP ${this.scrap}`, 560, 22);
-    ctx.fillStyle = C.cyan;
-    ctx.fillText(this.level.objective, 640, 22);
+    const touch = isTouchPrimary();
+    const fs = touch ? 14 : 12;
+    const barH = touch ? 56 : 50;
+    ctx.fillStyle = "rgba(11,18,32,0.82)";
+    ctx.fillRect(0, 0, W, barH);
+    ctx.fillStyle = "rgba(46,196,182,0.35)";
+    ctx.fillRect(0, barH - 1, W, 1);
 
-    // Threat meter — tracks Intensity Director sample
-    {
-      const tx = 640;
-      const ty = 30;
-      ctx.fillStyle = "rgba(11,18,32,0.65)";
-      ctx.fillRect(tx, ty, 120, 8);
-      const fill = 120 * this.intensity.intensity;
-      ctx.fillStyle =
-        this.intensity.intensity > 0.75
-          ? C.blood
-          : this.intensity.intensity > 0.45
-            ? C.pad
-            : C.warn;
-      ctx.fillRect(tx, ty, fill, 8);
-      ctx.strokeStyle = C.cyan;
-      ctx.strokeRect(tx + 0.5, ty + 0.5, 119, 7);
-      ctx.fillStyle = "rgba(244,237,228,0.7)";
-      ctx.font = "9px 'Share Tech Mono', monospace";
-      ctx.fillText(`THREAT ${Math.round(this.intensity.intensity * 100)}`, tx + 124, ty + 8);
+    const hpRatio = clamp(this.player.hp / this.player.maxHp, 0, 1);
+    ctx.fillStyle = C.bone;
+    ctx.font = `${fs}px 'Share Tech Mono', monospace`;
+    ctx.fillText(`HP ${Math.ceil(this.player.hp)}`, 12, 18);
+    rr(ctx, 78, 8, 120, 12, C.soot);
+    rr(ctx, 78, 8, 120 * hpRatio, 12, hpRatio < 0.28 ? C.blood : C.pad);
+
+    ctx.fillStyle = C.cyan;
+    ctx.fillText(WEAPONS[this.weapon].name, 210, 18);
+    ctx.fillStyle = C.warn;
+    ctx.fillText(this.weapon === "pistol" ? "∞" : `${this.ammo}`, 352, 18);
+    if (this.weapon === "rail" && this.railCharge > 0) {
+      rr(ctx, 348, 22, 56, 5, C.soot);
+      rr(ctx, 348, 22, 56 * clamp(this.railCharge / 1.15, 0, 1), 5, C.earth);
+    }
+    if (WEAPONS[this.weapon].heat) {
+      rr(ctx, 348, 22, 56, 5, C.soot);
+      rr(ctx, 348, 22, 56 * clamp(this.heat, 0, 1), 5, this.heat > 0.9 ? C.blood : C.cyan);
+    }
+    ctx.fillStyle = C.bone;
+    ctx.fillText(`EMP ${this.special}/${this.specialMax}`, 420, 18);
+    ctx.fillText(`SCRAP ${this.scrap}`, 530, 18);
+    ctx.fillStyle = C.warn;
+    ctx.fillText(`${this.score}`, 640, 18);
+    if (this.combo > 1) {
+      ctx.fillStyle = C.pad;
+      ctx.font = `${touch ? 16 : 14}px 'Black Ops One', sans-serif`;
+      ctx.fillText(`x${this.combo}`, 720, 20);
+      ctx.font = `${fs}px 'Share Tech Mono', monospace`;
     }
 
-    // depth meter
+    ctx.fillStyle = C.cyan;
+    ctx.font = `${touch ? 12 : 11}px 'Share Tech Mono', monospace`;
+    ctx.fillText(this.level.objective, 12, 38);
+
     ctx.fillStyle = "rgba(11,18,32,0.55)";
     ctx.fillRect(W - 28, 80, 14, 120);
     rr(ctx, W - 26, 82 + (1 - this.player.z) * 100, 10, 12, C.warn);
-    // Objective depth tick (next gate / circ / spine / cavity)
     const objZ = this.objectiveDepthZ();
     if (objZ !== null) {
+      const pulse = 0.55 + 0.45 * Math.sin(this.frame * 0.2);
       ctx.fillStyle = C.cyan;
+      ctx.globalAlpha = pulse;
       ctx.fillRect(W - 30, 82 + (1 - objZ) * 100 + 4, 18, 3);
+      ctx.globalAlpha = 1;
     }
     ctx.fillStyle = C.cyan;
     ctx.font = "9px monospace";
     ctx.fillText("NEAR", W - 42, 210);
     ctx.fillText("FAR", W - 36, 78);
 
+    const depthHint = touch ? "stick ↑↓ depth" : "W/S depth";
+    const y2 = touch ? 72 : 66;
     if (this.levelId === 1) {
-      ctx.fillStyle = this.level.killClock < 30 ? C.blood : C.warn;
+      const urgent = this.level.killClock < 30;
+      ctx.fillStyle = urgent ? C.blood : C.warn;
+      if (urgent && Math.floor(this.frame / 8) % 2 === 0) ctx.globalAlpha = 0.55;
       const truckHp = this.truck ? ` · TRUCK ${Math.ceil(this.truck.hp)}` : "";
       let phaseHint = "";
       if (this.level.goalPhase === 1 && this.truck && !this.truck.arrived) {
-        phaseHint = ` · PAD 7 ${Math.max(0, Math.floor(PAD7_X - this.truck.x))}m`;
+        phaseHint = this.truck.moving
+          ? ` · PAD 7 ${Math.max(0, Math.floor(PAD7_X - this.truck.x))}m`
+          : " · STAY WITH THE TRUCK";
       } else if (this.boardReady) {
         phaseHint = " · BOARD FINCH →";
       } else if (this.level.goalPhase === 2) {
         phaseHint = this.level.bossSpawned ? " · FIGHT UP THE GANTRY →" : " · CLIMB RIGHT →";
       }
+      ctx.font = `${fs}px 'Share Tech Mono', monospace`;
       ctx.fillText(
-        `KILL-CLOCK ${Math.ceil(this.level.killClock)}s · TECHS ${this.rescued}/${this.techs.length}${truckHp}${phaseHint}`,
+        `CLOCK ${Math.ceil(this.level.killClock)}s · TECHS ${this.rescued}/${this.techs.length}${truckHp}${phaseHint}`,
         12,
-        54,
+        y2,
       );
+      ctx.globalAlpha = 1;
     }
     if (this.levelId === 2) {
       ctx.fillStyle = C.warn;
+      ctx.font = `${fs}px 'Share Tech Mono', monospace`;
       let line: string;
       if (this.level.goalPhase === 1) {
-        line = `GATES ${this.level.gatesCleared}/${this.gates.length} · match depth (W/S)`;
+        line = `GATES ${this.level.gatesCleared}/${this.gates.length} · fly THROUGH the ring · ${depthHint}`;
       } else if (!this.level.bossDefeated) {
-        line = this.level.bossSpawned ? "SERAPH · hold depth lane" : "SERAPH INBOUND →";
+        line = this.level.bossSpawned ? "SERAPH · match its depth tick" : "SERAPH INBOUND →";
       } else {
-        line = `CIRC ${this.level.circCleared}/${this.level.circNeeded} · rings ahead · match depth`;
+        line = `CIRC ${this.level.circCleared}/${this.level.circNeeded} · thread rings`;
       }
-      ctx.fillText(line, 12, 54);
+      ctx.fillText(line, 12, y2);
     }
     if (this.levelId === 3) {
       ctx.fillStyle = C.warn;
+      ctx.font = `${fs}px 'Share Tech Mono', monospace`;
       let line: string;
       if (this.level.goalPhase === 1) {
-        line = `SPINES ${this.level.spinesDown}/${this.level.spinesNeeded} · keep RIGHT`;
+        line = `SPINES ${this.level.spinesDown}/${this.level.spinesNeeded} · beetles first · keep RIGHT`;
       } else if (!this.level.bossSpawned) {
         const dist = Math.max(0, Math.floor(PRIME_ARENA_X - this.player.x));
-        line = `PRIME CAVITY → ${dist}m · keep RIGHT`;
+        line = `PRIME CAVITY → ${dist}m · hold JUMP to thrust`;
       } else {
         line = "PRIME · rupture the core";
       }
-      ctx.fillText(line, 12, 54);
+      ctx.fillText(line, 12, y2);
     }
 
     if (this.boss && !this.boss.dead) {
       const name = BOSS[this.levelId].name;
+      const by = 90;
       ctx.fillStyle = "rgba(11,18,32,0.8)";
-      ctx.fillRect(W / 2 - 180, 44, 360, 28);
+      ctx.fillRect(W / 2 - 180, by, 360, 28);
       ctx.fillStyle = C.cyan;
       ctx.font = "11px 'Share Tech Mono', monospace";
-      ctx.fillText(`SIGNAL · ${name}`, W / 2 - 170, 56);
-      rr(ctx, W / 2 - 170, 62, 340, 8, C.soot);
-      rr(ctx, W / 2 - 170, 62, 340 * clamp(this.boss.hp / this.boss.maxHp, 0, 1), 8, C.cyan);
+      ctx.fillText(`SIGNAL · ${name} · P${this.boss.phase}`, W / 2 - 170, by + 12);
+      rr(ctx, W / 2 - 170, by + 16, 340, 8, C.soot);
+      rr(
+        ctx,
+        W / 2 - 170,
+        by + 16,
+        340 * clamp(this.boss.hp / this.boss.maxHp, 0, 1),
+        8,
+        this.boss.phase >= 3 ? C.pad : C.cyan,
+      );
     }
 
     if (this.msgTimer > 0 || this.mode === "dead") {
@@ -2492,43 +3072,86 @@ export class Game {
     }
   }
 
+  private renderScreenFx() {
+    const ctx = this.ctx;
+    if (this.screenFlash > 0) {
+      ctx.fillStyle = `rgba(180, 230, 255, ${this.screenFlash * 0.45})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+    const hpRatio = this.player.maxHp > 0 ? this.player.hp / this.player.maxHp : 1;
+    if (hpRatio < 0.32 && this.mode !== "dead") {
+      const a = (0.32 - hpRatio) * 1.4 * (0.65 + 0.35 * Math.sin(this.lowHpWarn * 8));
+      const g = ctx.createRadialGradient(W / 2, H / 2, 80, W / 2, H / 2, 520);
+      g.addColorStop(0, "transparent");
+      g.addColorStop(1, `rgba(140, 12, 18, ${a})`);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+    if (
+      this.mode === "play" &&
+      this.levelId === 1 &&
+      this.hintT < 8 &&
+      this.level.goalPhase === 1
+    ) {
+      const fade = this.hintT < 1 ? this.hintT : this.hintT > 7 ? 8 - this.hintT : 1;
+      ctx.globalAlpha = clamp(fade, 0, 0.9);
+      ctx.fillStyle = "rgba(11,18,32,0.72)";
+      ctx.fillRect(W / 2 - 250, H - 78, 500, 44);
+      ctx.fillStyle = C.warn;
+      ctx.font = "13px 'Share Tech Mono', monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(
+        isTouchPrimary()
+          ? "Stay beside the fuel truck · stick UP/DOWN = depth"
+          : "Stay beside the fuel truck · W/S = depth lanes · J fire",
+        W / 2,
+        H - 52,
+      );
+      ctx.textAlign = "left";
+      ctx.globalAlpha = 1;
+    }
+  }
+
   private render() {
     const ctx = this.ctx;
     ctx.save();
     const sx = this.shake ? (Math.random() - 0.5) * this.shake : 0;
     const sy = this.shake ? (Math.random() - 0.5) * this.shake : 0;
     ctx.translate(sx, sy + this.camLean * 20);
-    // slight perspective skew feel via scale
     ctx.translate(W / 2, H / 2);
     ctx.scale(1 + Math.abs(this.camLean) * 0.02, 1);
     ctx.translate(-W / 2, -H / 2);
 
     if (this.mode === "title") {
-      this.renderTitle();
       ctx.restore();
+      this.renderTitle();
+      return;
+    }
+    if (this.mode === "howto") {
+      ctx.restore();
+      this.renderHowto();
       return;
     }
     if (this.mode === "upgrade") {
-      this.renderUpgrade();
       ctx.restore();
+      this.renderUpgrade();
       return;
     }
     if (this.mode === "victory") {
-      this.renderVictory();
       ctx.restore();
+      this.renderVictory();
       return;
     }
 
     this.renderBg();
     this.renderActors();
-    if (this.levelId === 2 && (this.mode === "play" || this.mode === "boss")) {
+    if (this.levelId === 2 && (this.mode === "play" || this.mode === "boss" || this.mode === "pause")) {
       this.renderL2ObjectiveCues();
     }
-    if (this.levelId === 3 && (this.mode === "play" || this.mode === "boss")) {
+    if (this.levelId === 3 && (this.mode === "play" || this.mode === "boss" || this.mode === "pause")) {
       this.renderL3ObjectiveCues();
     }
     const kind = this.levelId === 1 ? "pad" : this.levelId === 2 ? "sky" : "void";
-    // Authored near-camera props for 2.5D cabinet depth
     if (this.levelId === 1) {
       for (let i = 0; i < 3; i++) {
         const x = ((i * 420 - this.camX * 1.35) % (W + 220)) - 60;
@@ -2539,6 +3162,7 @@ export class Game {
     } else {
       drawForegroundProps(ctx, this.camX, this.frame, kind);
     }
+    ctx.restore();
 
     if (this.mode === "briefing") this.renderBriefingOverlay();
     if (this.mode === "clear") this.renderClearOverlay();
@@ -2546,8 +3170,9 @@ export class Game {
       ctx.fillStyle = "rgba(80,0,0,0.35)";
       ctx.fillRect(0, 0, W, H);
     }
+    if (this.mode === "pause") this.renderPauseOverlay();
     this.renderHud();
-    ctx.restore();
+    this.renderScreenFx();
   }
 
   private renderTitle() {
@@ -2575,14 +3200,35 @@ export class Game {
     ctx.fillStyle = C.pad;
     ctx.font = "14px 'Share Tech Mono', monospace";
     ctx.fillText("METAL SLUG DNA  ·  DEPTH LANES  ·  SPACE-PUNK", W / 2, 205);
+    if (this.bestScore > 0) {
+      ctx.fillStyle = C.warn;
+      ctx.font = "12px 'Share Tech Mono', monospace";
+      ctx.fillText(`BEST ${this.bestScore}`, W / 2, 228);
+    }
 
-    const items = ["L1 · EARTH ESCAPE", "L2 · LAUNCH!", "L3 · ORBIT"];
+    // rain over title
+    ctx.strokeStyle = "rgba(174,198,220,0.22)";
+    for (let i = 0; i < 36; i++) {
+      const x = ((i * 97 + this.frame * 8) % (W + 40)) - 20;
+      const y = ((i * 53 + this.frame * 14) % (H + 40)) - 20;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x - 2, y + 12);
+      ctx.stroke();
+    }
+
+    const items = [
+      "▶ START OPERATION",
+      "HOW TO PLAY",
+      "PRACTICE · LAUNCH",
+      "PRACTICE · ORBIT",
+    ];
     items.forEach((label, i) => {
-      const y = 400 + i * 32;
+      const y = 372 + i * 30;
       const sel = i === this.menuIndex;
       if (sel) {
         ctx.fillStyle = "rgba(11,18,32,0.72)";
-        ctx.fillRect(W / 2 - 160, y - 20, 320, 28);
+        ctx.fillRect(W / 2 - 180, y - 20, 360, 28);
       }
       ctx.fillStyle = sel ? C.warn : C.bone;
       ctx.font = sel ? "18px 'Black Ops One', sans-serif" : "15px 'Share Tech Mono', monospace";
@@ -2592,13 +3238,73 @@ export class Game {
     ctx.font = "12px 'Share Tech Mono', monospace";
     ctx.fillText(
       isTouchPrimary()
-        ? "▲▼ select · OK deploy · stick move · FIRE · JUMP · EMP"
-        : "A/D strafe · W/S depth · SPACE jump · J shoot · K EMP · F full screen",
+        ? "▲▼ select · OK · stick move · FIRE hold · JUMP · EMP · II pause"
+        : "A/D strafe · W/S depth · SPACE jump · J shoot · K EMP · P pause · ESC back",
       W / 2,
       510,
     );
     ctx.textAlign = "left";
     this.frame++;
+  }
+
+  private renderHowto() {
+    const ctx = this.ctx;
+    ctx.fillStyle = C.void;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = C.cyan;
+    ctx.font = "14px 'Share Tech Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("FIELD MANUAL", W / 2, 70);
+    ctx.fillStyle = C.bone;
+    ctx.font = "28px 'Black Ops One', sans-serif";
+    ctx.fillText("HOW TO PLAY", W / 2, 110);
+    const touch = isTouchPrimary();
+    const lines = touch
+      ? [
+          "Each level has two goals. Finish 1/2 to unlock 2/2.",
+          "Stick = strafe + depth (NEAR / FAR). Match the cyan tick.",
+          "Hold FIRE. JUMP hops — on orbit, hold JUMP to thrust.",
+          "EMP wipes nearby enemy shots and stuns the grid.",
+          "Earth: stay with the fuel truck or it stalls.",
+          "Launch: fly THROUGH the glowing rings, not beside them.",
+          "Keep moving RIGHT. II pauses.",
+        ]
+      : [
+          "Each level has two goals. Finish 1/2 to unlock 2/2.",
+          "A/D strafe · W/S depth (NEAR / FAR). Match the cyan tick.",
+          "Hold J to shoot · Space jump (orbit: hold Space to thrust).",
+          "K EMP — strips nearby hostile fire and stuns.",
+          "Earth: stay with the fuel truck or it stalls.",
+          "Launch: fly THROUGH the glowing rings, not beside them.",
+          "Keep moving RIGHT. P pauses · Esc from pause returns here.",
+        ];
+    ctx.font = "15px 'Share Tech Mono', monospace";
+    ctx.textAlign = "left";
+    ctx.fillStyle = C.bone;
+    lines.forEach((ln, i) => ctx.fillText(ln, 88, 158 + i * 32));
+    ctx.fillStyle = C.warn;
+    ctx.textAlign = "center";
+    ctx.fillText(touch ? "OK · back" : "ENTER · back", W / 2, 480);
+    ctx.textAlign = "left";
+    this.frame++;
+  }
+
+  private renderPauseOverlay() {
+    const ctx = this.ctx;
+    ctx.fillStyle = "rgba(5,8,16,0.62)";
+    ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = "center";
+    ctx.fillStyle = C.warn;
+    ctx.font = "32px 'Black Ops One', sans-serif";
+    ctx.fillText("PAUSED", W / 2, H / 2 - 10);
+    ctx.fillStyle = C.bone;
+    ctx.font = "14px 'Share Tech Mono', monospace";
+    ctx.fillText(
+      isTouchPrimary() ? "OK resume · TITLE quit" : "ENTER / P resume · ESC title",
+      W / 2,
+      H / 2 + 28,
+    );
+    ctx.textAlign = "left";
   }
 
   private renderBriefingOverlay() {
@@ -2615,27 +3321,31 @@ export class Game {
     const lines =
       this.levelId === 1
         ? [
-            "2.5D PAD WAR — strafe on X, push depth with W/S.",
-            "GOAL 1/2 — Escort the fuel truck to the lit PAD 7 drop.",
-            "GOAL 2/2 — Keep walking RIGHT up gantry decks → board Finch.",
-            "Space jump between decks. Pad Reaper holds the tower.",
+            isTouchPrimary()
+              ? "Stick LEFT/RIGHT to run. Stick UP/DOWN for depth lanes."
+              : "A/D run. W/S switch NEAR / MID / FAR lanes.",
+            "GOAL 1/2 — Stay with the fuel truck until the lit PAD 7 drop.",
+            "GOAL 2/2 — Keep walking RIGHT up the gantry · board Finch.",
+            isTouchPrimary() ? "JUMP between decks. EMP clears incoming fire." : "Space jump. K EMP clears incoming fire.",
             "",
             "When in doubt: keep moving RIGHT.",
           ]
         : this.levelId === 2
           ? [
-              "ASCENT CORRIDOR — auto-scroll; gates sit on depth lanes.",
-              "GOAL 1/2 — Thread EVERY gate (match NEAR/MID/FAR with W/S).",
-              "GOAL 2/2 — Kill SERAPH, then thread CIRC rings ahead.",
-              "Missed gates re-queue ahead. Depth meter shows the target lane.",
+              "Auto-scroll ascent. Fly THROUGH the glowing rings — not beside them.",
+              "GOAL 1/2 — Thread every gate (match the cyan depth tick).",
+              "GOAL 2/2 — Kill SERAPH, then thread CIRC rings.",
+              "Missed gates re-queue ahead. Stay off the screen edges.",
               "",
-              "When in doubt: stay alive and match the next gate's depth.",
+              "When in doubt: match depth, then center the ship in the ring.",
             ]
           : [
-              "ORBITAL 2.5D — free-fly X / depth / hop.",
-              "GOAL 1/2 — Sever three marked spines (keep RIGHT to find them).",
-              "GOAL 2/2 — Fly RIGHT into the lit PRIME cavity, rupture the core.",
-              "Repair Beetles knit spines — hunt them first. SPACE = thrust.",
+              isTouchPrimary()
+                ? "Hold JUMP to thrust. Stick for X / depth. Release to drift."
+                : "Hold SPACE to thrust. WASD for X / depth. Release to drift.",
+              "GOAL 1/2 — Sever three spines. Kill Repair Beetles first.",
+              "GOAL 2/2 — Fly RIGHT into the lit PRIME cavity.",
+              "Ghosts are nearly invisible until they fire. EMP stuns mirrors.",
               "",
               "When in doubt: keep moving RIGHT.",
             ];
@@ -2710,7 +3420,7 @@ export class Game {
           ? isTouchPrimary()
             ? "OK to deploy"
             : "ENTER to deploy"
-          : `Lv ${this.upgrades[r.key]}  ·  cost ${cost}`;
+          : `Lv ${this.upgrades[r.key]}  ·  cost ${cost}  ·  ${UPGRADE_BLURB[r.key]}`;
       ctx.fillStyle = sel ? C.warn : C.bone;
       ctx.font = sel ? "18px 'Black Ops One', sans-serif" : "15px 'Share Tech Mono', monospace";
       ctx.fillText(`${sel ? "▸ " : "  "}${r.label}   ${lvl}`, W / 2, y);
@@ -2740,7 +3450,11 @@ export class Game {
     ctx.font = "14px 'Share Tech Mono', monospace";
     ctx.fillText("STAR MIND PRIME ruptured · uplink silence across LEO", W / 2, 220);
     ctx.fillStyle = C.warn;
-    ctx.fillText(`TOTAL SCORE ${this.totalScore + this.score}`, W / 2, 260);
+    ctx.fillText(`TOTAL SCORE ${this.totalScore}`, W / 2, 260);
+    if (this.bestScore >= this.totalScore && this.bestScore > 0) {
+      ctx.fillStyle = C.pad;
+      ctx.fillText(`BEST ${this.bestScore}`, W / 2, 282);
+    }
     ctx.fillStyle = C.bone;
     ctx.fillText("CAPCOM NIX: Come home, Ash. Leave the void to the ghosts.", W / 2, 310);
     if (this.stinger) {
