@@ -71,3 +71,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-13] polish | star-mind | Fuel truck keeps rolling with Ash; bigger enemy/turret shot hitboxes
 
 ## [2026-08-13] polish | star-mind | Point-blank shots connect on enemies overlapping Ash
+
+## [2026-08-13] polish | star-mind | More Ash/truck HP; enemies enter from screen-right; faster fire rates
