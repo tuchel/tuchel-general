@@ -64,7 +64,7 @@ Each kind has a readable job. Telegraph (flash + beep) before the commit.
 
 ## Authored twists (one real turn per act)
 
-**L1:** Ambush from behind during the road lull · walker clamps the truck · Reaper P3 **slams a gantry deck** (jump the gap). Reaper P2 is a **laser sweep** across depth — hop or change lane.
+**L1:** Crab pack from the right during the road lull · walker clamps the truck · Reaper P3 **slams a gantry deck** (jump the gap). Reaper P2 is a **laser sweep** across depth — hop or change lane.
 
 **L2:** Gates 4–5 **drift in Z** · after the last gate, **stage-separation debris** (mines + tether) before Seraph spawns · circ rings drift. Seraph P3 **leaves the right edge and spears from aft**.
 

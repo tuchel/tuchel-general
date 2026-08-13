@@ -590,7 +590,7 @@ export class Game {
   }
 
   private resetPlayer(mode: "ground" | "ship" | "eva") {
-    const hp = 200 + this.upgrades.armor * 20;
+    const hp = 300 + this.upgrades.armor * 24;
     const animLib = mode === "ship" ? "ship" : mode === "eva" ? "ash-eva" : "ash";
     this.player = {
       x: mode === "ship" ? 220 : 140,
@@ -721,8 +721,8 @@ export class Game {
         x: 200,
         z: 0.5,
         hop: 0,
-        hp: 120,
-        maxHp: 120,
+        hp: 200,
+        maxHp: 200,
         arrived: false,
         moving: false,
         clamped: false,
@@ -926,23 +926,15 @@ export class Game {
   private spawnScript(b: ScriptBeat) {
     const n = Math.max(1, b.n ?? 1);
     const pattern = b.pattern ?? "line";
-    const baseX =
-      this.levelId === 1 && b.x !== undefined
-        ? b.x
-        : this.camX + 480 + Math.random() * 80;
+    const ingress = this.camX + W + 48;
     const baseZ = b.z ?? 0.5;
     const hop = b.hop ?? (["drone", "climber", "wasp", "ghost", "gridsat", "tether"].includes(b.kind) ? 28 : 0);
     for (let i = 0; i < n; i++) {
-      let x = baseX;
+      const x = ingress + i * 46;
       let z = baseZ;
-      if (pattern === "behind") {
-        x = this.player.x - 90 - i * 38;
-        z = clamp01(baseZ + (i - (n - 1) / 2) * 0.14);
-      } else if (pattern === "v") {
-        x = baseX + (i === Math.floor(n / 2) ? 0 : 40);
+      if (pattern === "v") {
         z = clamp01(baseZ + (i - (n - 1) / 2) * 0.16);
       } else {
-        x = baseX + i * 46;
         z = clamp01(baseZ + (i - (n - 1) / 2) * 0.08);
       }
       this.spawnEnemy(b.kind, x, z, hop);
@@ -954,11 +946,11 @@ export class Game {
     if (this.firedEvents.has(id)) return;
     this.firedEvents.add(id);
     if (id === "ambush-behind") {
-      this.cue("NIX: Contact AFT — they're behind you!", 2.4);
+      this.cue("NIX: Incoming from the RIGHT!", 2.4);
       sfx.telegraph();
       this.shake = 7;
       for (let i = 0; i < 3; i++) {
-        this.spawnEnemy("crab", this.player.x - 70 - i * 36, clamp01(this.player.z + (i - 1) * 0.16), 0);
+        this.spawnEnemy("crab", this.camX + W + 48 + i * 50, clamp01(this.player.z + (i - 1) * 0.16), 0);
       }
     } else if (id === "walker-clamp") {
       this.cue("NIX: Walker clamped the truck — kill it!", 2.6);
@@ -1005,10 +997,9 @@ export class Game {
       this.cue("NIX: Beetle rush on the last spine!", 2.4);
       sfx.telegraph();
       const spine = this.enemies.find((e) => !e.dead && e.kind === "spine");
-      const sx = spine ? spine.x - 80 : this.player.x + 220;
       const sz = spine ? spine.z : 0.5;
-      this.spawnEnemy("beetle", sx, sz, 8);
-      this.spawnEnemy("beetle", sx + 50, clamp01(sz + 0.18), 8);
+      this.spawnEnemy("beetle", this.camX + W + 48, sz, 8);
+      this.spawnEnemy("beetle", this.camX + W + 98, clamp01(sz + 0.18), 8);
     } else if (id === "arena-shrink") {
       this.laneMin = 0.28;
       this.laneMax = 0.72;
@@ -1082,10 +1073,7 @@ export class Game {
       this.level.goalPhase,
       this.intensity.intensity,
     );
-    const sx =
-      this.levelId === 1
-        ? this.player.x + 280 + Math.random() * 160
-        : this.camX + 500 + Math.random() * 100;
+    const sx = this.camX + W + 48 + Math.random() * 80;
     const z = 0.2 + Math.random() * 0.6;
     const hop = ["drone", "climber", "wasp", "ghost", "gridsat", "tether"].includes(kind)
       ? 20 + Math.random() * 40
@@ -1093,7 +1081,20 @@ export class Game {
     this.spawnEnemy(kind, sx, z, hop);
   }
 
+  /** Off-screen right, clear of Ash and the fuel truck. */
+  private placeIncoming(x: number): number {
+    const edge = this.camX + W + 48;
+    x = Math.max(x, edge);
+    const clear = (ox: number) => {
+      if (Math.abs(x - ox) < 150) x = Math.max(x, ox + 170);
+    };
+    clear(this.player.x);
+    if (this.truck && !this.truck.arrived) clear(this.truck.x);
+    return x;
+  }
+
   private spawnEnemy(kind: string, x: number, z = 0.5, hop = 0, hp = 0) {
+    if (kind !== "spine") x = this.placeIncoming(x);
     const stats: Record<string, { hp: number; w: number; h: number; scrap: number }> = {
       drone: { hp: 28, w: 28, h: 20, scrap: 2 },
       crab: { hp: 36, w: 30, h: 20, scrap: 3 },
@@ -3304,7 +3305,7 @@ export class Game {
           sp.sy - 42 * sp.scale,
           64 * sp.scale * (truck.hp / truck.maxHp),
           5,
-          truck.hp < 40 ? C.blood : C.pad,
+          truck.hp < truck.maxHp * 0.33 ? C.blood : C.pad,
         );
         if (truck.clamped) {
           ctx.fillStyle = C.warn;

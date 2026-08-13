@@ -221,7 +221,7 @@ export type ScriptBeat = {
   announce?: string;
   /** Formation size (default 1) */
   n?: number;
-  pattern?: "v" | "line" | "behind";
+  pattern?: "v" | "line";
 };
 
 export const SCRIPT_BEATS: Record<LevelId, { a: ScriptBeat[]; b: ScriptBeat[] }> = {
