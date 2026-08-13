@@ -3,7 +3,7 @@
  * Silhouette, sodium/cyan light, readable explosions. No glassmorphism, no purple.
  */
 import { C, H, W } from "./palette";
-import { glow } from "./draw";
+import { glow, type BulletLook } from "./draw";
 
 export type ParticleKind = "spark" | "smoke" | "ember" | "debris" | "shell";
 
@@ -15,6 +15,15 @@ export interface Boom {
   max: number;
   scale: number;
   kind: "fire" | "ion" | "emp";
+}
+
+export interface HitSpark {
+  x: number;
+  z: number;
+  hop: number;
+  life: number;
+  max: number;
+  look: BulletLook;
 }
 
 export function drawRain(
@@ -156,6 +165,96 @@ export function drawMuzzle(
   ctx.lineTo(facing * 16 * scale, 5 * scale);
   ctx.closePath();
   ctx.fill();
+  ctx.restore();
+}
+
+/** Weapon-specific impact at the point of a confirmed hit. `t` is remaining 0–1. */
+export function drawHitSpark(
+  ctx: CanvasRenderingContext2D,
+  sx: number,
+  sy: number,
+  scale: number,
+  t: number,
+  look: BulletLook,
+) {
+  if (t <= 0) return;
+  const s = Math.max(0.7, scale);
+  const u = 1 - t;
+  ctx.save();
+  ctx.translate(sx, sy);
+  ctx.globalCompositeOperation = "lighter";
+  if (look === "beam") {
+    ctx.strokeStyle = C.cyan;
+    ctx.globalAlpha = t;
+    ctx.lineWidth = 2 * s;
+    ctx.beginPath();
+    ctx.moveTo(-22 * s - u * 8, 0);
+    ctx.lineTo(22 * s + u * 8, 0);
+    ctx.stroke();
+    glow(ctx, 0, 0, 16 * s, C.cyan, t * 0.7);
+  } else if (look === "rail") {
+    ctx.strokeStyle = C.earth;
+    ctx.globalAlpha = t * 0.9;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, (8 + u * 22) * s, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = C.white;
+    ctx.globalAlpha = t * 0.55;
+    ctx.beginPath();
+    ctx.arc(0, 0, (4 + u * 14) * s, 0, Math.PI * 2);
+    ctx.stroke();
+    glow(ctx, 0, 0, 18 * s, C.earth, t * 0.55);
+  } else if (look === "rocket") {
+    glow(ctx, 0, 0, (18 + u * 16) * s, C.pad, t * 0.7);
+    glow(ctx, 0, 0, 10 * s, C.warn, t * 0.8);
+    ctx.fillStyle = "rgba(28,22,16,0.55)";
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = t * 0.65;
+    ctx.beginPath();
+    ctx.ellipse(-4 * s, -10 * s - u * 8, 10 * s, 7 * s, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (look === "flame") {
+    for (let i = 0; i < 6; i++) {
+      const a = i * 1.1 + u * 2;
+      ctx.fillStyle = i % 2 ? C.pad : C.warn;
+      ctx.globalAlpha = t;
+      ctx.fillRect(Math.cos(a) * (6 + u * 14) * s, Math.sin(a) * (5 + u * 10) * s, 3 * s, 5 * s);
+    }
+  } else if (look === "shard") {
+    ctx.fillStyle = C.warn;
+    ctx.globalAlpha = t;
+    for (let i = 0; i < 5; i++) {
+      const a = -0.7 + i * 0.35;
+      const r = (10 + u * 16) * s;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      ctx.lineTo(Math.cos(a) * (r + 7 * s), Math.sin(a) * (r + 4 * s) - 2);
+      ctx.lineTo(Math.cos(a + 0.2) * r, Math.sin(a + 0.2) * r);
+      ctx.fill();
+    }
+  } else {
+    glow(ctx, 0, 0, 12 * s, C.warn, t * 0.65);
+    ctx.strokeStyle = C.warn;
+    ctx.globalAlpha = t;
+    ctx.lineWidth = 1.5;
+    const arm = (7 + u * 6) * s;
+    ctx.beginPath();
+    ctx.moveTo(-arm, 0);
+    ctx.lineTo(arm, 0);
+    ctx.moveTo(0, -arm);
+    ctx.lineTo(0, arm);
+    ctx.moveTo(-arm * 0.6, -arm * 0.6);
+    ctx.lineTo(arm * 0.6, arm * 0.6);
+    ctx.stroke();
+    ctx.fillStyle = C.metalLite;
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = t;
+    for (let i = 0; i < 3; i++) {
+      const a = i * 2.1 + u;
+      ctx.fillRect(Math.cos(a) * 8 * s, Math.sin(a) * 6 * s, 2, 2);
+    }
+  }
   ctx.restore();
 }
 

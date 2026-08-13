@@ -109,7 +109,7 @@ export function drawShadow(
   ctx.restore();
 }
 
-/** Perspective ground deck with world-scrolling road markings — player moves over it */
+/** Perspective ground deck — opaque slab actors stand in, world-X locked. */
 export function drawGroundDeck(
   ctx: CanvasRenderingContext2D,
   stage: Stage25D,
@@ -120,18 +120,21 @@ export function drawGroundDeck(
   const pad = mode === "pad";
   const camX = stage.camX;
 
-  // Deck fill (trapezoid) — translucent so painted parallax road can read underneath
+  // Off-pad drop (sides + under the near lip) so plates never read as the floor
+  ctx.fillStyle = pad ? "#0c0a08" : mode === "sky" ? "#05070e" : "#040810";
+  ctx.fillRect(0, farY, W, H - farY);
+
   const g = ctx.createLinearGradient(0, farY, 0, H);
   if (mode === "pad") {
-    g.addColorStop(0, "rgba(42,34,24,0.28)");
-    g.addColorStop(0.55, "rgba(26,21,16,0.38)");
-    g.addColorStop(1, "rgba(12,10,8,0.55)");
+    g.addColorStop(0, "rgba(48,38,28,0.96)");
+    g.addColorStop(0.45, "rgba(28,22,16,0.98)");
+    g.addColorStop(1, "rgba(12,10,8,1)");
   } else if (mode === "sky") {
-    g.addColorStop(0, "rgba(30,45,70,0.06)");
-    g.addColorStop(1, "rgba(5,8,16,0.28)");
+    g.addColorStop(0, "rgba(24,36,58,0.88)");
+    g.addColorStop(1, "rgba(6,8,16,0.96)");
   } else {
-    g.addColorStop(0, "rgba(20,40,70,0.08)");
-    g.addColorStop(1, "rgba(5,8,16,0.32)");
+    g.addColorStop(0, "rgba(16,32,58,0.86)");
+    g.addColorStop(1, "rgba(5,8,16,0.95)");
   }
   ctx.fillStyle = g;
   ctx.beginPath();
@@ -144,7 +147,7 @@ export function drawGroundDeck(
 
   // Horizon seam
   ctx.strokeStyle = pad ? C.pad : C.cyan;
-  ctx.globalAlpha = 0.45;
+  ctx.globalAlpha = pad ? 0.7 : 0.4;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(W * 0.28, farY);
@@ -153,7 +156,7 @@ export function drawGroundDeck(
   ctx.globalAlpha = 1;
 
   // Depth lane lines (fixed Z — world-parallel, do not scroll with X)
-  ctx.strokeStyle = pad ? "rgba(244,211,94,0.22)" : "rgba(46,196,182,0.22)";
+  ctx.strokeStyle = pad ? "rgba(244,211,94,0.28)" : "rgba(46,196,182,0.22)";
   ctx.lineWidth = 1;
   for (let i = 1; i <= 3; i++) {
     const z = i / 4;
@@ -170,7 +173,7 @@ export function drawGroundDeck(
   const startWx = Math.floor((camX - 160) / spacing) * spacing;
   const endWx = camX + W + 280;
 
-  ctx.strokeStyle = pad ? "rgba(180,120,60,0.38)" : "rgba(46,196,182,0.2)";
+  ctx.strokeStyle = pad ? "rgba(160,110,55,0.55)" : "rgba(46,196,182,0.22)";
   ctx.lineWidth = 1.5;
   for (let wx = startWx; wx <= endWx; wx += spacing) {
     const near = project({ x: wx, z: 0.02, hop: 0 }, stage);
@@ -183,9 +186,8 @@ export function drawGroundDeck(
     ctx.stroke();
   }
 
-  // Center dashed chevrons / lane paint scrolling in world X
   const dashLen = spacing * 0.42;
-  ctx.strokeStyle = pad ? "rgba(244,211,94,0.55)" : "rgba(46,196,182,0.4)";
+  ctx.strokeStyle = pad ? "rgba(244,211,94,0.7)" : "rgba(46,196,182,0.4)";
   ctx.lineWidth = pad ? 3 : 2;
   ctx.lineCap = "butt";
   for (let wx = startWx; wx <= endWx; wx += spacing) {
@@ -198,9 +200,8 @@ export function drawGroundDeck(
     ctx.stroke();
   }
 
-  // Near-edge hatch ticks (reinforce "over the road" motion)
   if (pad) {
-    ctx.fillStyle = "rgba(244,211,94,0.35)";
+    ctx.fillStyle = "rgba(244,211,94,0.45)";
     for (let wx = startWx; wx <= endWx; wx += spacing / 2) {
       const p = project({ x: wx, z: 0.08, hop: 0 }, stage);
       if (p.sx < -10 || p.sx > W + 10) continue;
@@ -208,11 +209,20 @@ export function drawGroundDeck(
     }
   }
 
-  // Near lip
+  // Near lip — platform thickness so the pad has a front face
+  const lipH = Math.max(18, H - nearY);
+  ctx.fillStyle = pad ? "#16120e" : "#070a12";
+  ctx.fillRect(0, nearY, W, lipH);
+  if (pad) {
+    for (let x = 0; x < W; x += 16) {
+      ctx.fillStyle = Math.floor(x / 16) % 2 === 0 ? C.warn : C.soot;
+      ctx.fillRect(x, nearY + 5, 16, 8);
+    }
+  }
   ctx.fillStyle = pad ? C.pad : C.cyan;
-  ctx.globalAlpha = 0.55;
   ctx.fillRect(0, nearY, W, 3);
-  ctx.globalAlpha = 1;
+  ctx.fillStyle = pad ? "rgba(0,0,0,0.55)" : "rgba(0,0,0,0.35)";
+  ctx.fillRect(0, nearY + lipH - 6, W, 6);
 }
 
 /** Soft fog strip between mid and far for depth cue */
