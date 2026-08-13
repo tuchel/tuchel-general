@@ -184,6 +184,36 @@ class Sfx {
   warn() {
     this.tone(880, 0.04, "square", 0.06, 40);
   }
+
+  telegraph() {
+    this.tone(420, 0.08, "square", 0.1, 280);
+    this.tone(660, 0.12, "square", 0.08, 220);
+  }
+
+  rumble() {
+    this.noise(0.42, 0.18, 80);
+    this.tone(55, 0.38, "sawtooth", 0.16, -12);
+  }
+
+  tether() {
+    this.tone(180, 0.16, "sine", 0.09, 40);
+    this.tone(240, 0.12, "sine", 0.06, -30);
+  }
+
+  shear() {
+    this.noise(0.28, 0.12, 400);
+    this.tone(520, 0.22, "sine", 0.12, -280);
+  }
+
+  slam() {
+    this.noise(0.28, 0.2, 90);
+    this.tone(70, 0.28, "sawtooth", 0.2, -30);
+  }
+
+  laser() {
+    this.tone(1400, 0.35, "sine", 0.1, -700);
+    this.tone(220, 0.2, "sawtooth", 0.08, 80);
+  }
 }
 
 /** Low bed under combat — A-minor pentatonic pulse, ducks on pause. */

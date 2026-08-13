@@ -1,4 +1,4 @@
-import { C } from "./palette";
+import { C, W } from "./palette";
 
 export function rr(
   ctx: CanvasRenderingContext2D,
@@ -275,6 +275,11 @@ export function drawEnemy(
       rr(ctx, -10, -10, 20, 20, C.cyan, C.white);
       ctx.globalAlpha = 1;
       break;
+    case "tether":
+      glow(ctx, 0, 0, 16, C.cyan, 0.45);
+      rr(ctx, -8, -8, 16, 16, C.navy, C.cyan);
+      rr(ctx, -3, -3, 6, 6, C.white);
+      break;
     default:
       rr(ctx, -10, -10, 20, 20, C.blood, C.white);
   }
@@ -511,5 +516,105 @@ export function drawGantryDeck(
     ctx.fillText(label, 0, -24 * s);
     ctx.textAlign = "left";
   }
+  ctx.restore();
+}
+
+/** Cyan energy rope from a tether mine to Ash / Finch. */
+export function drawTetherRope(
+  ctx: CanvasRenderingContext2D,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  frame: number,
+) {
+  ctx.save();
+  const pulse = 0.45 + 0.25 * Math.sin(frame * 0.28);
+  ctx.strokeStyle = C.cyan;
+  ctx.globalAlpha = 0.35 + pulse * 0.4;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(ax, ay);
+  const mx = (ax + bx) / 2;
+  const my = (ay + by) / 2 + Math.sin(frame * 0.2) * 10;
+  ctx.quadraticCurveTo(mx, my, bx, by);
+  ctx.stroke();
+  ctx.strokeStyle = C.white;
+  ctx.globalAlpha = 0.35;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  glow(ctx, ax, ay, 12, C.cyan, 0.4);
+  ctx.restore();
+}
+
+/** Reaper weld-laser: a depth-lane bar across the stage. */
+export function drawLaserLane(
+  ctx: CanvasRenderingContext2D,
+  y: number,
+  life: number,
+) {
+  ctx.save();
+  const a = Math.min(1, life * 1.4);
+  ctx.globalCompositeOperation = "lighter";
+  ctx.fillStyle = `rgba(46,196,182,${0.12 * a})`;
+  ctx.fillRect(0, y - 10, W, 20);
+  ctx.fillStyle = `rgba(244,237,228,${0.55 * a})`;
+  ctx.fillRect(0, y - 2, W, 4);
+  ctx.strokeStyle = C.cyan;
+  ctx.globalAlpha = 0.85 * a;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, y);
+  ctx.lineTo(W, y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Missing gantry plate after Reaper slams a deck. */
+export function drawDeckScar(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  scale: number,
+) {
+  const s = scale;
+  const hw = (w * s) / 2;
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.fillStyle = "rgba(5,6,10,0.88)";
+  ctx.fillRect(-hw, -8 * s, hw * 2, 18 * s);
+  ctx.strokeStyle = C.pad;
+  ctx.globalAlpha = 0.7;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 5]);
+  ctx.strokeRect(-hw, -8 * s, hw * 2, 18 * s);
+  ctx.setLineDash([]);
+  ctx.fillStyle = C.warn;
+  ctx.font = `${Math.round(9 * s)}px 'Share Tech Mono', monospace`;
+  ctx.textAlign = "center";
+  ctx.fillText("GAP — JUMP", 0, -14 * s);
+  ctx.textAlign = "left";
+  ctx.restore();
+}
+
+/** Walker clamp chain onto the fuel truck. */
+export function drawClampLink(
+  ctx: CanvasRenderingContext2D,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+) {
+  ctx.save();
+  ctx.strokeStyle = C.warn;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(ax, ay);
+  ctx.lineTo(bx, by);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  glow(ctx, ax, ay, 10, C.pad, 0.35);
   ctx.restore();
 }

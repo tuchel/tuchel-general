@@ -325,3 +325,47 @@ export function drawSignalMeter(
   ctx.fillStyle = "rgba(11,18,32,0.35)";
   for (let i = 1; i < 8; i++) ctx.fillRect(x + (w * i) / 8, y + 2, 1, 8);
 }
+
+/** L3 gravity-shear wash — cyan streaks, no extra chrome. */
+export function drawShearVeil(ctx: CanvasRenderingContext2D, frame: number, life: number) {
+  if (life <= 0) return;
+  ctx.save();
+  const a = Math.min(1, life / 2) * 0.55;
+  ctx.globalCompositeOperation = "lighter";
+  for (let i = 0; i < 10; i++) {
+    const x = ((i * 97 + frame * 7) % (W + 40)) - 20;
+    const y = 40 + ((i * 53 + frame * 3) % (H - 80));
+    ctx.fillStyle = `rgba(46,196,182,${0.04 + a * 0.08})`;
+    ctx.fillRect(x, y, 70, 3);
+  }
+  ctx.fillStyle = `rgba(58,134,255,${0.06 * a})`;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+}
+
+/** Prime panic: depth rails that show the shrinking arena. */
+export function drawArenaRails(
+  ctx: CanvasRenderingContext2D,
+  nearY: number,
+  farY: number,
+) {
+  ctx.save();
+  ctx.strokeStyle = C.blood;
+  ctx.globalAlpha = 0.45;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8, 6]);
+  ctx.beginPath();
+  ctx.moveTo(0, nearY);
+  ctx.lineTo(W, nearY);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, farY);
+  ctx.lineTo(W, farY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = C.blood;
+  ctx.globalAlpha = 0.7;
+  ctx.font = "10px 'Share Tech Mono', monospace";
+  ctx.fillText("ARENA WALL", 12, nearY - 6);
+  ctx.restore();
+}
