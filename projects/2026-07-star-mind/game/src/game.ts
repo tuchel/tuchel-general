@@ -1211,8 +1211,23 @@ export class Game {
   }
 
   private hitRadius(a: Actor): number {
-    const body = Math.max(a.w, a.h) * 0.48;
-    return body * (1.28 - a.z * 0.42);
+    const body = Math.max(a.w, a.h) * 0.58;
+    const depth = 1.2 - a.z * 0.18;
+    let r = body * depth;
+    if (a.kind === "turret") r *= 1.75;
+    return r;
+  }
+
+  /** Depth slack for a friendly shot vs an actor. Turrets sit far; they need more lane forgive. */
+  private hitZSlack(a: Actor): number {
+    return a.kind === "turret" ? 0.55 : 0.42;
+  }
+
+  private shotHitsActor(b: Bullet, e: Actor): boolean {
+    if (!zOverlap(b.z, e.z, this.hitZSlack(e))) return false;
+    const hopScale = e.kind === "turret" ? 0.42 : e.hop < 8 ? 0.55 : 0.85;
+    const hopErr = (b.hop - (e.hop + e.h * 0.2)) * hopScale;
+    return Math.hypot(b.x - e.x, hopErr) < this.hitRadius(e);
   }
 
   private axes(): { ax: number; az: number } {
@@ -1233,7 +1248,7 @@ export class Game {
     const consider = (e: Actor) => {
       const dx = (e.x - this.player.x) * dir;
       if (dx < 16 || dx > 340) return;
-      if (!zOverlap(this.player.z, e.z, 0.4)) return;
+      if (!zOverlap(this.player.z, e.z, e.kind === "turret" ? 0.58 : 0.45)) return;
       if (dx < bestD) {
         bestD = dx;
         bestHop = e.hop;
@@ -1983,16 +1998,15 @@ export class Game {
   private updateTruck(dt: number) {
     const truck = this.truck;
     if (!truck || truck.arrived) return;
-    const near =
-      Math.abs(this.player.x - truck.x) < 170 &&
-      zOverlap(this.player.z, truck.z, 0.28);
     truck.clamped = this.enemies.some(
       (e) => !e.dead && e.kind === "walker" && Math.abs(e.x - truck.x) < 86 && zOverlap(e.z, truck.z, 0.3),
     );
-    truck.moving = near && this.level.goalPhase === 1 && !truck.clamped;
+    truck.moving = this.level.goalPhase === 1 && !truck.clamped;
     if (truck.moving) {
-      truck.x += 55 * dt;
-      truck.z += (this.player.z - truck.z) * 1.2 * dt;
+      const gap = this.player.x - truck.x;
+      const speed = gap > 40 ? Math.min(250, 90 + (gap - 40) * 1.8) : 70;
+      truck.x += speed * dt;
+      truck.z += (this.player.z - truck.z) * 1.8 * dt;
     }
     for (const e of this.enemies) {
       if (e.dead) continue;
@@ -2372,10 +2386,7 @@ export class Game {
         for (const e of this.enemies) {
           if (e.dead) continue;
           if (b.hits.has(e.uid)) continue;
-          if (
-            zOverlap(b.z, e.z, 0.32) &&
-            Math.hypot(b.x - e.x, b.hop - (e.hop + e.h * 0.2)) < this.hitRadius(e)
-          ) {
+          if (this.shotHitsActor(b, e)) {
             if (e.kind === "mirror" && !(e.stun && e.stun > 0) && Math.random() < 0.55) {
               b.vx *= -1;
               b.friendly = false;
@@ -3625,9 +3636,7 @@ export class Game {
       if (this.level.goalPhase === 1 && this.truck && !this.truck.arrived) {
         phaseHint = this.truck.clamped
           ? " · WALKER CLAMP — KILL IT"
-          : this.truck.moving
-            ? ` · PAD 7 ${Math.max(0, Math.floor(PAD7_X - this.truck.x))}m`
-            : " · STAY WITH THE TRUCK";
+          : ` · PAD 7 ${Math.max(0, Math.floor(PAD7_X - this.truck.x))}m`;
       } else if (this.boardReady) {
         phaseHint = " · BOARD FINCH →";
       } else if (this.level.goalPhase === 2) {
@@ -3740,8 +3749,8 @@ export class Game {
       ctx.textAlign = "center";
       ctx.fillText(
         isTouchPrimary()
-          ? "Stay beside the fuel truck · stick UP/DOWN = depth"
-          : "Stay beside the fuel truck · W/S = depth lanes · J fire",
+          ? "Escort the fuel truck · stick UP/DOWN = depth"
+          : "Escort the fuel truck · W/S = depth lanes · J fire",
         W / 2,
         H - 52,
       );
@@ -3905,7 +3914,7 @@ export class Game {
           "Stick = strafe + depth (NEAR / FAR). Match the cyan tick.",
           "Hold FIRE. JUMP hops — on orbit, hold JUMP to thrust.",
           "EMP wipes nearby enemy shots and stuns the grid.",
-          "Earth: stay with the fuel truck or it stalls.",
+          "Earth: the fuel truck rolls with you to Pad 7.",
           "Launch: fly THROUGH the glowing rings, not beside them.",
           "Keep moving RIGHT. II pauses.",
         ]
@@ -3914,7 +3923,7 @@ export class Game {
           "A/D strafe · W/S depth (NEAR / FAR). Match the cyan tick.",
           "Hold J to shoot · Space jump (orbit: hold Space to thrust).",
           "K EMP — strips nearby hostile fire and stuns.",
-          "Earth: stay with the fuel truck or it stalls.",
+          "Earth: the fuel truck rolls with you to Pad 7.",
           "Launch: fly THROUGH the glowing rings, not beside them.",
           "Keep moving RIGHT. P pauses · Esc from pause returns here.",
         ];
