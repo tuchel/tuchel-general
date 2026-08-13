@@ -65,3 +65,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-12] art | star-mind | Runtime picture: let painted plates read, stencil HUD, explosions/rain/lightning, sprite outlines
 
 ## [2026-08-13] design | star-mind | Level dynamics: unique enemy jobs, act tiers, one authored twist per act (ambush/clamp/deck-slam, drifting gates + stage-sep, shear + core EVA)
+
+## [2026-08-13] polish | star-mind | 2× HP, pin enemy stills, per-weapon hit sparks, opaque walkable deck

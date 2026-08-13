@@ -13,7 +13,6 @@ export type SpriteId =
   | "walker"
   | "wasp"
   | "climber"
-  | "mine"
   | "gridsat"
   | "mirror"
   | "beetle"
@@ -60,7 +59,6 @@ const SPRITE_FILES: Record<SpriteId, string> = {
   walker: "sprites/walker.png",
   wasp: "sprites/wasp.png",
   climber: "sprites/drone.png",
-  mine: "sprites/pickup.png",
   gridsat: "sprites/gridsat.png",
   mirror: "sprites/mirror.png",
   beetle: "sprites/beetle.png",
@@ -227,6 +225,15 @@ export function blitSprite(
   return true;
 }
 
+export type ParallaxBand = {
+  destY: number;
+  destH: number;
+  /** Source top as a fraction of image height (0 = top). */
+  srcTop?: number;
+  /** Source height as a fraction of image height. */
+  srcFrac?: number;
+};
+
 export function blitParallax(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement | null,
@@ -234,18 +241,31 @@ export function blitParallax(
   factor: number,
   yOffset = 0,
   alpha = 1,
+  band?: ParallaxBand,
 ) {
   if (!img) return false;
-  const h = 540;
-  const scale = h / img.height;
+  const srcTop = Math.max(0, Math.min(img.height - 1, (band?.srcTop ?? 0) * img.height));
+  const srcH = Math.max(1, Math.min(img.height - srcTop, (band?.srcFrac ?? 1) * img.height));
+  const destY = band ? band.destY : yOffset;
+  const destH = band ? band.destH : 540;
+  const scale = destH / srcH;
   const dw = img.width * scale;
-  const dh = h;
   const offset = -((camX * factor) % dw);
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.imageSmoothingEnabled = true;
   for (let x = offset - dw; x < 960 + dw; x += dw) {
-    ctx.drawImage(img, Math.round(x), yOffset, dw, dh);
+    ctx.drawImage(
+      img,
+      0,
+      srcTop,
+      img.width,
+      srcH,
+      Math.round(x),
+      destY,
+      dw,
+      destH,
+    );
   }
   ctx.restore();
   return true;
@@ -260,11 +280,12 @@ export function blitParallaxEvolve(
   factor: number,
   threat: number,
   yOffset = 0,
+  band?: ParallaxBand,
 ) {
   const t = Math.max(0, Math.min(1, threat));
   const peakA = t * t * (3 - 2 * t);
-  blitParallax(ctx, calm, camX, factor, yOffset, 1);
-  if (peakA > 0.02) blitParallax(ctx, peak, camX, factor, yOffset, peakA);
+  blitParallax(ctx, calm, camX, factor, yOffset, 1, band);
+  if (peakA > 0.02) blitParallax(ctx, peak, camX, factor, yOffset, peakA, band);
 }
 
 export function blitCover(
@@ -299,7 +320,6 @@ export function enemySpriteId(kind: string): SpriteId {
     walker: "walker",
     climber: "climber",
     wasp: "wasp",
-    mine: "mine",
     gridsat: "gridsat",
     mirror: "mirror",
     beetle: "beetle",

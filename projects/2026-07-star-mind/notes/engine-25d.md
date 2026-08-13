@@ -14,7 +14,8 @@ True side-scrollers feel flat. STAR MIND uses a **2.5D depth plane** in the Meta
 
 `engine25d.ts` maps `(x, z, hop)` → screen `(sx, sy, scale)`:
 
-- Ground deck is a **trapezoid** (near lip → far horizon seam)
+- Parallax plates are **cropped to the horizon band** (`y = 0 … farGroundY`). Painted floors in the JPEGs stay behind the seam; they are not the walk surface.
+- Ground deck is an **opaque** trapezoid (near lip → far horizon seam). Pad fill is metal ~0.96+ with a front face: thickness plus hazard ticks at `nearGroundY`.
 - Road spokes / dashes are **world-X locked** (scroll under the camera) so the player moves *over* the pad, not with it
 - Farther Z → higher on the deck, **smaller scale**, slight vanish pull
 - Default near scale is large so authored 3/4 sprites read clearly in-browser

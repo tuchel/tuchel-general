@@ -251,10 +251,27 @@ export function drawEnemy(
       rr(ctx, 10, -2, 10, 4, C.metal);
       rr(ctx, -12, -10 + f, 8, 4, C.bone);
       break;
-    case "mine":
-      rr(ctx, -8, -8, 16, 16, C.blood, C.warn);
-      rr(ctx, -3, -3, 6, 6, C.warn);
+    case "mine": {
+      ctx.fillStyle = C.blood;
+      ctx.strokeStyle = C.warn;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = C.warn;
+      ctx.beginPath();
+      ctx.arc(0, 0, 3, 0, Math.PI * 2);
+      ctx.fill();
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2 + frame * 0.04;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * 8, Math.sin(a) * 8);
+        ctx.lineTo(Math.cos(a) * 13, Math.sin(a) * 13);
+        ctx.stroke();
+      }
       break;
+    }
     case "gridsat":
       rr(ctx, -16, -6, 32, 12, C.metalLite, C.cyan);
       rr(ctx, -6, -10, 12, 20, C.navy, C.cyan);

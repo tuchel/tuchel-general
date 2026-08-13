@@ -109,8 +109,24 @@ class Sfx {
     }
   }
 
-  hit() {
-    this.tone(180, 0.05, "square", 0.1, -60);
+  hit(look = "pellet") {
+    if (look === "rocket") {
+      this.noise(0.08, 0.1, 250);
+      this.tone(140, 0.08, "sawtooth", 0.12, -40);
+    } else if (look === "beam") {
+      this.tone(980, 0.04, "square", 0.08, 180);
+    } else if (look === "rail") {
+      this.tone(280, 0.07, "sawtooth", 0.12, 400);
+      this.noise(0.05, 0.08, 900);
+    } else if (look === "flame") {
+      this.noise(0.06, 0.08, 280);
+      this.tone(110, 0.05, "sawtooth", 0.07, -20);
+    } else if (look === "shard") {
+      this.tone(520, 0.04, "square", 0.09, -160);
+      this.tone(340, 0.04, "square", 0.07, -80);
+    } else {
+      this.tone(180, 0.05, "square", 0.1, -60);
+    }
   }
 
   kill() {

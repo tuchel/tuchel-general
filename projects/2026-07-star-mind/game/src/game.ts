@@ -15,6 +15,7 @@ import {
   drawEarthLimb,
   drawExplosion,
   drawHeatHaze,
+  drawHitSpark,
   drawLetterbox,
   drawLightning,
   drawMuzzle,
@@ -27,6 +28,7 @@ import {
   drawSodiumPools,
   drawStarTwinkle,
   type Boom,
+  type HitSpark,
   type ParticleKind,
 } from "./fx";
 import {
@@ -35,6 +37,7 @@ import {
   createAnimState,
   playAnim,
   tickAnim,
+  type AnimName,
   type AnimPlayerState,
 } from "./anim";
 import {
@@ -43,6 +46,7 @@ import {
   blitParallaxEvolve,
   blitSprite,
   bossAnimLib,
+  bossSpriteId,
   enemyAnimLib,
   enemySpriteId,
 } from "./assets";
@@ -380,6 +384,7 @@ export class Game {
   private bestScore = 0;
   private lowHpWarn = 0;
   private booms: Boom[] = [];
+  private impacts: HitSpark[] = [];
   private lightning = 0;
   private firedEvents = new Set<string>();
   private laserSweep: { z: number; vz: number; life: number } | null = null;
@@ -471,20 +476,25 @@ export class Game {
   }
 
   private animImage(actor: Actor): HTMLImageElement | null {
-    const lib = CLIPS[actor.animLib];
-    const clip = lib?.[actor.anim.clip];
-    if (clip) {
-      const idx = animFrameIndex(actor.anim, clip);
-      const id = clip.frames[idx];
-      if (id) {
-        const framed = art.frame(id);
-        if (framed) return framed;
+    const libName = actor.animLib;
+    const playerLib = libName === "ash" || libName === "ash-eva" || libName === "ship";
+    if (playerLib) {
+      const lib = CLIPS[libName];
+      const clip = lib?.[actor.anim.clip];
+      if (clip) {
+        const idx = animFrameIndex(actor.anim, clip);
+        const id = clip.frames[idx];
+        if (id) {
+          const framed = art.frame(id);
+          if (framed) return framed;
+        }
       }
+      if (libName === "ash") return art.sprite("ash");
+      if (libName === "ash-eva") return art.sprite("ash-eva");
+      return art.sprite("ship");
     }
-    if (actor.animLib === "ash") return art.sprite("ash");
-    if (actor.animLib === "ash-eva") return art.sprite("ash-eva");
-    if (actor.animLib === "ship") return art.sprite("ship");
-    if (actor.animLib.startsWith("boss-")) return art.sprite(actor.animLib);
+    if (libName.startsWith("boss-")) return art.sprite(bossSpriteId(actor.kind));
+    if (actor.kind === "mine") return null;
     return art.sprite(enemySpriteId(actor.kind));
   }
 
@@ -545,12 +555,20 @@ export class Game {
 
   private driveEnemyAnim(e: Actor, dt: number) {
     tickAnim(e.anim, dt);
+    // Mines are a procedural spiked orb — never borrow the drone clip pack.
+    if (e.kind === "mine") return;
+    const lib = CLIPS[e.animLib];
+    if (!lib) return;
     const flying = ["drone", "climber", "wasp", "ghost", "gridsat", "tether"].includes(e.kind);
-    if (e.kind === "spine" || e.kind === "mirror") playAnim(e.anim, "idle");
-    else if (e.kind === "turret") playAnim(e.anim, e.timer < 0.25 ? "attack" : "idle");
-    else if (flying) playAnim(e.anim, "hover");
-    else if (e.kind === "crab" && e.hop > 8) playAnim(e.anim, "attack");
-    else playAnim(e.anim, "walk");
+    let want: AnimName | null = null;
+    if (e.kind === "spine" || e.kind === "mirror") want = lib.idle ? "idle" : null;
+    else if (e.kind === "turret") want = e.timer < 0.25 && lib.attack ? "attack" : lib.idle ? "idle" : null;
+    else if (flying) want = lib.hover ? "hover" : null;
+    else if (e.kind === "crab" && e.hop > 8) want = lib.attack ? "attack" : lib.walk ? "walk" : null;
+    else if (lib.walk) want = "walk";
+    else if (lib.hover) want = "hover";
+    else if (lib.idle) want = "idle";
+    if (want) playAnim(e.anim, want);
   }
 
   private driveBossAnim(dt: number) {
@@ -572,7 +590,7 @@ export class Game {
   }
 
   private resetPlayer(mode: "ground" | "ship" | "eva") {
-    const hp = 100 + this.upgrades.armor * 20;
+    const hp = 200 + this.upgrades.armor * 20;
     const animLib = mode === "ship" ? "ship" : mode === "eva" ? "ash-eva" : "ash";
     this.player = {
       x: mode === "ship" ? 220 : 140,
@@ -625,6 +643,7 @@ export class Game {
     this.particles = [];
     this.pickups = [];
     this.booms = [];
+    this.impacts = [];
     this.boss = null;
     this.camX = 0;
     this.score = 0;
@@ -1256,6 +1275,11 @@ export class Game {
 
   private boom(x: number, z: number, hop: number, scale = 1, kind: Boom["kind"] = "fire") {
     this.booms.push({ x, z, hop, life: 0.42, max: 0.42, scale, kind });
+  }
+
+  private sparkHit(x: number, z: number, hop: number, look: BulletLook) {
+    const max = look === "rocket" ? 0.22 : look === "rail" || look === "beam" ? 0.18 : 0.14;
+    this.impacts.push({ x, z, hop, life: max, max, look });
   }
 
   private spawnBullet(partial: Omit<Bullet, "hits" | "look"> & { hits?: Set<number>; look?: BulletLook }): Bullet {
@@ -2363,9 +2387,10 @@ export class Game {
             if (e.kind === "walker" && this.player.x > e.x) dmg *= 1.85;
             if (e.kind === "spine" && this.spineArmored(e)) dmg *= 0.35;
             e.hp -= dmg;
-            e.flash = 0.1;
+            e.flash = 0.06;
             b.hits.add(e.uid);
-            sfx.hit();
+            this.sparkHit(b.x, b.z, b.hop, b.look);
+            sfx.hit(b.look);
             if (!b.pierce) b.life = 0;
             if (b.blast) this.aoe(b.x, b.z, b.hop, b.blast, b.dmg * 0.6, e.uid);
             if (e.hp <= 0) this.killEnemy(e);
@@ -2390,11 +2415,11 @@ export class Game {
               if (boss.kind === "reaper" && boss.phase < 3) dmg *= 0.7;
               if (boss.kind === "seraph" && boss.phase < 3) dmg *= 0.75;
               boss.hp -= dmg;
-              boss.flash = 0.12;
+              boss.flash = 0.06;
               b.hits.add(boss.uid);
               if (!b.pierce) b.life = 0;
-              this.burst(b.x, b.z, b.hop, C.warn, 4);
-              sfx.hit();
+              this.sparkHit(b.x, b.z, b.hop, b.look);
+              sfx.hit(b.look);
               if (boss.hp <= 0) {
                 boss.dead = true;
                 this.level.bossDefeated = true;
@@ -2466,7 +2491,7 @@ export class Game {
           this.announce("+SCRAP");
           sfx.pickup();
         } else if (p.kind === "health") {
-          const heal = 22 + this.upgrades.armor * 4;
+          const heal = 40 + this.upgrades.armor * 4;
           this.player.hp = Math.min(this.player.maxHp, this.player.hp + heal);
           this.announce(`+${heal} HP`);
           this.popScore(p.x, p.z, p.hop, `+${heal} HP`, C.pad);
@@ -2498,6 +2523,8 @@ export class Game {
     this.particles = this.particles.filter((p) => p.life > 0);
     for (const b of this.booms) b.life -= dt;
     this.booms = this.booms.filter((b) => b.life > 0);
+    for (const s of this.impacts) s.life -= dt;
+    this.impacts = this.impacts.filter((s) => s.life > 0);
     for (const pop of this.scorePops) {
       pop.life -= dt;
       pop.hop += 28 * dt;
@@ -2676,6 +2703,8 @@ export class Game {
     ctx.fillRect(0, 0, W, H);
 
     if (this.levelId === 1) {
+      const horizon = this.stage.farGroundY;
+      const band = { destY: 0, destH: horizon, srcTop: 0, srcFrac: 0.62 };
       blitParallaxEvolve(
         ctx,
         art.bg("l1-sky-calm") ?? art.bg("l1-sky"),
@@ -2683,7 +2712,8 @@ export class Game {
         this.camX,
         0.12,
         threat,
-        -60,
+        0,
+        band,
       );
       blitParallaxEvolve(
         ctx,
@@ -2692,12 +2722,14 @@ export class Game {
         this.camX,
         0.35,
         threat,
-        20,
+        0,
+        { destY: 0, destH: horizon, srcTop: 0.06, srcFrac: 0.56 },
       );
       drawSodiumPools(ctx, this.camX, threat);
       drawRain(ctx, this.frame, threat, this.camX);
       drawLightning(ctx, this.lightning);
     } else if (this.levelId === 2) {
+      const horizon = this.stage.farGroundY;
       blitParallaxEvolve(
         ctx,
         art.bg("l2-ascent-calm") ?? art.bg("l2-ascent"),
@@ -2705,13 +2737,15 @@ export class Game {
         this.camX,
         0.2,
         threat,
-        -30,
+        0,
+        { destY: 0, destH: horizon, srcTop: 0, srcFrac: 0.58 },
       );
       const alt = this.level.scroll / this.level.length;
       ctx.fillStyle = `rgba(5,7,14,${Math.min(0.35, alt * 0.28 + threat * 0.18)})`;
       ctx.fillRect(0, 0, W, H * 0.28);
       drawHeatHaze(ctx, this.frame, threat);
     } else {
+      const horizon = this.stage.farGroundY;
       blitParallaxEvolve(
         ctx,
         art.bg("l3-void-calm") ?? art.bg("l3-void"),
@@ -2720,6 +2754,7 @@ export class Game {
         0.1,
         threat,
         0,
+        { destY: 0, destH: horizon, srcTop: 0, srcFrac: 0.6 },
       );
       drawStarTwinkle(ctx, this.frame);
       drawEarthLimb(ctx, this.frame);
@@ -3460,6 +3495,10 @@ export class Game {
     for (const b of this.booms) {
       const sp = project(b, this.stage);
       drawExplosion(ctx, sp.sx, sp.sy, b.life / b.max, b.scale * sp.scale, b.kind);
+    }
+    for (const s of this.impacts) {
+      const sp = project(s, this.stage);
+      drawHitSpark(ctx, sp.sx, sp.sy, sp.scale, s.life / s.max, s.look);
     }
     if (this.empPulse > 0) {
       const sp = project(this.player, this.stage);
