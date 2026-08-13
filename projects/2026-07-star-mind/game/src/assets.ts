@@ -189,6 +189,7 @@ export function blitSprite(
     alpha?: number;
     bob?: number;
     flash?: boolean;
+    outline?: boolean;
     /** center = mid-sprite (default); feet = bottom-center on ground line */
     anchor?: "center" | "feet";
   } = {},
@@ -209,6 +210,18 @@ export function blitSprite(
   ctx.globalAlpha = opts.alpha ?? 1;
   if (opts.flash) ctx.globalCompositeOperation = "lighter";
   ctx.imageSmoothingEnabled = true;
+  if (opts.outline) {
+    ctx.save();
+    ctx.filter = "brightness(0)";
+    ctx.globalAlpha = (opts.alpha ?? 1) * 0.85;
+    const o = Math.max(1, Math.round(s));
+    ctx.drawImage(img, -dw / 2 - o, anchorY, dw, dh);
+    ctx.drawImage(img, -dw / 2 + o, anchorY, dw, dh);
+    ctx.drawImage(img, -dw / 2, anchorY - o, dw, dh);
+    ctx.drawImage(img, -dw / 2, anchorY + o, dw, dh);
+    ctx.restore();
+    ctx.globalAlpha = opts.alpha ?? 1;
+  }
   ctx.drawImage(img, -dw / 2, anchorY, dw, dh);
   ctx.restore();
   return true;

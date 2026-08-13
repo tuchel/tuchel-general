@@ -36,7 +36,7 @@ Avoid: purple-indigo AI cliché glow-fest, cream+terracotta editorial look, flat
 - Enemies/bosses: multi-frame hover/walk/attack/phase clips in `public/art/anim/`
 - Near-camera props reinforce the ground deck (crates, gantry lips)
 - L1 diaspora midground: Starship/Dragon/booster wreckage + rare cybertruck (one pass ~every 2.5 min); Pad 7 is a full painted launch spectacle, not a HUD glyph
-- Parallax plates evolve calm→peak with smoothed combat intensity (all three levels)
+- Runtime composites the plates with rain, sodium pools, lightning, heat haze, earth-limb, stencil HUD, outlined sprites, and Metal Slug explosions — do not bury the paint under an opaque deck or a black HUD bar.
 
 See [`art-25d-anim.md`](art-25d-anim.md). 
 
