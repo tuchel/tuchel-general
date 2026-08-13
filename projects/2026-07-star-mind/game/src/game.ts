@@ -1223,11 +1223,31 @@ export class Game {
     return a.kind === "turret" ? 0.55 : 0.42;
   }
 
-  private shotHitsActor(b: Bullet, e: Actor): boolean {
-    if (!zOverlap(b.z, e.z, this.hitZSlack(e))) return false;
+  /**
+   * Friendly shot vs actor. `fromX` is the bullet's X before this tick so we sweep
+   * the flight, plus a short muzzle cone so enemies overlapping Ash still connect.
+   */
+  private shotHitsActor(b: Bullet, e: Actor, fromX = b.x): boolean {
+    const nearAsh = Math.abs(e.x - this.player.x) < 72;
+    const zSlack = this.hitZSlack(e) + (nearAsh ? 0.14 : 0);
+    const zOk =
+      zOverlap(b.z, e.z, zSlack) || (nearAsh && zOverlap(this.player.z, e.z, zSlack));
+    if (!zOk) return false;
+
     const hopScale = e.kind === "turret" ? 0.42 : e.hop < 8 ? 0.55 : 0.85;
     const hopErr = (b.hop - (e.hop + e.h * 0.2)) * hopScale;
-    return Math.hypot(b.x - e.x, hopErr) < this.hitRadius(e);
+    let r = this.hitRadius(e);
+    if (nearAsh) r *= 1.55;
+
+    const nearest = clamp(e.x, Math.min(fromX, b.x), Math.max(fromX, b.x));
+    if (Math.hypot(nearest - e.x, hopErr) < r) return true;
+
+    // Pellets spawn in front of Ash; overlapping enemies sit behind that point.
+    if (nearAsh && Math.abs(b.x - this.player.x) < 52) {
+      const bodyHop = (this.player.hop + 12 - (e.hop + e.h * 0.2)) * hopScale * 0.5;
+      if (Math.hypot(e.x - this.player.x, bodyHop) < r + 16) return true;
+    }
+    return false;
   }
 
   private axes(): { ax: number; az: number } {
@@ -1247,7 +1267,7 @@ export class Game {
     let bestD = 300;
     const consider = (e: Actor) => {
       const dx = (e.x - this.player.x) * dir;
-      if (dx < 16 || dx > 340) return;
+      if (dx < -24 || dx > 340) return;
       if (!zOverlap(this.player.z, e.z, e.kind === "turret" ? 0.58 : 0.45)) return;
       if (dx < bestD) {
         bestD = dx;
@@ -1317,7 +1337,7 @@ export class Game {
     const hopAim = this.aimHopBias();
     const shootOne = (zBias = 0, hopBias = 0, extra?: Partial<Bullet>) => {
       this.spawnBullet({
-        x: this.player.x + dir * 18,
+        x: this.player.x + dir * 8,
         z: clamp01(this.player.z + zBias),
         hop: this.player.hop + 18 + hopBias + hopAim,
         vx: def.speed * dir + (this.player.kind === "ship" ? 80 : 0),
@@ -1388,7 +1408,7 @@ export class Game {
     const dir = this.player.kind === "ship" ? 1 : this.player.facing;
     const power = clamp(charge / 0.85, 0.35, 1.25);
     this.spawnBullet({
-      x: this.player.x + dir * 18,
+      x: this.player.x + dir * 8,
       z: this.player.z,
       hop: this.player.hop + 18 + this.aimHopBias(),
       vx: def.speed * dir,
@@ -2366,6 +2386,7 @@ export class Game {
     this.driveBossAnim(dt);
 
     for (const b of this.bullets) {
+      const prevX = b.x;
       b.x += b.vx * dt;
       b.z = clamp01(b.z + b.vz * dt);
       if (b.grav) b.vHop -= b.grav * dt;
@@ -2386,7 +2407,7 @@ export class Game {
         for (const e of this.enemies) {
           if (e.dead) continue;
           if (b.hits.has(e.uid)) continue;
-          if (this.shotHitsActor(b, e)) {
+          if (this.shotHitsActor(b, e, prevX)) {
             if (e.kind === "mirror" && !(e.stun && e.stun > 0) && Math.random() < 0.55) {
               b.vx *= -1;
               b.friendly = false;
@@ -2400,7 +2421,7 @@ export class Game {
             e.hp -= dmg;
             e.flash = 0.06;
             b.hits.add(e.uid);
-            this.sparkHit(b.x, b.z, b.hop, b.look);
+            this.sparkHit(e.x, e.z, e.hop + e.h * 0.2, b.look);
             sfx.hit(b.look);
             if (!b.pierce) b.life = 0;
             if (b.blast) this.aoe(b.x, b.z, b.hop, b.blast, b.dmg * 0.6, e.uid);
@@ -2411,10 +2432,7 @@ export class Game {
         if (this.boss && !this.boss.dead && b.life > 0) {
           const boss = this.boss;
           if (!b.hits.has(boss.uid)) {
-            if (
-              zOverlap(b.z, boss.z, 0.35) &&
-              Math.hypot(b.x - boss.x, b.hop - boss.hop) < this.hitRadius(boss)
-            ) {
+            if (this.shotHitsActor(b, boss, prevX)) {
               let dmg = b.dmg;
               if (boss.kind === "prime" && boss.phase === 2) dmg *= 0.4;
               if (boss.kind === "prime" && boss.phase === 3) {
@@ -2429,7 +2447,7 @@ export class Game {
               boss.flash = 0.06;
               b.hits.add(boss.uid);
               if (!b.pierce) b.life = 0;
-              this.sparkHit(b.x, b.z, b.hop, b.look);
+              this.sparkHit(boss.x, boss.z, boss.hop, b.look);
               sfx.hit(b.look);
               if (boss.hp <= 0) {
                 boss.dead = true;
