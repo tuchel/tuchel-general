@@ -30,6 +30,48 @@ Rules:
 
 ---
 
+## Act difficulty
+
+| Act | HP | Damage | Speed | Notes |
+|-----|----|--------|-------|-------|
+| L1 Earth | ×1.00 | ×1.00 | ×1.00 | Teaching floor. Kill-clock 170s. |
+| L2 Launch | ×1.15 | ×1.20 | ×1.12 | Faster density. Late gates drift. |
+| L3 Orbit | ×1.35 | ×1.35 | ×1.08 | More live foes. Spines armored near beetles. |
+
+---
+
+## Enemy jobs (not reskins)
+
+Each kind has a readable job. Telegraph (flash + beep) before the commit.
+
+| Kind | Job |
+|------|-----|
+| Null Drone | Patrol, then **dive** at Ash |
+| Sentry Crab | Telegraph, then **pounce** onto your depth |
+| Turret Nest | **Lob** arcing mortars (jump or walk out of the splash) |
+| Hackbot | Steal your gun, **flee** — kill it to get the gun back |
+| Riot Walker | Far = mortar, close = gun; **clamps the truck** until dead; weak rear |
+| Climb Drone | Matches hop, then **rams** |
+| SAM Wasp | **Lock-on chase**, ram more than spray |
+| Sky Mine | Contact boom; **chain-reacts** nearby mines |
+| Tether Mine | Cyan rope **pulls** you off the line |
+| Grid Sat | **Formation volley** if siblings are close; kamikaze in Prime panic |
+| Ghost Uplink | Cloak, **teleport aft**, fire, recloak |
+| Repair Beetle | Paths to the nearest spine and heals **only that one** |
+| Spine Node | **0.35× damage** while a beetle is within ~200 |
+
+---
+
+## Authored twists (one real turn per act)
+
+**L1:** Ambush from behind during the road lull · walker clamps the truck · Reaper P3 **slams a gantry deck** (jump the gap). Reaper P2 is a **laser sweep** across depth — hop or change lane.
+
+**L2:** Gates 4–5 **drift in Z** · after the last gate, **stage-separation debris** (mines + tether) before Seraph spawns · circ rings drift. Seraph P3 **leaves the right edge and spears from aft**.
+
+**L3:** After spine 1, **gravity shear** (floaty hang + EVA current) · spine 3 **beetle rush** · Prime P3: full damage only if you **EVA into the core** (close + high hop); arena shrinks; leftover sats kamikaze.
+
+---
+
 ## Level 1 — Earth Escape
 
 ### Goal A — Escort to Pad 7 (`progress` = truck path 0→1)

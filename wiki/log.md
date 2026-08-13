@@ -63,3 +63,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-12] polish | star-mind | Arcade overhaul: audio, combo, EMP/rail/flame feel, pause, coyote jump, L2 gate alignment, dual-path HUD
 
 ## [2026-08-12] art | star-mind | Runtime picture: let painted plates read, stencil HUD, explosions/rain/lightning, sprite outlines
+
+## [2026-08-13] design | star-mind | Level dynamics: unique enemy jobs, act tiers, one authored twist per act (ambush/clamp/deck-slam, drifting gates + stage-sep, shear + core EVA)

@@ -305,6 +305,7 @@ export function enemySpriteId(kind: string): SpriteId {
     beetle: "beetle",
     ghost: "ghost",
     spine: "spine",
+    tether: "ghost",
   };
   return map[kind] ?? "drone";
 }
@@ -318,6 +319,7 @@ export function bossSpriteId(id: string): SpriteId {
 export function enemyAnimLib(kind: string): string {
   if (kind === "climber") return "drone";
   if (kind === "mine") return "drone";
+  if (kind === "tether") return "ghost";
   return kind;
 }
 

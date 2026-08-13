@@ -10,6 +10,7 @@ import {
   type WeaponId,
 } from "./types";
 import {
+  drawArenaRails,
   drawColorGrade,
   drawEarthLimb,
   drawExplosion,
@@ -21,6 +22,7 @@ import {
   drawPips,
   drawPlate,
   drawRain,
+  drawShearVeil,
   drawSignalMeter,
   drawSodiumPools,
   drawStarTwinkle,
@@ -61,19 +63,27 @@ import {
 import { mobileZoomFactor, isTouchPrimary } from "./platform";
 import {
   SCRIPT_BEATS,
+  SET_PIECES,
+  actTier,
   rollDensityKind,
   sampleIntensity,
   type IntensitySample,
+  type ScriptBeat,
+  type SetPieceId,
 } from "./pacing";
 import {
   drawAsh,
   drawBoss,
   drawBullet,
   drawCircRing,
+  drawClampLink,
+  drawDeckScar,
   drawEnemy,
   drawGantryDeck,
+  drawLaserLane,
   drawPad7,
   drawPickup,
+  drawTetherRope,
   drawShip,
   drawSpine,
   drawTruck,
@@ -122,6 +132,7 @@ const KILL_SCORE: Record<string, number> = {
   beetle: 380,
   ghost: 240,
   spine: 600,
+  tether: 210,
 };
 
 const UPGRADE_BLURB: Record<keyof Upgrades, string> = {
@@ -188,6 +199,8 @@ interface Actor {
   stun?: number;
   revealed?: number;
   uid: number;
+  fireAt?: number;
+  stolenWpn?: WeaponId;
 }
 
 interface Bullet {
@@ -206,6 +219,7 @@ interface Bullet {
   color: string;
   hits: Set<number>;
   look: BulletLook;
+  grav?: number;
 }
 
 interface Particle {
@@ -275,6 +289,14 @@ interface FuelTruck {
   maxHp: number;
   arrived: boolean;
   moving: boolean;
+  clamped: boolean;
+}
+
+interface LaneGate {
+  x: number;
+  z: number;
+  hit: boolean;
+  vz?: number;
 }
 
 const BOSS: Record<LevelId, { id: string; name: string; hp: number }> = {
@@ -318,8 +340,8 @@ export class Game {
   private camX = 0;
   private shipThrust = 0;
   private heat = 0;
-  private gates: { x: number; z: number; hit: boolean }[] = [];
-  private circRings: { x: number; z: number; hit: boolean }[] = [];
+  private gates: LaneGate[] = [];
+  private circRings: LaneGate[] = [];
   private techs: { x: number; z: number; rescued: boolean }[] = [];
   private truck: FuelTruck | null = null;
   private towerReady = false;
@@ -359,6 +381,16 @@ export class Game {
   private lowHpWarn = 0;
   private booms: Boom[] = [];
   private lightning = 0;
+  private firedEvents = new Set<string>();
+  private laserSweep: { z: number; vz: number; life: number } | null = null;
+  private deckSlamX: number | null = null;
+  private gScale = 1;
+  private shearLife = 0;
+  private laneMin = 0;
+  private laneMax = 1;
+  private stageSepLock = 0;
+  private twistCue = "";
+  private twistCueT = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -513,7 +545,7 @@ export class Game {
 
   private driveEnemyAnim(e: Actor, dt: number) {
     tickAnim(e.anim, dt);
-    const flying = ["drone", "climber", "wasp", "ghost", "gridsat"].includes(e.kind);
+    const flying = ["drone", "climber", "wasp", "ghost", "gridsat", "tether"].includes(e.kind);
     if (e.kind === "spine" || e.kind === "mirror") playAnim(e.anim, "idle");
     else if (e.kind === "turret") playAnim(e.anim, e.timer < 0.25 ? "attack" : "idle");
     else if (flying) playAnim(e.anim, "hover");
@@ -625,6 +657,16 @@ export class Game {
     this.landSquash = 0;
     this.hintT = 0;
     this.lightning = 0;
+    this.firedEvents = new Set();
+    this.laserSweep = null;
+    this.deckSlamX = null;
+    this.gScale = 1;
+    this.shearLife = 0;
+    this.laneMin = 0;
+    this.laneMax = 1;
+    this.stageSepLock = 0;
+    this.twistCue = "";
+    this.twistCueT = 0;
 
     if (id === 1) {
       this.stage = this.withMobileZoom(STAGE_GROUND);
@@ -649,7 +691,7 @@ export class Game {
         elapsed: 0,
         bossSpawned: false,
         bossDefeated: false,
-        killClock: 200,
+        killClock: 170,
         gatesCleared: 0,
         spinesDown: 0,
         spinesNeeded: 0,
@@ -664,6 +706,7 @@ export class Game {
         maxHp: 120,
         arrived: false,
         moving: false,
+        clamped: false,
       };
       this.techs = [
         { x: 450, z: 0.35, rescued: false },
@@ -700,8 +743,8 @@ export class Game {
         { x: 350, z: 0.3, hit: false },
         { x: 650, z: 0.7, hit: false },
         { x: 1000, z: 0.25, hit: false },
-        { x: 1350, z: 0.6, hit: false },
-        { x: 1700, z: 0.4, hit: false },
+        { x: 1350, z: 0.6, hit: false, vz: 0.14 },
+        { x: 1700, z: 0.4, hit: false, vz: -0.16 },
       ];
       this.resetPlayer("ship");
     } else {
@@ -734,9 +777,9 @@ export class Game {
         circNeeded: 0,
       };
       this.resetPlayer("eva");
-      this.spawnEnemy("spine", 720, 0.3, 20, 90);
-      this.spawnEnemy("spine", 1200, 0.55, 10, 90);
-      this.spawnEnemy("spine", 1750, 0.45, 30, 90);
+      this.spawnEnemy("spine", 720, 0.3, 20);
+      this.spawnEnemy("spine", 1200, 0.55, 10);
+      this.spawnEnemy("spine", 1750, 0.45, 30);
     }
 
     this.syncStage();
@@ -753,6 +796,7 @@ export class Game {
     this.lastBeat = "";
     this.announce(`GOAL 2/2 · ${this.level.goalB}`, 2.8);
     this.shake = 8;
+    if (this.levelId === 2) this.fireSetPiece("stage-sep");
   }
 
   private unlockTowerClimb() {
@@ -837,6 +881,129 @@ export class Game {
     return this.enemies.filter((e) => !e.dead && e.kind !== "spine").length;
   }
 
+  private cue(text: string, time = 2.4) {
+    this.twistCue = text;
+    this.twistCueT = time;
+    this.announce(text, time);
+  }
+
+  private spineArmored(e: Actor): boolean {
+    if (e.kind !== "spine") return false;
+    return this.enemies.some(
+      (o) =>
+        !o.dead &&
+        o.kind === "beetle" &&
+        Math.abs(o.x - e.x) < 200 &&
+        Math.abs(o.z - e.z) < 0.4,
+    );
+  }
+
+  private canFire(e: Actor, period: number): boolean {
+    if (this.level.elapsed < (e.fireAt ?? 0)) return false;
+    e.fireAt = this.level.elapsed + period;
+    return true;
+  }
+
+  private spawnScript(b: ScriptBeat) {
+    const n = Math.max(1, b.n ?? 1);
+    const pattern = b.pattern ?? "line";
+    const baseX =
+      this.levelId === 1 && b.x !== undefined
+        ? b.x
+        : this.camX + 480 + Math.random() * 80;
+    const baseZ = b.z ?? 0.5;
+    const hop = b.hop ?? (["drone", "climber", "wasp", "ghost", "gridsat", "tether"].includes(b.kind) ? 28 : 0);
+    for (let i = 0; i < n; i++) {
+      let x = baseX;
+      let z = baseZ;
+      if (pattern === "behind") {
+        x = this.player.x - 90 - i * 38;
+        z = clamp01(baseZ + (i - (n - 1) / 2) * 0.14);
+      } else if (pattern === "v") {
+        x = baseX + (i === Math.floor(n / 2) ? 0 : 40);
+        z = clamp01(baseZ + (i - (n - 1) / 2) * 0.16);
+      } else {
+        x = baseX + i * 46;
+        z = clamp01(baseZ + (i - (n - 1) / 2) * 0.08);
+      }
+      this.spawnEnemy(b.kind, x, z, hop);
+    }
+    if (b.announce) this.announce(b.announce, 2.2);
+  }
+
+  private fireSetPiece(id: SetPieceId) {
+    if (this.firedEvents.has(id)) return;
+    this.firedEvents.add(id);
+    if (id === "ambush-behind") {
+      this.cue("NIX: Contact AFT — they're behind you!", 2.4);
+      sfx.telegraph();
+      this.shake = 7;
+      for (let i = 0; i < 3; i++) {
+        this.spawnEnemy("crab", this.player.x - 70 - i * 36, clamp01(this.player.z + (i - 1) * 0.16), 0);
+      }
+    } else if (id === "walker-clamp") {
+      this.cue("NIX: Walker clamped the truck — kill it!", 2.6);
+      sfx.warn();
+    } else if (id === "deck-slam") {
+      this.deckSlamX = GANTRY_START_X + 260;
+      this.cue("DECK SLAM — JUMP THE GAP", 2.6);
+      sfx.slam();
+      this.shake = 14;
+      this.screenFlash = 0.12;
+    } else if (id === "gate-drift") {
+      this.cue("NIX: Late gates are drifting — match depth!", 2.2);
+      sfx.telegraph();
+      for (let i = 3; i < this.gates.length; i++) {
+        const g = this.gates[i]!;
+        if (g.vz === undefined) g.vz = i % 2 === 0 ? 0.14 : -0.15;
+      }
+    } else if (id === "stage-sep") {
+      this.stageSepLock = 4.6;
+      this.cue("STAGE SEP — DEBRIS FIELD", 2.8);
+      sfx.rumble();
+      this.shake = 12;
+      this.screenFlash = 0.1;
+      for (let i = 0; i < 5; i++) {
+        this.spawnEnemy(
+          i % 2 === 0 ? "mine" : "climber",
+          this.camX + W + 40 + i * 50,
+          0.18 + i * 0.16,
+          20 + (i % 3) * 12,
+        );
+      }
+      this.spawnEnemy("tether", this.camX + W + 80, 0.5, 30);
+    } else if (id === "circ-drift") {
+      for (const r of this.circRings) {
+        r.vz = r.z < 0.5 ? 0.12 : -0.12;
+      }
+    } else if (id === "shear") {
+      this.shearLife = 8.5;
+      this.gScale = 0.38;
+      this.cue("GRAVITY SHEAR — hang time", 2.6);
+      sfx.shear();
+      this.shake = 8;
+    } else if (id === "beetle-rush") {
+      this.cue("NIX: Beetle rush on the last spine!", 2.4);
+      sfx.telegraph();
+      const spine = this.enemies.find((e) => !e.dead && e.kind === "spine");
+      const sx = spine ? spine.x - 80 : this.player.x + 220;
+      const sz = spine ? spine.z : 0.5;
+      this.spawnEnemy("beetle", sx, sz, 8);
+      this.spawnEnemy("beetle", sx + 50, clamp01(sz + 0.18), 8);
+    } else if (id === "arena-shrink") {
+      this.laneMin = 0.28;
+      this.laneMax = 0.72;
+      this.cue("ARENA COLLAPSE — EVA THE CORE", 2.8);
+      sfx.rumble();
+      this.shake = 10;
+      for (let i = 0; i < 3; i++) {
+        this.spawnEnemy("gridsat", this.camX + W + 30 + i * 40, 0.3 + i * 0.18, 24);
+        const last = this.enemies[this.enemies.length - 1];
+        if (last) last.phase = 9;
+      }
+    }
+  }
+
   private updateIntensityPacing(dt: number) {
     const progress = this.goalProgress();
     this.intensity = sampleIntensity(this.levelId, this.level.goalPhase, progress);
@@ -866,14 +1033,14 @@ export class Game {
       this.scriptBeatIndex < beats.length &&
       beats[this.scriptBeatIndex]!.at <= progress
     ) {
-      const b = beats[this.scriptBeatIndex]!;
-      const sx =
-        this.levelId === 1 && b.x !== undefined
-          ? b.x
-          : this.camX + 480 + Math.random() * 120;
-      this.spawnEnemy(b.kind, sx, b.z ?? 0.5, b.hop ?? 0);
-      if (b.announce) this.announce(b.announce, 2.2);
+      this.spawnScript(beats[this.scriptBeatIndex]!);
       this.scriptBeatIndex++;
+    }
+
+    for (const piece of SET_PIECES[this.levelId]) {
+      if (piece.phase === this.level.goalPhase && piece.at <= progress) {
+        this.fireSetPiece(piece.id);
+      }
     }
 
     // Density director — fill toward curve live-cap during play/boss
@@ -901,7 +1068,7 @@ export class Game {
         ? this.player.x + 280 + Math.random() * 160
         : this.camX + 500 + Math.random() * 100;
     const z = 0.2 + Math.random() * 0.6;
-    const hop = ["drone", "climber", "wasp", "ghost", "gridsat"].includes(kind)
+    const hop = ["drone", "climber", "wasp", "ghost", "gridsat", "tether"].includes(kind)
       ? 20 + Math.random() * 40
       : 0;
     this.spawnEnemy(kind, sx, z, hop);
@@ -922,8 +1089,12 @@ export class Game {
       beetle: { hp: 30, w: 28, h: 20, scrap: 6 },
       ghost: { hp: 26, w: 24, h: 24, scrap: 4 },
       spine: { hp: 90, w: 36, h: 36, scrap: 12 },
+      tether: { hp: 32, w: 28, h: 24, scrap: 5 },
     };
     const s = stats[kind] ?? { hp: 30, w: 24, h: 24, scrap: 2 };
+    const tier = actTier(this.levelId);
+    const hp0 = (hp || s.hp) * tier.hp;
+    const hover = ["drone", "climber", "wasp", "ghost", "gridsat", "tether"].includes(kind);
     this.enemies.push({
       x,
       z: clamp01(z),
@@ -933,8 +1104,8 @@ export class Game {
       vHop: 0,
       w: s.w,
       h: s.h,
-      hp: hp || s.hp,
-      maxHp: hp || s.hp,
+      hp: hp0,
+      maxHp: hp0,
       dead: false,
       facing: -1,
       kind,
@@ -944,7 +1115,7 @@ export class Game {
       scrap: s.scrap,
       grounded: hop <= 0,
       anim: createAnimState(
-        ["drone", "climber", "wasp", "ghost", "gridsat"].includes(kind)
+        hover
           ? "hover"
           : kind === "spine" || kind === "mirror" || kind === "turret"
             ? "idle"
@@ -954,6 +1125,7 @@ export class Game {
       stun: 0,
       revealed: kind === "ghost" ? 0 : 1,
       uid: uid(),
+      fireAt: this.level.elapsed + Math.random() * 0.6,
     });
   }
 
@@ -1259,9 +1431,27 @@ export class Game {
     if (e.kind === "spine") {
       this.level.spinesDown += 1;
       this.announce(`SPINE SEVERED ${this.level.spinesDown}/${this.level.spinesNeeded}`);
+      if (this.level.spinesDown === 1) this.fireSetPiece("shear");
       if (this.level.spinesDown >= this.level.spinesNeeded) {
         this.unlockPrimeArena();
       }
+    }
+    if (e.kind === "mine") {
+      for (const o of this.enemies) {
+        if (o.dead || o.kind !== "mine") continue;
+        if (Math.hypot(o.x - e.x, (o.z - e.z) * 80) < 120) {
+          this.killEnemy(o);
+        }
+      }
+    }
+    if (e.kind === "hackbot" && e.stolenWpn) {
+      this.pickups.push({
+        x: e.x,
+        z: e.z,
+        hop: e.hop + 8,
+        kind: e.stolenWpn,
+        life: 8,
+      });
     }
     if (Math.random() < 0.18 && e.kind !== "spine") {
       const pool: WeaponId[] = ["spread", "beam", "rocket", "flame", "rail"];
@@ -1280,6 +1470,7 @@ export class Game {
   }
 
   private enemyShot(e: Actor, speed: number, dmg: number, heavy = false) {
+    const t = actTier(this.levelId);
     const dx = this.player.x - e.x;
     const dzWorld = (this.player.z - e.z) * 180;
     const dh = this.player.hop + 12 - (e.hop + 10);
@@ -1288,11 +1479,11 @@ export class Game {
       x: e.x,
       z: e.z,
       hop: e.hop + 10,
-      vx: (dx / len) * speed,
-      vz: (dzWorld / len) * (speed / 180),
-      vHop: (dh / len) * speed,
+      vx: (dx / len) * speed * t.spd,
+      vz: (dzWorld / len) * ((speed * t.spd) / 180),
+      vHop: (dh / len) * speed * t.spd,
       r: heavy ? 5 : 3,
-      dmg,
+      dmg: dmg * t.dmg,
       life: 2.2,
       friendly: false,
       color: heavy ? C.pad : C.cyan,
@@ -1300,138 +1491,329 @@ export class Game {
     });
   }
 
+  private enemyLob(e: Actor, dmg: number) {
+    const t = actTier(this.levelId);
+    const dx = this.player.x - e.x;
+    const flight = Math.max(0.55, Math.abs(dx) / 300);
+    this.spawnBullet({
+      x: e.x,
+      z: e.z,
+      hop: e.hop + 18,
+      vx: dx / flight,
+      vz: (this.player.z - e.z) / flight,
+      vHop: 220,
+      grav: 520,
+      r: 6,
+      dmg: dmg * t.dmg,
+      life: 2.6,
+      friendly: false,
+      color: C.pad,
+      blast: 32,
+      look: "rocket",
+    });
+  }
+
   private updateEnemy(e: Actor, dt: number) {
     e.flash = Math.max(0, e.flash - dt);
     if (e.stun && e.stun > 0) {
       e.stun -= dt;
-      e.z = clamp01(e.z);
+      e.z = clamp(e.z, this.laneMin, this.laneMax);
       return;
     }
     e.timer += dt;
     const pz = this.player.z;
     const agg = this.intensity.aggression;
+    const spd = actTier(this.levelId).spd;
     const fire = (base: number) => base / agg;
-    const move = (base: number) => base * (0.75 + 0.35 * agg);
-    const fireNow = (base: number, speed: number, dmg: number, heavy = false) => {
-      const period = fire(base);
-      if (e.timer > period - 0.2) e.flash = Math.max(e.flash, 0.08);
-      if (e.timer > period) {
-        e.timer = 0.01;
-        this.enemyShot(e, speed, dmg, heavy);
-        if (e.kind === "ghost") e.revealed = 0.9;
-        playAnim(e.anim, "attack", 0.2);
-      }
+    const move = (base: number) => base * (0.75 + 0.35 * agg) * spd;
+    const dist = Math.hypot(this.player.x - e.x, (pz - e.z) * 160, this.player.hop - e.hop);
+    const telegraph = () => {
+      e.flash = Math.max(e.flash, 0.22);
+      sfx.telegraph();
     };
 
     switch (e.kind) {
-      case "drone":
-      case "climber":
-      case "gridsat":
-        e.hop += Math.sin(e.timer * 2) * 18 * dt;
-        e.z += Math.sin(e.timer * 1.3) * 0.12 * dt;
-        e.x += move(this.levelId === 1 ? -40 : -30) * dt;
-        fireNow(1.15, 260, 8);
+      case "drone": {
+        if (e.phase === 0) {
+          e.hop += Math.sin(e.timer * 2) * 18 * dt;
+          e.z += Math.sin(e.timer * 1.3) * 0.12 * dt;
+          e.x += move(this.levelId === 1 ? -40 : -30) * dt;
+          if (this.canFire(e, fire(1.35))) this.enemyShot(e, 240, 8);
+          if (dist < 210 && e.timer > 0.4) {
+            e.phase = 1;
+            e.timer = 0;
+            telegraph();
+          }
+        } else if (e.phase === 1) {
+          e.hop += 12 * dt;
+          if (e.timer > 0.32) {
+            e.phase = 2;
+            e.timer = 0;
+            playAnim(e.anim, "attack", 0.25);
+          }
+        } else if (e.phase === 2) {
+          e.x += Math.sign(this.player.x - e.x || -1) * move(220) * dt;
+          e.z += (pz - e.z) * 3.2 * dt;
+          e.hop += (this.player.hop - e.hop) * 3 * dt;
+          if (e.timer > 0.55) {
+            e.phase = 3;
+            e.timer = 0;
+          }
+        } else {
+          e.x += move(-50) * dt;
+          e.hop += (40 - e.hop) * 2 * dt;
+          if (e.timer > 0.85) {
+            e.phase = 0;
+            e.timer = 0;
+          }
+        }
         break;
-      case "ghost":
-        e.hop += Math.sin(e.timer * 2) * 18 * dt;
-        e.z += Math.sin(e.timer * 1.3) * 0.12 * dt;
-        e.x += move(-32) * dt;
+      }
+      case "climber": {
+        e.hop += (this.player.hop - e.hop) * 1.4 * dt;
+        e.z += (pz - e.z) * 0.7 * dt;
+        if (e.phase === 0) {
+          e.x += move(-36) * dt;
+          if (this.canFire(e, fire(1.6))) this.enemyShot(e, 220, 7);
+          if (dist < 170) {
+            e.phase = 1;
+            e.timer = 0;
+            telegraph();
+          }
+        } else if (e.phase === 1) {
+          if (e.timer > 0.28) {
+            e.phase = 2;
+            e.timer = 0;
+            e.vHop = 180;
+            playAnim(e.anim, "attack", 0.3);
+          }
+        } else {
+          e.x += Math.sign(this.player.x - e.x || -1) * move(200) * dt;
+          e.vHop -= 420 * dt;
+          e.hop += e.vHop * dt;
+          if (e.timer > 0.7) {
+            e.phase = 0;
+            e.timer = 0;
+            e.vHop = 0;
+          }
+        }
+        break;
+      }
+      case "gridsat": {
+        if (e.phase === 9) {
+          e.x += (this.player.x - e.x) * 2.6 * dt;
+          e.z += (pz - e.z) * 2.6 * dt;
+          e.hop += (this.player.hop - e.hop) * 2.2 * dt;
+          e.flash = 0.2;
+          if (dist < 44) {
+            this.hurtPlayer(18);
+            this.killEnemy(e);
+            sfx.explode();
+          }
+          break;
+        }
+        e.hop += Math.sin(e.timer * 2) * 14 * dt;
+        e.x += move(-28) * dt;
+        const pack = this.enemies.filter(
+          (o) => !o.dead && o.kind === "gridsat" && o.phase !== 9 && Math.abs(o.x - e.x) < 170,
+        ).length;
+        if (pack >= 2) {
+          const aligned = Math.floor(this.level.elapsed / fire(1.05));
+          if (aligned !== Math.floor((this.level.elapsed - dt) / fire(1.05))) {
+            this.enemyShot(e, 280, 9);
+            playAnim(e.anim, "attack", 0.2);
+          }
+        } else if (this.canFire(e, fire(1.2))) {
+          this.enemyShot(e, 250, 8);
+        }
+        break;
+      }
+      case "ghost": {
         e.revealed = Math.max(0, (e.revealed ?? 0) - dt);
-        fireNow(1.35, 240, 9);
-        break;
-      case "crab":
-        e.x += move(-55) * dt;
-        e.z += (pz - e.z) * 0.9 * dt;
-        if (Math.abs(this.player.x - e.x) < 160 && Math.random() < 0.012 + 0.01 * agg) {
-          e.vHop = 260;
-          playAnim(e.anim, "attack", 0.3);
+        if (e.phase === 0) {
+          e.x += move(-24) * dt;
+          e.hop += Math.sin(e.timer * 2) * 10 * dt;
+          if (e.timer > fire(1.4)) {
+            e.phase = 1;
+            e.timer = 0;
+            e.x = this.player.x - this.player.facing * 78;
+            e.z = pz;
+            e.hop = this.player.hop + 8;
+            e.revealed = 1.15;
+            telegraph();
+          }
+        } else {
+          if (e.timer > 0.18 && e.timer < 0.22) this.enemyShot(e, 260, 10);
+          if (e.timer > 0.7) {
+            e.phase = 0;
+            e.timer = 0;
+            e.revealed = 0.25;
+          }
         }
-        e.vHop -= 700 * dt;
-        e.hop += e.vHop * dt;
-        if (e.hop <= 0) {
-          e.hop = 0;
-          e.vHop = 0;
+        break;
+      }
+      case "crab": {
+        if (e.phase === 0) {
+          e.x += move(-55) * dt;
+          e.z += (pz - e.z) * 0.9 * dt;
+          if (dist < 180) {
+            e.phase = 1;
+            e.timer = 0;
+            telegraph();
+          }
+        } else if (e.phase === 1) {
+          e.x += move(-12) * dt;
+          if (e.timer > 0.38) {
+            e.phase = 2;
+            e.timer = 0;
+            e.vHop = 320;
+            playAnim(e.anim, "attack", 0.35);
+          }
+        } else {
+          e.x += Math.sign(this.player.x - e.x || -1) * move(210) * dt;
+          e.z += (pz - e.z) * 4 * dt;
+          e.vHop -= 780 * dt;
+          e.hop += e.vHop * dt;
+          if (e.hop <= 0) {
+            e.hop = 0;
+            e.vHop = 0;
+            e.phase = 0;
+            e.timer = 0;
+          }
         }
         break;
+      }
       case "turret":
-        fireNow(1.25, 280, 10);
+        if (this.canFire(e, fire(1.35))) {
+          this.enemyLob(e, 12);
+          playAnim(e.anim, "attack", 0.25);
+        }
         break;
       case "hackbot":
-        e.x += Math.sign(this.player.x - e.x) * move(70) * dt;
-        e.z += (pz - e.z) * 1.4 * dt;
-        if (
-          e.timer > fire(1.8) &&
-          Math.hypot(this.player.x - e.x, (pz - e.z) * 180) < 50 &&
-          zOverlap(pz, e.z, 0.22)
-        ) {
-          e.timer = 0.01;
-          if (this.weapon !== "pistol") {
-            this.announce("WEAPON STOLEN!");
-            this.pickups.push({
-              x: e.x - 30,
-              z: e.z,
-              hop: 8,
-              kind: this.weapon,
-              life: 6,
-            });
-            this.weapon = "pistol";
-            this.ammo = 999;
+        if (e.phase >= 3) {
+          const away = Math.sign(e.x - this.player.x) || 1;
+          e.x += away * move(110) * dt;
+          e.z += (0.5 - e.z) * dt;
+        } else {
+          e.x += Math.sign(this.player.x - e.x) * move(70) * dt;
+          e.z += (pz - e.z) * 1.4 * dt;
+          if (
+            dist < 50 &&
+            zOverlap(pz, e.z, 0.22)
+          ) {
+            if (this.weapon !== "pistol" && !e.stolenWpn) {
+              e.stolenWpn = this.weapon;
+              this.weapon = "pistol";
+              this.ammo = 999;
+              e.phase = 3;
+              this.cue("WEAPON STOLEN — chase the hackbot!", 2.2);
+              sfx.warn();
+            }
+            this.hurtPlayer(8);
           }
-          this.hurtPlayer(8);
         }
         break;
-      case "walker":
-        e.x += move(-35) * dt;
-        e.z += (pz - e.z) * 0.4 * dt;
-        fireNow(1.5, 320, 14, true);
+      case "walker": {
+        const truck = this.truck;
+        const clamping =
+          !!truck &&
+          !truck.arrived &&
+          Math.abs(e.x - truck.x) < 86 &&
+          zOverlap(e.z, truck.z, 0.3);
+        if (clamping) {
+          truck.clamped = true;
+          e.x += (truck.x + 40 - e.x) * 3 * dt;
+          e.z += (truck.z - e.z) * 3 * dt;
+          this.fireSetPiece("walker-clamp");
+          if (this.canFire(e, fire(1.4))) this.enemyShot(e, 300, 12, true);
+        } else {
+          e.x += move(-35) * dt;
+          e.z += (pz - e.z) * 0.4 * dt;
+          if (dist > 260) {
+            if (this.canFire(e, fire(1.7))) this.enemyLob(e, 16);
+          } else if (this.canFire(e, fire(1.15))) {
+            this.enemyShot(e, 320, 14, true);
+          }
+        }
         break;
+      }
       case "wasp":
-        e.x += move(-90) * dt;
-        e.z += (pz - e.z) * 1.15 * dt + Math.sin(e.timer * 3) * 0.08 * dt;
-        e.hop += (this.player.hop - e.hop) * 0.7 * dt;
-        fireNow(0.85, 220, 12);
+        e.x += (this.player.x - e.x > 40 ? move(-40) : move(-110)) * dt;
+        e.x += Math.sign(this.player.x - e.x) * move(70) * dt * 0.35;
+        e.z += (pz - e.z) * 1.6 * dt;
+        e.hop += (this.player.hop - e.hop) * 1.3 * dt;
+        if (this.canFire(e, fire(1.45))) this.enemyShot(e, 200, 10);
         break;
       case "mine":
         e.hop += Math.sin(e.timer) * 6 * dt;
-        if (Math.hypot(this.player.x - e.x, (pz - e.z) * 160) < 55 && zOverlap(pz, e.z, 0.25)) {
+        if (dist < 55 && zOverlap(pz, e.z, 0.25)) {
           this.burst(e.x, e.z, e.hop, C.blood, 18);
           this.hurtPlayer(22);
           this.killEnemy(e);
           sfx.explode();
         }
         break;
+      case "tether": {
+        e.hop += Math.sin(e.timer * 2.4) * 10 * dt;
+        e.x += move(this.levelId === 1 ? -28 : -22) * dt;
+        e.z += Math.sin(e.timer * 0.9) * 0.08 * dt;
+        const pull = 1 / Math.max(1, dist / 90);
+        this.player.vx += ((e.x - this.player.x) / Math.max(40, dist)) * 140 * pull * dt;
+        this.player.vz += (e.z - this.player.z) * 1.8 * pull * dt;
+        if (this.player.kind === "ship") {
+          this.player.x += Math.sign(e.x - this.player.x) * 28 * pull * dt;
+        }
+        if (Math.floor(this.level.elapsed * 1.4) !== Math.floor((this.level.elapsed - dt) * 1.4)) {
+          sfx.tether();
+        }
+        break;
+      }
       case "mirror":
         e.x += move(-25) * dt;
         e.z += Math.sin(e.timer) * 0.1 * dt;
         break;
-      case "beetle":
-        e.x += move(-40) * dt;
-        if (e.timer > fire(1.4)) {
-          e.timer = 0.01;
-          for (const o of this.enemies) {
-            if (o.dead || o === e || o.kind !== "spine") continue;
-            if (Math.hypot(o.x - e.x, (o.z - e.z) * 160) < 180) {
-              o.hp = Math.min(o.maxHp, o.hp + 12);
-              o.flash = 0.15;
-              this.burst(o.x, o.z, o.hop, C.warn, 5);
-            }
+      case "beetle": {
+        let best: Actor | null = null;
+        let bestD = Infinity;
+        for (const o of this.enemies) {
+          if (o.dead || o.kind !== "spine") continue;
+          const d = Math.hypot(o.x - e.x, (o.z - e.z) * 160);
+          if (d < bestD) {
+            bestD = d;
+            best = o;
           }
         }
+        if (best) {
+          e.x += Math.sign(best.x - e.x) * move(55) * dt;
+          e.z += (best.z - e.z) * 1.6 * dt;
+          if (bestD < 90 && this.canFire(e, fire(1.15))) {
+            best.hp = Math.min(best.maxHp, best.hp + 14);
+            best.flash = 0.18;
+            this.burst(best.x, best.z, best.hop, C.warn, 6);
+            sfx.heal();
+          }
+        } else {
+          e.x += move(-40) * dt;
+        }
         break;
+      }
       case "spine":
         e.hop += Math.sin(e.timer * 1.2) * 8 * dt;
-        fireNow(1.7, 250, 12);
+        if (this.canFire(e, fire(this.spineArmored(e) ? 2.1 : 1.55))) this.enemyShot(e, 250, 12);
         break;
     }
 
-    e.z = clamp01(e.z);
+    e.z = clamp(e.z, this.laneMin, this.laneMax);
     const ghostHidden = e.kind === "ghost" && (e.revealed ?? 0) <= 0;
+    const ram =
+      e.kind === "wasp" || e.kind === "climber" || (e.kind === "drone" && e.phase === 2);
     if (
+      e.kind !== "tether" &&
       !ghostHidden &&
       zOverlap(this.player.z, e.z, 0.2) &&
       Math.hypot(this.player.x - e.x, this.player.hop - e.hop) < 36
     ) {
-      this.hurtPlayer(e.kind === "walker" ? 18 : 10);
+      this.hurtPlayer(e.kind === "walker" ? 18 : ram ? 14 : 10);
     }
     if (e.kind !== "spine" && e.x < this.camX - 100) e.dead = true;
   }
@@ -1452,102 +1834,99 @@ export class Game {
       this.announce(
         b.kind === "reaper"
           ? b.phase === 2
-            ? "REAPER · LASER EYE"
+            ? "REAPER · LASER SWEEP — CHANGE DEPTH"
             : "REAPER · CLAW EMBED — CORE OPEN"
           : b.kind === "seraph"
             ? b.phase === 3
-              ? "SERAPH · SPEAR DIVE — BELLY OPEN"
+              ? "SERAPH · SPEAR FROM AFT"
               : "SERAPH · MIRROR WINGS"
             : b.phase === 3
-              ? "PRIME · CORE EXPOSED"
+              ? "PRIME · EVA THE CORE"
               : "PRIME · PETAL SHIELD",
         2.2,
       );
       sfx.boss();
       this.shake = 8;
+      if (b.kind === "reaper" && b.phase === 3) this.fireSetPiece("deck-slam");
+      if (b.kind === "prime" && b.phase === 3) this.fireSetPiece("arena-shrink");
+      b.timer = 0;
     }
-    b.z = 0.45 + Math.sin(b.timer * 0.7) * 0.12;
+    b.z = clamp(0.45 + Math.sin(b.timer * 0.7) * 0.12, this.laneMin, this.laneMax);
 
     if (b.kind === "reaper") {
       b.x = BOARD_X - 20 + Math.sin(b.timer * 0.5) * 30;
       b.hop = BOARD_HOP - 20;
-      const period = b.phase === 1 ? 1.5 : b.phase === 2 ? 1.05 : 1.3;
-      if (b.timer > period) {
-        b.timer = 0;
-        if (b.phase === 1) this.enemyShot(b, 280, 14, true);
-        else if (b.phase === 2) {
-          for (let i = -1; i <= 1; i++) {
-            this.spawnBullet({
-              x: b.x - 40,
-              z: clamp01(b.z + i * 0.12),
-              hop: b.hop,
-              vx: -340,
-              vz: i * 0.18,
-              vHop: 0,
-              r: 4,
-              dmg: 12,
-              life: 2,
-              friendly: false,
-              color: C.cyan,
-            });
-          }
-          if (Math.random() < 0.45) this.spawnEnemy("drone", b.x - 100, 0.5, 40);
-        } else {
-          this.announce("CLAW!", 0.55);
-          this.spawnBullet({
-            x: this.player.x,
-            z: this.player.z,
-            hop: 150,
-            vx: 0,
-            vz: 0,
-            vHop: -480,
-            r: 9,
-            dmg: 24,
-            life: 1.15,
-            friendly: false,
-            color: C.warn,
-            blast: 44,
-            look: "claw",
-          });
+      if (b.phase === 1) {
+        if (b.timer > 1.5) {
+          b.timer = 0;
+          this.enemyShot(b, 280, 14, true);
         }
+      } else if (b.phase === 2) {
+        if (!this.laserSweep && b.timer > 1.15) {
+          b.timer = 0;
+          this.laserSweep = { z: 0.1, vz: 0.52, life: 1.65 };
+          sfx.laser();
+          this.cue("LASER SWEEP — hop or change depth", 1.5);
+          if (Math.random() < 0.5) this.spawnEnemy("drone", b.x - 100, 0.5, 40);
+        }
+      } else if (b.timer > 1.25) {
+        b.timer = 0;
+        this.announce("CLAW!", 0.55);
+        this.spawnBullet({
+          x: this.player.x,
+          z: this.player.z,
+          hop: 150,
+          vx: 0,
+          vz: 0,
+          vHop: -480,
+          r: 9,
+          dmg: 24,
+          life: 1.15,
+          friendly: false,
+          color: C.warn,
+          blast: 44,
+          look: "claw",
+        });
       }
     } else if (b.kind === "seraph") {
-      b.x = this.camX + W - 160;
-      b.z += (this.player.z - b.z) * 1.8 * dt;
-      b.hop += (this.player.hop - b.hop) * 1.1 * dt;
-      if (b.timer > (b.phase === 3 ? 0.85 : 1.1)) {
-        b.timer = 0;
-        if (b.phase < 3) {
+      if (b.phase < 3) {
+        b.x = this.camX + W - 160;
+        b.z += (this.player.z - b.z) * 1.8 * dt;
+        b.hop += (this.player.hop - b.hop) * 1.1 * dt;
+        if (b.timer > 1.1) {
+          b.timer = 0;
           for (let i = 0; i < b.phase + 1; i++) this.enemyShot(b, 310, 12);
           if (b.phase === 2) this.spawnEnemy("climber", b.x - 80, 0.5, 20);
-        } else {
-          this.spawnBullet({
-            x: b.x,
-            z: b.z,
-            hop: b.hop,
-            vx: -560,
-            vz: (this.player.z - b.z) * 0.9,
-            vHop: (this.player.hop - b.hop) * 0.8,
-            r: 8,
-            dmg: 26,
-            life: 1.3,
-            friendly: false,
-            color: C.pad,
-            blast: 36,
-          });
         }
+      } else if (b.timer < 0.7) {
+        b.x += (this.camX + W + 90 - b.x) * 5 * dt;
+        b.flash = 0.2;
+      } else if (b.timer < 0.82) {
+        if (b.x > this.camX + W * 0.7) {
+          b.x = this.camX - 70;
+          b.z = this.player.z;
+          b.hop = this.player.hop;
+          sfx.telegraph();
+          this.cue("SERAPH AFT — SPEAR", 1.1);
+        }
+      } else if (b.timer < 1.9) {
+        b.x += 640 * dt;
+      } else {
+        b.timer = 0;
+        b.x = this.camX + W - 160;
       }
     } else if (b.kind === "prime") {
       b.x = this.camX + W - 200;
       b.hop = 40 + Math.sin(b.timer * 0.5) * 20;
-      if (b.timer > (b.phase === 3 ? 0.55 : 1.05)) {
+      const period = b.phase === 3 ? 0.7 : 1.05;
+      if (b.timer > period) {
         b.timer = 0;
         const n = 6 + b.phase * 2;
         for (let i = 0; i < n; i++) {
           const a = (i / n) * Math.PI * 2;
           this.spawnBullet({
             x: b.x,
-            z: clamp01(b.z + Math.cos(a) * 0.2),
+            z: clamp(b.z + Math.cos(a) * 0.2, this.laneMin, this.laneMax),
             hop: b.hop,
             vx: Math.cos(a) * 200,
             vz: Math.sin(a) * 0.25,
@@ -1561,6 +1940,10 @@ export class Game {
         }
         if (b.phase >= 2 && Math.random() < 0.4) {
           this.spawnEnemy("gridsat", b.x - 120, Math.random(), 20);
+          if (b.phase === 3) {
+            const last = this.enemies[this.enemies.length - 1];
+            if (last) last.phase = 9;
+          }
         }
       }
     }
@@ -1579,7 +1962,10 @@ export class Game {
     const near =
       Math.abs(this.player.x - truck.x) < 170 &&
       zOverlap(this.player.z, truck.z, 0.28);
-    truck.moving = near && this.level.goalPhase === 1;
+    truck.clamped = this.enemies.some(
+      (e) => !e.dead && e.kind === "walker" && Math.abs(e.x - truck.x) < 86 && zOverlap(e.z, truck.z, 0.3),
+    );
+    truck.moving = near && this.level.goalPhase === 1 && !truck.clamped;
     if (truck.moving) {
       truck.x += 55 * dt;
       truck.z += (this.player.z - truck.z) * 1.2 * dt;
@@ -1641,6 +2027,29 @@ export class Game {
     this.hintT += dt;
     this.lowHpWarn += dt;
     this.lightning = Math.max(0, this.lightning - dt * 3.2);
+    this.twistCueT = Math.max(0, this.twistCueT - dt);
+    if (this.twistCueT <= 0) this.twistCue = "";
+    this.stageSepLock = Math.max(0, this.stageSepLock - dt);
+    if (this.shearLife > 0) {
+      this.shearLife = Math.max(0, this.shearLife - dt);
+      this.gScale = 0.38;
+      if (this.shearLife <= 0) this.gScale = 1;
+    }
+    if (this.laserSweep) {
+      this.laserSweep.z += this.laserSweep.vz * dt;
+      this.laserSweep.life -= dt;
+      if (this.laserSweep.z > 0.9 || this.laserSweep.z < 0.1) this.laserSweep.vz *= -1;
+      if (
+        Math.abs(this.player.z - this.laserSweep.z) < 0.09 &&
+        this.player.hop < 52
+      ) {
+        this.hurtPlayer(16);
+      }
+      if (this.laserSweep.life <= 0) {
+        this.laserSweep = null;
+        if (this.boss && this.boss.kind === "reaper") this.boss.timer = 0;
+      }
+    }
     if (this.levelId === 1 && this.bgThreat > 0.35 && Math.random() < 0.012 + this.bgThreat * 0.02) {
       this.lightning = 1;
     }
@@ -1674,7 +2083,10 @@ export class Game {
           this.towerReady &&
           this.player.x > GANTRY_START_X + 40;
       } else if (this.levelId === 2) {
-        ready = this.level.goalPhase === 2 && this.level.gatesCleared >= this.gates.length;
+        ready =
+          this.level.goalPhase === 2 &&
+          this.level.gatesCleared >= this.gates.length &&
+          this.stageSepLock <= 0;
       } else {
         // Enter Prime cavity by walking/flying right after spines fall
         ready =
@@ -1693,7 +2105,7 @@ export class Game {
       this.player.vx += (targetVx - this.player.vx) * (1 - Math.exp(-rate * dt));
       this.player.vz = az * 0.55 * mob;
       if (ax) this.player.facing = ax > 0 ? 1 : -1;
-      this.player.vHop -= 1400 * dt;
+      this.player.vHop -= 1400 * this.gScale * dt;
       if (this.input.jumpJust()) this.jumpBuf = 0.14;
       else this.jumpBuf = Math.max(0, this.jumpBuf - dt);
       this.coyote = this.player.grounded ? 0.12 : Math.max(0, this.coyote - dt);
@@ -1705,7 +2117,7 @@ export class Game {
         sfx.jump();
       }
       this.player.x += this.player.vx * dt;
-      this.player.z = clamp01(this.player.z + this.player.vz * dt);
+      this.player.z = clamp(this.player.z + this.player.vz * dt, this.laneMin, this.laneMax);
       this.player.hop += this.player.vHop * dt;
 
       let onGround = false;
@@ -1718,6 +2130,7 @@ export class Game {
         if (
           this.player.vHop <= 0 &&
           Math.abs(this.player.x - p.x) < p.w * 0.55 &&
+          !(this.deckSlamX !== null && Math.abs(p.x - this.deckSlamX) < 24) &&
           zOverlap(this.player.z, p.z, 0.35) &&
           this.player.hop <= p.hop + 8 &&
           this.player.hop >= p.hop - 22
@@ -1767,9 +2180,21 @@ export class Game {
       const padL = isTouchPrimary() ? 90 : 60;
       const padR = isTouchPrimary() ? 130 : 80;
       this.player.x = clamp(this.player.x + this.player.vx * dt, this.camX + padL, this.camX + W - padR);
-      this.player.z = clamp01(this.player.z + this.player.vz * dt);
+      this.player.z = clamp(this.player.z + this.player.vz * dt, this.laneMin, this.laneMax);
       this.player.hop = 30 + (1 - this.player.z) * 50;
       this.camLean += (az * 0.1 - this.camLean) * 5 * dt;
+      for (const g of this.gates) {
+        if (g.vz) {
+          g.z += g.vz * dt;
+          if (g.z < 0.16 || g.z > 0.84) g.vz *= -1;
+        }
+      }
+      for (const r of this.circRings) {
+        if (r.vz) {
+          r.z += r.vz * dt;
+          if (r.z < 0.18 || r.z > 0.82) r.vz *= -1;
+        }
+      }
       if (this.shipThrust > 0.6 && this.frame % 2 === 0) {
         this.particles.push({
           x: this.player.x - 22,
@@ -1836,6 +2261,10 @@ export class Game {
       if (this.input.jumpHeld()) this.player.vHop += 520 * dt * mob;
       else this.player.vHop -= 260 * dt;
       if (this.input.jumpJust()) sfx.jump();
+      if (this.shearLife > 0) {
+        this.player.vx += Math.sin(this.level.elapsed * 2.2) * 150 * dt;
+        this.player.vz += Math.cos(this.level.elapsed * 1.7) * 0.16 * dt;
+      }
       if (this.input.jumpHeld() && this.frame % 2 === 0) {
         this.particles.push({
           x: this.player.x,
@@ -1852,7 +2281,7 @@ export class Game {
       }
       if (ax) this.player.facing = ax > 0 ? 1 : -1;
       this.player.x += this.player.vx * dt;
-      this.player.z = clamp01(this.player.z + this.player.vz * dt);
+      this.player.z = clamp(this.player.z + this.player.vz * dt, this.laneMin, this.laneMax);
       this.player.hop = clamp(this.player.hop + this.player.vHop * dt, 0, 160);
       this.player.x = clamp(this.player.x, 40, this.level.length - 40);
       this.camXTarget = clamp(
@@ -1901,8 +2330,20 @@ export class Game {
     for (const b of this.bullets) {
       b.x += b.vx * dt;
       b.z = clamp01(b.z + b.vz * dt);
+      if (b.grav) b.vHop -= b.grav * dt;
       b.hop += b.vHop * dt;
       b.life -= dt;
+      if (b.grav && b.hop < 0) {
+        b.hop = 0;
+        b.life = 0;
+        if (b.blast) this.aoe(b.x, b.z, 0, b.blast, b.dmg * 0.55);
+        if (
+          zOverlap(this.player.z, b.z, 0.3) &&
+          Math.hypot(this.player.x - b.x, this.player.hop) < 42
+        ) {
+          this.hurtPlayer(b.dmg);
+        }
+      }
       if (b.friendly) {
         for (const e of this.enemies) {
           if (e.dead) continue;
@@ -1920,6 +2361,7 @@ export class Game {
             }
             let dmg = b.dmg;
             if (e.kind === "walker" && this.player.x > e.x) dmg *= 1.85;
+            if (e.kind === "spine" && this.spineArmored(e)) dmg *= 0.35;
             e.hp -= dmg;
             e.flash = 0.1;
             b.hits.add(e.uid);
@@ -1939,6 +2381,12 @@ export class Game {
             ) {
               let dmg = b.dmg;
               if (boss.kind === "prime" && boss.phase === 2) dmg *= 0.4;
+              if (boss.kind === "prime" && boss.phase === 3) {
+                const close =
+                  Math.hypot(this.player.x - boss.x, (this.player.z - boss.z) * 160) < 120;
+                const high = this.player.hop > 42;
+                dmg *= close && high ? 2.15 : 0.42;
+              }
               if (boss.kind === "reaper" && boss.phase < 3) dmg *= 0.7;
               if (boss.kind === "seraph" && boss.phase < 3) dmg *= 0.75;
               boss.hp -= dmg;
@@ -1960,11 +2408,12 @@ export class Game {
                 sfx.explode();
                 if (this.levelId === 2) {
                   this.circRings = [
-                    { x: this.player.x + 280, z: 0.35, hit: false },
-                    { x: this.player.x + 520, z: 0.65, hit: false },
-                    { x: this.player.x + 760, z: 0.45, hit: false },
+                    { x: this.player.x + 280, z: 0.35, hit: false, vz: 0.11 },
+                    { x: this.player.x + 520, z: 0.65, hit: false, vz: -0.13 },
+                    { x: this.player.x + 760, z: 0.45, hit: false, vz: 0.1 },
                   ];
                   this.level.circCleared = 0;
+                  this.fireSetPiece("circ-drift");
                   this.announce("NIX: Hold circularization — thread the rings ahead!", 3.2);
                   this.mode = "play";
                 } else if (this.levelId === 1) {
@@ -1981,6 +2430,7 @@ export class Game {
           }
         }
       } else if (
+        b.life > 0 &&
         zOverlap(b.z, this.player.z, 0.28) &&
         Math.hypot(b.x - this.player.x, b.hop - (this.player.hop + 12)) < 28
       ) {
@@ -2288,7 +2738,10 @@ export class Game {
       const sp = project({ x: p.x, z: p.z, hop: p.hop }, this.stage);
       if (sp.sx < -80 || sp.sx > W + 80) continue;
       const isGantry = this.towerReady && p.x >= GANTRY_START_X - 10;
-      if (isGantry) {
+      const slammed = this.deckSlamX !== null && Math.abs(p.x - this.deckSlamX) < 24;
+      if (slammed) {
+        drawDeckScar(ctx, sp.sx, sp.sy, p.w, sp.scale);
+      } else if (isGantry) {
         const label =
           p.x >= BOARD_X - 10 ? "BOARD →" : p.x <= GANTRY_START_X + 10 ? "CLIMB →" : undefined;
         drawGantryDeck(ctx, sp.sx, sp.sy, p.w, sp.scale, label);
@@ -2715,7 +3168,7 @@ export class Game {
       | { kind: "player" }
       | { kind: "truck"; ref: FuelTruck }
       | { kind: "tech"; ref: { x: number; z: number; rescued: boolean } }
-      | { kind: "gate"; ref: { x: number; z: number; hit: boolean }; circ?: boolean };
+      | { kind: "gate"; ref: LaneGate; circ?: boolean };
 
     const items: (DrawItem & { z: number; hop: number })[] = [];
 
@@ -2789,6 +3242,13 @@ export class Game {
           5,
           truck.hp < 40 ? C.blood : C.pad,
         );
+        if (truck.clamped) {
+          ctx.fillStyle = C.warn;
+          ctx.font = "10px 'Share Tech Mono', monospace";
+          ctx.textAlign = "center";
+          ctx.fillText("CLAMPED", sp.sx, sp.sy - 50 * sp.scale);
+          ctx.textAlign = "left";
+        }
       } else if (item.kind === "gate") {
         const g = item.ref;
         const sp = project({ x: g.x, z: g.z, hop: 40 }, this.stage);
@@ -2812,7 +3272,11 @@ export class Game {
           ctx.fillStyle = C.warn;
           ctx.font = "11px 'Share Tech Mono', monospace";
           ctx.textAlign = "center";
-          ctx.fillText(`GATE · ${laneLabel(g.z)}`, sp.sx, sp.sy - 70 * sp.scale);
+          ctx.fillText(
+            `GATE · ${laneLabel(g.z)}${g.vz ? " DRIFT" : ""}`,
+            sp.sx,
+            sp.sy - 70 * sp.scale,
+          );
           ctx.textAlign = "left";
         }
       } else if (item.kind === "enemy") {
@@ -2834,12 +3298,26 @@ export class Game {
           else drawEnemy(ctx, e.kind, sp.sx, sp.sy, this.frame, e.facing);
         }
         if (e.kind === "spine" && !e.dead) {
-          ctx.fillStyle = C.warn;
+          const armored = this.spineArmored(e);
+          ctx.fillStyle = armored ? C.cyan : C.warn;
           ctx.font = "11px 'Share Tech Mono', monospace";
           ctx.textAlign = "center";
-          ctx.fillText(`SPINE · ${laneLabel(e.z)}`, sp.sx, sp.sy - 55 * sp.scale);
+          ctx.fillText(
+            armored ? `ARMORED · ${laneLabel(e.z)}` : `SPINE · ${laneLabel(e.z)}`,
+            sp.sx,
+            sp.sy - 55 * sp.scale,
+          );
           ctx.textAlign = "left";
-          glow(ctx, sp.sx, sp.sy, 40 * sp.scale, C.warn, 0.2);
+          glow(ctx, sp.sx, sp.sy, 40 * sp.scale, armored ? C.cyan : C.warn, armored ? 0.42 : 0.2);
+          if (armored) {
+            ctx.strokeStyle = C.cyan;
+            ctx.globalAlpha = 0.7;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(sp.sx, sp.sy - 10 * sp.scale, 28 * sp.scale, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+          }
         }
         if (!e.dead && (e.kind === "walker" || e.kind === "spine" || e.kind === "beetle")) {
           const bw = 28 * sp.scale;
@@ -2858,6 +3336,13 @@ export class Game {
           ctx.font = "9px 'Share Tech Mono', monospace";
           ctx.textAlign = "center";
           ctx.fillText("REAR", sp.sx + 18 * sp.scale, sp.sy - 8 * sp.scale);
+          ctx.textAlign = "left";
+        }
+        if (e.kind === "tether") {
+          ctx.fillStyle = C.cyan;
+          ctx.font = "9px 'Share Tech Mono', monospace";
+          ctx.textAlign = "center";
+          ctx.fillText("TETHER", sp.sx, sp.sy - 28 * sp.scale);
           ctx.textAlign = "left";
         }
       } else if (item.kind === "boss") {
@@ -2942,6 +3427,25 @@ export class Game {
           }
         }
       }
+    }
+
+    for (const e of this.enemies) {
+      if (e.dead || e.kind !== "tether") continue;
+      const a = project(e, this.stage);
+      const b = project(this.player, this.stage);
+      drawTetherRope(ctx, a.sx, a.sy, b.sx, b.sy, this.frame);
+    }
+    if (this.truck?.clamped) {
+      const walker = this.enemies.find((e) => !e.dead && e.kind === "walker");
+      if (walker) {
+        const a = project(walker, this.stage);
+        const b = project({ x: this.truck.x, z: this.truck.z, hop: 8 }, this.stage);
+        drawClampLink(ctx, a.sx, a.sy, b.sx, b.sy);
+      }
+    }
+    if (this.laserSweep) {
+      const sp = project({ x: this.camX + W * 0.5, z: this.laserSweep.z, hop: 8 }, this.stage);
+      drawLaserLane(ctx, sp.sy, this.laserSweep.life);
     }
 
     // bullets + particles (projected)
@@ -3045,6 +3549,13 @@ export class Game {
     ctx.fillStyle = C.cyan;
     ctx.font = `${touch ? 12 : 11}px 'Share Tech Mono', monospace`;
     ctx.fillText(this.level.objective, 12, 48);
+    if (this.twistCueT > 0 && this.twistCue) {
+      ctx.fillStyle = C.warn;
+      ctx.globalAlpha = Math.min(1, this.twistCueT * 1.4);
+      ctx.font = `${touch ? 13 : 12}px 'Share Tech Mono', monospace`;
+      ctx.fillText(this.twistCue, 12, H - 22);
+      ctx.globalAlpha = 1;
+    }
 
     ctx.strokeStyle = C.cyan;
     ctx.globalAlpha = 0.55;
@@ -3073,9 +3584,11 @@ export class Game {
       const truckHp = this.truck ? ` · TRUCK ${Math.ceil(this.truck.hp)}` : "";
       let phaseHint = "";
       if (this.level.goalPhase === 1 && this.truck && !this.truck.arrived) {
-        phaseHint = this.truck.moving
-          ? ` · PAD 7 ${Math.max(0, Math.floor(PAD7_X - this.truck.x))}m`
-          : " · STAY WITH THE TRUCK";
+        phaseHint = this.truck.clamped
+          ? " · WALKER CLAMP — KILL IT"
+          : this.truck.moving
+            ? ` · PAD 7 ${Math.max(0, Math.floor(PAD7_X - this.truck.x))}m`
+            : " · STAY WITH THE TRUCK";
       } else if (this.boardReady) {
         phaseHint = " · BOARD FINCH →";
       } else if (this.level.goalPhase === 2) {
@@ -3096,7 +3609,14 @@ export class Game {
       if (this.level.goalPhase === 1) {
         line = `GATES ${this.level.gatesCleared}/${this.gates.length} · fly THROUGH the ring · ${depthHint}`;
       } else if (!this.level.bossDefeated) {
-        line = this.level.bossSpawned ? "SERAPH · match its depth tick" : "SERAPH INBOUND →";
+        line =
+          this.stageSepLock > 0
+            ? "STAGE SEP — punch through debris"
+            : this.level.bossSpawned
+              ? this.boss?.phase === 3
+                ? "SERAPH SPEAR — watch AFT"
+                : "SERAPH · match its depth tick"
+              : "SERAPH INBOUND →";
       } else {
         line = `CIRC ${this.level.circCleared}/${this.level.circNeeded} · thread rings`;
       }
@@ -3107,12 +3627,17 @@ export class Game {
       ctx.font = `${touch ? 13 : 12}px 'Share Tech Mono', monospace`;
       let line: string;
       if (this.level.goalPhase === 1) {
-        line = `SPINES ${this.level.spinesDown}/${this.level.spinesNeeded} · beetles first · keep RIGHT`;
+        line = this.shearLife > 0
+          ? `SPINES ${this.level.spinesDown}/${this.level.spinesNeeded} · GRAVITY SHEAR`
+          : `SPINES ${this.level.spinesDown}/${this.level.spinesNeeded} · beetles first · keep RIGHT`;
       } else if (!this.level.bossSpawned) {
         const dist = Math.max(0, Math.floor(PRIME_ARENA_X - this.player.x));
         line = `PRIME CAVITY → ${dist}m · hold JUMP to thrust`;
       } else {
-        line = "PRIME · rupture the core";
+        line =
+          this.boss && this.boss.phase >= 3
+            ? "PRIME · EVA INTO THE CORE — jump in close"
+            : "PRIME · rupture the core";
       }
       ctx.fillText(line, 12, y2);
     }
@@ -3239,6 +3764,12 @@ export class Game {
       drawForegroundProps(ctx, this.camX, this.frame, kind);
     }
     drawColorGrade(ctx, this.levelId, this.bgThreat);
+    if (this.shearLife > 0) drawShearVeil(ctx, this.frame, this.shearLife);
+    if (this.laneMin > 0.02) {
+      const near = project({ x: this.camX + 80, z: this.laneMin, hop: 0 }, this.stage);
+      const far = project({ x: this.camX + 80, z: this.laneMax, hop: 0 }, this.stage);
+      drawArenaRails(ctx, near.sy, far.sy);
+    }
     if (this.mode === "boss") drawLetterbox(ctx, 0.85);
     ctx.restore();
 

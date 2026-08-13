@@ -25,7 +25,7 @@
 ## Enemy codex (quick)
 
 **L1:** Null Drone · Sentry Crab · Turret Nest · Hackbot · Riot Walker  
-**L2:** Climb Drone · SAM Wasp · Sky Mine  
-**L3:** Grid Sat · Mirror Shard · Repair Beetle · Ghost Uplink  
+**L2:** Climb Drone · SAM Wasp · Sky Mine · Tether Mine  
+**L3:** Grid Sat · Mirror Shard · Repair Beetle · Ghost Uplink · Tether Mine · Spine Node  
 
 Full behaviors: [DESIGN.md](../DESIGN.md)
