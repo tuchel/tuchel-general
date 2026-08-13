@@ -111,7 +111,7 @@ Each level has **two stacked goals** (A unlocks B). Full option board: [`notes/d
 
 ### Level 1 — EARTH ESCAPE
 
-**Goal A:** Escort the **fuel truck** to Pad 7 (truck has HP; stay close or it stalls).  
+**Goal A:** Escort the **fuel truck** to Pad 7 (truck has HP; it keeps rolling with you unless a walker clamps it).  
 **Goal B:** **Climb the gantry tower** and board *Black Finch* — **PAD REAPER** holds the tower.
 
 **Dynamic:** Classic Metal-Slug run-and-gun for the convoy, then a vertical climb. Optional tech rescues for scrap. Kill-clock still ticks.
