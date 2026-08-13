@@ -69,3 +69,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-13] polish | star-mind | 2× HP, pin enemy stills, per-weapon hit sparks, opaque walkable deck
 
 ## [2026-08-13] polish | star-mind | Fuel truck keeps rolling with Ash; bigger enemy/turret shot hitboxes
+
+## [2026-08-13] polish | star-mind | Point-blank shots connect on enemies overlapping Ash
