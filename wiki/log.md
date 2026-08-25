@@ -81,3 +81,7 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-25] polish | apl-storytime | Map-first floating paper card; pin select highlights a branch instead of filtering the day away
 
 ## [2026-08-25] polish | apl-storytime | Time / Distance sort from a West Lake Hills home point (OSM 427 Ridgewood Road)
+
+## [2026-08-25] polish | apl-storytime | Week strip + Calendar toggle; daily schedule sits below instead of a three-month grid
+
+## [2026-08-25] polish | apl-storytime | Mobile sheet handle tracks on window, larger hit target, blocks pull-to-refresh

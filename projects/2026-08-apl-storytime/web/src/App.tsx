@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { MapPane, type EdgePad, type PinHover } from './MapPane'
 import {
   ADA_PHONE,
@@ -13,7 +13,7 @@ import {
 } from './lib/constants'
 import { defaultDay, FILTERS, matchesFilter } from './lib/filters'
 import { eventPoint, formatMiles, miles, sortByDistance, sortByTime } from './lib/geo'
-import { dayKey, formatLongDay, formatRange, formatShortDay, monthShort, seasonDays, weekdayNarrow } from './lib/when'
+import { addDays, dayKey, formatLongDay, formatRange, formatShortDay, sundayOf, weekDays, weekLabel } from './lib/when'
 import type { BranchInfo, FilterId, Gap, StoryEvent } from './lib/types'
 
 type SortId = 'time' | 'distance'
@@ -24,8 +24,6 @@ const MONTHS = [
   { y: 2026, m: 11, label: 'November' },
 ]
 
-const DAYS = seasonDays(SEASON_START, SEASON_END)
-
 const REST_PAD: EdgePad = { top: 40, right: 52, bottom: 36, left: 24 }
 
 function daysInMonth(y: number, m: number): number {
@@ -34,6 +32,18 @@ function daysInMonth(y: number, m: number): number {
 
 function pad(n: number): string {
   return String(n).padStart(2, '0')
+}
+
+function weekInSeason(sunday: string): boolean {
+  return weekDays(sunday).some((d) => d >= SEASON_START && d <= SEASON_END)
+}
+
+function stepWeek(selected: string, dir: -1 | 1): string {
+  const next = addDays(selected, dir * 7)
+  if (next >= SEASON_START && next <= SEASON_END) return next
+  const inWeek = weekDays(sundayOf(next)).filter((d) => d >= SEASON_START && d <= SEASON_END)
+  if (!inWeek.length) return selected
+  return dir === 1 ? inWeek[0] : inWeek[inWeek.length - 1]
 }
 
 function shortBranch(name: string): string {
@@ -71,6 +81,23 @@ function padFromChrome(el: HTMLElement | null): EdgePad {
   }
 }
 
+function sheetRange(): { peek: number; max: number } {
+  const fs = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+  const vh = window.visualViewport?.height ?? window.innerHeight
+  const peek = 18.5 * fs
+  const max = Math.max(peek + 48, vh - 2.6 * fs - 8)
+  return { peek, max }
+}
+
+function swallowNextClick() {
+  const swallow = (ev: Event) => {
+    ev.preventDefault()
+    ev.stopPropagation()
+  }
+  document.addEventListener('click', swallow, true)
+  window.setTimeout(() => document.removeEventListener('click', swallow, true), 450)
+}
+
 export default function App() {
   const [events, setEvents] = useState<StoryEvent[]>([])
   const [branches, setBranches] = useState<Record<string, BranchInfo>>({})
@@ -86,9 +113,22 @@ export default function App() {
   const [expanded, setExpanded] = useState(false)
   const [boot, setBoot] = useState(true)
   const [edgePad, setEdgePad] = useState<EdgePad>(REST_PAD)
+  const [dragH, setDragH] = useState<number | null>(null)
   const calWrap = useRef<HTMLDivElement>(null)
   const chromeRef = useRef<HTMLDivElement>(null)
-  const dragY = useRef<number | null>(null)
+  const handleRef = useRef<HTMLDivElement>(null)
+  const expandedRef = useRef(false)
+  expandedRef.current = expanded
+  const drag = useRef<{
+    id: number
+    startY: number
+    startH: number
+    lastY: number
+    lastT: number
+    vy: number
+    moved: boolean
+    h: number
+  } | null>(null)
 
   useEffect(() => {
     const base = import.meta.env.BASE_URL
@@ -170,6 +210,126 @@ export default function App() {
     document.getElementById(`ev-${eventId}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [eventId, day, expanded])
 
+  useLayoutEffect(() => {
+    const node = handleRef.current
+    const chrome = chromeRef.current
+    if (!node || !chrome) return
+
+    let raf = 0
+    let listening = false
+
+    const applyY = (clientY: number) => {
+      const d = drag.current
+      if (!d) return
+      const now = performance.now()
+      const dt = Math.max(8, now - d.lastT)
+      d.vy = (clientY - d.lastY) / dt
+      d.lastY = clientY
+      d.lastT = now
+      if (Math.abs(clientY - d.startY) > 6) d.moved = true
+      const { peek, max } = sheetRange()
+      const next = Math.min(max, Math.max(peek * 0.88, d.startH - (clientY - d.startY)))
+      d.h = next
+      if (raf) return
+      raf = requestAnimationFrame(() => {
+        raf = 0
+        if (drag.current) setDragH(drag.current.h)
+      })
+    }
+
+    const unbind = () => {
+      if (!listening) return
+      listening = false
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+      document.removeEventListener('touchmove', onTouchMove)
+      document.removeEventListener('touchend', onTouchEnd)
+      document.removeEventListener('touchcancel', onTouchEnd)
+    }
+
+    const finish = (clientY?: number) => {
+      const d = drag.current
+      if (!d) return
+      if (clientY != null) applyY(clientY)
+      drag.current = null
+      if (raf) {
+        cancelAnimationFrame(raf)
+        raf = 0
+      }
+      unbind()
+      document.documentElement.classList.remove('sheet-dragging')
+      const { peek, max } = sheetRange()
+      const mid = peek + (max - peek) * 0.38
+      let open = d.h > mid
+      if (d.vy > 0.35) open = false
+      else if (d.vy < -0.35) open = true
+      if (!d.moved) open = !expandedRef.current
+      if (d.moved) swallowNextClick()
+      setExpanded(open)
+      setDragH(null)
+    }
+
+    const onMove = (ev: PointerEvent) => {
+      const d = drag.current
+      if (!d || ev.pointerId !== d.id) return
+      applyY(ev.clientY)
+    }
+
+    const onUp = (ev: PointerEvent) => {
+      const d = drag.current
+      if (!d || ev.pointerId !== d.id) return
+      finish(ev.clientY)
+    }
+
+    const onTouchMove = (ev: TouchEvent) => {
+      if (!drag.current) return
+      ev.preventDefault()
+      if (ev.touches.length) applyY(ev.touches[0].clientY)
+    }
+
+    const onTouchEnd = (ev: TouchEvent) => {
+      if (!drag.current) return
+      if (ev.touches.length) return
+      finish(ev.changedTouches[0]?.clientY)
+    }
+
+    const onDown = (ev: PointerEvent) => {
+      if (ev.pointerType === 'mouse' && ev.button !== 0) return
+      if (drag.current) finish()
+      ev.stopPropagation()
+      const startH = chrome.getBoundingClientRect().height
+      drag.current = {
+        id: ev.pointerId,
+        startY: ev.clientY,
+        startH,
+        lastY: ev.clientY,
+        lastT: performance.now(),
+        vy: 0,
+        moved: false,
+        h: startH,
+      }
+      document.documentElement.classList.add('sheet-dragging')
+      setDragH(startH)
+      if (!listening) {
+        listening = true
+        window.addEventListener('pointermove', onMove)
+        window.addEventListener('pointerup', onUp)
+        window.addEventListener('pointercancel', onUp)
+        document.addEventListener('touchmove', onTouchMove, { passive: false })
+        document.addEventListener('touchend', onTouchEnd)
+        document.addEventListener('touchcancel', onTouchEnd)
+      }
+    }
+
+    node.addEventListener('pointerdown', onDown)
+    return () => {
+      node.removeEventListener('pointerdown', onDown)
+      if (drag.current) finish()
+      else unbind()
+    }
+  }, [day])
+
   const counts = useMemo(() => {
     const m = new Map<string, number>()
     for (const ev of events) {
@@ -232,20 +392,6 @@ export default function App() {
     setBranch(ev.branch)
   }
 
-  function onHandlePointerDown(e: ReactPointerEvent<HTMLButtonElement>) {
-    dragY.current = e.clientY
-  }
-
-  function onHandlePointerUp(e: ReactPointerEvent<HTMLButtonElement>) {
-    const start = dragY.current
-    dragY.current = null
-    if (start == null) return
-    const dy = e.clientY - start
-    if (dy < -28) setExpanded(true)
-    else if (dy > 28) setExpanded(false)
-    else setExpanded((v) => !v)
-  }
-
   if (!day) {
     return <div className="boot">Loading the Fall 2026 storytimes…</div>
   }
@@ -289,17 +435,39 @@ export default function App() {
           </p>
       </section>
 
-      <div className="chrome" ref={chromeRef}>
-        <button
-          type="button"
+      <div
+        className={dragH != null ? 'chrome dragging' : 'chrome'}
+        ref={chromeRef}
+        style={dragH != null ? { height: dragH } : undefined}
+      >
+        <div
           className="sheet-handle"
-          aria-label={expanded ? 'Show more map' : 'Show more of the schedule'}
+          ref={handleRef}
+          role="slider"
+          tabIndex={0}
+          aria-label="Schedule sheet"
+          aria-orientation="vertical"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={expanded ? 100 : 35}
           aria-expanded={expanded}
-          onPointerDown={onHandlePointerDown}
-          onPointerUp={onHandlePointerUp}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowUp' || e.key === 'Home') {
+              e.preventDefault()
+              setExpanded(true)
+            }
+            if (e.key === 'ArrowDown' || e.key === 'End') {
+              e.preventDefault()
+              setExpanded(false)
+            }
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setExpanded((v) => !v)
+            }
+          }}
         >
           <span />
-        </button>
+        </div>
 
         <header className="top">
           <div className="brand">
@@ -385,17 +553,17 @@ export default function App() {
           ))}
         </div>
 
-        <div className="sheet-scroll">
-          <DayRail
+        <div className="week">
+          <WeekBar
             counts={counts}
             max={maxCount}
             selected={day}
+            calendarOpen={seasonOpen}
             onSelect={pickDay}
-            onOpenSeason={() => setSeasonOpen(true)}
+            onOpenCalendar={() => setSeasonOpen(true)}
           />
-          <div className="season-desktop">
-            <SeasonGrid counts={counts} max={maxCount} selected={day} onSelect={pickDay} />
-          </div>
+        </div>
+        <div className="sheet-scroll">
           <ol className="events">
             {located.length === 0 && unlocated.length === 0 && (
               <li className="empty">No programs this day for the current filter.</li>
@@ -436,7 +604,7 @@ export default function App() {
       {seasonOpen && (
         <div className="season-overlay" role="dialog" aria-modal="true" aria-label="Season calendar">
           <div className="season-overlay-bar">
-            <strong>Fall 2026</strong>
+            <strong>Calendar</strong>
             <button type="button" className="text-btn primary" onClick={() => setSeasonOpen(false)}>
               Done
             </button>
@@ -448,74 +616,89 @@ export default function App() {
   )
 }
 
-function DayRail({
+function WeekBar({
   counts,
   max,
   selected,
+  calendarOpen,
   onSelect,
-  onOpenSeason,
+  onOpenCalendar,
 }: {
   counts: Map<string, number>
   max: number
   selected: string
+  calendarOpen: boolean
   onSelect: (d: string) => void
-  onOpenSeason: () => void
+  onOpenCalendar: () => void
 }) {
-  const scroller = useRef<HTMLDivElement>(null)
-  const idx = DAYS.indexOf(selected)
-
-  useLayoutEffect(() => {
-    const btn = scroller.current?.querySelector<HTMLElement>(`[data-day="${selected}"]`)
-    btn?.scrollIntoView({ inline: 'center', block: 'nearest' })
-  }, [selected])
-
-  function step(dir: -1 | 1) {
-    const next = DAYS[idx + dir]
-    if (next) onSelect(next)
-  }
+  const sun = sundayOf(selected)
+  const days = weekDays(sun)
+  const prevOk = weekInSeason(addDays(sun, -7))
+  const nextOk = weekInSeason(addDays(sun, 7))
 
   return (
-    <div className="day-rail">
-      <button type="button" className="rail-nav" aria-label="Previous day" disabled={idx <= 0} onClick={() => step(-1)}>
-        ‹
-      </button>
-      <div className="day-strip" ref={scroller} role="listbox" aria-label="Day">
-        {DAYS.map((key) => {
+    <div>
+      <div className="week-bar">
+        <button
+          type="button"
+          className="week-nav"
+          aria-label="Previous week"
+          disabled={!prevOk}
+          onClick={() => onSelect(stepWeek(selected, -1))}
+        >
+          ‹
+        </button>
+        <span className="week-label">{weekLabel(sun)}</span>
+        <button
+          type="button"
+          className="week-nav"
+          aria-label="Next week"
+          disabled={!nextOk}
+          onClick={() => onSelect(stepWeek(selected, 1))}
+        >
+          ›
+        </button>
+        <button
+          type="button"
+          className="week-cal"
+          aria-expanded={calendarOpen}
+          onClick={onOpenCalendar}
+        >
+          Calendar
+        </button>
+      </div>
+      <div className="week-dows" aria-hidden="true">
+        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((w, i) => (
+          <span key={`${w}${i}`}>{w}</span>
+        ))}
+      </div>
+      <div className="week-days" role="listbox" aria-label="This week">
+        {days.map((key) => {
+          const inSeason = key >= SEASON_START && key <= SEASON_END
           const c = counts.get(key) ?? 0
           const closed = CLOSED_DAYS.has(key)
-          const t = 0.08 + (c / max) * 0.82
-          const mark = key.endsWith('-01') || key === SEASON_START
+          const t = inSeason ? 0.08 + (c / max) * 0.82 : 0
           return (
             <button
               key={key}
               type="button"
               role="option"
-              data-day={key}
+              disabled={!inSeason}
               aria-selected={key === selected}
-              aria-label={`${formatLongDay(key)}${closed ? ', libraries closed' : `, ${c} programs`}`}
-              className={`strip-day${key === selected ? ' sel' : ''}${closed ? ' closed' : ''}`}
-              style={{ background: `rgba(26, 22, 18, ${c ? t : 0.04})` }}
+              aria-label={
+                inSeason
+                  ? `${formatLongDay(key)}${closed ? ', libraries closed' : `, ${c} programs`}`
+                  : undefined
+              }
+              className={`week-day${key === selected ? ' sel' : ''}${closed ? ' closed' : ''}${inSeason && c / max > 0.45 ? ' hot' : ''}`}
+              style={inSeason ? { background: `rgba(26, 22, 18, ${c ? t : 0.04})` } : undefined}
               onClick={() => onSelect(key)}
             >
-              {mark && <span className="strip-mo">{monthShort(key)}</span>}
-              <span className="strip-wd">{weekdayNarrow(key)}</span>
-              <span className="strip-n">{Number(key.slice(8))}</span>
+              {Number(key.slice(8))}
             </button>
           )
         })}
       </div>
-      <button
-        type="button"
-        className="rail-nav"
-        aria-label="Next day"
-        disabled={idx < 0 || idx >= DAYS.length - 1}
-        onClick={() => step(1)}
-      >
-        ›
-      </button>
-      <button type="button" className="season-launch" onClick={onOpenSeason}>
-        Season
-      </button>
     </div>
   )
 }
