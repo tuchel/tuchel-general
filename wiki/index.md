@@ -11,6 +11,7 @@ Catalog of pages in this personal knowledge base. Keep thin; link out to long-fo
 - [Metro Budget & Tax Explorer](../projects/2026-07-metro-budget-tax/README.md) — plan for interactive MSA local spend/tax per person
 - [STAR MIND](../projects/2026-07-star-mind/README.md) — Metal Slug–style space-punk side shooter (Ash vs rogue AI sats)
 - [San Juan Whale Odds](../projects/2026-07-san-juan-whale-map/README.md) — boat-renter map of whale likelihood around San Juan Island
+- [APL Storytime Fall 2026](../projects/2026-08-apl-storytime/README.md) — subscribeable iCal of Austin Public Library storytimes (7 Sep–21 Nov 2026)
 
 ## Concepts
 
@@ -19,7 +20,7 @@ Catalog of pages in this personal knowledge base. Keep thin; link out to long-fo
 
 ## Entities
 
-_None yet._
+- [Austin Public Library](entities/austin-public-library.md) — City of Austin public library system
 
 ## Methods
 

@@ -73,3 +73,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-13] polish | star-mind | Point-blank shots connect on enemies overlapping Ash
 
 ## [2026-08-13] polish | star-mind | More Ash/truck HP; enemies enter from screen-right; faster fire rates
+
+## [2026-08-24] kickoff | apl-storytime | Fall 2026 Austin Public Library storytime ICS + subscribe page from dated APL listings (flyer window 7 Sep–21 Nov)
