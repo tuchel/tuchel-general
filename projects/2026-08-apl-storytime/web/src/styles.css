@@ -187,10 +187,14 @@ button { appearance: none; touch-action: manipulation; }
 
 .filters {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.1rem 0.05rem;
-  padding: 0 0.45rem 0.2rem;
+  padding: 0 0.45rem 0.15rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
+.filters::-webkit-scrollbar { display: none; }
 .chip {
   font-size: 0.82rem;
   font-weight: 600;
@@ -513,14 +517,8 @@ footer a { color: var(--link); }
   .status p { font-size: 0.8rem; }
 
   .filters {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-    padding: 0 0.4rem 0.15rem;
+    padding: 0 0.4rem 0.1rem;
   }
-  .filters::-webkit-scrollbar { display: none; }
   .chip {
     flex: 0 0 auto;
     min-height: 2.5rem;
