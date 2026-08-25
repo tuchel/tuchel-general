@@ -31,6 +31,11 @@ const monthAbbrev = new Intl.DateTimeFormat('en-US', {
   month: 'short',
 })
 
+const monthLong = new Intl.DateTimeFormat('en-US', {
+  timeZone: TZ,
+  month: 'long',
+})
+
 const timeFmt = new Intl.DateTimeFormat('en-US', {
   timeZone: TZ,
   hour: 'numeric',
@@ -96,6 +101,18 @@ export function weekLabel(sunday: string): string {
   const bm = monthShort(b)
   if (am === bm) return `${am} ${ad}–${bd}`
   return `${am} ${ad} – ${bm} ${bd}`
+}
+
+export function monthName(day: string): string {
+  return monthLong.format(new Date(`${day}T12:00:00-05:00`))
+}
+
+export function weekMonthLabel(sunday: string): string {
+  const end = addDays(sunday, 6)
+  const a = monthName(sunday)
+  const b = monthName(end)
+  if (a === b) return a
+  return `${monthShort(sunday)}–${monthShort(end)}`
 }
 
 export function formatTime(iso: string): string {

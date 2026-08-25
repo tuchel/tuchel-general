@@ -13,7 +13,7 @@ import {
 } from './lib/constants'
 import { defaultDay, FILTERS, matchesFilter } from './lib/filters'
 import { eventPoint, formatMiles, miles, sortByDistance, sortByTime } from './lib/geo'
-import { addDays, dayKey, formatLongDay, formatRange, formatShortDay, sundayOf, weekDays, weekLabel } from './lib/when'
+import { addDays, dayKey, formatLongDay, formatRange, sundayOf, weekDays, weekMonthLabel, weekdayNarrow } from './lib/when'
 import type { BranchInfo, FilterId, Gap, StoryEvent } from './lib/types'
 
 type SortId = 'time' | 'distance'
@@ -469,56 +469,55 @@ export default function App() {
           <span />
         </div>
 
-        <header className="top">
-          <div className="brand">
-            <h1>Storytime</h1>
-            <p>Austin Public Library · 7 Sep–21 Nov 2026</p>
-          </div>
-          <div className="top-actions">
-            <div className="cal-wrap" ref={calWrap}>
-              <button
-                type="button"
-                className="text-btn primary"
-                aria-expanded={calOpen}
-                aria-haspopup="menu"
-                onClick={() => setCalOpen((v) => !v)}
-              >
-                <span className="label-wide">Add to calendar</span>
-                <span className="label-narrow">Subscribe</span>
-              </button>
-              {calOpen && (
-                <div className="cal-menu" role="menu">
-                  <a href={WEBCAL} role="menuitem">
-                    Apple Calendar
-                  </a>
-                  <a href={GOOGLE_CAL} role="menuitem">
-                    Google Calendar
-                  </a>
-                  <a href={`${import.meta.env.BASE_URL}storytime.ics`} download role="menuitem">
-                    Download .ics
-                  </a>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
+        <h1 className="sr-only">Storytime</h1>
 
-        <div className="lede-row">
-          <div className="lede-text">
-            <h2>
-              <span className="lede-long">{formatLongDay(day)}</span>
-              <span className="lede-short">{formatShortDay(day)}</span>
-            </h2>
-            <p>
-              {dayEvents.length} program{dayEvents.length === 1 ? '' : 's'}
-              {nearest ? ` · ${shortBranch(nearest.name)} ${formatMiles(nearest.mi)}` : ''}
-              {CLOSED_DAYS.has(day) ? ' · libraries closed' : ''}
-            </p>
-          </div>
+        <div className="week">
+          <WeekBar
+            counts={counts}
+            max={maxCount}
+            selected={day}
+            calendarOpen={seasonOpen}
+            subscribe={
+              <div className="cal-wrap" ref={calWrap}>
+                <button
+                  type="button"
+                  className="text-btn"
+                  aria-expanded={calOpen}
+                  aria-haspopup="menu"
+                  onClick={() => setCalOpen((v) => !v)}
+                >
+                  Subscribe
+                </button>
+                {calOpen && (
+                  <div className="cal-menu" role="menu">
+                    <a href={WEBCAL} role="menuitem">
+                      Apple Calendar
+                    </a>
+                    <a href={GOOGLE_CAL} role="menuitem">
+                      Google Calendar
+                    </a>
+                    <a href={`${import.meta.env.BASE_URL}storytime.ics`} download role="menuitem">
+                      Download .ics
+                    </a>
+                  </div>
+                )}
+              </div>
+            }
+            onSelect={pickDay}
+            onOpenCalendar={() => setSeasonOpen(true)}
+          />
+        </div>
+
+        <div className="status">
+          <p>
+            {dayEvents.length} program{dayEvents.length === 1 ? '' : 's'}
+            {nearest ? ` · ${shortBranch(nearest.name)} ${formatMiles(nearest.mi)}` : ''}
+            {CLOSED_DAYS.has(day) ? ' · libraries closed' : ''}
+          </p>
           <div className="sort" role="group" aria-label="Order">
             <button
               type="button"
-              className={sort === 'time' ? 'chip on' : 'chip'}
+              className={sort === 'time' ? 'text-btn on' : 'text-btn'}
               aria-pressed={sort === 'time'}
               onClick={() => setSort('time')}
             >
@@ -526,7 +525,7 @@ export default function App() {
             </button>
             <button
               type="button"
-              className={sort === 'distance' ? 'chip on' : 'chip'}
+              className={sort === 'distance' ? 'text-btn on' : 'text-btn'}
               aria-pressed={sort === 'distance'}
               onClick={() => setSort('distance')}
             >
@@ -553,16 +552,6 @@ export default function App() {
           ))}
         </div>
 
-        <div className="week">
-          <WeekBar
-            counts={counts}
-            max={maxCount}
-            selected={day}
-            calendarOpen={seasonOpen}
-            onSelect={pickDay}
-            onOpenCalendar={() => setSeasonOpen(true)}
-          />
-        </div>
         <div className="sheet-scroll">
           <ol className="events">
             {located.length === 0 && unlocated.length === 0 && (
@@ -621,6 +610,7 @@ function WeekBar({
   max,
   selected,
   calendarOpen,
+  subscribe,
   onSelect,
   onOpenCalendar,
 }: {
@@ -628,6 +618,7 @@ function WeekBar({
   max: number
   selected: string
   calendarOpen: boolean
+  subscribe: ReactNode
   onSelect: (d: string) => void
   onOpenCalendar: () => void
 }) {
@@ -639,6 +630,18 @@ function WeekBar({
   return (
     <div>
       <div className="week-bar">
+        <p className="week-month">{weekMonthLabel(sun)}</p>
+        <button
+          type="button"
+          className="text-btn"
+          aria-expanded={calendarOpen}
+          onClick={onOpenCalendar}
+        >
+          Calendar
+        </button>
+        {subscribe}
+      </div>
+      <div className="week-strip">
         <button
           type="button"
           className="week-nav"
@@ -648,7 +651,34 @@ function WeekBar({
         >
           ‹
         </button>
-        <span className="week-label">{weekLabel(sun)}</span>
+        <div className="week-days" role="listbox" aria-label="This week">
+          {days.map((key) => {
+            const inSeason = key >= SEASON_START && key <= SEASON_END
+            const c = counts.get(key) ?? 0
+            const closed = CLOSED_DAYS.has(key)
+            const t = inSeason ? 0.08 + (c / max) * 0.82 : 0
+            return (
+              <button
+                key={key}
+                type="button"
+                role="option"
+                disabled={!inSeason}
+                aria-selected={key === selected}
+                aria-label={
+                  inSeason
+                    ? `${formatLongDay(key)}${closed ? ', libraries closed' : `, ${c} programs`}`
+                    : undefined
+                }
+                className={`week-day${key === selected ? ' sel' : ''}${closed ? ' closed' : ''}${inSeason && c / max > 0.45 ? ' hot' : ''}`}
+                style={inSeason ? { background: `rgba(26, 22, 18, ${c ? t : 0.04})` } : undefined}
+                onClick={() => onSelect(key)}
+              >
+                <i>{weekdayNarrow(key)}</i>
+                <b>{Number(key.slice(8))}</b>
+              </button>
+            )
+          })}
+        </div>
         <button
           type="button"
           className="week-nav"
@@ -658,46 +688,6 @@ function WeekBar({
         >
           ›
         </button>
-        <button
-          type="button"
-          className="week-cal"
-          aria-expanded={calendarOpen}
-          onClick={onOpenCalendar}
-        >
-          Calendar
-        </button>
-      </div>
-      <div className="week-dows" aria-hidden="true">
-        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((w, i) => (
-          <span key={`${w}${i}`}>{w}</span>
-        ))}
-      </div>
-      <div className="week-days" role="listbox" aria-label="This week">
-        {days.map((key) => {
-          const inSeason = key >= SEASON_START && key <= SEASON_END
-          const c = counts.get(key) ?? 0
-          const closed = CLOSED_DAYS.has(key)
-          const t = inSeason ? 0.08 + (c / max) * 0.82 : 0
-          return (
-            <button
-              key={key}
-              type="button"
-              role="option"
-              disabled={!inSeason}
-              aria-selected={key === selected}
-              aria-label={
-                inSeason
-                  ? `${formatLongDay(key)}${closed ? ', libraries closed' : `, ${c} programs`}`
-                  : undefined
-              }
-              className={`week-day${key === selected ? ' sel' : ''}${closed ? ' closed' : ''}${inSeason && c / max > 0.45 ? ' hot' : ''}`}
-              style={inSeason ? { background: `rgba(26, 22, 18, ${c ? t : 0.04})` } : undefined}
-              onClick={() => onSelect(key)}
-            >
-              {Number(key.slice(8))}
-            </button>
-          )
-        })}
       </div>
     </div>
   )
