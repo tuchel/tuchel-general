@@ -85,3 +85,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-25] polish | apl-storytime | Week strip + Calendar toggle; daily schedule sits below instead of a three-month grid
 
 ## [2026-08-25] polish | apl-storytime | Mobile sheet handle tracks on window, larger hit target, blocks pull-to-refresh
+
+## [2026-08-25] polish | apl-storytime | Sheet chrome: month as masthead, weekday letters in day cells, drop duplicate date heading

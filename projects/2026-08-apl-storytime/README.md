@@ -4,7 +4,7 @@ Subscribeable iCal of Austin Public Library storytimes for **7 September – 21 
 
 **Status:** Pages path `/storytime/` after merge — https://tuchel.github.io/tuchel-general/storytime/
 
-Map + day calendar of the same dated listings: a one-week strip on the paper card, with a Calendar toggle for the full Sep–Nov grid, and the day’s schedule directly below. Sort by time or by distance from home (427 Ridgewood Road, West Lake Hills; OSM/Nominatim building point). Tapping a branch highlights it in the list — it does not hide the rest of the day.
+Map + day calendar of the same dated listings. The paper card leads with the month and a one-week strip (weekday letter + date in each cell); Calendar jumps the full Sep–Nov grid, and the day’s programs sit directly below. Sort by time or by distance from home (427 Ridgewood Road, West Lake Hills; OSM/Nominatim building point). Tapping a branch highlights it in the list — it does not hide the rest of the day.
 
 ## Add to iCal / Apple Calendar
 

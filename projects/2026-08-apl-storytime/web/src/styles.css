@@ -42,6 +42,17 @@ button { appearance: none; touch-action: manipulation; }
   outline: 2px solid var(--sel);
   outline-offset: 2px;
 }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 
 .app {
   position: relative;
@@ -84,9 +95,9 @@ button { appearance: none; touch-action: manipulation; }
   position: relative;
   flex-shrink: 0;
   width: 100%;
-  min-height: 3.5rem;
-  margin-top: -0.5rem;
-  padding: 1.15rem 0 0.7rem;
+  min-height: 2.75rem;
+  margin-top: -0.35rem;
+  padding: 0.85rem 0 0.35rem;
   border: 0;
   background: transparent;
   cursor: grab;
@@ -115,39 +126,7 @@ button { appearance: none; touch-action: manipulation; }
   pointer-events: none;
 }
 
-.top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-  min-width: 0;
-  padding: 0.7rem 0.75rem 0.15rem;
-}
-.brand { min-width: 0; }
-.brand h1 {
-  font-family: Newsreader, Georgia, serif;
-  font-size: 1.45rem;
-  font-weight: 650;
-  margin: 0;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-}
-.brand p {
-  margin: 0.12rem 0 0;
-  color: var(--muted);
-  font-size: 0.82rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.top-actions {
-  display: flex;
-  gap: 0.2rem;
-  align-items: center;
-  flex-shrink: 0;
-}
-.text-btn, .chip, .ev-main, .cell, .week-day, .week-nav, .week-cal {
+.text-btn, .chip, .ev-main, .cell, .week-day, .week-nav {
   font: inherit;
   color: inherit;
   background: none;
@@ -155,15 +134,14 @@ button { appearance: none; touch-action: manipulation; }
   cursor: pointer;
 }
 .text-btn {
-  font-size: 0.88rem;
+  font-size: 0.84rem;
   font-weight: 600;
-  padding: 0.4rem 0.55rem;
+  padding: 0.35rem 0.4rem;
   min-height: 2.5rem;
   border-bottom: 1px solid transparent;
 }
 .text-btn.primary { border-bottom-color: var(--ink); }
-.text-btn.on { color: var(--sel); }
-.label-narrow { display: none; }
+.text-btn.on { color: var(--sel); border-bottom-color: var(--sel); }
 
 .cal-wrap { position: relative; }
 .cal-menu {
@@ -187,36 +165,36 @@ button { appearance: none; touch-action: manipulation; }
 }
 .cal-menu a:hover { background: #efe6da; }
 
-.lede-row {
+.status {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: baseline;
   gap: 0.45rem;
-  padding: 0.15rem 0.75rem 0.15rem;
+  padding: 0.15rem 0.75rem 0.05rem;
 }
-.lede-text { min-width: 0; }
-.lede-row h2 {
-  font-family: Newsreader, Georgia, serif;
-  font-size: 1.12rem;
-  font-weight: 650;
+.status p {
   margin: 0;
-  line-height: 1.2;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
 }
-.lede-short { display: none; }
-.lede-row p { margin: 0.1rem 0 0; color: var(--muted); font-size: 0.9rem; }
-.note { color: var(--sel) !important; }
 .sort {
   display: flex;
   flex-shrink: 0;
   align-items: center;
 }
+.sort .text-btn { font-size: 0.82rem; }
 
 .filters {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.1rem 0.05rem;
-  padding: 0 0.45rem 0.2rem;
+  padding: 0 0.45rem 0.15rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
+.filters::-webkit-scrollbar { display: none; }
 .chip {
   font-size: 0.82rem;
   font-weight: 600;
@@ -237,62 +215,80 @@ button { appearance: none; touch-action: manipulation; }
 
 .week {
   flex-shrink: 0;
-  padding: 0.1rem 0.75rem 0.4rem;
+  padding: 0.15rem 0.55rem 0.2rem;
 }
 .week-bar {
   display: flex;
   align-items: center;
-  gap: 0.15rem;
-  margin-bottom: 0.2rem;
+  gap: 0.1rem;
+  min-width: 0;
 }
-.week-label {
+.week-bar .text-btn,
+.week-bar .cal-wrap { flex-shrink: 0; }
+.week-month {
   flex: 1;
-  text-align: center;
-  font-size: 0.78rem;
+  margin: 0;
+  min-width: 0;
+  font-family: Newsreader, Georgia, serif;
+  font-size: 1.32rem;
   font-weight: 650;
-  color: var(--muted);
-  letter-spacing: 0.02em;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  white-space: nowrap;
 }
-.week-nav, .week-cal {
+.week-nav {
   flex: 0 0 auto;
-  min-width: 2.5rem;
+  min-width: 2.25rem;
   min-height: 2.5rem;
   font-weight: 700;
   color: var(--muted);
 }
 .week-nav:disabled { opacity: 0.3; }
-.week-cal {
-  font-size: 0.78rem;
-  font-weight: 650;
-  padding: 0 0.45rem;
-  border-bottom: 1px solid var(--ink);
-  min-width: auto;
+.week-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  margin-top: 0.2rem;
 }
-.week-dows, .week-days {
+.week-days {
+  flex: 1;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 3px;
-}
-.week-dows span {
-  text-align: center;
-  font-size: 0.62rem;
-  font-weight: 600;
-  color: var(--muted);
+  min-width: 0;
 }
 .week-day {
-  min-height: 2.6rem;
-  display: grid;
-  place-items: center;
-  font-size: 0.88rem;
-  font-variant-numeric: tabular-nums;
-  font-weight: 650;
+  min-height: 2.85rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.12rem;
+  padding: 0.18rem 0 0.2rem;
   color: var(--ink);
   border-radius: 1px;
 }
+.week-day i {
+  font-style: normal;
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: var(--muted);
+}
+.week-day b {
+  font-size: 0.9rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
 .week-day:disabled { background: transparent; color: transparent; cursor: default; }
+.week-day:disabled i, .week-day:disabled b { color: transparent; }
 .week-day.hot:not(.sel) { color: #f3ece3; }
+.week-day.hot:not(.sel) i { color: #f3ece3; }
 .week-day.sel { outline: 2px solid var(--sel); outline-offset: 0; color: #fff; background: var(--sel) !important; }
-.week-day.closed { text-decoration: line-through; }
+.week-day.sel i { color: #fff; }
+.week-day.closed b { text-decoration: line-through; }
 
 .season { display: grid; gap: 0.7rem; }
 .month-label {
@@ -491,6 +487,8 @@ footer a { color: var(--link); }
     max-width: 26rem;
     border-radius: 4px;
   }
+  .week { padding: 0.55rem 0.7rem 0.2rem; }
+  .week-month { font-size: 1.42rem; }
   .maplibregl-ctrl-top-right { top: 0.55rem; right: 0.55rem; }
 }
 
@@ -513,30 +511,14 @@ footer a { color: var(--link); }
   }
   .chrome.dragging { transition: none; }
   .sheet-handle { display: flex; align-items: flex-end; justify-content: center; }
-  .brand h1 { font-size: 1.18rem; }
-  .brand p { font-size: 0.72rem; }
-  .app:not(.expanded) .brand p { display: none; }
   .app:not(.expanded) .filters { display: none; }
-  .label-wide { display: none; }
-  .label-narrow { display: inline; }
-  .text-btn { padding: 0.35rem 0.4rem; font-size: 0.84rem; }
-  .lede-long { display: none; }
-  .lede-short { display: inline; }
-  .lede-row { padding: 0 0.7rem 0.1rem; }
-  .lede-row h2 { font-size: 1.02rem; }
-  .lede-row p { font-size: 0.84rem; }
-  .sort .chip { min-height: 2.5rem; padding: 0.35rem 0.5rem; }
-  .top { padding: 0 0.55rem 0.05rem; }
+  .week-month { font-size: 1.18rem; }
+  .status { padding: 0.1rem 0.55rem 0; }
+  .status p { font-size: 0.8rem; }
 
   .filters {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-    padding: 0 0.4rem 0.15rem;
+    padding: 0 0.4rem 0.1rem;
   }
-  .filters::-webkit-scrollbar { display: none; }
   .chip {
     flex: 0 0 auto;
     min-height: 2.5rem;
@@ -562,8 +544,9 @@ footer a { color: var(--link); }
   .maplibregl-ctrl-bottom-right { right: 0.2rem; bottom: 0.2rem; }
 
   .sheet-scroll { padding: 0.1rem 0.55rem 0.65rem; }
-  .week { padding: 0.05rem 0.55rem 0.3rem; }
-  .week-day { min-height: 2.75rem; }
+  .week { padding: 0.05rem 0.35rem 0.15rem; }
+  .week-day { min-height: 2.9rem; }
+  .week-nav { min-width: 2rem; }
 
   .ev-main { padding: 0.7rem 0.1rem; min-height: 3.1rem; }
   .ev-title { font-size: 1.02rem; }
@@ -582,7 +565,6 @@ footer a { color: var(--link); }
     border-radius: 4px;
   }
   .sheet-handle { display: none; }
-  .app:not(.expanded) .brand p { display: none; }
   .app:not(.expanded) .filters { display: flex; }
   .map-legend { bottom: 1.6rem; top: auto; left: auto; right: 0.4rem; }
 }
