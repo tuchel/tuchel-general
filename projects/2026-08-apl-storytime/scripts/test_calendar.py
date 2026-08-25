@@ -62,7 +62,16 @@ def main() -> int:
     if len(uids) != len(set(uids)):
         fail("duplicate UIDs")
 
-    programs = {e["program"] for e in events}
+    pajama = [e for e in events if e["program"] == "Pajama Storytime"]
+    if not pajama:
+        fail("no pajama events")
+    sample = pajama[0]["start"]
+    if not sample.endswith("-05:00") and not sample.endswith("-06:00"):
+        fail(f"pajama start missing Chicago offset: {sample}")
+    # Flyer pajama is evening, not afternoon
+    hour = datetime.fromisoformat(pajama[0]["start"]).hour
+    if hour < 17:
+        fail(f"pajama wall-clock hour should be evening, got {hour} from {pajama[0]}")
     for needed in (
         "All Ages Storytime",
         "Pajama Storytime",

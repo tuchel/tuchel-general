@@ -13,11 +13,13 @@ import urllib.error
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 WEB = ROOT / "web"
 TZID = "America/Chicago"
+CHICAGO = ZoneInfo(TZID)
 SEASON_START = date(2026, 9, 7)
 SEASON_END = date(2026, 11, 21)
 CLOSED = {date(2026, 9, 6), date(2026, 9, 7), date(2026, 11, 11)}
@@ -135,8 +137,8 @@ def parse_when(raw: str) -> tuple[datetime, datetime] | None:
     start_t = parse_clock(m.group(4))
     end_t = parse_clock(m.group(5)) if m.group(5) else start_t + timedelta(minutes=30)
     year = 2026
-    start = datetime(year, month, day, start_t.hour, start_t.minute)
-    end = datetime(year, month, day, end_t.hour, end_t.minute)
+    start = datetime(year, month, day, start_t.hour, start_t.minute, tzinfo=CHICAGO)
+    end = datetime(year, month, day, end_t.hour, end_t.minute, tzinfo=CHICAGO)
     if end <= start:
         end = start + timedelta(minutes=30)
     return start, end
@@ -283,8 +285,8 @@ def normalize(raw: dict, branches: dict) -> dict | None:
         "title": title,
         "program": classify(title),
         "branch": branch,
-        "start": start.isoformat(timespec="minutes"),
-        "end": end.isoformat(timespec="minutes"),
+        "start": start.isoformat(timespec="seconds"),
+        "end": end.isoformat(timespec="seconds"),
         "url": href,
         "address": info.get("address", ""),
         "room": room,
