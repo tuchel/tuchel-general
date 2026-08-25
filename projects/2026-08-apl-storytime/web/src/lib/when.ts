@@ -21,6 +21,16 @@ const shortDay = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
 })
 
+const narrowWeekday = new Intl.DateTimeFormat('en-US', {
+  timeZone: TZ,
+  weekday: 'narrow',
+})
+
+const monthAbbrev = new Intl.DateTimeFormat('en-US', {
+  timeZone: TZ,
+  month: 'short',
+})
+
 const timeFmt = new Intl.DateTimeFormat('en-US', {
   timeZone: TZ,
   hour: 'numeric',
@@ -40,8 +50,28 @@ export function formatLongDay(isoOrDay: string): string {
   return longDay.format(d)
 }
 
-export function formatShortDay(iso: string): string {
-  return shortDay.format(new Date(iso))
+export function formatShortDay(isoOrDay: string): string {
+  const d = isoOrDay.length <= 10 ? new Date(`${isoOrDay}T12:00:00-05:00`) : new Date(isoOrDay)
+  return shortDay.format(d)
+}
+
+export function weekdayNarrow(day: string): string {
+  return narrowWeekday.format(new Date(`${day}T12:00:00-05:00`))
+}
+
+export function monthShort(day: string): string {
+  return monthAbbrev.format(new Date(`${day}T12:00:00-05:00`))
+}
+
+export function seasonDays(start: string, end: string): string[] {
+  const out: string[] = []
+  let k = start
+  while (k <= end) {
+    out.push(k)
+    const [y, m, d] = k.split('-').map(Number)
+    k = new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10)
+  }
+  return out
 }
 
 export function formatTime(iso: string): string {
