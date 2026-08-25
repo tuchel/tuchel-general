@@ -22,3 +22,16 @@ export function eventPoint(ev: StoryEvent): LonLat | null {
   if (ev.lat == null || ev.lon == null) return null
   return { lat: ev.lat, lon: ev.lon }
 }
+
+export function sortByTime(a: StoryEvent, b: StoryEvent): number {
+  return a.start.localeCompare(b.start) || a.branch.localeCompare(b.branch)
+}
+
+export function sortByDistance(home: LonLat, a: StoryEvent, b: StoryEvent): number {
+  const pa = eventPoint(a)
+  const pb = eventPoint(b)
+  const da = pa ? miles(home, pa) : 1e9
+  const db = pb ? miles(home, pb) : 1e9
+  if (da !== db) return da - db
+  return sortByTime(a, b)
+}

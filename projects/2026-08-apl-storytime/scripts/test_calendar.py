@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 import sys
 from datetime import date, datetime
@@ -96,6 +97,20 @@ def main() -> int:
     constants = CONST.read_text()
     if "webcal://tuchel.github.io/tuchel-general/storytime/storytime.ics" not in constants:
         fail("subscribe link missing")
+    home = re.search(r"HOME = \{ lat: ([0-9.]+), lon: (-?[0-9.]+) \}", constants)
+    if not home:
+        fail("HOME coordinates missing")
+    hlat, hlon = float(home.group(1)), float(home.group(2))
+    if abs(hlat - 30.277964) > 1e-6 or abs(hlon - (-97.7902325)) > 1e-6:
+        fail(f"HOME coords drifted: {hlat}, {hlon}")
+    howson = branches["Howson Branch"]
+    r_mi = 3958.7613
+    dlat = math.radians(howson["lat"] - hlat)
+    dlon = math.radians(howson["lon"] - hlon)
+    hav = math.sin(dlat / 2) ** 2 + math.cos(math.radians(hlat)) * math.cos(math.radians(howson["lat"])) * math.sin(dlon / 2) ** 2
+    howson_mi = 2 * r_mi * math.asin(min(1, math.sqrt(hav)))
+    if not 1.7 <= howson_mi <= 2.2:
+        fail(f"Howson should be ~2.0 mi from home, got {howson_mi:.2f}")
     print(f"ok: {len(events)} events, {len(ics)} byte ICS")
     return 0
 
