@@ -77,3 +77,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-24] kickoff | apl-storytime | Fall 2026 Austin Public Library storytime ICS + subscribe page from dated APL listings (flyer window 7 Sep–21 Nov)
 
 ## [2026-08-25] build | apl-storytime | Map + day-density calendar companion: OSM branch points, near-me sort, click-through to APL listings
+
+## [2026-08-25] polish | apl-storytime | Map-first floating paper card; pin select highlights a branch instead of filtering the day away

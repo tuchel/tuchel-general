@@ -29,6 +29,8 @@ export type PinHover = {
   y: number
 }
 
+export type EdgePad = { top: number; right: number; bottom: number; left: number }
+
 type Props = {
   branches: Record<string, BranchInfo>
   dayEvents: StoryEvent[]
@@ -36,6 +38,7 @@ type Props = {
   selectedEvent: StoryEvent | null
   user: LonLat | null
   gapBranches: Set<string>
+  edgePad: EdgePad
   onSelectBranch: (name: string | null) => void
   onHover: (h: PinHover | null) => void
 }
@@ -55,6 +58,7 @@ export function MapPane({
   selectedEvent,
   user,
   gapBranches,
+  edgePad,
   onSelectBranch,
   onHover,
 }: Props) {
@@ -197,10 +201,8 @@ export function MapPane({
         bounded = true
       }
       if (bounded && !bounds.isEmpty()) {
-        const box = map.getContainer().getBoundingClientRect()
-        const pad = Math.min(72, Math.max(28, Math.round(Math.min(box.width, box.height) * 0.12)))
         map.fitBounds(bounds, {
-          padding: pad,
+          padding: edgePad,
           maxZoom: 12.2,
           duration: reducedMotion() ? 0 : 650,
         })
@@ -208,7 +210,7 @@ export function MapPane({
     }
     if (map.loaded()) fit()
     else map.once('load', fit)
-  }, [branches, dayEvents, user])
+  }, [branches, dayEvents, user, edgePad])
 
   useEffect(() => {
     const map = mapRef.current
