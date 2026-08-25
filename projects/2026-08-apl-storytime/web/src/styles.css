@@ -254,7 +254,7 @@ button { appearance: none; touch-action: manipulation; }
   color: var(--muted);
 }
 .ev-title { font-weight: 650; }
-.ev-meta { font-size: 0.8rem; color: var(--muted); }
+.ev-meta { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .ev-detail {
   padding: 0 0.1rem 0.7rem 0.35rem;
   font-size: 0.86rem;
@@ -303,11 +303,11 @@ button { appearance: none; touch-action: manipulation; }
 }
 
 .user-dot {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: var(--user);
-  box-shadow: 0 0 0 3px rgba(42, 111, 151, 0.25);
+  box-shadow: 0 0 0 3px var(--paper), 0 0 0 5px rgba(42, 111, 151, 0.35);
 }
 
 .tip {
@@ -336,9 +336,11 @@ button { appearance: none; touch-action: manipulation; }
   font-size: 0.72rem;
   color: var(--muted);
   display: flex;
-  gap: 0.7rem;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.7rem;
   align-items: center;
   pointer-events: none;
+  max-width: min(22rem, calc(100% - 1rem));
 }
 .lg {
   width: 8px;

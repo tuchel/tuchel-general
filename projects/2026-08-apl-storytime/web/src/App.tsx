@@ -282,10 +282,10 @@ export default function App() {
           </div>
         )}
           <p className="map-legend">
+            <span className="lg home" /> home
             <span className="lg live" /> programs today
             <span className="lg mute" /> quiet
             <span className="lg gap" /> flyer only
-            <span className="lg home" /> home
           </p>
       </section>
 
