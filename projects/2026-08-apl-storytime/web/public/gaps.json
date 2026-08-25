@@ -1,0 +1,38 @@
+[
+  {
+    "title": "All Ages Storytime",
+    "branch": "Little Walnut Creek Branch",
+    "when": "Wednesdays, 10:30 AM",
+    "note": "On the flyer as weekly All Ages; no dated All Ages listing found at this branch in the scraped season."
+  },
+  {
+    "title": "Spanish-English Storytime",
+    "branch": "Southeast Branch",
+    "when": "Wednesdays, 11 AM",
+    "note": "On the flyer as weekly; no dated listing found in the scraped season."
+  },
+  {
+    "title": "Books and Babies (0–12 months)",
+    "branch": "Southeast Branch",
+    "when": "Fridays, 12:30 PM",
+    "note": "On the flyer as weekly; no dated listing found in the scraped season."
+  },
+  {
+    "title": "Books and Babies (0–12 months)",
+    "branch": "Spicewood Springs Branch",
+    "when": "Mondays, 2:00 PM",
+    "note": "On the flyer as weekly; no dated listing found in the scraped season."
+  },
+  {
+    "title": "Toddler Storytime (1–3 years)",
+    "branch": "Spicewood Springs Branch",
+    "when": "Wednesdays, 10:15 AM",
+    "note": "On the flyer as weekly; no dated listing found in the scraped season."
+  },
+  {
+    "title": "Preschool Storytime (3–5 years)",
+    "branch": "Spicewood Springs Branch",
+    "when": "Wednesdays, 11 AM",
+    "note": "On the flyer as weekly; no dated listing found in the scraped season."
+  }
+]

@@ -1,0 +1,136 @@
+{
+  "Central Library": {
+    "address": "710 W. César Chávez St., Austin, TX 78701",
+    "phone": "512-974-7400",
+    "url": "https://library.austintexas.gov/central-library",
+    "aliases": ["Central"],
+    "lat": 30.266016,
+    "lon": -97.751706
+  },
+  "Hampton Branch at Oak Hill": {
+    "address": "5125 Convict Hill Rd., Austin, TX 78749",
+    "phone": "512-974-9900",
+    "url": "https://library.austintexas.gov/hampton-oak-hill",
+    "aliases": ["Hampton @ Oak Hill", "Hampton"],
+    "lat": 30.217605,
+    "lon": -97.855009
+  },
+  "Howson Branch": {
+    "address": "2500 Exposition Blvd., Austin, TX 78703",
+    "phone": "512-974-8800",
+    "url": "https://library.austintexas.gov/howson",
+    "aliases": ["Howson"],
+    "lat": 30.298253,
+    "lon": -97.767623
+  },
+  "John Gillum Branch": {
+    "address": "2505 Steck Ave., Austin, TX 78757",
+    "phone": "512-974-9960",
+    "url": "https://library.austintexas.gov/john-gillum",
+    "aliases": ["John Gillum", "North Village"],
+    "lat": 30.362157,
+    "lon": -97.730504
+  },
+  "Little Walnut Creek Branch": {
+    "address": "835 W. Rundberg Ln., Austin, TX 78758",
+    "phone": "512-974-9860",
+    "url": "https://library.austintexas.gov/little-walnut-creek",
+    "aliases": ["Little Walnut Creek"],
+    "lat": 30.363298,
+    "lon": -97.69847
+  },
+  "Menchaca Road Branch": {
+    "address": "5500 Menchaca Rd., Austin, TX 78745",
+    "phone": "512-974-8700",
+    "url": "https://library.austintexas.gov/menchaca-road",
+    "aliases": ["Menchaca"],
+    "lat": 30.21664,
+    "lon": -97.79732
+  },
+  "Milwood Branch": {
+    "address": "12500 Amherst Dr., Austin, TX 78727",
+    "phone": "512-974-9880",
+    "url": "https://library.austintexas.gov/milwood",
+    "aliases": ["Milwood"],
+    "lat": 30.422389,
+    "lon": -97.71623
+  },
+  "Pleasant Hill Branch": {
+    "address": "211 E. William Cannon Dr., Austin, TX 78745",
+    "phone": "512-974-3940",
+    "url": "https://library.austintexas.gov/pleasant-hill",
+    "aliases": ["Pleasant Hill"],
+    "lat": 30.192237,
+    "lon": -97.777179
+  },
+  "Ruiz Branch": {
+    "address": "1600 Grove Blvd., Austin, TX 78741",
+    "phone": "512-974-7500",
+    "url": "https://library.austintexas.gov/ruiz",
+    "aliases": ["Ruiz"],
+    "lat": 30.229844,
+    "lon": -97.70709
+  },
+  "Southeast Branch": {
+    "address": "5803 Nuckols Crossing Rd., Austin, TX 78744",
+    "phone": "512-974-8840",
+    "url": "https://library.austintexas.gov/southeast",
+    "aliases": ["Southeast"],
+    "lat": 30.187605,
+    "lon": -97.74193
+  },
+  "Spicewood Springs Branch": {
+    "address": "8637 Spicewood Springs Rd., Austin, TX 78759",
+    "phone": "512-974-3800",
+    "url": "https://library.austintexas.gov/spicewood-springs",
+    "aliases": ["Spicewood Springs"],
+    "lat": 30.433761,
+    "lon": -97.773117
+  },
+  "Terrazas Branch": {
+    "address": "1105 E. César Chávez St., Austin, TX 78702",
+    "phone": "512-974-3625",
+    "url": "https://library.austintexas.gov/terrazas",
+    "aliases": ["Terrazas"],
+    "lat": 30.259912,
+    "lon": -97.733445
+  },
+  "Twin Oaks Branch": {
+    "address": "1800 S. Fifth St., Austin, TX 78704",
+    "phone": "512-974-9980",
+    "url": "https://library.austintexas.gov/twin-oaks",
+    "aliases": ["Twin Oaks"],
+    "lat": 30.248676,
+    "lon": -97.762454
+  },
+  "University Hills Branch": {
+    "address": "4721 Loyola Ln., Austin, TX 78723",
+    "phone": "512-974-9940",
+    "url": "https://library.austintexas.gov/university-hills",
+    "aliases": ["University Hills"],
+    "lat": 30.308661,
+    "lon": -97.666511
+  },
+  "Windsor Park Branch": {
+    "address": "5833 Westminster Dr., Austin, TX 78723",
+    "phone": "512-974-9840",
+    "url": "https://library.austintexas.gov/windsor-park",
+    "aliases": ["Windsor Park"],
+    "lat": 30.311664,
+    "lon": -97.690216
+  },
+  "Yarborough Branch": {
+    "address": "2200 Hancock Dr., Austin, TX 78756",
+    "phone": "512-974-8820",
+    "url": "https://library.austintexas.gov/yarborough",
+    "aliases": ["Yarborough"],
+    "lat": 30.323461,
+    "lon": -97.740728
+  },
+  "Online": {
+    "address": "Online via Zoom (register on the library event page)",
+    "phone": "512-974-7400",
+    "url": "https://library.austintexas.gov/events/spanish-storytime",
+    "aliases": ["Online Event", "Online via Zoom", "Zoom"]
+  }
+}
