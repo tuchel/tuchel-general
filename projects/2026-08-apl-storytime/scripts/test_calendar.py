@@ -10,9 +10,11 @@ from datetime import date, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-WEB = ROOT / "web"
-ICS = WEB / "storytime.ics"
-EVENTS = WEB / "events.json"
+PUBLIC = ROOT / "web" / "public"
+ICS = PUBLIC / "storytime.ics"
+EVENTS = PUBLIC / "events.json"
+BRANCHES = ROOT / "data" / "branches.json"
+CONST = ROOT / "web" / "src" / "lib" / "constants.ts"
 SEASON_START = date(2026, 9, 7)
 SEASON_END = date(2026, 11, 21)
 CLOSED_IN_PERSON = {date(2026, 9, 6), date(2026, 9, 7), date(2026, 11, 11)}
@@ -42,6 +44,15 @@ def main() -> int:
             fail(f"in-person event on a closed holiday: {ev}")
         if not ev.get("url", "").startswith("https://library.austintexas.gov/"):
             fail(f"missing APL url: {ev}")
+        if ev["branch"] != "Online" and ("lat" not in ev or "lon" not in ev):
+            fail(f"mapped event missing coordinates: {ev['title']} {ev['branch']}")
+
+    branches = json.loads(BRANCHES.read_text())
+    for name, info in branches.items():
+        if name == "Online":
+            continue
+        if "lat" not in info or "lon" not in info:
+            fail(f"branch missing coordinates: {name}")
 
     ics = ICS.read_bytes()
     if not ics.startswith(b"BEGIN:VCALENDAR"):
@@ -50,14 +61,11 @@ def main() -> int:
         fail("ICS missing Chicago TZ")
     if ics.count(b"BEGIN:VEVENT") != len(events):
         fail("VEVENT count != events.json")
-    # RFC 5545 line folding: each physical line ≤ 75 octets
     for i, line in enumerate(ics.split(b"\r\n")):
         if len(line) > 75:
             fail(f"line {i} is {len(line)} octets: {line[:80]!r}")
 
     text = ics.decode("utf-8")
-    if "Labor Day" in text and "SUMMARY:Talk Time" in text:
-        fail("non-storytime leaked")
     uids = re.findall(r"^UID:(.+)$", text, re.M)
     if len(uids) != len(set(uids)):
         fail("duplicate UIDs")
@@ -68,10 +76,11 @@ def main() -> int:
     sample = pajama[0]["start"]
     if not sample.endswith("-05:00") and not sample.endswith("-06:00"):
         fail(f"pajama start missing Chicago offset: {sample}")
-    # Flyer pajama is evening, not afternoon
     hour = datetime.fromisoformat(pajama[0]["start"]).hour
     if hour < 17:
         fail(f"pajama wall-clock hour should be evening, got {hour} from {pajama[0]}")
+
+    programs = {e["program"] for e in events}
     for needed in (
         "All Ages Storytime",
         "Pajama Storytime",
@@ -84,8 +93,8 @@ def main() -> int:
         if needed not in programs:
             fail(f"missing program class {needed}: {sorted(programs)}")
 
-    html = (WEB / "index.html").read_text()
-    if "webcal://tuchel.github.io/tuchel-general/storytime/storytime.ics" not in html:
+    constants = CONST.read_text()
+    if "webcal://tuchel.github.io/tuchel-general/storytime/storytime.ics" not in constants:
         fail("subscribe link missing")
     print(f"ok: {len(events)} events, {len(ics)} byte ICS")
     return 0

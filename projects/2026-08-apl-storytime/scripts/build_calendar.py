@@ -18,14 +18,12 @@ from zoneinfo import ZoneInfo
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 WEB = ROOT / "web"
+PUBLIC = WEB / "public"
 TZID = "America/Chicago"
 CHICAGO = ZoneInfo(TZID)
 SEASON_START = date(2026, 9, 7)
 SEASON_END = date(2026, 11, 21)
 CLOSED = {date(2026, 9, 6), date(2026, 9, 7), date(2026, 11, 11)}
-CAL_URL = "https://tuchel.github.io/tuchel-general/storytime/"
-ICS_HTTPS = CAL_URL + "storytime.ics"
-SOURCE_INDEX = "https://library.austintexas.gov/events/storytimes"
 ADA_PHONE = "512-974-7400"
 
 TAG_PAGES = [
@@ -71,44 +69,15 @@ WHEN_RE = re.compile(
     re.I,
 )
 
-FLYER_GAPS = [
-    {
-        "title": "All Ages Storytime",
-        "branch": "Little Walnut Creek Branch",
-        "when": "Wednesdays, 10:30 AM",
-        "note": "On the flyer as weekly All Ages; no dated All Ages listing found at this branch in the scraped season.",
-    },
-    {
-        "title": "Spanish-English Storytime",
-        "branch": "Southeast Branch",
-        "when": "Wednesdays, 11 AM",
-        "note": "On the flyer as weekly; no dated listing found in the scraped season.",
-    },
-    {
-        "title": "Books and Babies (0–12 months)",
-        "branch": "Spicewood Springs Branch",
-        "when": "Mondays, 2:00 PM",
-        "note": "On the flyer as weekly; no dated listing found in the scraped season.",
-    },
-    {
-        "title": "Books and Babies (0–12 months)",
-        "branch": "Southeast Branch",
-        "when": "Fridays, 12:30 PM",
-        "note": "On the flyer as weekly; no dated listing found in the scraped season.",
-    },
-    {
-        "title": "Toddler Storytime (1–3 years)",
-        "branch": "Spicewood Springs Branch",
-        "when": "Wednesdays, 10:15 AM",
-        "note": "On the flyer as weekly; no dated listing found in the scraped season.",
-    },
-    {
-        "title": "Preschool Storytime (3–5 years)",
-        "branch": "Spicewood Springs Branch",
-        "when": "Wednesdays, 11 AM",
-        "note": "On the flyer as weekly; no dated listing found in the scraped season.",
-    },
-]
+
+def ages_for(program: str) -> str:
+    if program == "Books and Babies":
+        return "0–12 months"
+    if program in {"Toddler Storytime", "Toddler Music Circle"}:
+        return "1–3 years"
+    if program == "Preschool Storytime":
+        return "3–5 years"
+    return "5 and under"
 
 
 def load_branches() -> dict:
@@ -280,10 +249,12 @@ def normalize(raw: dict, branches: dict) -> dict | None:
     if "Children" in raw["loc_raw"]:
         room = "Children's Area (3rd Floor South)"
     info = branches.get(branch, {})
-    return {
+    program = classify(title)
+    event = {
         "nid": raw["nid"],
         "title": title,
-        "program": classify(title),
+        "program": program,
+        "ages": ages_for(program),
         "branch": branch,
         "start": start.isoformat(timespec="seconds"),
         "end": end.isoformat(timespec="seconds"),
@@ -292,6 +263,10 @@ def normalize(raw: dict, branches: dict) -> dict | None:
         "room": room,
         "source": "apl-listing",
     }
+    if "lat" in info and "lon" in info:
+        event["lat"] = info["lat"]
+        event["lon"] = info["lon"]
+    return event
 
 
 def ics_escape(text: str) -> str:
@@ -412,176 +387,11 @@ def write_ics(events: list[dict], path: Path, now: datetime) -> None:
     path.write_bytes(("\r\n".join(folded) + "\r\n").encode("utf-8"))
 
 
-def html_page(events: list[dict]) -> str:
-    payload = json.dumps(events, ensure_ascii=False)
-    gaps = json.dumps(FLYER_GAPS, ensure_ascii=False)
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>APL Storytime Fall 2026</title>
-  <style>
-    :root {{
-      color-scheme: light;
-      --ink: #1a1916;
-      --muted: #5c5852;
-      --rule: #d8d2c8;
-      --paper: #f7f4ef;
-      --link: #0b3d91;
-    }}
-    * {{ box-sizing: border-box; }}
-    body {{
-      margin: 0;
-      font: 16px/1.45 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-      color: var(--ink);
-      background: var(--paper);
-    }}
-    main {{ max-width: 52rem; margin: 0 auto; padding: 1.5rem 1.1rem 3rem; }}
-    h1 {{ font-size: 1.55rem; font-weight: 600; margin: 0 0 0.35rem; letter-spacing: -0.02em; }}
-    .lede {{ color: var(--muted); margin: 0 0 1.1rem; }}
-    .subscribe {{
-      display: flex; flex-wrap: wrap; gap: 0.55rem; margin: 0 0 1.25rem;
-    }}
-    .subscribe a {{
-      display: inline-block;
-      padding: 0.45rem 0.75rem;
-      border: 1px solid var(--ink);
-      color: var(--ink);
-      text-decoration: none;
-      font: 600 0.92rem/1.2 system-ui, -apple-system, sans-serif;
-    }}
-    .subscribe a.primary {{ background: var(--ink); color: var(--paper); }}
-    .subscribe a:hover {{ outline: 2px solid var(--ink); outline-offset: 1px; }}
-    label {{ font: 600 0.82rem/1.2 system-ui, sans-serif; color: var(--muted); }}
-    .filters {{
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.6rem 0.8rem;
-      margin: 0 0 0.85rem;
-    }}
-    select {{
-      width: 100%;
-      font: 15px/1.3 system-ui, sans-serif;
-      padding: 0.35rem 0.4rem;
-      border: 1px solid var(--rule);
-      background: #fff;
-      color: var(--ink);
-    }}
-    .count {{ font: 0.9rem/1.3 system-ui, sans-serif; color: var(--muted); margin: 0 0 0.6rem; }}
-    table {{ width: 100%; border-collapse: collapse; font-size: 0.92rem; }}
-    th, td {{ text-align: left; padding: 0.38rem 0.4rem 0.38rem 0; border-bottom: 1px solid var(--rule); vertical-align: top; }}
-    th {{ font: 600 0.72rem/1.2 system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }}
-    td a {{ color: var(--link); text-decoration: none; }}
-    td a:hover {{ text-decoration: underline; }}
-    .time {{ white-space: nowrap; font-variant-numeric: tabular-nums; }}
-    footer {{ margin-top: 1.6rem; color: var(--muted); font-size: 0.88rem; }}
-    footer a {{ color: var(--link); }}
-    .gaps {{ margin: 1.4rem 0 0; padding: 0; }}
-    .gaps li {{ margin: 0 0 0.45rem; }}
-    @media (max-width: 640px) {{
-      .filters {{ grid-template-columns: 1fr; }}
-      table {{ font-size: 0.86rem; }}
-      .hide-narrow {{ display: none; }}
-    }}
-  </style>
-</head>
-<body>
-  <main>
-    <h1>Austin Public Library storytime</h1>
-    <p class="lede">7 September – 21 November 2026. Subscribe once; dated events from the library listings land on your calendar.</p>
-    <div class="subscribe">
-      <a class="primary" href="webcal://tuchel.github.io/tuchel-general/storytime/storytime.ics">Add to Apple Calendar</a>
-      <a href="https://calendar.google.com/calendar/r?cid={ICS_HTTPS}">Add to Google Calendar</a>
-      <a href="storytime.ics" download>Download .ics</a>
-    </div>
-    <div class="filters">
-      <label>Branch
-        <select id="branch"><option value="">All branches</option></select>
-      </label>
-      <label>Program
-        <select id="program"><option value="">All programs</option></select>
-      </label>
-    </div>
-    <p class="count" id="count"></p>
-    <table>
-      <thead>
-        <tr>
-          <th>When</th>
-          <th>Program</th>
-          <th>Branch</th>
-        </tr>
-      </thead>
-      <tbody id="rows"></tbody>
-    </table>
-    <section>
-      <h2 style="font-size:1.05rem;margin:1.6rem 0 0.4rem;">On the flyer, not in the dated listings</h2>
-      <p class="lede">These weekly slots are on the printed Fall 2026 flyer but had no matching dated event on the library site when this feed was built. They are <em>not</em> on the subscribed calendar.</p>
-      <ul class="gaps" id="gaps"></ul>
-    </section>
-    <footer>
-      <p>Unofficial. Built from dated Austin Public Library event pages for the flyer window.
-      Confirm at <a href="{SOURCE_INDEX}">library.austintexas.gov/events/storytimes</a>.
-      Libraries closed Labor Day (6–7 Sep) and Veterans Day (11 Nov).
-      ADA accommodations: <a href="tel:5129747400">{ADA_PHONE}</a>.</p>
-      <p>Subscribe URL (any calendar that takes a webcal/ICS feed): <code>{ICS_HTTPS}</code></p>
-    </footer>
-  </main>
-  <script type="application/json" id="events">{payload}</script>
-  <script type="application/json" id="gaps-data">{gaps}</script>
-  <script>
-    const events = JSON.parse(document.getElementById("events").textContent);
-    const gaps = JSON.parse(document.getElementById("gaps-data").textContent);
-    const branchSel = document.getElementById("branch");
-    const programSel = document.getElementById("program");
-    const rows = document.getElementById("rows");
-    const count = document.getElementById("count");
-    const fmt = new Intl.DateTimeFormat("en-US", {{
-      timeZone: "America/Chicago",
-      weekday: "short", month: "short", day: "numeric",
-      hour: "numeric", minute: "2-digit"
-    }});
-    const fmtTime = new Intl.DateTimeFormat("en-US", {{
-      timeZone: "America/Chicago", hour: "numeric", minute: "2-digit"
-    }});
-    const esc = s => String(s).replace(/[&<>"']/g, c => ({{"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","'":"&#39;"}}[c]));
-    const branches = [...new Set(events.map(e => e.branch))].sort();
-    const programs = [...new Set(events.map(e => e.program))].sort();
-    for (const b of branches) branchSel.insertAdjacentHTML("beforeend", `<option>${{esc(b)}}</option>`);
-    for (const p of programs) programSel.insertAdjacentHTML("beforeend", `<option>${{esc(p)}}</option>`);
-    function render() {{
-      const b = branchSel.value, p = programSel.value;
-      const list = events.filter(e => (!b || e.branch === b) && (!p || e.program === p));
-      count.textContent = list.length + " programs";
-      rows.innerHTML = list.map(e => {{
-        const start = new Date(e.start);
-        const end = new Date(e.end);
-        const whenText = `${{fmt.format(start)}} – ${{fmtTime.format(end)}}`;
-        const room = e.room ? `<div class="hide-narrow" style="color:#5c5852">${{esc(e.room)}}</div>` : "";
-        return `<tr>
-          <td class="time">${{esc(whenText)}}</td>
-          <td><a href="${{esc(e.url)}}">${{esc(e.title)}}</a></td>
-          <td>${{esc(e.branch)}}${{room}}</td>
-        </tr>`;
-      }}).join("");
-    }}
-    branchSel.addEventListener("change", render);
-    programSel.addEventListener("change", render);
-    document.getElementById("gaps").innerHTML = gaps.map(g =>
-      `<li><strong>${{g.title}}</strong> — ${{g.branch}}, ${{g.when}}. ${{g.note}}</li>`
-    ).join("");
-    render();
-  </script>
-</body>
-</html>
-"""
-
-
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--scrape", action="store_true", help="Refresh listings from APL")
     args = parser.parse_args()
-    WEB.mkdir(parents=True, exist_ok=True)
+    PUBLIC.mkdir(parents=True, exist_ok=True)
     snapshot = DATA / "events_scraped.json"
     branches = load_branches()
     if args.scrape or not snapshot.exists():
@@ -610,10 +420,11 @@ def main() -> int:
     events = deduped
 
     now = datetime.now(timezone.utc).replace(microsecond=0)
-    (WEB / "events.json").write_text(json.dumps(events, indent=2, ensure_ascii=False) + "\n")
-    write_ics(events, WEB / "storytime.ics", now)
-    (WEB / "index.html").write_text(html_page(events), encoding="utf-8")
-    print(f"{len(events)} events → {WEB / 'storytime.ics'}")
+    (PUBLIC / "events.json").write_text(json.dumps(events, indent=2, ensure_ascii=False) + "\n")
+    write_ics(events, PUBLIC / "storytime.ics", now)
+    (PUBLIC / "branches.json").write_text((DATA / "branches.json").read_text())
+    (PUBLIC / "gaps.json").write_text((DATA / "gaps.json").read_text())
+    print(f"{len(events)} events → {PUBLIC / 'storytime.ics'}")
     return 0
 
 

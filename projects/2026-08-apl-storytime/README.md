@@ -4,6 +4,8 @@ Subscribeable iCal of Austin Public Library storytimes for **7 September – 21 
 
 **Status:** Pages path `/storytime/` after merge — https://tuchel.github.io/tuchel-general/storytime/
 
+Map + day calendar of the same dated listings: pick a day, see which branches have a program, sort by distance, open the APL listing.
+
 ## Add to iCal / Apple Calendar
 
 After the Pages deploy:
@@ -46,6 +48,16 @@ python3 scripts/test_calendar.py
 ```
 
 Without `--scrape`, the builder reuses `data/events_scraped.json`.
+
+Map app:
+
+```bash
+cd projects/2026-08-apl-storytime/web
+npm install
+npm run dev    # http://localhost:5173/tuchel-general/storytime/
+```
+
+Branch coordinates are OpenStreetMap/Nominatim lookups stored in `data/branches.json`.
 
 ## Prior art
 

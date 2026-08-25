@@ -43,6 +43,7 @@ jobs:
             projects/2026-07-metro-budget-tax/web/package-lock.json
             projects/2026-07-star-mind/game/package-lock.json
             projects/2026-07-san-juan-whale-map/web/package-lock.json
+            projects/2026-08-apl-storytime/web/package-lock.json
 
       - name: Install & build Metro Budget Tax
         working-directory: projects/2026-07-metro-budget-tax/web
@@ -67,6 +68,12 @@ jobs:
           npm ci
           npm run build
 
+      - name: Install & build APL Storytime
+        working-directory: projects/2026-08-apl-storytime/web
+        run: |
+          npm ci
+          npm run build
+
       - name: Stage Pages artifact
         run: |
           SITE="${{ github.workspace }}/_site"
@@ -74,7 +81,7 @@ jobs:
           cp -a projects/2026-07-metro-budget-tax/web/dist/. "$SITE/tax/"
           cp -a projects/2026-07-star-mind/game/dist/. "$SITE/star-mind/"
           cp -a projects/2026-07-san-juan-whale-map/web/dist/. "$SITE/whale/"
-          cp -a projects/2026-08-apl-storytime/web/. "$SITE/storytime/"
+          cp -a projects/2026-08-apl-storytime/web/dist/. "$SITE/storytime/"
 
           # Keep old metro path working as a redirect
           cat > "$SITE/metro-budget-tax/index.html" <<'HTML'

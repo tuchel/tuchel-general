@@ -20,7 +20,22 @@ Searched 2026-08-24: web products, library calendar pages, ICS/webcal feeds, Git
 
 Not adopt/stop: the named incumbent does not do the core action (put the flyer season on iCal).
 
+## Closest matches — map + day explorer
+
+| Name | URL | Job it covers | Gap vs this job |
+| --- | --- | --- | --- |
+| APL Events Calendar | https://library.austintexas.gov/events/calendar | Browse programs by date/branch | No map, no “near me,” no iCal. |
+| Toronto Public Library Events Finder | https://jentacularjava.github.io/tpl_events/ | Filterable table of TPL programs | Toronto only; table, not a map. |
+| TPLBrowser | https://github.com/shaheem-pp/TPLBrowser-swiftui | Map of Toronto library *branches* | Branches, not storytimes-by-day. |
+| Calendar Map Filter | https://cmf.chadnorwood.com | Generic map+list over calendar feeds | Empty until you wire a feed; not APL storytimes. |
+| This project's ICS | `web/public/storytime.ics` | Subscribe the flyer season | No geography. |
+
+## Recommendation
+
+**Differentiate.** No named product maps Austin Public Library Fall 2026 storytimes by day with click-through to listings. CMF is a generic shell, not this dataset. The companion GUI is the map + density calendar + near-me sort on the dated listings already in this project.
+
 ## Inspiration only
 
 - Generic “Add to Calendar” widgets on other library LibCal sites (Springshare) — APL is not on a public LibCal ICS for storytime.
 - GitHub Pages as a static `text/calendar` host (same pattern as other Pages surfaces in this monorepo).
+- San Juan Whale Odds map in this repo — MapLibre, map-first sheet, no Google Maps key.
