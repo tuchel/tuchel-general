@@ -40,6 +40,14 @@ type Props = {
   onHover: (h: PinHover | null) => void
 }
 
+function reducedMotion(): boolean {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+function coarsePointer(): boolean {
+  return window.matchMedia('(pointer: coarse)').matches
+}
+
 export function MapPane({
   branches,
   dayEvents,
@@ -68,10 +76,15 @@ export function MapPane({
       center: AUSTIN,
       zoom: 10.4,
       attributionControl: { compact: true },
+      dragRotate: false,
+      pitchWithRotate: false,
+      touchPitch: false,
     })
+    map.touchZoomRotate.disableRotation()
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
     map.on('load', () => {
       ready.current = true
+      map.resize()
       map.addSource('user-acc', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
@@ -97,10 +110,14 @@ export function MapPane({
     map.on('click', (e) => {
       const t = e.originalEvent.target as HTMLElement | null
       if (t?.closest('.pin')) return
+      hoverFn.current(null)
       selectFn.current(null)
     })
+    const ro = new ResizeObserver(() => map.resize())
+    ro.observe(root.current)
     mapRef.current = map
     return () => {
+      ro.disconnect()
       map.remove()
       mapRef.current = null
       ready.current = false
@@ -112,6 +129,7 @@ export function MapPane({
     if (!map) return
     for (const m of markers.current) m.remove()
     markers.current = []
+    const hit = coarsePointer() ? 44 : 24
 
     const byBranch = new Map<string, StoryEvent[]>()
     for (const ev of dayEvents) {
@@ -132,15 +150,17 @@ export function MapPane({
       el.type = 'button'
       el.className = `pin${n ? ' pin-live' : ''}${selected ? ' pin-sel' : ''}${gap && !n ? ' pin-gap' : ''}`
       const size = n ? pinSize(n) : 10
-      el.style.width = `${Math.max(24, size)}px`
-      el.style.height = `${Math.max(24, size)}px`
+      el.style.width = `${Math.max(hit, size)}px`
+      el.style.height = `${Math.max(hit, size)}px`
       el.innerHTML = `<span class="pin-dot" style="width:${size}px;height:${size}px">${n > 1 ? n : ''}</span>`
       el.setAttribute('aria-label', `${name}${n ? `, ${n} programs` : ''}`)
       el.addEventListener('click', (ev) => {
         ev.stopPropagation()
+        hoverFn.current(null)
         selectFn.current(name)
       })
       el.addEventListener('pointerenter', (ev) => {
+        if (ev.pointerType === 'touch') return
         const r = (ev.currentTarget as HTMLElement).getBoundingClientRect()
         hoverFn.current({
           branch: name,
@@ -177,7 +197,13 @@ export function MapPane({
         bounded = true
       }
       if (bounded && !bounds.isEmpty()) {
-        map.fitBounds(bounds, { padding: 72, maxZoom: 12.2, duration: 650 })
+        const box = map.getContainer().getBoundingClientRect()
+        const pad = Math.min(72, Math.max(28, Math.round(Math.min(box.width, box.height) * 0.12)))
+        map.fitBounds(bounds, {
+          padding: pad,
+          maxZoom: 12.2,
+          duration: reducedMotion() ? 0 : 650,
+        })
       }
     }
     if (map.loaded()) fit()

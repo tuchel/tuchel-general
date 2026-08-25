@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { MapPane, type PinHover } from './MapPane'
 import {
   ADA_PHONE,
@@ -12,7 +12,7 @@ import {
 } from './lib/constants'
 import { defaultDay, FILTERS, matchesFilter } from './lib/filters'
 import { eventPoint, formatMiles, miles } from './lib/geo'
-import { dayKey, formatLongDay, formatRange } from './lib/when'
+import { dayKey, formatLongDay, formatRange, formatShortDay, monthShort, seasonDays, weekdayNarrow } from './lib/when'
 import type { BranchInfo, FilterId, Gap, LonLat, StoryEvent } from './lib/types'
 
 const MONTHS = [
@@ -20,6 +20,8 @@ const MONTHS = [
   { y: 2026, m: 10, label: 'October' },
   { y: 2026, m: 11, label: 'November' },
 ]
+
+const DAYS = seasonDays(SEASON_START, SEASON_END)
 
 function daysInMonth(y: number, m: number): number {
   return new Date(y, m, 0).getDate()
@@ -31,6 +33,18 @@ function pad(n: number): string {
 
 function shortBranch(name: string): string {
   return name.replace(/ Branch$/, '').replace('Hampton Branch at Oak Hill', 'Hampton @ Oak Hill')
+}
+
+function tipStyle(x: number, y: number): CSSProperties {
+  const pad = 10
+  const half = 88
+  const left = Math.min(Math.max(x, pad + half), window.innerWidth - pad - half)
+  const flip = y < 88
+  return {
+    left,
+    top: y,
+    transform: flip ? 'translate(-50%, 10px)' : 'translate(-50%, calc(-100% - 10px))',
+  }
 }
 
 export default function App() {
@@ -45,7 +59,9 @@ export default function App() {
   const [geoMsg, setGeoMsg] = useState<string | null>(null)
   const [hover, setHover] = useState<PinHover | null>(null)
   const [calOpen, setCalOpen] = useState(false)
+  const [seasonOpen, setSeasonOpen] = useState(false)
   const [boot, setBoot] = useState(true)
+  const calWrap = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const base = import.meta.env.BASE_URL
@@ -80,6 +96,36 @@ export default function App() {
     else u.searchParams.delete('e')
     history.replaceState(null, '', u)
   }, [day, filter, branch, eventId, boot])
+
+  useEffect(() => {
+    if (!calOpen) return
+    const onPtr = (e: PointerEvent) => {
+      if (!calWrap.current?.contains(e.target as Node)) setCalOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setCalOpen(false)
+    }
+    document.addEventListener('pointerdown', onPtr)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPtr)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [calOpen])
+
+  useEffect(() => {
+    if (!seasonOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSeasonOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [seasonOpen])
+
+  useEffect(() => {
+    if (!eventId) return
+    document.getElementById(`ev-${eventId}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [eventId, day])
 
   const counts = useMemo(() => {
     const m = new Map<string, number>()
@@ -145,6 +191,12 @@ export default function App() {
     )
   }
 
+  function pickDay(next: string) {
+    setDay(next)
+    setEventId(null)
+    setSeasonOpen(false)
+  }
+
   if (!day) {
     return <div className="boot">Loading the Fall 2026 storytimes…</div>
   }
@@ -163,15 +215,26 @@ export default function App() {
           <button type="button" className={user ? 'text-btn on' : 'text-btn'} onClick={locate}>
             Near me
           </button>
-          <div className="cal-wrap">
-            <button type="button" className="text-btn primary" onClick={() => setCalOpen((v) => !v)}>
-              Add to calendar
+          <div className="cal-wrap" ref={calWrap}>
+            <button
+              type="button"
+              className="text-btn primary"
+              aria-expanded={calOpen}
+              aria-haspopup="menu"
+              onClick={() => setCalOpen((v) => !v)}
+            >
+              <span className="label-wide">Add to calendar</span>
+              <span className="label-narrow">Subscribe</span>
             </button>
             {calOpen && (
-              <div className="cal-menu">
-                <a href={WEBCAL}>Apple Calendar</a>
-                <a href={GOOGLE_CAL}>Google Calendar</a>
-                <a href={`${import.meta.env.BASE_URL}storytime.ics`} download>
+              <div className="cal-menu" role="menu">
+                <a href={WEBCAL} role="menuitem">
+                  Apple Calendar
+                </a>
+                <a href={GOOGLE_CAL} role="menuitem">
+                  Google Calendar
+                </a>
+                <a href={`${import.meta.env.BASE_URL}storytime.ics`} download role="menuitem">
                   Download .ics
                 </a>
               </div>
@@ -181,7 +244,10 @@ export default function App() {
       </header>
 
       <div className="lede-row">
-        <h2>{formatLongDay(day)}</h2>
+        <h2>
+          <span className="lede-long">{formatLongDay(day)}</span>
+          <span className="lede-short">{formatShortDay(day)}</span>
+        </h2>
         <p>
           {dayEvents.length} program{dayEvents.length === 1 ? '' : 's'}
           {branch ? ` at ${shortBranch(branch)}` : ''}
@@ -211,15 +277,16 @@ export default function App() {
 
       <div className="workspace">
         <aside className="sheet">
-          <SeasonGrid
+          <DayRail
             counts={counts}
             max={maxCount}
             selected={day}
-            onSelect={(d) => {
-              setDay(d)
-              setEventId(null)
-            }}
+            onSelect={pickDay}
+            onOpenSeason={() => setSeasonOpen(true)}
           />
+          <div className="season-desktop">
+            <SeasonGrid counts={counts} max={maxCount} selected={day} onSelect={pickDay} />
+          </div>
           {branch && (
             <button type="button" className="clear" onClick={() => setBranch(null)}>
               Showing {shortBranch(branch)} · clear
@@ -242,9 +309,7 @@ export default function App() {
                 }}
               />
             ))}
-            {unlocated.length > 0 && (
-              <li className="online-head">Online</li>
-            )}
+            {unlocated.length > 0 && <li className="online-head">Online</li>}
             {unlocated.map((ev) => (
               <EventRow
                 key={ev.nid}
@@ -272,7 +337,7 @@ export default function App() {
             onHover={setHover}
           />
           {hover && (
-            <div className="tip" style={{ left: hover.x, top: hover.y }} role="tooltip">
+            <div className="tip" style={tipStyle(hover.x, hover.y)} role="tooltip">
               <strong>{shortBranch(hover.branch)}</strong>
               <span>
                 {hover.count
@@ -294,11 +359,95 @@ export default function App() {
       </div>
 
       <footer>
-        Unofficial map of dated Austin Public Library storytimes
-        ({SEASON_START.slice(5)} to {SEASON_END.slice(5).replace('-', '/')}). Confirm at{' '}
+        Unofficial map of dated Austin Public Library storytimes (
+        {SEASON_START.slice(5)} to {SEASON_END.slice(5).replace('-', '/')}). Confirm at{' '}
         <a href={STORYTIMES_INDEX}>library.austintexas.gov</a>. ADA: {ADA_PHONE}. ICS:{' '}
         <a href={ICS_HTTPS}>{ICS_HTTPS}</a>
       </footer>
+
+      {seasonOpen && (
+        <div className="season-overlay" role="dialog" aria-modal="true" aria-label="Season calendar">
+          <div className="season-overlay-bar">
+            <strong>Fall 2026</strong>
+            <button type="button" className="text-btn primary" onClick={() => setSeasonOpen(false)}>
+              Done
+            </button>
+          </div>
+          <SeasonGrid counts={counts} max={maxCount} selected={day} onSelect={pickDay} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DayRail({
+  counts,
+  max,
+  selected,
+  onSelect,
+  onOpenSeason,
+}: {
+  counts: Map<string, number>
+  max: number
+  selected: string
+  onSelect: (d: string) => void
+  onOpenSeason: () => void
+}) {
+  const scroller = useRef<HTMLDivElement>(null)
+  const idx = DAYS.indexOf(selected)
+
+  useLayoutEffect(() => {
+    const btn = scroller.current?.querySelector<HTMLElement>(`[data-day="${selected}"]`)
+    btn?.scrollIntoView({ inline: 'center', block: 'nearest' })
+  }, [selected])
+
+  function step(dir: -1 | 1) {
+    const next = DAYS[idx + dir]
+    if (next) onSelect(next)
+  }
+
+  return (
+    <div className="day-rail">
+      <button type="button" className="rail-nav" aria-label="Previous day" disabled={idx <= 0} onClick={() => step(-1)}>
+        ‹
+      </button>
+      <div className="day-strip" ref={scroller} role="listbox" aria-label="Day">
+        {DAYS.map((key) => {
+          const c = counts.get(key) ?? 0
+          const closed = CLOSED_DAYS.has(key)
+          const t = 0.08 + (c / max) * 0.82
+          const mark = key.endsWith('-01') || key === SEASON_START
+          return (
+            <button
+              key={key}
+              type="button"
+              role="option"
+              data-day={key}
+              aria-selected={key === selected}
+              aria-label={`${formatLongDay(key)}${closed ? ', libraries closed' : `, ${c} programs`}`}
+              className={`strip-day${key === selected ? ' sel' : ''}${closed ? ' closed' : ''}`}
+              style={{ background: `rgba(26, 22, 18, ${c ? t : 0.04})` }}
+              onClick={() => onSelect(key)}
+            >
+              {mark && <span className="strip-mo">{monthShort(key)}</span>}
+              <span className="strip-wd">{weekdayNarrow(key)}</span>
+              <span className="strip-n">{Number(key.slice(8))}</span>
+            </button>
+          )
+        })}
+      </div>
+      <button
+        type="button"
+        className="rail-nav"
+        aria-label="Next day"
+        disabled={idx < 0 || idx >= DAYS.length - 1}
+        onClick={() => step(1)}
+      >
+        ›
+      </button>
+      <button type="button" className="season-launch" onClick={onOpenSeason}>
+        Season
+      </button>
     </div>
   )
 }
@@ -319,8 +468,8 @@ function EventRow({
   const pt = eventPoint(ev)
   const dist = user && pt ? formatMiles(miles(user, pt)) : null
   return (
-    <li className={open ? 'ev open' : 'ev'}>
-      <button type="button" className="ev-main" onClick={onToggle}>
+    <li id={`ev-${ev.nid}`} className={open ? 'ev open' : 'ev'}>
+      <button type="button" className="ev-main" onClick={onToggle} aria-expanded={open}>
         <span className="ev-time">{formatRange(ev.start, ev.end)}</span>
         <span className="ev-title">{ev.title}</span>
         <span className="ev-meta">
@@ -341,9 +490,7 @@ function EventRow({
               APL listing
             </a>
             {pt && (
-              <a
-                href={`https://maps.apple.com/?daddr=${pt.lat},${pt.lon}&q=${encodeURIComponent(ev.branch)}`}
-              >
+              <a href={`https://maps.apple.com/?daddr=${pt.lat},${pt.lon}&q=${encodeURIComponent(ev.branch)}`}>
                 Directions
               </a>
             )}
@@ -393,9 +540,14 @@ function SeasonGrid({
               disabled={!inSeason}
               className={`cell${key === selected ? ' sel' : ''}${closed ? ' closed' : ''}${hot ? ' hot' : ''}`}
               style={inSeason ? { background: `rgba(26, 22, 18, ${c ? t : 0.04})` } : undefined}
+              aria-label={
+                inSeason
+                  ? `${formatLongDay(key)}${closed ? ', libraries closed' : `, ${c} programs`}`
+                  : undefined
+              }
               onClick={() => onSelect(key)}
               onPointerEnter={(e) => {
-                if (!inSeason) return
+                if (!inSeason || e.pointerType === 'touch') return
                 const r = e.currentTarget.getBoundingClientRect()
                 setTip({
                   x: r.left + r.width / 2,
@@ -425,7 +577,7 @@ function SeasonGrid({
         )
       })}
       {tip && (
-        <div className="tip" style={{ left: tip.x, top: tip.y }} role="tooltip">
+        <div className="tip" style={tipStyle(tip.x, tip.y)} role="tooltip">
           <strong>{tip.label}</strong>
           <span>{tip.detail}</span>
           <em>Source: dated APL listings</em>
@@ -434,4 +586,3 @@ function SeasonGrid({
     </div>
   )
 }
-
