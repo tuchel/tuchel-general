@@ -13,7 +13,7 @@ import {
 } from './lib/constants'
 import { defaultDay, FILTERS, matchesFilter } from './lib/filters'
 import { eventPoint, formatMiles, miles, sortByDistance, sortByTime } from './lib/geo'
-import { dayKey, formatLongDay, formatRange, formatShortDay, monthShort, seasonDays, weekdayNarrow } from './lib/when'
+import { addDays, dayKey, formatLongDay, formatRange, formatShortDay, sundayOf, weekDays, weekLabel } from './lib/when'
 import type { BranchInfo, FilterId, Gap, StoryEvent } from './lib/types'
 
 type SortId = 'time' | 'distance'
@@ -24,8 +24,6 @@ const MONTHS = [
   { y: 2026, m: 11, label: 'November' },
 ]
 
-const DAYS = seasonDays(SEASON_START, SEASON_END)
-
 const REST_PAD: EdgePad = { top: 40, right: 52, bottom: 36, left: 24 }
 
 function daysInMonth(y: number, m: number): number {
@@ -34,6 +32,18 @@ function daysInMonth(y: number, m: number): number {
 
 function pad(n: number): string {
   return String(n).padStart(2, '0')
+}
+
+function weekInSeason(sunday: string): boolean {
+  return weekDays(sunday).some((d) => d >= SEASON_START && d <= SEASON_END)
+}
+
+function stepWeek(selected: string, dir: -1 | 1): string {
+  const next = addDays(selected, dir * 7)
+  if (next >= SEASON_START && next <= SEASON_END) return next
+  const inWeek = weekDays(sundayOf(next)).filter((d) => d >= SEASON_START && d <= SEASON_END)
+  if (!inWeek.length) return selected
+  return dir === 1 ? inWeek[0] : inWeek[inWeek.length - 1]
 }
 
 function shortBranch(name: string): string {
@@ -385,17 +395,17 @@ export default function App() {
           ))}
         </div>
 
-        <div className="sheet-scroll">
-          <DayRail
+        <div className="week">
+          <WeekBar
             counts={counts}
             max={maxCount}
             selected={day}
+            calendarOpen={seasonOpen}
             onSelect={pickDay}
-            onOpenSeason={() => setSeasonOpen(true)}
+            onOpenCalendar={() => setSeasonOpen(true)}
           />
-          <div className="season-desktop">
-            <SeasonGrid counts={counts} max={maxCount} selected={day} onSelect={pickDay} />
-          </div>
+        </div>
+        <div className="sheet-scroll">
           <ol className="events">
             {located.length === 0 && unlocated.length === 0 && (
               <li className="empty">No programs this day for the current filter.</li>
@@ -436,7 +446,7 @@ export default function App() {
       {seasonOpen && (
         <div className="season-overlay" role="dialog" aria-modal="true" aria-label="Season calendar">
           <div className="season-overlay-bar">
-            <strong>Fall 2026</strong>
+            <strong>Calendar</strong>
             <button type="button" className="text-btn primary" onClick={() => setSeasonOpen(false)}>
               Done
             </button>
@@ -448,74 +458,89 @@ export default function App() {
   )
 }
 
-function DayRail({
+function WeekBar({
   counts,
   max,
   selected,
+  calendarOpen,
   onSelect,
-  onOpenSeason,
+  onOpenCalendar,
 }: {
   counts: Map<string, number>
   max: number
   selected: string
+  calendarOpen: boolean
   onSelect: (d: string) => void
-  onOpenSeason: () => void
+  onOpenCalendar: () => void
 }) {
-  const scroller = useRef<HTMLDivElement>(null)
-  const idx = DAYS.indexOf(selected)
-
-  useLayoutEffect(() => {
-    const btn = scroller.current?.querySelector<HTMLElement>(`[data-day="${selected}"]`)
-    btn?.scrollIntoView({ inline: 'center', block: 'nearest' })
-  }, [selected])
-
-  function step(dir: -1 | 1) {
-    const next = DAYS[idx + dir]
-    if (next) onSelect(next)
-  }
+  const sun = sundayOf(selected)
+  const days = weekDays(sun)
+  const prevOk = weekInSeason(addDays(sun, -7))
+  const nextOk = weekInSeason(addDays(sun, 7))
 
   return (
-    <div className="day-rail">
-      <button type="button" className="rail-nav" aria-label="Previous day" disabled={idx <= 0} onClick={() => step(-1)}>
-        ‹
-      </button>
-      <div className="day-strip" ref={scroller} role="listbox" aria-label="Day">
-        {DAYS.map((key) => {
+    <div>
+      <div className="week-bar">
+        <button
+          type="button"
+          className="week-nav"
+          aria-label="Previous week"
+          disabled={!prevOk}
+          onClick={() => onSelect(stepWeek(selected, -1))}
+        >
+          ‹
+        </button>
+        <span className="week-label">{weekLabel(sun)}</span>
+        <button
+          type="button"
+          className="week-nav"
+          aria-label="Next week"
+          disabled={!nextOk}
+          onClick={() => onSelect(stepWeek(selected, 1))}
+        >
+          ›
+        </button>
+        <button
+          type="button"
+          className="week-cal"
+          aria-expanded={calendarOpen}
+          onClick={onOpenCalendar}
+        >
+          Calendar
+        </button>
+      </div>
+      <div className="week-dows" aria-hidden="true">
+        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((w, i) => (
+          <span key={`${w}${i}`}>{w}</span>
+        ))}
+      </div>
+      <div className="week-days" role="listbox" aria-label="This week">
+        {days.map((key) => {
+          const inSeason = key >= SEASON_START && key <= SEASON_END
           const c = counts.get(key) ?? 0
           const closed = CLOSED_DAYS.has(key)
-          const t = 0.08 + (c / max) * 0.82
-          const mark = key.endsWith('-01') || key === SEASON_START
+          const t = inSeason ? 0.08 + (c / max) * 0.82 : 0
           return (
             <button
               key={key}
               type="button"
               role="option"
-              data-day={key}
+              disabled={!inSeason}
               aria-selected={key === selected}
-              aria-label={`${formatLongDay(key)}${closed ? ', libraries closed' : `, ${c} programs`}`}
-              className={`strip-day${key === selected ? ' sel' : ''}${closed ? ' closed' : ''}`}
-              style={{ background: `rgba(26, 22, 18, ${c ? t : 0.04})` }}
+              aria-label={
+                inSeason
+                  ? `${formatLongDay(key)}${closed ? ', libraries closed' : `, ${c} programs`}`
+                  : undefined
+              }
+              className={`week-day${key === selected ? ' sel' : ''}${closed ? ' closed' : ''}${inSeason && c / max > 0.45 ? ' hot' : ''}`}
+              style={inSeason ? { background: `rgba(26, 22, 18, ${c ? t : 0.04})` } : undefined}
               onClick={() => onSelect(key)}
             >
-              {mark && <span className="strip-mo">{monthShort(key)}</span>}
-              <span className="strip-wd">{weekdayNarrow(key)}</span>
-              <span className="strip-n">{Number(key.slice(8))}</span>
+              {Number(key.slice(8))}
             </button>
           )
         })}
       </div>
-      <button
-        type="button"
-        className="rail-nav"
-        aria-label="Next day"
-        disabled={idx < 0 || idx >= DAYS.length - 1}
-        onClick={() => step(1)}
-      >
-        ›
-      </button>
-      <button type="button" className="season-launch" onClick={onOpenSeason}>
-        Season
-      </button>
     </div>
   )
 }

@@ -68,10 +68,34 @@ export function seasonDays(start: string, end: string): string[] {
   let k = start
   while (k <= end) {
     out.push(k)
-    const [y, m, d] = k.split('-').map(Number)
-    k = new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10)
+    k = addDays(k, 1)
   }
   return out
+}
+
+export function addDays(day: string, n: number): string {
+  const [y, m, d] = day.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}
+
+export function sundayOf(day: string): string {
+  const [y, m, d] = day.split('-').map(Number)
+  return addDays(day, -new Date(Date.UTC(y, m - 1, d)).getUTCDay())
+}
+
+export function weekDays(sunday: string): string[] {
+  return Array.from({ length: 7 }, (_, i) => addDays(sunday, i))
+}
+
+export function weekLabel(sunday: string): string {
+  const a = sunday
+  const b = addDays(sunday, 6)
+  const ad = Number(a.slice(8))
+  const bd = Number(b.slice(8))
+  const am = monthShort(a)
+  const bm = monthShort(b)
+  if (am === bm) return `${am} ${ad}–${bd}`
+  return `${am} ${ad} – ${bm} ${bd}`
 }
 
 export function formatTime(iso: string): string {

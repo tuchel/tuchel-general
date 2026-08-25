@@ -111,7 +111,7 @@ button { appearance: none; touch-action: manipulation; }
   align-items: center;
   flex-shrink: 0;
 }
-.text-btn, .chip, .ev-main, .cell, .strip-day, .rail-nav, .season-launch, .sheet-handle {
+.text-btn, .chip, .ev-main, .cell, .week-day, .week-nav, .week-cal, .sheet-handle {
   font: inherit;
   color: inherit;
   background: none;
@@ -195,11 +195,68 @@ button { appearance: none; touch-action: manipulation; }
   min-height: 0;
   flex: 1;
   overflow: auto;
-  padding: 0.35rem 0.75rem 0.8rem;
+  padding: 0.15rem 0.75rem 0.8rem;
   overscroll-behavior: contain;
 }
 
-.day-rail { display: none; }
+.week {
+  flex-shrink: 0;
+  padding: 0.1rem 0.75rem 0.4rem;
+}
+.week-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-bottom: 0.2rem;
+}
+.week-label {
+  flex: 1;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.week-nav, .week-cal {
+  flex: 0 0 auto;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.week-nav:disabled { opacity: 0.3; }
+.week-cal {
+  font-size: 0.78rem;
+  font-weight: 650;
+  padding: 0 0.45rem;
+  border-bottom: 1px solid var(--ink);
+  min-width: auto;
+}
+.week-dows, .week-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.week-dows span {
+  text-align: center;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.week-day {
+  min-height: 2.6rem;
+  display: grid;
+  place-items: center;
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  color: var(--ink);
+  border-radius: 1px;
+}
+.week-day:disabled { background: transparent; color: transparent; cursor: default; }
+.week-day.hot:not(.sel) { color: #f3ece3; }
+.week-day.sel { outline: 2px solid var(--sel); outline-offset: 0; color: #fff; background: var(--sel) !important; }
+.week-day.closed { text-decoration: line-through; }
 
 .season { display: grid; gap: 0.7rem; }
 .month-label {
@@ -235,7 +292,7 @@ button { appearance: none; touch-action: manipulation; }
 .cell.sel { outline: 2px solid var(--sel); outline-offset: 0; color: #fff; background: var(--sel) !important; }
 .cell.closed { text-decoration: line-through; }
 
-.events { list-style: none; margin: 0.4rem 0 0; padding: 0; }
+.events { list-style: none; margin: 0; padding: 0; }
 .ev { border-top: 1px solid var(--rule); }
 .ev-main {
   width: 100%;
@@ -467,75 +524,9 @@ footer a { color: var(--link); }
   }
   .maplibregl-ctrl-bottom-right { right: 0.2rem; bottom: 0.2rem; }
 
-  .season-desktop { display: none; }
-  .sheet-scroll { padding: 0.15rem 0.55rem 0.65rem; }
-
-  .day-rail {
-    display: flex;
-    align-items: stretch;
-    gap: 0.2rem;
-    flex-shrink: 0;
-    margin-bottom: 0.2rem;
-  }
-  .rail-nav, .season-launch {
-    flex: 0 0 auto;
-    min-width: 2.5rem;
-    min-height: 3.1rem;
-    font-weight: 700;
-    color: var(--muted);
-    border: 1px solid var(--rule);
-    background: var(--paper);
-  }
-  .rail-nav:disabled { opacity: 0.35; }
-  .season-launch {
-    font-size: 0.68rem;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    padding: 0 0.4rem;
-    font-weight: 700;
-  }
-  .day-strip {
-    display: flex;
-    gap: 3px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x proximity;
-    flex: 1;
-    min-width: 0;
-    padding: 0.05rem 0;
-  }
-  .day-strip::-webkit-scrollbar { display: none; }
-  .strip-day {
-    flex: 0 0 auto;
-    width: 2.55rem;
-    min-height: 3.1rem;
-    display: grid;
-    place-content: center;
-    gap: 0;
-    scroll-snap-align: center;
-    font-variant-numeric: tabular-nums;
-    position: relative;
-    color: var(--ink);
-    padding-top: 0.75rem;
-  }
-  .strip-day.sel { outline: 2px solid var(--sel); outline-offset: -1px; color: #fff; background: var(--sel) !important; }
-  .strip-day.closed { text-decoration: line-through; }
-  .strip-mo {
-    position: absolute;
-    top: 0.08rem;
-    left: 0;
-    right: 0;
-    font-size: 0.52rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: inherit;
-    opacity: 0.75;
-  }
-  .strip-wd { font-size: 0.62rem; font-weight: 600; color: inherit; opacity: 0.7; line-height: 1; }
-  .strip-n { font-size: 0.95rem; font-weight: 700; line-height: 1.15; }
-  .strip-day.sel .strip-wd { opacity: 0.9; }
+  .sheet-scroll { padding: 0.1rem 0.55rem 0.65rem; }
+  .week { padding: 0.05rem 0.55rem 0.3rem; }
+  .week-day { min-height: 2.75rem; }
 
   .ev-main { padding: 0.7rem 0.1rem; min-height: 3.1rem; }
   .ev-title { font-size: 1.02rem; }
@@ -561,5 +552,4 @@ footer a { color: var(--link); }
 
 @media (prefers-reduced-motion: reduce) {
   .chrome { transition: none; }
-  .day-strip { scroll-behavior: auto; }
 }
