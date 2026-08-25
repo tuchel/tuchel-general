@@ -16,8 +16,21 @@
 }
 
 * { box-sizing: border-box; }
-html, body, #root { height: 100%; margin: 0; }
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+}
 html { -webkit-text-size-adjust: 100%; }
+html.sheet-dragging,
+html.sheet-dragging body,
+html.sheet-dragging #root {
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}
 body {
   font: 16px/1.4 "Source Sans 3", system-ui, sans-serif;
   color: var(--ink);
@@ -35,6 +48,8 @@ button { appearance: none; touch-action: manipulation; }
   height: 100dvh;
   min-height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
 }
 
 .boot { padding: 2rem 1rem; color: var(--muted); }
@@ -62,21 +77,42 @@ button { appearance: none; touch-action: manipulation; }
   box-shadow: 0 12px 36px rgba(26, 22, 18, 0.12);
 }
 
+.chrome.dragging { transition: none; touch-action: none; }
+
 .sheet-handle {
   display: none;
+  position: relative;
+  flex-shrink: 0;
   width: 100%;
+  min-height: 3.5rem;
+  margin-top: -0.5rem;
+  padding: 1.15rem 0 0.7rem;
   border: 0;
   background: transparent;
-  padding: 0.45rem 0 0.2rem;
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
+.sheet-handle::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -0.75rem;
+  bottom: 0;
+}
+.sheet-handle:active { cursor: grabbing; }
 .sheet-handle span {
   display: block;
-  width: 2.6rem;
-  height: 0.28rem;
+  position: relative;
+  width: 3.6rem;
+  height: 0.42rem;
   margin: 0 auto;
   border-radius: 99px;
-  background: #c9c0b4;
+  background: #b7aea2;
+  pointer-events: none;
 }
 
 .top {
@@ -111,7 +147,7 @@ button { appearance: none; touch-action: manipulation; }
   align-items: center;
   flex-shrink: 0;
 }
-.text-btn, .chip, .ev-main, .cell, .week-day, .week-nav, .week-cal, .sheet-handle {
+.text-btn, .chip, .ev-main, .cell, .week-day, .week-nav, .week-cal {
   font: inherit;
   color: inherit;
   background: none;
@@ -196,7 +232,7 @@ button { appearance: none; touch-action: manipulation; }
   flex: 1;
   overflow: auto;
   padding: 0.15rem 0.75rem 0.8rem;
-  overscroll-behavior: contain;
+  overscroll-behavior: none;
 }
 
 .week {
@@ -475,7 +511,8 @@ footer a { color: var(--link); }
   .app.expanded .chrome {
     height: calc(100dvh - 2.6rem - var(--safe-top));
   }
-  .sheet-handle { display: block; }
+  .chrome.dragging { transition: none; }
+  .sheet-handle { display: flex; align-items: flex-end; justify-content: center; }
   .brand h1 { font-size: 1.18rem; }
   .brand p { font-size: 0.72rem; }
   .app:not(.expanded) .brand p { display: none; }
