@@ -151,7 +151,14 @@ button { appearance: none; touch-action: manipulation; }
 }
 .cal-menu a:hover { background: #efe6da; }
 
-.lede-row { padding: 0.15rem 0.75rem 0.15rem; }
+.lede-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.45rem;
+  padding: 0.15rem 0.75rem 0.15rem;
+}
+.lede-text { min-width: 0; }
 .lede-row h2 {
   font-family: Newsreader, Georgia, serif;
   font-size: 1.12rem;
@@ -162,6 +169,11 @@ button { appearance: none; touch-action: manipulation; }
 .lede-short { display: none; }
 .lede-row p { margin: 0.1rem 0 0; color: var(--muted); font-size: 0.9rem; }
 .note { color: var(--sel) !important; }
+.sort {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+}
 
 .filters {
   display: flex;
@@ -242,7 +254,7 @@ button { appearance: none; touch-action: manipulation; }
   color: var(--muted);
 }
 .ev-title { font-weight: 650; }
-.ev-meta { font-size: 0.8rem; color: var(--muted); }
+.ev-meta { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .ev-detail {
   padding: 0 0.1rem 0.7rem 0.35rem;
   font-size: 0.86rem;
@@ -291,11 +303,11 @@ button { appearance: none; touch-action: manipulation; }
 }
 
 .user-dot {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: var(--user);
-  box-shadow: 0 0 0 3px rgba(42, 111, 151, 0.25);
+  box-shadow: 0 0 0 3px var(--paper), 0 0 0 5px rgba(42, 111, 151, 0.35);
 }
 
 .tip {
@@ -324,9 +336,11 @@ button { appearance: none; touch-action: manipulation; }
   font-size: 0.72rem;
   color: var(--muted);
   display: flex;
-  gap: 0.7rem;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.7rem;
   align-items: center;
   pointer-events: none;
+  max-width: min(22rem, calc(100% - 1rem));
 }
 .lg {
   width: 8px;
@@ -339,6 +353,7 @@ button { appearance: none; touch-action: manipulation; }
 .lg.live { background: var(--live); }
 .lg.mute { background: #c9c0b4; }
 .lg.gap { border: 1.5px dashed #8a8175; background: transparent; width: 7px; height: 7px; }
+.lg.home { background: var(--user); }
 
 footer {
   font-size: 0.75rem;
@@ -416,6 +431,7 @@ footer a { color: var(--link); }
   .lede-row { padding: 0 0.7rem 0.1rem; }
   .lede-row h2 { font-size: 1.02rem; }
   .lede-row p { font-size: 0.84rem; }
+  .sort .chip { min-height: 2.5rem; padding: 0.35rem 0.5rem; }
   .top { padding: 0 0.55rem 0.05rem; }
 
   .filters {

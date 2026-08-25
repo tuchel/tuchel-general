@@ -4,6 +4,7 @@ import {
   ADA_PHONE,
   CLOSED_DAYS,
   GOOGLE_CAL,
+  HOME,
   ICS_HTTPS,
   SEASON_END,
   SEASON_START,
@@ -11,9 +12,11 @@ import {
   WEBCAL,
 } from './lib/constants'
 import { defaultDay, FILTERS, matchesFilter } from './lib/filters'
-import { eventPoint, formatMiles, miles } from './lib/geo'
+import { eventPoint, formatMiles, miles, sortByDistance, sortByTime } from './lib/geo'
 import { dayKey, formatLongDay, formatRange, formatShortDay, monthShort, seasonDays, weekdayNarrow } from './lib/when'
-import type { BranchInfo, FilterId, Gap, LonLat, StoryEvent } from './lib/types'
+import type { BranchInfo, FilterId, Gap, StoryEvent } from './lib/types'
+
+type SortId = 'time' | 'distance'
 
 const MONTHS = [
   { y: 2026, m: 9, label: 'September' },
@@ -76,8 +79,7 @@ export default function App() {
   const [filter, setFilter] = useState<FilterId>('all')
   const [branch, setBranch] = useState<string | null>(null)
   const [eventId, setEventId] = useState<string | null>(null)
-  const [user, setUser] = useState<LonLat | null>(null)
-  const [geoMsg, setGeoMsg] = useState<string | null>(null)
+  const [sort, setSort] = useState<SortId>('time')
   const [hover, setHover] = useState<PinHover | null>(null)
   const [calOpen, setCalOpen] = useState(false)
   const [seasonOpen, setSeasonOpen] = useState(false)
@@ -105,6 +107,7 @@ export default function App() {
       if (f && FILTERS.some((x) => x.id === f)) setFilter(f)
       if (params.get('b')) setBranch(params.get('b'))
       if (params.get('e')) setEventId(params.get('e'))
+      if (params.get('s') === 'distance') setSort('distance')
       setBoot(false)
     })
   }, [])
@@ -119,8 +122,10 @@ export default function App() {
     else u.searchParams.delete('b')
     if (eventId) u.searchParams.set('e', eventId)
     else u.searchParams.delete('e')
+    if (sort === 'distance') u.searchParams.set('s', 'distance')
+    else u.searchParams.delete('s')
     history.replaceState(null, '', u)
-  }, [day, filter, branch, eventId, boot])
+  }, [day, filter, branch, eventId, sort, boot])
 
   useEffect(() => {
     if (!calOpen) return
@@ -179,51 +184,24 @@ export default function App() {
 
   const dayEvents = useMemo(() => {
     if (!day) return []
-    let list = events.filter((e) => dayKey(e.start) === day && matchesFilter(e, filter))
-    if (user) {
-      list = [...list].sort((a, b) => {
-        const pa = eventPoint(a)
-        const pb = eventPoint(b)
-        const da = pa ? miles(user, pa) : 1e9
-        const db = pb ? miles(user, pb) : 1e9
-        if (da !== db) return da - db
-        return a.start.localeCompare(b.start)
-      })
-    } else {
-      list = [...list].sort((a, b) => a.start.localeCompare(b.start) || a.branch.localeCompare(b.branch))
-    }
-    return list
-  }, [events, day, filter, user])
+    const list = events.filter((e) => dayKey(e.start) === day && matchesFilter(e, filter))
+    const cmp = sort === 'distance' ? (a: StoryEvent, b: StoryEvent) => sortByDistance(HOME, a, b) : sortByTime
+    return [...list].sort(cmp)
+  }, [events, day, filter, sort])
 
   const selectedEvent = dayEvents.find((e) => e.nid === eventId) ?? null
   const gapBranches = useMemo(() => new Set(gaps.map((g) => g.branch)), [gaps])
 
   const nearest = useMemo(() => {
-    if (!user) return null
     let best: { name: string; mi: number } | null = null
     for (const ev of dayEvents) {
       const p = eventPoint(ev)
       if (!p) continue
-      const mi = miles(user, p)
+      const mi = miles(HOME, p)
       if (!best || mi < best.mi) best = { name: ev.branch, mi }
     }
     return best
-  }, [dayEvents, user])
-
-  function locate() {
-    if (!navigator.geolocation) {
-      setGeoMsg('Location is not available in this browser.')
-      return
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUser({ lat: pos.coords.latitude, lon: pos.coords.longitude })
-        setGeoMsg(null)
-      },
-      () => setGeoMsg('Location permission denied — the list stays in clock order.'),
-      { enableHighAccuracy: true, timeout: 8000 },
-    )
-  }
+  }, [dayEvents])
 
   function pickDay(next: string) {
     setDay(next)
@@ -283,7 +261,7 @@ export default function App() {
           dayEvents={dayEvents}
           selectedBranch={branch}
           selectedEvent={selectedEvent}
-          user={user}
+          user={HOME}
           gapBranches={gapBranches}
           edgePad={edgePad}
           onSelectBranch={selectBranch}
@@ -303,11 +281,12 @@ export default function App() {
             <em>Source: APL event listings</em>
           </div>
         )}
-        <p className="map-legend">
-          <span className="lg live" /> programs today
-          <span className="lg mute" /> quiet
-          <span className="lg gap" /> flyer only
-        </p>
+          <p className="map-legend">
+            <span className="lg home" /> home
+            <span className="lg live" /> programs today
+            <span className="lg mute" /> quiet
+            <span className="lg gap" /> flyer only
+          </p>
       </section>
 
       <div className="chrome" ref={chromeRef}>
@@ -328,9 +307,6 @@ export default function App() {
             <p>Austin Public Library · 7 Sep–21 Nov 2026</p>
           </div>
           <div className="top-actions">
-            <button type="button" className={user ? 'text-btn on' : 'text-btn'} onClick={locate}>
-              Near me
-            </button>
             <div className="cal-wrap" ref={calWrap}>
               <button
                 type="button"
@@ -360,16 +336,35 @@ export default function App() {
         </header>
 
         <div className="lede-row">
-          <h2>
-            <span className="lede-long">{formatLongDay(day)}</span>
-            <span className="lede-short">{formatShortDay(day)}</span>
-          </h2>
-          <p>
-            {dayEvents.length} program{dayEvents.length === 1 ? '' : 's'}
-            {nearest ? ` · nearest ${formatMiles(nearest.mi)}` : ''}
-            {CLOSED_DAYS.has(day) ? ' · libraries closed' : ''}
-          </p>
-          {geoMsg && <p className="note">{geoMsg}</p>}
+          <div className="lede-text">
+            <h2>
+              <span className="lede-long">{formatLongDay(day)}</span>
+              <span className="lede-short">{formatShortDay(day)}</span>
+            </h2>
+            <p>
+              {dayEvents.length} program{dayEvents.length === 1 ? '' : 's'}
+              {nearest ? ` · ${shortBranch(nearest.name)} ${formatMiles(nearest.mi)}` : ''}
+              {CLOSED_DAYS.has(day) ? ' · libraries closed' : ''}
+            </p>
+          </div>
+          <div className="sort" role="group" aria-label="Order">
+            <button
+              type="button"
+              className={sort === 'time' ? 'chip on' : 'chip'}
+              aria-pressed={sort === 'time'}
+              onClick={() => setSort('time')}
+            >
+              Time
+            </button>
+            <button
+              type="button"
+              className={sort === 'distance' ? 'chip on' : 'chip'}
+              aria-pressed={sort === 'distance'}
+              onClick={() => setSort('distance')}
+            >
+              Distance
+            </button>
+          </div>
         </div>
 
         <div className="filters" role="tablist" aria-label="Program type">
@@ -411,7 +406,7 @@ export default function App() {
                 ev={ev}
                 open={ev.nid === eventId}
                 here={ev.branch === branch}
-                user={user}
+                home={HOME}
                 info={branches[ev.branch]}
                 onToggle={() => toggleEvent(ev)}
               />
@@ -423,7 +418,7 @@ export default function App() {
                 ev={ev}
                 open={ev.nid === eventId}
                 here={false}
-                user={null}
+                home={null}
                 info={branches[ev.branch]}
                 onToggle={() => toggleEvent(ev)}
               />
@@ -529,19 +524,19 @@ function EventRow({
   ev,
   open,
   here,
-  user,
+  home,
   info,
   onToggle,
 }: {
   ev: StoryEvent
   open: boolean
   here: boolean
-  user: LonLat | null
+  home: { lat: number; lon: number } | null
   info?: BranchInfo
   onToggle: () => void
 }) {
   const pt = eventPoint(ev)
-  const dist = user && pt ? formatMiles(miles(user, pt)) : null
+  const dist = home && pt ? formatMiles(miles(home, pt)) : null
   const cls = `ev${open ? ' open' : ''}${here ? ' here' : ''}`
   return (
     <li id={`ev-${ev.nid}`} className={cls}>

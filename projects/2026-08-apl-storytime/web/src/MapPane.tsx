@@ -220,7 +220,7 @@ export function MapPane({
     if (!user) return
     const el = document.createElement('div')
     el.className = 'user-dot'
-    el.setAttribute('aria-label', 'Your location')
+    el.setAttribute('aria-label', 'Home')
     userMarker.current = new maplibregl.Marker({ element: el, anchor: 'center' })
       .setLngLat([user.lon, user.lat])
       .addTo(map)
