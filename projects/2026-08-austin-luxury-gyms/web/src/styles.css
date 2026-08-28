@@ -350,7 +350,11 @@ h1 {
   box-shadow: 0 0 0 2px rgba(250, 246, 240, 0.9);
 }
 .pin.square .pin-dot { border-radius: 3px; }
-.pin.diamond .pin-dot { border-radius: 2px; transform: rotate(45deg); font-size: 0; }
+.pin.diamond .pin-dot {
+  border-radius: 2px;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  font-size: 0.5rem;
+}
 .pin.band-mid .pin-dot { background: var(--mid); }
 .pin.band-far .pin-dot { background: var(--far); }
 .pin.band-out .pin-dot { background: var(--out); color: var(--ink); }
@@ -404,7 +408,17 @@ footer {
   }
   .chrome.dragging { transition: none; }
   .sheet-handle { display: flex; align-items: flex-end; justify-content: center; }
-  .h1 { font-size: 1.22rem; }
+  .app:not(.expanded) .filters,
+  .app:not(.expanded) .status,
+  .app:not(.expanded) .slat,
+  .app:not(.expanded) .toggle,
+  .app:not(.expanded) .tour,
+  .app:not(.expanded) .detail,
+  .app:not(.expanded) .cmp-wrap,
+  .app:not(.expanded) footer,
+  .app:not(.expanded) .needs {
+    display: none;
+  }
   h1 { font-size: 1.22rem; }
   .map-legend {
     top: calc(0.45rem + var(--safe-top));

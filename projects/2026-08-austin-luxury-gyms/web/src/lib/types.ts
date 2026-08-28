@@ -27,6 +27,7 @@ export type Gym = {
   id: string
   name: string
   short: string
+  mark: string
   tier: Tier
   address: string
   lat: number

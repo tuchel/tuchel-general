@@ -118,7 +118,7 @@ export function MapPane({
       el.className = pinClass(g, selected, compared, peak)
       el.style.width = `${hit}px`
       el.style.height = `${hit}px`
-      el.innerHTML = `<span class="pin-dot">${g.short.slice(0, 2)}</span>`
+      el.innerHTML = `<span class="pin-dot">${g.mark}</span>`
       el.setAttribute('aria-label', g.name)
       el.addEventListener('click', (ev) => {
         ev.stopPropagation()

@@ -7,8 +7,8 @@
     "source": "OSM/Nominatim building point, 2026-08-25 (same as APL Storytime)"
   },
   "asOf": "2026-08-28",
-  "bar": "Equinox Austin Select ($250/mo quoted on the club page) is the floor. Country clubs sit above on initiation. KOKORO is below on price and is included as the closest Technogym + contrast gym — the commute control.",
-  "driveNote": "Minutes are OSRM driving, uncongested, 2026-08-28. Peak toggle × 1.7 is a bound, not live traffic.",
+  "bar": "Equinox Austin Select ($250/mo quoted on the club page) is the floor. Country clubs sit above on initiation. KOKORO is below on price and is included as the closest Technogym + contrast gym \u2014 the commute control.",
+  "driveNote": "Minutes are OSRM driving, uncongested, 2026-08-28. Peak toggle \u00d7 1.7 is a bound, not live traffic.",
   "gyms": [
     {
       "id": "kokoro-westlake",
@@ -31,7 +31,7 @@
         "url": "https://thepracticeatwl.com/services/"
       },
       "hours": {
-        "weekday": "Membership hours unpublished; day passes Mon–Fri 8am–5pm",
+        "weekday": "Membership hours unpublished; day passes Mon\u2013Fri 8am\u20135pm",
         "weekend": "Day passes not sold on weekends",
         "weekendEvening": false
       },
@@ -59,15 +59,31 @@
       },
       "parking": "Shopping-center lot on Bee Caves Road.",
       "reviews": {
-        "sources": [{ "name": "Yelp", "score": 3.5, "n": 5, "url": "https://www.yelp.com/biz/kokoro-wellness-center-austin" }],
-        "for": ["Contrast therapy in one room", "Japanese-style plunges (one at 40°F)", "Staff on membership tours"],
-        "against": ["Very few public reviews", "Day-pass visitors report empty front desk", "Boutique floor, not an athletic country club"]
+        "sources": [
+          {
+            "name": "Yelp",
+            "score": 3.5,
+            "n": 5,
+            "url": "https://www.yelp.com/biz/kokoro-wellness-center-austin"
+          }
+        ],
+        "for": [
+          "Contrast therapy in one room",
+          "Japanese-style plunges (one at 40\u00b0F)",
+          "Staff on membership tours"
+        ],
+        "against": [
+          "Very few public reviews",
+          "Day-pass visitors report empty front desk",
+          "Boutique floor, not an athletic country club"
+        ]
       },
       "caveats": [
         "Price is below Equinox Select. Kept as the geographic control.",
-        "Yoga and recovery extras may be à la carte beyond the gym membership."
+        "Yoga and recovery extras may be \u00e0 la carte beyond the gym membership."
       ],
-      "fitNote": "Closest option. Useful if contrast therapy matters more than classes, pool, or travel clubs."
+      "fitNote": "Closest option. Useful if contrast therapy matters more than classes, pool, or travel clubs.",
+      "mark": "Ko"
     },
     {
       "id": "lifetime-south-lamar",
@@ -90,8 +106,8 @@
         "url": "https://www.lifetime.life/locations/tx/south-lamar.html"
       },
       "hours": {
-        "weekday": "Mon–Fri 4am–11pm",
-        "weekend": "Sat–Sun 6am–10pm",
+        "weekday": "Mon\u2013Fri 4am\u201311pm",
+        "weekend": "Sat\u2013Sun 6am\u201310pm",
         "weekendEvening": true
       },
       "sqft": 57000,
@@ -118,15 +134,31 @@
       },
       "parking": "On-site at The Bouldin development; confirm garage rules on tour.",
       "reviews": {
-        "sources": [{ "name": "Wellhub (member platform)", "score": 4.97, "n": 246, "url": "https://wellhub.com/en-us/search/partners/life-time-south-lamar-tx-zilker/" }],
-        "for": ["New 57,000 sq ft club (open 1 Jan 2026)", "Co-ed wet suite: hot tub, plunge, hammam, sauna, steam", "Kids Academy; ~125 weekly classes at launch"],
-        "against": ["Highest Life Time starting dues in Austin", "No lap pool on the club FAQ", "Launch waitlist; Google-style reviews still thin"]
+        "sources": [
+          {
+            "name": "Wellhub (member platform)",
+            "score": 4.97,
+            "n": 246,
+            "url": "https://wellhub.com/en-us/search/partners/life-time-south-lamar-tx-zilker/"
+          }
+        ],
+        "for": [
+          "New 57,000 sq ft club (open 1 Jan 2026)",
+          "Co-ed wet suite: hot tub, plunge, hammam, sauna, steam",
+          "Kids Academy; ~125 weekly classes at launch"
+        ],
+        "against": [
+          "Highest Life Time starting dues in Austin",
+          "No lap pool on the club FAQ",
+          "Launch waitlist; Google-style reviews still thin"
+        ]
       },
       "caveats": [
         "Wellhub 4.97 is a booking-platform score, not Google.",
-        "Opened 31 Dec 2025 / 1 Jan 2026 — crowding and class quality are still settling."
+        "Opened 31 Dec 2025 / 1 Jan 2026 \u2014 crowding and class quality are still settling."
       ],
-      "fitNote": "Nearest full Life Time. Pays for new recovery + hours; skip if you need a lap pool."
+      "fitNote": "Nearest full Life Time. Pays for new recovery + hours; skip if you need a lap pool.",
+      "mark": "SL"
     },
     {
       "id": "lifetime-downtown",
@@ -149,8 +181,8 @@
         "url": "https://www.lifetime.life/locations/tx/austin-downtown.html"
       },
       "hours": {
-        "weekday": "Mon–Fri 5am–10pm",
-        "weekend": "Sat–Sun 6am–7pm",
+        "weekday": "Mon\u2013Fri 5am\u201310pm",
+        "weekend": "Sat\u2013Sun 6am\u20137pm",
         "weekendEvening": false
       },
       "sqft": null,
@@ -177,15 +209,32 @@
       },
       "parking": "On-site parking listed on public listings; confirm cost and time limits.",
       "reviews": {
-        "sources": [{ "name": "MapQuest/Yelp excerpts", "score": null, "n": 44, "url": "https://www.mapquest.com/us/texas/life-time-420186633" }],
-        "for": ["Lots of duplicate machines", "Clean floor", "Seaholm / 5th Street — easy from West Austin without SoCo parking"],
-        "against": ["Crowds at peaks", "Sales pressure", "Weekend close 7pm", "Pool may not be in the base dues"]
+        "sources": [
+          {
+            "name": "MapQuest/Yelp excerpts",
+            "score": null,
+            "n": 44,
+            "url": "https://www.mapquest.com/us/texas/life-time-420186633"
+          }
+        ],
+        "for": [
+          "Lots of duplicate machines",
+          "Clean floor",
+          "Seaholm / 5th Street \u2014 easy from West Austin without SoCo parking"
+        ],
+        "against": [
+          "Crowds at peaks",
+          "Sales pressure",
+          "Weekend close 7pm",
+          "Pool may not be in the base dues"
+        ]
       },
       "caveats": [
-        "Member site copy includes “Add Outdoor Pool Access” — treat the pool as extra until the club confirms.",
+        "Member site copy includes \u201cAdd Outdoor Pool Access\u201d \u2014 treat the pool as extra until the club confirms.",
         "Weekend hours match a downtown club, not an athletic country club."
       ],
-      "fitNote": "Best Equinox-priced Life Time on this commute if you skip the pool surcharge and finish by 7pm Saturday."
+      "fitNote": "Best Equinox-priced Life Time on this commute if you skip the pool surcharge and finish by 7pm Saturday.",
+      "mark": "DT"
     },
     {
       "id": "equinox-austin",
@@ -203,13 +252,13 @@
         "monthlyFrom": 250,
         "initiationFrom": 0,
         "kind": "quoted",
-        "note": "Select (this club) $250/mo; All-Access 90+ clubs $350; Destination 110+ $370. Promo: 2 weeks + $0 initiation, ends 31 Aug 2026. Initiation is often $100–$500 when not waived.",
+        "note": "Select (this club) $250/mo; All-Access 90+ clubs $350; Destination 110+ $370. Promo: 2 weeks + $0 initiation, ends 31 Aug 2026. Initiation is often $100\u2013$500 when not waived.",
         "source": "Equinox Austin club page",
         "url": "https://www.equinox.com/clubs/texas/austin"
       },
       "hours": {
-        "weekday": "Mon–Thu 5am–10pm, Fri 5am–9pm",
-        "weekend": "Sat–Sun 7am–6pm",
+        "weekday": "Mon\u2013Thu 5am\u201310pm, Fri 5am\u20139pm",
+        "weekend": "Sat\u2013Sun 7am\u20136pm",
         "weekendEvening": false
       },
       "sqft": null,
@@ -236,15 +285,33 @@
       },
       "parking": "Shared garage. Reviews describe a 2.5-hour limit with tickets and no grace period.",
       "reviews": {
-        "sources": [{ "name": "Wanderlog (aggregated)", "score": 3.1, "n": 245, "url": "https://wanderlog.com/place/details/838978/equinox-austin" }],
-        "for": ["Eucalyptus steam and towels", "Instructors transferred from other Equinox cities", "Infrared hot yoga, cycling, 1:1 Pilates", "Small member lounge / cowork"],
-        "against": ["Parking tickets after 2.5 hours", "Weekend close 6pm", "No pool", "Public star mean sits near 3 because of billing and parking"]
+        "sources": [
+          {
+            "name": "Wanderlog (aggregated)",
+            "score": 3.1,
+            "n": 245,
+            "url": "https://wanderlog.com/place/details/838978/equinox-austin"
+          }
+        ],
+        "for": [
+          "Eucalyptus steam and towels",
+          "Instructors transferred from other Equinox cities",
+          "Infrared hot yoga, cycling, 1:1 Pilates",
+          "Small member lounge / cowork"
+        ],
+        "against": [
+          "Parking tickets after 2.5 hours",
+          "Weekend close 6pm",
+          "No pool",
+          "Public star mean sits near 3 because of billing and parking"
+        ]
       },
       "caveats": [
-        "Select plan copy lists “contrast therapy amenities”; the club amenity list names steam, not a plunge. Confirm on tour.",
+        "Select plan copy lists \u201ccontrast therapy amenities\u201d; the club amenity list names steam, not a plunge. Confirm on tour.",
         "Austin has no E by Equinox. Destination ($370) is the travel tier."
       ],
-      "fitNote": "The namesake. Worth it for classes + travel clubs if you accept SoCo parking and 6pm weekend close."
+      "fitNote": "The namesake. Worth it for classes + travel clubs if you accept SoCo parking and 6pm weekend close.",
+      "mark": "Eq"
     },
     {
       "id": "soho-house-austin",
@@ -267,8 +334,8 @@
         "url": "https://www.sohohouse.com/en-us/houses/soho-house-austin"
       },
       "hours": {
-        "weekday": "House Mon 8am–11pm; Tue–Thu 8am–midnight; Fri 8am–1am",
-        "weekend": "Sat 8am–1am; Sun 8am–10pm (house hours, not gym-specific)",
+        "weekday": "House Mon 8am\u201311pm; Tue\u2013Thu 8am\u2013midnight; Fri 8am\u20131am",
+        "weekend": "Sat 8am\u20131am; Sun 8am\u201310pm (house hours, not gym-specific)",
         "weekendEvening": true
       },
       "sqft": null,
@@ -296,14 +363,23 @@
       "parking": "SoCo; not a gym garage. Plan rideshare or street.",
       "reviews": {
         "sources": [],
-        "for": ["Rooftop pool and house social calendar", "Gym + steam/sauna for members and hotel guests", "Global House network"],
-        "against": ["Gym is an amenity of a members’ club, not Equinox-scale programming", "Creative-industry application screen", "Dues buy the House, not a training system"]
+        "for": [
+          "Rooftop pool and house social calendar",
+          "Gym + steam/sauna for members and hotel guests",
+          "Global House network"
+        ],
+        "against": [
+          "Gym is an amenity of a members\u2019 club, not Equinox-scale programming",
+          "Creative-industry application screen",
+          "Dues buy the House, not a training system"
+        ]
       },
       "caveats": [
         "Next door to Equinox. If the gym is the product, Equinox is the direct comparison.",
         "Soho Active guest rules vary by House."
       ],
-      "fitNote": "Only if you want the House. Do not join this for the gym alone."
+      "fitNote": "Only if you want the House. Do not join this for the gym alone.",
+      "mark": "SH"
     },
     {
       "id": "monroe",
@@ -321,12 +397,12 @@
         "monthlyFrom": null,
         "initiationFrom": null,
         "kind": "unpublished",
-        "note": "No public monthly quote. 1 Hotel extra guests: $35 day rate after a complimentary first pass. TDLR filing: 15,636 sq ft spa/members’ club remodel, completion listed 27 Apr 2026.",
+        "note": "No public monthly quote. 1 Hotel extra guests: $35 day rate after a complimentary first pass. TDLR filing: 15,636 sq ft spa/members\u2019 club remodel, completion listed 27 Apr 2026.",
         "source": "1 Hotel Austin Mind & Movement; TDLR TABS2026000847",
         "url": "https://www.1hotels.com/austin/do/mind-movement"
       },
       "hours": {
-        "weekday": "Unpublished — inquire concierge@monroe.earth",
+        "weekday": "Unpublished \u2014 inquire concierge@monroe.earth",
         "weekend": "Unpublished",
         "weekendEvening": false
       },
@@ -355,14 +431,23 @@
       "parking": "South Austin street / hotel; confirm with concierge.",
       "reviews": {
         "sources": [],
-        "for": ["Indoor + outdoor training", "PT, physical therapy, manual therapy", "Sauna, steam, infrared, cold plunge"],
-        "against": ["No public dues", "Almost no public reviews", "Members’ club, not a drop-in gym"]
+        "for": [
+          "Indoor + outdoor training",
+          "PT, physical therapy, manual therapy",
+          "Sauna, steam, infrared, cold plunge"
+        ],
+        "against": [
+          "No public dues",
+          "Almost no public reviews",
+          "Members\u2019 club, not a drop-in gym"
+        ]
       },
       "caveats": [
         "Treat as Equinox-above only after they quote. Do not rank on price.",
         "Ask whether membership is training-first or hospitality-first."
       ],
-      "fitNote": "Tour if you want a small private floor with recovery and PT under one roof — after they send a number."
+      "fitNote": "Tour if you want a small private floor with recovery and PT under one roof \u2014 after they send a number.",
+      "mark": "Mo"
     },
     {
       "id": "westlake-cc",
@@ -385,8 +470,8 @@
         "url": "https://thekeenangroup.com/austin-private-clubs-luxury-real-estate-guide"
       },
       "hours": {
-        "weekday": "Sports Club Mon–Thu 6am–10pm, Fri 6am–7pm",
-        "weekend": "Sat–Sun 8am–7pm",
+        "weekday": "Sports Club Mon\u2013Thu 6am\u201310pm, Fri 6am\u20137pm",
+        "weekend": "Sat\u2013Sun 8am\u20137pm",
         "weekendEvening": false
       },
       "sqft": 7500,
@@ -414,14 +499,23 @@
       "parking": "Member lot in Lost Creek.",
       "reviews": {
         "sources": [],
-        "for": ["Nearest private club to Ridgewood Road", "Lap pool to 10pm weeknights", "Tennis, pickleball, kids’ club"],
-        "against": ["Fitness is 7,500 sq ft — smaller than Barton Creek or The Hills", "Dues buy golf/social, not a gym", "Initiation is a five-to-six-figure decision"]
+        "for": [
+          "Nearest private club to Ridgewood Road",
+          "Lap pool to 10pm weeknights",
+          "Tennis, pickleball, kids\u2019 club"
+        ],
+        "against": [
+          "Fitness is 7,500 sq ft \u2014 smaller than Barton Creek or The Hills",
+          "Dues buy golf/social, not a gym",
+          "Initiation is a five-to-six-figure decision"
+        ]
       },
       "caveats": [
         "Ask for a social or sports membership if golf is not the point.",
         "Figures are realtor field guidance, not a club invoice."
       ],
-      "fitNote": "If you already want a Westlake club, the gym is a bonus 12 minutes away. Do not join only for the floor."
+      "fitNote": "If you already want a Westlake club, the gym is a bonus 12 minutes away. Do not join only for the floor.",
+      "mark": "WL"
     },
     {
       "id": "barton-creek-cc",
@@ -473,14 +567,23 @@
       "parking": "Club / resort campus off Barton Club Drive.",
       "reviews": {
         "sources": [],
-        "for": ["Largest private-club fitness floor in Texas per the club (33,000 sq ft)", "Indoor lap pool, indoor track, 40+ weekly classes", "TPI golf fitness"],
-        "against": ["Gym is bundled with a golf/resort membership", "Hours not posted", "Initiation ~500× Equinox Select"]
+        "for": [
+          "Largest private-club fitness floor in Texas per the club (33,000 sq ft)",
+          "Indoor lap pool, indoor track, 40+ weekly classes",
+          "TPI golf fitness"
+        ],
+        "against": [
+          "Gym is bundled with a golf/resort membership",
+          "Hours not posted",
+          "Initiation ~500\u00d7 Equinox Select"
+        ]
       },
       "caveats": [
-        "Club copy: “largest fitness center at any private club in Texas.” That is a first-party claim, not a measured census.",
+        "Club copy: \u201clargest fitness center at any private club in Texas.\u201d That is a first-party claim, not a measured census.",
         "Confirm whether a fitness-only path exists (unlikely)."
       ],
-      "fitNote": "The serious private-club gym on this side of town. Only in play if the rest of Barton Creek is also the product."
+      "fitNote": "The serious private-club gym on this side of town. Only in play if the rest of Barton Creek is also the product.",
+      "mark": "BC"
     },
     {
       "id": "lifetime-austin-south",
@@ -503,8 +606,8 @@
         "url": "https://www.lifetime.life/locations/tx/austin-south.html"
       },
       "hours": {
-        "weekday": "Mon–Fri 4am–midnight",
-        "weekend": "Sat–Sun 5am–11pm",
+        "weekday": "Mon\u2013Fri 4am\u2013midnight",
+        "weekend": "Sat\u2013Sun 5am\u201311pm",
         "weekendEvening": true
       },
       "sqft": null,
@@ -532,14 +635,22 @@
       "parking": "Surface lot off MoPac frontage; typical suburban Life Time.",
       "reviews": {
         "sources": [],
-        "for": ["True athletic country club: pool, pickleball, basketball, kids, LifeSpa", "Open until midnight weekdays", "Cold plunge + sauna"],
-        "against": ["13 minutes free-flow; MoPac south can stack at peaks", "Less “boutique” than Equinox or South Lamar"]
+        "for": [
+          "True athletic country club: pool, pickleball, basketball, kids, LifeSpa",
+          "Open until midnight weekdays",
+          "Cold plunge + sauna"
+        ],
+        "against": [
+          "13 minutes free-flow; MoPac south can stack at peaks",
+          "Less \u201cboutique\u201d than Equinox or South Lamar"
+        ]
       },
       "caveats": [
         "Best Life Time on amenities-per-dollar from this house if you will use the pool and courts.",
         "Club FAQ warns outdoor pool / racquet areas may take a supplemental fee."
       ],
-      "fitNote": "Default Life Time if you want a pool without a downtown surcharge and can live with a MoPac hop."
+      "fitNote": "Default Life Time if you want a pool without a downtown surcharge and can live with a MoPac hop.",
+      "mark": "AS"
     },
     {
       "id": "austin-cc",
@@ -591,14 +702,23 @@
       "parking": "Member lot on Long Champ Drive.",
       "reviews": {
         "sources": [],
-        "for": ["Closest old-line private club to West Lake Hills", "Lake Austin setting", "Tennis and pool as part of membership"],
-        "against": ["Waitlist measured in years", "Gym is not the published product", "Invitation only"]
+        "for": [
+          "Closest old-line private club to West Lake Hills",
+          "Lake Austin setting",
+          "Tennis and pool as part of membership"
+        ],
+        "against": [
+          "Waitlist measured in years",
+          "Gym is not the published product",
+          "Invitation only"
+        ]
       },
       "caveats": [
         "Do not treat ACC as an Equinox substitute. It is a golf/social club that happens to have a fitness room.",
         "Amenity flags for the gym are conservative; tour if you have a path in."
       ],
-      "fitNote": "Ignore unless you are already pursuing ACC for golf or family. The gym will not beat Life Time or Equinox."
+      "fitNote": "Ignore unless you are already pursuing ACC for golf or family. The gym will not beat Life Time or Equinox.",
+      "mark": "AC"
     },
     {
       "id": "lifetime-arboretum",
@@ -616,13 +736,13 @@
         "monthlyFrom": 219,
         "initiationFrom": null,
         "kind": "quoted",
-        "note": "Adult from $219/mo — lowest Life Time starting dues in this set.",
+        "note": "Adult from $219/mo \u2014 lowest Life Time starting dues in this set.",
         "source": "Life Time Arboretum FAQ",
         "url": "https://www.lifetime.life/locations/tx/austin-arboretum.html"
       },
       "hours": {
-        "weekday": "Mon–Fri 5am–10pm",
-        "weekend": "Sat–Sun 6am–7pm",
+        "weekday": "Mon\u2013Fri 5am\u201310pm",
+        "weekend": "Sat\u2013Sun 6am\u20137pm",
         "weekendEvening": false
       },
       "sqft": null,
@@ -650,13 +770,21 @@
       "parking": "North Austin lot / garage at Braker.",
       "reviews": {
         "sources": [],
-        "for": ["Cheapest Life Time starting dues", "Pool + cafe + studios"],
-        "against": ["18 minutes free-flow north on MoPac", "Weekend close 7pm", "Fewer recovery features than South Lamar or Austin South"]
+        "for": [
+          "Cheapest Life Time starting dues",
+          "Pool + cafe + studios"
+        ],
+        "against": [
+          "18 minutes free-flow north on MoPac",
+          "Weekend close 7pm",
+          "Fewer recovery features than South Lamar or Austin South"
+        ]
       },
       "caveats": [
         "Only rational if you already spend time in the Domain / Braker belt, or as a Signature add-on."
       ],
-      "fitNote": "Skip as a home club from Ridgewood Road unless north Austin is your work pattern."
+      "fitNote": "Skip as a home club from Ridgewood Road unless north Austin is your work pattern.",
+      "mark": "Ar"
     },
     {
       "id": "hills-cc",
@@ -674,7 +802,7 @@
         "monthlyFrom": 825,
         "initiationFrom": 50000,
         "kind": "realtorEstimate",
-        "note": "Keenan Group: Signature golf $50,000 initiation, $825/mo; range on another page $40k–$80k / $500–$900. Social memberships exist without full golf. Fitness included in all levels.",
+        "note": "Keenan Group: Signature golf $50,000 initiation, $825/mo; range on another page $40k\u2013$80k / $500\u2013$900. Social memberships exist without full golf. Fitness included in all levels.",
         "source": "Keenan Group Hills of Lakeway page; Invited membership page",
         "url": "https://thekeenangroup.com/austin-country-clubs/hills-of-lakeway"
       },
@@ -708,14 +836,22 @@
       "parking": "Lakeway campus lot. Pin is the Hills clubhouse; sports complex is on the same club.",
       "reviews": {
         "sources": [],
-        "for": ["22,000 sq ft sports complex, Technogym + Cybex", "15 tennis courts, 9 pickleball, junior-Olympic pool", "Social membership can skip golf"],
-        "against": ["26 minutes free-flow to Lakeway", "Gym still sits inside a golf club"]
+        "for": [
+          "22,000 sq ft sports complex, Technogym + Cybex",
+          "15 tennis courts, 9 pickleball, junior-Olympic pool",
+          "Social membership can skip golf"
+        ],
+        "against": [
+          "26 minutes free-flow to Lakeway",
+          "Gym still sits inside a golf club"
+        ]
       },
       "caveats": [
         "Pin is 26 Club Estates Parkway (Hills clubhouse / Signature course), not a separate street address for the sports complex.",
-        "Ask Invited for current social vs golf pricing — realtor ranges disagree by tens of thousands."
+        "Ask Invited for current social vs golf pricing \u2014 realtor ranges disagree by tens of thousands."
       ],
-      "fitNote": "Strongest private athletic campus in this set, but it is a Lakeway drive. Only if Lakeway is already in the week."
+      "fitNote": "Strongest private athletic campus in this set, but it is a Lakeway drive. Only if Lakeway is already in the week.",
+      "mark": "Hi"
     },
     {
       "id": "lifetime-austin-north",
@@ -738,8 +874,8 @@
         "url": "https://www.lifetime.life/locations/tx/austin-north.html"
       },
       "hours": {
-        "weekday": "Mon–Fri 4am–midnight",
-        "weekend": "Sat–Sun 5am–11pm",
+        "weekday": "Mon\u2013Fri 4am\u2013midnight",
+        "weekend": "Sat\u2013Sun 5am\u201311pm",
         "weekendEvening": true
       },
       "sqft": null,
@@ -766,15 +902,30 @@
       },
       "parking": "North 620 lot near SH-45 / Lyndhurst.",
       "reviews": {
-        "sources": [{ "name": "Yelp", "score": 3.0, "n": 262, "url": "https://www.yelp.com/biz/life-time-austin-2" }],
-        "for": ["Indoor + outdoor pools", "Basketball and pickleball", "Late hours"],
-        "against": ["Yelp 3.0/262 — typical Life Time mix of amenity praise and sales/crowd complaints", "27 minutes free-flow from Ridgewood Road"]
+        "sources": [
+          {
+            "name": "Yelp",
+            "score": 3.0,
+            "n": 262,
+            "url": "https://www.yelp.com/biz/life-time-austin-2"
+          }
+        ],
+        "for": [
+          "Indoor + outdoor pools",
+          "Basketball and pickleball",
+          "Late hours"
+        ],
+        "against": [
+          "Yelp 3.0/262 \u2014 typical Life Time mix of amenity praise and sales/crowd complaints",
+          "27 minutes free-flow from Ridgewood Road"
+        ]
       },
       "caveats": [
         "Cedar Park Life Time (301 CR 178) is a future club, not open. Do not navigate there.",
         "Home club from West Lake Hills only if 620 is already a commute."
       ],
-      "fitNote": "Fullest Life Time in the metro, longest drive. Use as a Signature satellite, not a home club."
+      "fitNote": "Fullest Life Time in the metro, longest drive. Use as a Signature satellite, not a home club.",
+      "mark": "N"
     }
   ]
 }

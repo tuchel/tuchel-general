@@ -44,6 +44,7 @@ def main() -> None:
         assert g["driveMi"] > 0
         assert g["website"].startswith("https://")
         assert g["price"]["url"].startswith("https://")
+        assert g["mark"] and len(g["mark"]) <= 2
         if g["price"]["kind"] == "quoted":
             assert g["price"]["monthlyFrom"] is not None, g["id"]
         # Commute minutes should be in the same ballpark as miles at ~20–30 mph.
