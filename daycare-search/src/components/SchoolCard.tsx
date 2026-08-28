@@ -1,6 +1,11 @@
+import { type MouseEvent } from 'react'
 import { CORE_CRITERIA, CRITERION_LABEL, EXTRA_CRITERIA, type School, type Weights } from '../lib/types'
 import { fmt1, fmtMinutes, fmtPct, fmtScore, type RankResult } from '../lib/rank'
 import { Profile } from './Profile'
+
+function displayHost(url: string): string {
+  return url.replace(/^https:\/\//, '').replace(/\/$/, '')
+}
 
 export function SchoolCard({
   school,
@@ -26,13 +31,23 @@ export function SchoolCard({
     ...EXTRA_CRITERIA.filter((id) => weights[id] > 0),
   ]
 
+  function onHeadClick(e: MouseEvent<HTMLDivElement>) {
+    if ((e.target as HTMLElement).closest('a, button')) return
+    onToggle()
+  }
+
   return (
     <article className="card" data-flip={school.id} data-open={open ? '1' : '0'}>
-      <button type="button" className="card-head" onClick={onToggle} aria-expanded={open}>
+      <div className="card-head" onClick={onHeadClick}>
         <span className="rank">{rank}</span>
         <span className="head-main">
           <span className="name-row">
-            <span className="name">{school.name}</span>
+            <a className="name" href={school.url} target="_blank" rel="noreferrer">
+              {school.name}
+            </a>
+            <a className="visit" href={school.url} target="_blank" rel="noreferrer">
+              Visit site
+            </a>
             {school.straddle && <span className="flag">range can hit 20</span>}
           </span>
           <span className="class-row">
@@ -47,7 +62,13 @@ export function SchoolCard({
           </span>
         </span>
         <Profile school={school} weights={weights} />
-        <span className="metrics">
+        <button
+          type="button"
+          className="metrics"
+          onClick={onToggle}
+          aria-expanded={open}
+          aria-label={`${open ? 'Hide' : 'Show'} scores for ${school.name}`}
+        >
           <span>
             <b>{result.raw == null ? 'unknown' : fmt1(result.raw)}</b>
             <i>raw</i>
@@ -60,22 +81,16 @@ export function SchoolCard({
             <b>{sortShown == null ? 'unknown' : fmt1(sortShown)}</b>
             <i>{rawOnly ? 'raw only' : 'sort'}</i>
           </span>
-        </span>
-      </button>
+        </button>
+      </div>
 
       {open && (
         <div className="card-body">
           <p className="where">
-            {school.address || 'Address thin in ranked-v1.'}
-            {school.url && (
-              <>
-                {' '}
-                ·{' '}
-                <a href={school.url} target="_blank" rel="noreferrer">
-                  {school.url.replace(/^https:\/\//, '')}
-                </a>
-              </>
-            )}
+            {school.address || 'Address thin in ranked-v1.'} ·{' '}
+            <a href={school.url} target="_blank" rel="noreferrer">
+              {displayHost(school.url)}
+            </a>
           </p>
           {school.flags.length > 0 && (
             <p className="flag-line">{school.flags.join(' · ')}</p>

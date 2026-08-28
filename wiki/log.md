@@ -95,3 +95,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-28] data | daycare-search | Worth-the-drive per-criterion rows from ranked-batch-1; mark published (not fitted)
 
 ## [2026-08-28] deploy | daycare-search | GitHub Pages path /daycare-search/ via deploy-pages.yml
+
+## [2026-08-28] data | daycare-search | Official https URL on every school card; Visit site on the collapsed row
