@@ -89,3 +89,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-25] polish | apl-storytime | Sheet chrome: month as masthead, weekday letters in day cells, drop duplicate date heading
 
 ## [2026-08-28] kickoff | austin-luxury-gyms | Equinox-or-above Austin clubs mapped from 427 Ridgewood Road; glass overlay with fit score, commute cost, price×drive
+
+## [2026-08-28] kickoff | daycare-search | Interactive ranked-v1 portal for Finn from 427 Ridgewood Rd; live weights, three trays, unknown ≠ 0
