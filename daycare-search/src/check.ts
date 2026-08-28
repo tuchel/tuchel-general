@@ -120,6 +120,13 @@ assert(moved.used.includes('distance') && gp.scores.distance === gpDist, 'weight
 assert(fmtPct(0.9) === '90%', fmtPct(0.9))
 assert(fmtPct(1) === '100%', fmtPct(1))
 
+for (const s of SCHOOLS) {
+  assert(
+    typeof s.url === 'string' && s.url.startsWith('https://') && s.url.length > 'https://'.length,
+    `${s.id} needs a non-empty https url`,
+  )
+}
+
 console.log('first-pass checks ok')
 console.log(
   ranked

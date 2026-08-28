@@ -39,7 +39,7 @@ export type School = {
   /** Range can reach 20 minutes. Flag, not a fail. */
   straddle: boolean
   address: string
-  url: string | null
+  url: string
   flags: string[]
   notes: string[]
   missingUnverified: string[]
