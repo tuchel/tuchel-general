@@ -10,6 +10,7 @@ on:
       - 'projects/2026-07-san-juan-whale-map/scripts/**'
       - 'projects/2026-08-apl-storytime/web/**'
       - 'projects/2026-08-austin-luxury-gyms/web/**'
+      - 'daycare-search/**'
       - '.github/workflows/deploy-pages.yml'
       - '.github/workflows/deploy-metro-budget-tax.yml'
   # Re-bake Bluesky social.json even when no code landed (PSW day threads move hourly)
@@ -46,6 +47,7 @@ jobs:
             projects/2026-07-san-juan-whale-map/web/package-lock.json
             projects/2026-08-apl-storytime/web/package-lock.json
             projects/2026-08-austin-luxury-gyms/web/package-lock.json
+            daycare-search/package-lock.json
 
       - name: Install & build Metro Budget Tax
         working-directory: projects/2026-07-metro-budget-tax/web
@@ -82,15 +84,22 @@ jobs:
           npm ci
           npm run build
 
+      - name: Install & build Schools for Finn
+        working-directory: daycare-search
+        run: |
+          npm ci
+          npm run build
+
       - name: Stage Pages artifact
         run: |
           SITE="${{ github.workspace }}/_site"
-          mkdir -p "$SITE/tax" "$SITE/metro-budget-tax" "$SITE/star-mind" "$SITE/whale" "$SITE/storytime" "$SITE/gyms"
+          mkdir -p "$SITE/tax" "$SITE/metro-budget-tax" "$SITE/star-mind" "$SITE/whale" "$SITE/storytime" "$SITE/gyms" "$SITE/daycare-search"
           cp -a projects/2026-07-metro-budget-tax/web/dist/. "$SITE/tax/"
           cp -a projects/2026-07-star-mind/game/dist/. "$SITE/star-mind/"
           cp -a projects/2026-07-san-juan-whale-map/web/dist/. "$SITE/whale/"
           cp -a projects/2026-08-apl-storytime/web/dist/. "$SITE/storytime/"
           cp -a projects/2026-08-austin-luxury-gyms/web/dist/. "$SITE/gyms/"
+          cp -a daycare-search/dist/. "$SITE/daycare-search/"
 
           # Keep old metro path working as a redirect
           cat > "$SITE/metro-budget-tax/index.html" <<'HTML'
@@ -148,6 +157,7 @@ jobs:
                   <li><a href="tax/">Metro Budget &amp; Tax Explorer</a></li>
                   <li><a href="storytime/">APL Storytime Fall 2026</a> — iCal of Austin Public Library storytimes</li>
                   <li><a href="gyms/">Austin luxury gyms</a> — Equinox-level clubs from West Lake Hills</li>
+                  <li><a href="daycare-search/">Schools for Finn</a> — ranked daycare explorer from West Lake Hills</li>
                 </ul>
               </main>
             </body>
