@@ -70,6 +70,42 @@ assert(bloom.scores.distance == null, 'Bloom distance is unknown, not 0')
 const bloomR = rankSchool(bloom, FIRST_PASS)
 assert(!bloomR.used.includes('distance'), 'unknown distance must not enter W')
 
+const earth = SCHOOLS.find((s) => s.id === 'earth-native')!
+assert(earth.scoreSource === 'published', 'Earth Native scores are published, not fitted')
+assert(earth.scores.outdoor === 100, `Earth Native outdoor ${earth.scores.outdoor}`)
+assert(earth.scores.age_fit === 0, `Earth Native age_fit ${earth.scores.age_fit}`)
+const earthR = rankSchool(earth, FIRST_PASS)
+assert(earthR.raw != null && near(earthR.raw, 42.0), `Earth Native raw ${earthR.raw}`)
+assert(earthR.coverage != null && near(earthR.coverage, 1), `Earth Native cov ${earthR.coverage}`)
+
+const lakeScores = SCHOOLS.find((s) => s.id === 'lake-hills')!
+assert(lakeScores.scoreSource === 'published', 'Lake Hills scores are published, not fitted')
+assert(lakeScores.scores.outdoor === 40, `Lake Hills outdoor ${lakeScores.scores.outdoor}`)
+assert(lakeScores.scores.age_fit === 50, `Lake Hills age_fit ${lakeScores.scores.age_fit}`)
+
+const sith = SCHOOLS.find((s) => s.id === 'sith-river-place')!
+assert(sith.scoreSource === 'published', 'SITH scores are published, not fitted')
+assert(sith.scores.outdoor === 40, `SITH outdoor ${sith.scores.outdoor}`)
+assert(sith.scores.montessori === 50, `SITH montessori ${sith.scores.montessori}`)
+
+const gn = SCHOOLS.find((s) => s.id === 'great-northern')!
+const gb = SCHOOLS.find((s) => s.id === 'garden-blossom')!
+assert(gn.straddle && gn.driveRange?.[0] === 14 && gn.driveRange?.[1] === 20, 'Great Northern range 14–20')
+assert(gb.straddle && gb.driveRange?.[0] === 14 && gb.driveRange?.[1] === 20, 'Garden Blossom range 14–20')
+
+const gem = SCHOOLS.find((s) => s.id === 'gem-of-the-forest')!
+assert(gem.scoreSource === 'published', 'Gem scores are published, not fitted')
+assert(gem.scores.age_fit === 0, 'Gem age_fit is known 0')
+
+const bee = SCHOOLS.find((s) => s.id === 'guidepost-bee-cave')!
+assert(bee.scoreSource === 'published', 'Guidepost Bee Cave scores are published, not fitted')
+assert(bee.scores.montessori == null, 'Guidepost Bee Cave Montessori unknown')
+
+assert(
+  SCHOOLS.filter((s) => s.tray === 'ranked' || s.tray === 'eligible_at_3').every((s) => s.scoreSource === 'published'),
+  'ranked and eligible-at-3 stay published',
+)
+
 const zeroMont = { ...FIRST_PASS, montessori: 50 }
 const cdc2 = rankSchool(cdcSchool, zeroMont)
 assert(cdc2.used.includes('montessori'), 'known 0 stays in W when weight > 0')

@@ -29,9 +29,8 @@ export type School = {
   /** Frozen ranked-v1 0–100 scores. null = unknown. */
   scores: Record<CriterionId, Score>
   /**
-   * published = per-criterion numbers given in ranked-v1.
-   * fitted-aggregate = per-criterion row completed so first-pass raw/coverage
-   * match the published totals; slider re-ranks are approximate.
+   * published = per-criterion numbers from ranked-v1 / ranked-batch-1.
+   * fitted-aggregate is unused; Worth-the-drive rows are published.
    */
   scoreSource: 'published' | 'fitted-aggregate'
   /** Google typical 8am minutes from 427 Ridgewood Rd. null = untimed. */

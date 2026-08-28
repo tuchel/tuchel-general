@@ -12,7 +12,7 @@ npm i
 npm run dev
 ```
 
-`npm test` checks first-pass order (Sunset Trail #1 sort 59.5, CDC South #2, Headwaters #3, Butterfly #4) and the unknown-vs-zero rule.
+`npm test` checks first-pass Ranked order (Sunset Trail #1 sort 59.5, CDC South #2, Headwaters #3, Butterfly #4), the unknown-vs-zero rule, and published ranked-batch-1 Worth-the-drive rows (Earth Native outdoor 100, Lake Hills outdoor 40 / age fit 50, SITH outdoor 40 / Montessori 50).
 
 ## Ranking
 
@@ -30,8 +30,6 @@ Trays are frozen with the snapshot, not re-derived from sliders:
 1. **Ranked** — typical 8am under 20 minutes and eligible now
 2. **Worth the drive** — typical 8am ≥ 20 (Lake Hills sits here because typical is 24; range-high is a flag)
 3. **Eligible at 3** — age-gated this fall (Casa AMI, Nature’s Way, Parkside, Cedars, …). Parkside and Cedars typical is under 20, so they are not Worth the drive.
-
-A few Worth-the-drive rows shipped in ranked-v1 as aggregates only. Those per-criterion scores are fitted to the published raw/coverage and marked in the expand panel.
 
 Do not treat this file as a waitlist, tuition, or credential authority. Notes on those subjects are only what ranked-v1 recorded.
 
