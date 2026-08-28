@@ -87,7 +87,7 @@ export function SchoolCard({
       {open && (
         <div className="card-body">
           <p className="where">
-            {school.address || 'Address thin in ranked-v1.'} ·{' '}
+            {school.address || 'Address thin in ranked-v2.'} ·{' '}
             <a href={school.url} target="_blank" rel="noreferrer">
               {displayHost(school.url)}
             </a>
@@ -102,7 +102,7 @@ export function SchoolCard({
           )}
           {school.scoreSource === 'fitted-aggregate' && (
             <p className="fitted">
-              Per-criterion scores were fitted to the ranked-v1 aggregate. Treat slider re-ranks as approximate.
+              Per-criterion scores were fitted to a published aggregate. Treat slider re-ranks as approximate.
             </p>
           )}
 
