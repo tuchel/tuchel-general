@@ -4,6 +4,8 @@ Interactive ranking of Austin / West Lake Hills daycare options for Finn (born 2
 
 Quiet Hill Country editorial tool. Frozen **ranked-v1** scores (28 Aug 2026). Dragging the six live weights re-ranks from stored raw scores in the client. Unknown is labeled unknown and dropped from the denominator; a known 0 stays in.
 
+Live: [tuchel.github.io/tuchel-general/daycare-search/](https://tuchel.github.io/tuchel-general/daycare-search/)
+
 ## Run
 
 ```bash
