@@ -243,16 +243,14 @@ a:hover { color: var(--gold); }
   color: var(--green);
   line-height: 1.15;
 }
-.flag, .drive-lab {
-  font-size: 0.68rem;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--stone);
-}
 .flag {
   border: 1px solid var(--rule);
   padding: 0.08rem 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--stone);
+  text-transform: none;
 }
 .blunt { color: var(--stone); font-size: 0.88rem; }
 .drive {
@@ -263,7 +261,14 @@ a:hover { color: var(--gold); }
   color: var(--ink);
 }
 .drive.unk { color: var(--stone); }
-.drive-lab { margin-left: 0.35rem; font-weight: 600; }
+.drive-lab {
+  margin-left: 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--stone);
+}
 
 .profile {
   display: flex;
