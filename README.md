@@ -8,3 +8,4 @@ Agents: read [`AGENTS.md`](AGENTS.md) first. Knowledge compounds in [`wiki/`](wi
 
 - [Metro Budget & Tax Explorer](https://tuchel.github.io/tuchel-general/tax/) — local tax and spend per person by US metro
 - [APL Storytime Fall 2026](https://tuchel.github.io/tuchel-general/storytime/) — Austin Public Library storytimes on a map and iCal feed
+- [Austin luxury gyms](https://tuchel.github.io/tuchel-general/gyms/) — Equinox-level clubs mapped from 427 Ridgewood Road
