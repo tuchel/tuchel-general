@@ -73,7 +73,8 @@ export default function App() {
         <p className="lede">
           There is no all-day Waldkindergarten analogue under 20 minutes that takes a 2-year-old this
           fall. Closest in-zip preserve is Nature’s Way (half-day, age 3 by 1 Oct). True forest days
-          are 25–55 minutes out.
+          are 25–55 minutes out. Reggio is in the 20% pedagogy slider. No NAREA-listed school in
+          Austin. KLA Sweetwater is the only ped-100 Reggio and it is 35 minutes out.
         </p>
       </header>
 
@@ -124,16 +125,18 @@ export default function App() {
           <section className="why">
             <h2>Why this first pass</h2>
             <p>
-              Sunset Trail beats Guidepost because outdoor 30% + Montessori 20% outweigh a 7-minute
-              drive. Guidepost Montessori is unknown (dropped from the denominator), not zero.
+              Sunset Trail beats Guidepost because outdoor 30% + Montessori / Reggio 20% outweigh a
+              7-minute drive. Guidepost pedagogy is unknown (dropped from the denominator), not zero.
             </p>
             <p>
-              CDC South is #2 despite no Montessori because montessori is a known 0, coverage 100%,
+              Atelier Preescolar is #2 (sort 57.0): outdoor-leaning Reggio-inspired at 16 minutes,
+              pedagogy 50. CDC South is #3 despite pedagogy 0 because that 0 is known, coverage 100%,
               outdoor/age/logistics carry it.
             </p>
             <p>
               Butterfly is not #2: 51.5 was the uncongested-distance version. At 14 min typical it is
-              46.5.
+              46.5. Fiorella rose to 44.5 when pedagogy moved from 0 to 50 (named Reggio; atelier
+              unverified).
             </p>
           </section>
         </aside>
