@@ -81,16 +81,16 @@ export const CRITERION_LABEL: Record<CriterionId, string> = {
 }
 
 export const CRITERION_BOUND: Record<CriterionId, string> = {
-  outdoor: 'How much all-day outdoor time matters relative to the rest of the mix.',
-  montessori: 'How much Montessori or Reggio pedagogy matters. Unknown is dropped, not zero. No NAREA-listed school in Austin.',
-  age_fit: 'How well the class matches a child born 24 Oct 2023 (~2y 10m this fall).',
-  distance: 'Frozen 0–100 from typical 8am drive. Not recomputed when weights move.',
-  nature: 'Preserve, acreage, or true woods versus a yard with trees.',
-  logistics: 'Hours, days, and whether a full week is published.',
-  continuity: 'Same community through elementary. Off in First pass.',
-  cost: 'Tuition as a scored criterion. Off in First pass; most rows are unknown.',
-  staff: 'Credentials and tenure as a scored criterion. Off in First pass.',
-  availability: 'Seats this fall as a scored criterion. Off in First pass.',
+  outdoor: 'All-day outdoor time versus indoor.',
+  montessori: 'Montessori or Reggio. Unknown is dropped, not zero. No NAREA-listed school in Austin.',
+  age_fit: 'Fit for a child born 24 Oct 2023 (~2y 10m this fall).',
+  distance: 'Score from typical 8am drive. Weights do not recompute it.',
+  nature: 'Preserve or woods versus a yard with trees.',
+  logistics: 'Hours, days, and a published full week.',
+  continuity: 'Same community through elementary.',
+  cost: 'Tuition.',
+  staff: 'Credentials and tenure.',
+  availability: 'A seat this fall.',
 }
 
 export const TRAY_COPY: Record<
@@ -105,11 +105,11 @@ export const TRAY_COPY: Record<
   worth_the_drive: {
     kicker: 'Tray 2',
     title: 'Worth the drive',
-    rule: 'Typical 8am is 20 minutes or more. Range-high is a flag, not a fail.',
+    rule: 'Typical 8am is 20 minutes or more.',
   },
   eligible_at_3: {
     kicker: 'Tray 3',
     title: 'Eligible at 3',
-    rule: 'Age-gated this fall. Parkside and Cedars sit here even though typical is under 20. Tigerlily sits here even though typical is 22.',
+    rule: 'Age-gated this fall.',
   },
 }

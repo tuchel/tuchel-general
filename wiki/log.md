@@ -103,3 +103,7 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-30] build | daycare-search | Focus section: Sunset Trail, Mariposa, Primrose West Lake Hills — photos, sourced reviews, Finn-fit, downsides
 
 ## [2026-08-30] schema | AGENTS.md | Reader-facing prose: conclusion only; no snapshot tags, process residue, or writing about writing
+
+## [2026-08-30] polish | daycare-search | Reader-facing copy: conclusions only; drop snapshot tags and process residue
+
+## [2026-08-30] data | daycare-search | Focus adds St. Michael’s Episcopal Day School (in-zip Reggio, 9:00–1:00)
