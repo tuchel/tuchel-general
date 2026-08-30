@@ -14,7 +14,7 @@ npm i
 npm run dev
 ```
 
-`npm test` checks first-pass Ranked order (Sunset Trail #1 sort 59.5, Atelier Preescolar #2 sort 57.0), Fiorella pedagogy 50, WonderWell pedagogy 50 not 100, and that every school URL is a non-empty https string.
+`npm test` checks first-pass Ranked order (Sunset Trail #1 sort 59.5, Atelier Preescolar #2 sort 57.0), Fiorella pedagogy 50, WonderWell pedagogy 50 not 100, every school URL https, and the Focus shortlist (Sunset Trail, Mariposa, Primrose West Lake Hills).
 
 ## Ranking
 
@@ -51,7 +51,25 @@ Internal: [Austin luxury gyms](../projects/2026-08-austin-luxury-gyms/) maps clu
 
 **Recommend: differentiate.** Incumbents find daycares. They do not carry this household’s frozen scores or the unknown-dropped-from-denominator rule. Building is the ranking surface, not a second Winnie.
 
+## Prior art (Focus section, 30 Aug 2026)
+
+**Job to be done:** James, at 427 Ridgewood Rd, needs a deep side-by-side of three named finalists — Sunset Trail, Mariposa, Primrose West Lake Hills — with photos, sourced reviews, Finn-fit, and downsides, on the existing portal.
+
+| Match | URL | Job it covers | Gap vs this |
+| --- | --- | --- | --- |
+| Winnie | https://winnie.com/austin/daycares | Map + reviews for Austin daycares | No household frozen scores, no AMI vs Balanced Learning contrast for Finn |
+| Niche / GreatSchools | https://www.niche.com/ · https://www.greatschools.org/ | Parent-review aggregates | School-level, not a three-school Finn comparison |
+| Google / Yelp | maps / yelp listings | Star ratings | No outdoor/pedagogy file; no continuity vs in-zip logistics trade |
+| School sites | AMS, Mariposa, Primrose pages | Single-school marketing | Not a comparison |
+| HHSC Child Care Search | https://childcare.hhs.texas.gov | License lookup | Verification only |
+
+Internal: ranked-v2 trays already rank Sunset Trail and Mariposa. Primrose was not in that snapshot. [Austin luxury gyms](../projects/2026-08-austin-luxury-gyms/) is the other Ridgewood-point comparison.
+
+**Recommend: differentiate.** No incumbent writes this household’s shortlist with unknown-dropped scoring plus first-party photos. Proceed as a section, not a new product.
+
 ## Pointers
 
 - Data: `src/data/schools.ts`
+- Focus shortlist: `src/data/focus.ts`
 - Math: `src/lib/rank.ts`
+- Photos: `public/focus/` (sources in `SOURCES.md`)

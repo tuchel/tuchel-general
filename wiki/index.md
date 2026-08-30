@@ -13,7 +13,7 @@ Catalog of pages in this personal knowledge base. Keep thin; link out to long-fo
 - [San Juan Whale Odds](../projects/2026-07-san-juan-whale-map/README.md) — boat-renter map of whale likelihood around San Juan Island
 - [APL Storytime Fall 2026](../projects/2026-08-apl-storytime/README.md) — map + iCal of Austin Public Library storytimes (7 Sep–21 Nov 2026)
 - [Austin luxury gyms](../projects/2026-08-austin-luxury-gyms/README.md) — Equinox-level clubs from 427 Ridgewood Road, West Lake Hills
-- [Schools for Finn](../daycare-search/README.md) — ranked-v2 daycare explorer from Ridgewood Road (top-level `daycare-search/`)
+- [Schools for Finn](../daycare-search/README.md) — ranked-v2 daycare explorer from Ridgewood Road; Focus shortlist of three finalists
 
 ## Concepts
 

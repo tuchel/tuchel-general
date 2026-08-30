@@ -161,9 +161,11 @@ export const SCHOOLS: School[] = [
     straddle: true,
     address: '3338 Paisano Trail, Austin 78745',
     url: 'https://www.mariposamontessori.com/',
-    flags: ['AMS claim unfetched', 'range can hit 20'],
-    notes: ['Outdoor and nature unknown. AMS claim unfetched.'],
-    missingUnverified: ['outdoor', 'nature', 'AMS claim unfetched'],
+    flags: ['AMS claim first-party', 'range can hit 20'],
+    notes: [
+      'Outdoor and nature unknown. School site claims AMS Fully Accredited Member (30 Aug 2026); AMS public locator did not return this campus in that pass.',
+    ],
+    missingUnverified: ['outdoor', 'nature', 'AMS directory row for Paisano Trail'],
   },
   {
     id: 'town-and-country',

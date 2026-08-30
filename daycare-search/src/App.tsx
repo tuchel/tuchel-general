@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { SCHOOLS, HOME } from './data/schools'
+import { Focus } from './components/Focus'
 import { SchoolCard } from './components/SchoolCard'
 import { useFlip } from './lib/flip'
 import {
@@ -82,6 +83,8 @@ export default function App() {
         Drive times are Google typical 8am from {HOME.address}. Range-high is a flag, not a fail. Lake
         Hills is Worth the drive because typical is 24.
       </p>
+
+      <Focus />
 
       <div className="layout">
         <aside className="rail">
