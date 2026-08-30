@@ -14,7 +14,7 @@ What the system amplifies:
 2. **Compounding knowledge.** Distilled lessons, concepts, and methods go into `wiki/` so later work starts smarter.
 3. **High-polish artifacts when it matters.** Charts, sims, and writeups that leave this repo should meet the same information and graphic discipline as anything client-facing.
 
-Tone: understated, precise, falsifiable. No showy branding language.
+Tone: understated, precise, falsifiable. No showy branding language. Reader-facing copy is the conclusion, not the lab notebook (see **Reader-facing prose**).
 
 ---
 
@@ -136,9 +136,28 @@ Rules:
 - **Unverified claims stay out of headlines** (README summaries, verdicts, top risks). Either verify, reframe without the number, or park in a project research queue.
 - **Acronyms:** full form on first use per page (`Full Name (ACRONYM)`), then acronym alone. Each page stands alone.
 - **American English** in authored prose (`program`, `defense`, `center`, `behavior`, `analyze`). Preserve original spelling inside quotations.
-- **No past-version framing on canonical pages.** State the current best answer in present tense. History belongs in `wiki/log.md`, git, or retrospectives — not "we used to say / previously / reweighted."
+- **Reader-facing prose** (below). Canonical pages stay in present tense; no past-version framing.
 - **Arithmetic check:** any sentence connecting two or more numbers with of / per / × / ÷ / for / across must multiply through before it ships.
 - **Dimension tags:** when a quantity has more than one legitimate value, name the dimension in the same sentence (design-point vs peak; datasheet vs rounded; 2026 plan vs 2027 ramp).
+
+### Reader-facing prose
+
+Copy a person will read — apps, product READMEs, wiki canonical pages, chart labels, ledes — is the **final conclusion**. Tight. No meandering. Zero writing about writing.
+
+The reader came for a decision or a fact. They did not come for the snapshot name, the fetch, the schema, or a tour of how the paragraph was assembled.
+
+**Do not ship on those surfaces:**
+
+- Snapshot or batch names as labels (`ranked-v2`, `ranked-batch-1`, `focus pass`).
+- Process residue (`in this pass`, `on the pages fetched`, `not in the trays`, `unfetched`, `first-party claim`, `this file`).
+- Internal field names where a sentence will do (`straddle` → the drive can reach 20 minutes).
+- Writer instructions leaking into the page (`do not invent a waitlist`, `treat re-ranks as approximate`).
+- How-we-got-here (`this is a household pick, not first-pass sort order`; `compared in depth`; `not some earlier table`).
+- Past-version framing (`we used to say`, `previously`, `reweighted`). Present tense only.
+
+**Where that material belongs:** `wiki/log.md`, git, code comments, working `notes/`. Scoring math that *is* the tool (live weights, unknown dropped from the denominator) may stay — say the human rule once, not a recap of the operator schema.
+
+**Test:** delete any phrase a stranger would have to ask you to explain. If the sentence still decides, keep it. If it only records how the writer worked, cut it.
 
 ---
 
