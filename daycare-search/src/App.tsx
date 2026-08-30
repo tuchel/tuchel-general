@@ -68,20 +68,19 @@ export default function App() {
     <div className="page">
       <header className="mast">
         <p className="kicker">
-          {HOME.child} · born {HOME.born} · {HOME.ageLabel} · {HOME.snapshot} {HOME.snapshotDate}
+          {HOME.child} · born {HOME.born} · {HOME.ageLabel}
         </p>
         <h1>Schools for Finn</h1>
         <p className="lede">
-          There is no all-day Waldkindergarten analogue under 20 minutes that takes a 2-year-old this
-          fall. Closest in-zip preserve is Nature’s Way (half-day, age 3 by 1 Oct). True forest days
-          are 25–55 minutes out. Reggio is in the 20% pedagogy slider. No NAREA-listed school in
-          Austin. KLA Sweetwater is the only ped-100 Reggio and it is 35 minutes out.
+          No all-day forest kindergarten under 20 minutes takes a 2-year-old this fall. Nature’s Way
+          is the closest in-zip preserve — half-day, age 3 by 1 October. Forest days are 25–55 minutes
+          out. No NAREA-listed school in Austin. The only pedagogy-100 Reggio is KLA Sweetwater, 35
+          minutes away.
         </p>
       </header>
 
       <p className="banner" role="note">
-        Drive times are Google typical 8am from {HOME.address}. Range-high is a flag, not a fail. Lake
-        Hills is Worth the drive because typical is 24.
+        Drives are Google typical 8am from {HOME.address}.
       </p>
 
       <Focus />
@@ -128,19 +127,14 @@ export default function App() {
           <section className="why">
             <h2>Why this first pass</h2>
             <p>
-              Sunset Trail beats Guidepost because outdoor 30% + Montessori / Reggio 20% outweigh a
-              7-minute drive. Guidepost pedagogy is unknown (dropped from the denominator), not zero.
+              Sunset Trail leads because outdoor and Montessori outweigh Guidepost’s 7-minute drive.
+              Guidepost Montessori is unknown, not zero.
             </p>
             <p>
-              Atelier Preescolar is #2 (sort 57.0): outdoor-leaning Reggio-inspired at 16 minutes,
-              pedagogy 50. CDC South is #3 despite pedagogy 0 because that 0 is known, coverage 100%,
-              outdoor/age/logistics carry it.
+              Atelier Preescolar is second (57.0): Reggio-inspired, 16 minutes, pedagogy 50. CDC South
+              is third (49.5): play-based, pedagogy 0.
             </p>
-            <p>
-              Butterfly is not #2: 51.5 was the uncongested-distance version. At 14 min typical it is
-              46.5. Fiorella rose to 44.5 when pedagogy moved from 0 to 50 (named Reggio; atelier
-              unverified).
-            </p>
+            <p>Butterfly is 46.5 at 14 minutes. Fiorella is 44.5: named Reggio, atelier unverified.</p>
           </section>
         </aside>
 

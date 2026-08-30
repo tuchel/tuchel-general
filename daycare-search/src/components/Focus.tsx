@@ -53,21 +53,17 @@ export function Focus() {
   return (
     <section className="focus" id="focus" aria-labelledby="focus-title">
       <header className="focus-mast">
-        <p className="kicker">Focus · household shortlist · {FOCUS_AS_OF}</p>
+        <p className="kicker">Focus · {FOCUS_AS_OF}</p>
         <h2 id="focus-title">Three finalists</h2>
         <p className="focus-lede">
-          Sunset Trail, Mariposa, and Primrose West Lake Hills — compared in depth. This is a
-          household pick, not first-pass sort order. Sunset Trail is ranked-v2 #1 (59.5). Mariposa
-          ties at 39.0. Primrose is not in the ranked-v2 trays; it is here because it is in-zip and
-          full-day. Unknown stays unknown. No waitlists invented.
+          Sunset Trail, Mariposa, and Primrose West Lake Hills. Sunset Trail leads at 59.5. Mariposa
+          is 16 minutes and eligible now. Primrose is a mile away and open 7:30–6:30.
         </p>
       </header>
 
       <div className="focus-table-wrap">
         <table className="focus-cmp">
-          <caption>
-            Side-by-side facts. Hover a cell for the full line. Sources sit on each card below.
-          </caption>
+          <caption>Pedagogy, hours, drive, and cost for the three finalists.</caption>
           <thead>
             <tr>
               <th scope="col">Compared</th>
@@ -95,7 +91,7 @@ export function Focus() {
                             {s.name} · {row.label}
                           </b>
                           <span>{text}</span>
-                          <i>Full notes and sources on the card below.</i>
+                          <i>{s.url.replace(/^https:\/\//, '').replace(/\/$/, '')}</i>
                         </span>
                       </span>
                     </td>
@@ -107,7 +103,6 @@ export function Focus() {
               <th scope="row">First-pass sort</th>
               {FOCUS_SCHOOLS.map((s) => {
                 const r = rankSchool(asSchool(s), FIRST_PASS)
-                const inRanked = s.rankedId != null
                 return (
                   <td key={s.id}>
                     {r.sort == null ? (
@@ -118,7 +113,6 @@ export function Focus() {
                         <span className="quiet">
                           {' '}
                           raw {fmt1(r.raw!)} · {fmtPct(r.coverage)} coverage
-                          {inRanked ? '' : ' · not in a tray'}
                         </span>
                       </>
                     )}
@@ -137,10 +131,9 @@ export function Focus() {
       </div>
 
       <p className="focus-src">
-        Photos from official school sites ({FOCUS_AS_OF}). Drive trail:{' '}
-        <code>scripts/drive-osrm.mjs</code> (uncongested, not typical 8am). GreatSchools, Niche,
-        Yelp, Listen360, and CourtListener are named where used. Tuition numbers only where the
-        school published a table.
+        Photos from official school sites ({FOCUS_AS_OF}). Uncongested drives from OpenStreetMap
+        routing, not typical 8am. GreatSchools, Niche, Yelp, Listen360, and CourtListener are named
+        where used. Tuition only where the school published a table.
       </p>
     </section>
   )
