@@ -2,7 +2,7 @@
 
 Interactive ranking of Austin / West Lake Hills daycare options for Finn (born 24 Oct 2023, ~2y 10m) from 427 Ridgewood Rd, West Lake Hills, TX 78746.
 
-Quiet Hill Country editorial tool. Frozen **ranked-v2** scores (28 Aug 2026). Dragging the six live weights re-ranks from stored raw scores in the client. Unknown is labeled unknown and dropped from the denominator; a known 0 stays in. The 20% slider is **Montessori / Reggio** (field id `montessori`).
+Dragging the six live weights re-ranks from stored scores. Unknown is labeled unknown and dropped from the denominator; a known 0 stays in. The 20% weight is **Montessori / Reggio**.
 
 Live: [tuchel.github.io/tuchel-general/daycare-search/](https://tuchel.github.io/tuchel-general/daycare-search/)
 
@@ -23,17 +23,17 @@ npm run dev
 - **raw** = Σ(weightᵢ × scoreᵢ for i in W) / Σ(weightᵢ for i in W)
 - **coverage** = Σ(weightᵢ for i in W) / Σ(weightᵢ for i in A)
 - Default sort = raw × coverage. Labeled toggle: Sort by raw only.
-- Distance score is stored from ranked-v2. Weights do not recompute it from minutes.
+- Distance score is stored. Weights do not recompute it from minutes.
 
 First pass defaults: outdoor 30, Montessori / Reggio 20, age fit 15, distance 15, nature 10, logistics 10. Continuity, cost, staff, availability start at 0.
 
-Trays are frozen with the snapshot, not re-derived from sliders:
+Trays are frozen, not re-derived from sliders:
 
 1. **Ranked** — typical 8am under 20 minutes and eligible now
-2. **Worth the drive** — typical 8am ≥ 20 (Lake Hills sits here because typical is 24; range-high is a flag)
+2. **Worth the drive** — typical 8am is 20 minutes or more (Lake Hills typical is 24; range 18–35)
 3. **Eligible at 3** — age-gated this fall (Casa AMI, Nature’s Way, Tigerlily, Bloom, Parkside, Cedars, …). Parkside and Cedars typical is under 20; Tigerlily typical is 22 and still sits here.
 
-Do not treat this file as a waitlist, tuition, or credential authority. Notes on those subjects are only what ranked-v2 recorded.
+Waitlists, tuition, and credentials appear only when a school published them.
 
 ## Prior art (kickoff, 28 Aug 2026)
 
@@ -63,7 +63,7 @@ Internal: [Austin luxury gyms](../projects/2026-08-austin-luxury-gyms/) maps clu
 | School sites | AMS, Mariposa, Primrose pages | Single-school marketing | Not a comparison |
 | HHSC Child Care Search | https://childcare.hhs.texas.gov | License lookup | Verification only |
 
-Internal: ranked-v2 trays already rank Sunset Trail and Mariposa. Primrose was not in that snapshot. [Austin luxury gyms](../projects/2026-08-austin-luxury-gyms/) is the other Ridgewood-point comparison.
+Internal: Ranked trays already include Sunset Trail and Mariposa. Primrose is Focus-only. [Austin luxury gyms](../projects/2026-08-austin-luxury-gyms/) is the other Ridgewood-point comparison.
 
 **Recommend: differentiate.** No incumbent writes this household’s shortlist with unknown-dropped scoring plus first-party photos. Proceed as a section, not a new product.
 
