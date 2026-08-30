@@ -99,3 +99,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-28] data | daycare-search | Official https URL on every school card; Visit site on the collapsed row
 
 ## [2026-08-28] data | daycare-search | ranked-v2: Montessori/Reggio slider, Atelier #2, KLA Sweetwater WTD first, Tigerlily eligible-at-3
+
+## [2026-08-30] build | daycare-search | Focus section: Sunset Trail, Mariposa, Primrose West Lake Hills — photos, sourced reviews, Finn-fit, downsides

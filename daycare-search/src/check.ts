@@ -1,3 +1,4 @@
+import { FOCUS_SCHOOLS } from './data/focus'
 import { SCHOOLS } from './data/schools'
 import { fmt1, fmtPct, rankSchool } from './lib/rank'
 import { FIRST_PASS } from './lib/types'
@@ -109,11 +110,31 @@ for (const s of SCHOOLS) {
   )
 }
 
-for (const s of SCHOOLS) {
-  assert(
-    typeof s.url === 'string' && s.url.startsWith('https://') && s.url.length > 'https://'.length,
-    `${s.id} needs a non-empty https url`,
-  )
+assert(FOCUS_SCHOOLS.length === 3, `focus should be 3, got ${FOCUS_SCHOOLS.length}`)
+assert(FOCUS_SCHOOLS[0].id === 'sunset-trail', 'focus #1 Sunset Trail')
+assert(FOCUS_SCHOOLS[1].id === 'mariposa', 'focus #2 Mariposa')
+assert(FOCUS_SCHOOLS[2].id === 'primrose-westlake', 'focus #3 Primrose')
+assert(FOCUS_SCHOOLS[0].scores.montessori === 100, 'Sunset ped 100')
+assert(FOCUS_SCHOOLS[1].scores.montessori === 70, 'Mariposa ped 70')
+assert(FOCUS_SCHOOLS[2].scores.montessori === 0, 'Primrose ped is known 0')
+assert(FOCUS_SCHOOLS[2].rankedId == null, 'Primrose stays out of ranked-v2 trays')
+assert(
+  SCHOOLS.some((s) => s.id === 'sunset-trail') && SCHOOLS.some((s) => s.id === 'mariposa'),
+  'Sunset and Mariposa remain in SCHOOLS',
+)
+assert(!SCHOOLS.some((s) => s.id === 'primrose-westlake'), 'do not add Primrose to SCHOOLS in this pass')
+
+for (const s of FOCUS_SCHOOLS) {
+  assert(s.url.startsWith('https://'), `${s.id} focus url`)
+  assert(s.photos.length >= 1, `${s.id} needs a photo`)
+  for (const p of s.photos) {
+    assert(p.file.endsWith('.jpg'), `${s.id} photo should be a local jpg`)
+  }
+  for (const r of s.reviews) {
+    assert(r.sourceUrl.startsWith('https://'), `${s.id} review source`)
+  }
+  const blob = [...s.whyFinn, ...s.downsides, ...s.missing, ...s.reviews.map((r) => r.summary)].join(' ')
+  assert(!/finn is on (the )?wait/i.test(blob), `${s.id} invented a waitlist`)
 }
 
 console.log('first-pass checks ok')
