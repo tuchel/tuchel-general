@@ -14,7 +14,7 @@ npm i
 npm run dev
 ```
 
-`npm test` checks first-pass Ranked order (Sunset Trail #1 sort 59.5, Atelier Preescolar #2 sort 57.0), Fiorella pedagogy 50, WonderWell pedagogy 50 not 100, every school URL https, and the Focus shortlist (Sunset Trail, Mariposa, Primrose West Lake Hills).
+`npm test` checks first-pass Ranked order (Sunset Trail #1 sort 59.5, Atelier Preescolar #2 sort 57.0), Fiorella pedagogy 50, WonderWell pedagogy 50 not 100, every school URL https, and the Focus shortlist (Sunset Trail, Mariposa, Primrose West Lake Hills, St. Michael’s Episcopal Day School).
 
 ## Ranking
 

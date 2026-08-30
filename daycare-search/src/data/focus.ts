@@ -251,6 +251,77 @@ export const FOCUS_SCHOOLS: FocusSchool[] = [
       'Seats this fall unpublished.',
     ],
   },
+  {
+    id: 'st-michaels',
+    rankedId: null,
+    name: 'St. Michael’s Episcopal Day School',
+    blunt: 'In-zip · Reggio-inspired · 9:00–1:00',
+    url: 'https://stmichaelsdayschool.vercel.app/',
+    address: '1500 N Capital of Texas Hwy, Austin, TX 78746',
+    photos: [
+      {
+        file: 'stmichaels-campus.jpg',
+        alt: 'Outdoor classroom with mud kitchen, log tunnel, stump seats, and a wooded hillside',
+        credit: 'stmichaelsdayschool.vercel.app campus still, 30 Aug 2026',
+      },
+      {
+        file: 'stmichaels-classroom.jpg',
+        alt: 'Classroom with low wood tables, art shelves, and windows onto trees',
+        credit: 'stmichaelsdayschool.vercel.app classroom still, 30 Aug 2026',
+      },
+    ],
+    pedagogy: 'Reggio Emilia-inspired. Named atelier on the campus page. Pedagogy 50.',
+    credential:
+      'Ministry of St. Michael’s Episcopal Church. Church staff page lists Rebecca Beavers as Head of School. Not AMI or AMS.',
+    ages: '6 weeks–5 years on the campus page. Class placement: 18 months, 2, 3, 4, or 5 by 1 September. Finn at 2y 10m this fall is in Twos / Older Twos.',
+    hours: 'Core 9:00 am–1:00 pm. Before care 8:15–9:00. After care 1:00–2:30. Published on the tuition page.',
+    drive: 'Typical 8am unpublished. Uncongested 10 minutes / 5.00 miles.',
+    outdoor:
+      'School site: large portion of the day outside; outdoor classroom, nature trails, nature playground. Outdoor 40 / nature 50.',
+    continuity: 'Stops at kindergarten / Kinderbridge. Church continues as a parish, not a K–8 school.',
+    cost: 'Twos Monday–Friday 9:00–1:00 listed at $1,100/mo. Registration/supply $750. Before care $300/mo; after care $500/mo (five days).',
+    scores: {
+      outdoor: 40,
+      montessori: 50,
+      age_fit: 100,
+      distance: null,
+      nature: 50,
+      logistics: 0,
+    },
+    whyFinn: [
+      'Same zip, Loop 360 between 2222 and Bee Caves. Uncongested about 10 minutes / 5 miles. Primrose is closer.',
+      'Age fit 100: 6 weeks–5 years. A child born 24 Oct 2023 is 2 by 1 September 2026 (Twos / Older Twos).',
+      'Reggio-inspired with a named atelier. Outdoor file is the strongest of these four after Sunset Trail: mud kitchen, log tunnel, wooded hillside on the campus still.',
+      'Published tuition. Twos five mornings are $1,100/mo plus $750 registration.',
+    ],
+    downsides: [
+      'Core day is 9:00–1:00. Even with 8:15–2:30 add-ons this is part-day. Logistics 0. Primrose closes that gap.',
+      'Pedagogy 50: Reggio-inspired and a named atelier, not AMI and not a named atelierista.',
+      'Registration prefers enrolled siblings and church-connected families. Applicants may join a Wait List; a seat this fall is unpublished.',
+      'Christ-centered Episcopal ministry. Continuity ends at Kinderbridge.',
+      'Typical 8am unpublished. Public reviews are few and mostly praise on Yelp via MapQuest. No GreatSchools page for this campus. St. Michael’s Catholic Prep is a different school.',
+    ],
+    reviews: [
+      {
+        summary:
+          'Yelp notes on MapQuest praise Reggio play, outdoor time, and named teachers. One older review flags limited hours and a short school year for working parents.',
+        sourceLabel: 'Yelp via MapQuest',
+        sourceUrl: 'https://www.mapquest.com/us/texas/st-michaels-episcopal-day-school-9781789',
+      },
+      {
+        summary:
+          'If a class is full, applicants can join a Wait List. Offers when a space opens.',
+        sourceLabel: 'St. Michael’s admissions',
+        sourceUrl: 'https://stmichaelsdayschool.vercel.app/admissions',
+      },
+    ],
+    missing: [
+      'Typical 8am drive unpublished.',
+      'HHSC operation number unconfirmed on childcare.hhs.texas.gov (directories list 1171766; unverified).',
+      'Seat for this fall unpublished.',
+      'NAREA listing and atelierista unpublished.',
+    ],
+  },
 ]
 
 export const FOCUS_COMPARE_ROWS: {

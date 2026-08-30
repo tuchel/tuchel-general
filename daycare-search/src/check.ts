@@ -110,19 +110,25 @@ for (const s of SCHOOLS) {
   )
 }
 
-assert(FOCUS_SCHOOLS.length === 3, `focus should be 3, got ${FOCUS_SCHOOLS.length}`)
+assert(FOCUS_SCHOOLS.length === 4, `focus should be 4, got ${FOCUS_SCHOOLS.length}`)
 assert(FOCUS_SCHOOLS[0].id === 'sunset-trail', 'focus #1 Sunset Trail')
 assert(FOCUS_SCHOOLS[1].id === 'mariposa', 'focus #2 Mariposa')
 assert(FOCUS_SCHOOLS[2].id === 'primrose-westlake', 'focus #3 Primrose')
+assert(FOCUS_SCHOOLS[3].id === 'st-michaels', 'focus #4 St. Michael’s')
 assert(FOCUS_SCHOOLS[0].scores.montessori === 100, 'Sunset ped 100')
 assert(FOCUS_SCHOOLS[1].scores.montessori === 70, 'Mariposa ped 70')
 assert(FOCUS_SCHOOLS[2].scores.montessori === 0, 'Primrose ped is known 0')
-assert(FOCUS_SCHOOLS[2].rankedId == null, 'Primrose stays out of ranked-v2 trays')
+assert(FOCUS_SCHOOLS[3].scores.montessori === 50, 'St. Michael’s ped 50')
+assert(FOCUS_SCHOOLS[3].scores.age_fit === 100, 'St. Michael’s age fit 100')
+assert(FOCUS_SCHOOLS[3].scores.logistics === 0, 'St. Michael’s logistics is known 0 (part-day)')
+assert(FOCUS_SCHOOLS[2].rankedId == null, 'Primrose stays out of ranked trays')
+assert(FOCUS_SCHOOLS[3].rankedId == null, 'St. Michael’s stays out of ranked trays')
 assert(
   SCHOOLS.some((s) => s.id === 'sunset-trail') && SCHOOLS.some((s) => s.id === 'mariposa'),
   'Sunset and Mariposa remain in SCHOOLS',
 )
-assert(!SCHOOLS.some((s) => s.id === 'primrose-westlake'), 'do not add Primrose to SCHOOLS in this pass')
+assert(!SCHOOLS.some((s) => s.id === 'primrose-westlake'), 'Primrose is Focus-only')
+assert(!SCHOOLS.some((s) => s.id === 'st-michaels'), 'St. Michael’s is Focus-only')
 
 for (const s of FOCUS_SCHOOLS) {
   assert(s.url.startsWith('https://'), `${s.id} focus url`)

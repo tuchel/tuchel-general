@@ -7,6 +7,7 @@ const DEST = {
   mariposa: { lon: -97.8288142, lat: 30.2089666 },
   primrose: { lon: -97.8007337, lat: 30.274595 },
   guidepost: { lon: -97.8153115, lat: 30.2869494 },
+  stmichaels: { lon: -97.8226574, lat: 30.3189966 },
 }
 
 for (const [name, p] of Object.entries(DEST)) {

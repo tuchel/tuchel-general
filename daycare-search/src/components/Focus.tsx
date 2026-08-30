@@ -54,16 +54,17 @@ export function Focus() {
     <section className="focus" id="focus" aria-labelledby="focus-title">
       <header className="focus-mast">
         <p className="kicker">Focus · {FOCUS_AS_OF}</p>
-        <h2 id="focus-title">Three finalists</h2>
+        <h2 id="focus-title">Four finalists</h2>
         <p className="focus-lede">
-          Sunset Trail, Mariposa, and Primrose West Lake Hills. Sunset Trail leads at 59.5. Mariposa
-          is 16 minutes and eligible now. Primrose is a mile away and open 7:30–6:30.
+          Sunset Trail, Mariposa, Primrose West Lake Hills, and St. Michael’s Episcopal Day School.
+          Sunset Trail leads at 59.5. Primrose is a mile away and open 7:30–6:30. St. Michael’s is
+          in-zip, Reggio-inspired, and 9:00–1:00.
         </p>
       </header>
 
       <div className="focus-table-wrap">
         <table className="focus-cmp">
-          <caption>Pedagogy, hours, drive, and cost for the three finalists.</caption>
+          <caption>Pedagogy, hours, drive, and cost for the four finalists.</caption>
           <thead>
             <tr>
               <th scope="col">Compared</th>
