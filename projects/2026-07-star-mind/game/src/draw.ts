@@ -88,6 +88,29 @@ export function drawBullet(
   ctx.restore();
 }
 
+/** One radial-gradient sprite per color; glows are then a single scaled drawImage instead of a gradient build per call. */
+const GLOW_PX = 128;
+const glowSprites = new Map<string, HTMLCanvasElement>();
+
+function glowSprite(color: string): HTMLCanvasElement | null {
+  let c = glowSprites.get(color);
+  if (c) return c;
+  if (typeof document === "undefined") return null;
+  c = document.createElement("canvas");
+  c.width = GLOW_PX;
+  c.height = GLOW_PX;
+  const g2 = c.getContext("2d");
+  if (!g2) return null;
+  const half = GLOW_PX / 2;
+  const grad = g2.createRadialGradient(half, half, 0, half, half, half);
+  grad.addColorStop(0, color);
+  grad.addColorStop(1, "transparent");
+  g2.fillStyle = grad;
+  g2.fillRect(0, 0, GLOW_PX, GLOW_PX);
+  glowSprites.set(color, c);
+  return c;
+}
+
 export function glow(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -96,15 +119,63 @@ export function glow(
   color: string,
   a = 0.35,
 ) {
-  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-  g.addColorStop(0, color);
-  g.addColorStop(1, "transparent");
+  if (r <= 0) return;
+  const spr = glowSprite(color);
   ctx.globalAlpha = a;
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fill();
+  if (spr) {
+    ctx.drawImage(spr, x - r, y - r, r * 2, r * 2);
+  } else {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, color);
+    g.addColorStop(1, "transparent");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.globalAlpha = 1;
+}
+
+/** Pickup glyph by kind so loot reads at a glance: scrap gear, health cross, weapon cartridge in its color. */
+export function drawPickupIcon(
+  ctx: CanvasRenderingContext2D,
+  kind: "scrap" | "health" | "weapon",
+  color: string,
+  x: number,
+  y: number,
+  s: number,
+) {
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.scale(s, s);
+  if (kind === "scrap") {
+    ctx.fillStyle = C.warn;
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      ctx.fillRect(Math.cos(a) * 7 - 2, Math.sin(a) * 7 - 2, 4, 4);
+    }
+    ctx.beginPath();
+    ctx.arc(0, 0, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = C.soot;
+    ctx.beginPath();
+    ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (kind === "health") {
+    ctx.fillStyle = C.bone;
+    ctx.fillRect(-9, -9, 18, 18);
+    ctx.fillStyle = C.pad;
+    ctx.fillRect(-2.5, -6, 5, 12);
+    ctx.fillRect(-6, -2.5, 12, 5);
+  } else {
+    ctx.fillStyle = C.soot;
+    ctx.fillRect(-11, -6, 22, 12);
+    ctx.fillStyle = color;
+    ctx.fillRect(-9, -4, 14, 8);
+    ctx.fillStyle = C.bone;
+    ctx.fillRect(6, -3, 4, 6);
+  }
+  ctx.restore();
 }
 
 /** Chunky astronaut — Ash Calder */
