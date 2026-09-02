@@ -455,6 +455,44 @@ export function drawPickup(
   ctx.restore();
 }
 
+/** Stranded pad tech — hard hat, jumpsuit, waving arm. Anchored at the feet. */
+export function drawTech(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  s: number,
+  frame: number,
+) {
+  const wave = Math.sin(frame * 0.18);
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.scale(s, s);
+  glow(ctx, 0, -14, 22, C.warn, 0.22 + 0.08 * wave);
+  // boots
+  rr(ctx, -6, -4, 5, 4, C.soot);
+  rr(ctx, 1, -4, 5, 4, C.soot);
+  // legs + jumpsuit
+  rr(ctx, -5, -14, 4, 10, C.pad);
+  rr(ctx, 1, -14, 4, 10, C.pad);
+  rr(ctx, -6, -24, 12, 11, C.bone, C.soot);
+  rr(ctx, -6, -24, 12, 3, C.pad);
+  // arms: one on hip, one waving
+  rr(ctx, -9, -22, 3, 8, C.bone);
+  ctx.save();
+  ctx.translate(7, -22);
+  ctx.rotate(-2.2 + wave * 0.5);
+  rr(ctx, 0, -1, 9, 3, C.bone);
+  rr(ctx, 8, -2, 3, 4, C.pad);
+  ctx.restore();
+  // head + hard hat
+  rr(ctx, -4, -32, 8, 8, "#e7b98a");
+  rr(ctx, -5, -35, 10, 4, C.warn, C.soot);
+  rr(ctx, -6, -32, 12, 2, C.warn);
+  // radio blink
+  if (Math.floor(frame / 12) % 2 === 0) rr(ctx, 4, -30, 2, 2, C.cyan);
+  ctx.restore();
+}
+
 /** Fuel truck for L1 escort */
 export function drawTruck(
   ctx: CanvasRenderingContext2D,

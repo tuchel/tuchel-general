@@ -215,6 +215,10 @@ export function blitSprite(
     outline?: boolean;
     /** center = mid-sprite (default); feet = bottom-center on ground line */
     anchor?: "center" | "feet";
+    /** Procedural puppeteering: tilt (radians) and squash-stretch about the sprite's base. */
+    rot?: number;
+    sx?: number;
+    sy?: number;
   } = {},
 ) {
   if (!img) return false;
@@ -227,8 +231,18 @@ export function blitSprite(
   const dh = targetH;
   const bob = opts.bob ?? 0;
   const anchorY = opts.anchor === "feet" ? -dh : -dh / 2;
+  const sqx = opts.sx ?? 1;
+  const sqy = opts.sy ?? 1;
   ctx.save();
   ctx.translate(Math.round(x), Math.round(y + bob));
+  if (opts.rot) ctx.rotate(opts.rot);
+  if (sqx !== 1 || sqy !== 1) {
+    // Keep the base planted: squash about the bottom edge, not the center.
+    const base = opts.anchor === "feet" ? 0 : dh / 2;
+    ctx.translate(0, base);
+    ctx.scale(sqx, sqy);
+    ctx.translate(0, -base);
+  }
   ctx.scale(facing, 1);
   ctx.globalAlpha = opts.alpha ?? 1;
   if (opts.flash) ctx.globalCompositeOperation = "lighter";

@@ -2,8 +2,11 @@ import { music, sfx } from "./audio";
 import { C, H, W } from "./palette";
 import { Input } from "./input";
 import {
+  DIFFICULTIES,
+  DIFFICULTY_TIER,
   WEAPONS,
   defaultUpgrades,
+  type Difficulty,
   type LevelId,
   type Mode,
   type Upgrades,
@@ -91,6 +94,7 @@ import {
   drawTetherRope,
   drawShip,
   drawSpine,
+  drawTech,
   drawTruck,
   glow,
   rr,
@@ -213,6 +217,42 @@ function writeBest(n: number) {
   }
 }
 
+type LevelBest = { score: number; rank: Rank; difficulty: Difficulty };
+
+function readLevelBests(): Partial<Record<LevelId, LevelBest>> {
+  try {
+    const raw = localStorage.getItem("starmind-level-bests");
+    return raw ? (JSON.parse(raw) as Partial<Record<LevelId, LevelBest>>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeLevelBests(b: Partial<Record<LevelId, LevelBest>>) {
+  try {
+    localStorage.setItem("starmind-level-bests", JSON.stringify(b));
+  } catch {
+    /* private mode */
+  }
+}
+
+function readDifficulty(): Difficulty {
+  try {
+    const d = localStorage.getItem("starmind-difficulty") as Difficulty | null;
+    return d && DIFFICULTIES.includes(d) ? d : "veteran";
+  } catch {
+    return "veteran";
+  }
+}
+
+function writeDifficulty(d: Difficulty) {
+  try {
+    localStorage.setItem("starmind-difficulty", d);
+  } catch {
+    /* private mode */
+  }
+}
+
 let nextUid = 1;
 function uid() {
   return nextUid++;
@@ -245,6 +285,8 @@ interface Actor {
   uid: number;
   fireAt?: number;
   stolenWpn?: WeaponId;
+  /** Exposed weak point (bosses): offset from the body, radius, damage multiplier, HUD label. */
+  weak?: { dx: number; dhop: number; r: number; mul: number; label: string } | null;
 }
 
 interface Bullet {
@@ -352,6 +394,10 @@ const BOSS: Record<LevelId, { id: string; name: string; sub: string; hp: number 
 const BOSS_INTRO_S = 1.7;
 const BOSS_OUTRO_S = 2.1;
 const RESULT_ROW_S = 0.32;
+const TITLE_ITEMS = 5;
+/** Seconds idle on the title before the attract cards start cycling. */
+const ATTRACT_AFTER_S = 7;
+const ATTRACT_CARD_S = 5.5;
 
 function enemyBaseH(kind: string): number {
   return kind === "spine" ? 88 : kind === "walker" ? 78 : 68;
@@ -471,6 +517,11 @@ export class Game {
   private jumpCut = false;
   private leadNoteT = 0;
   private hudFade: CanvasGradient | null = null;
+  private difficulty: Difficulty = readDifficulty();
+  private levelBests = readLevelBests();
+  private newLevelBest = false;
+  /** Seconds idle on the title; drives the attract cards. */
+  private titleIdle = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -694,7 +745,7 @@ export class Game {
   }
 
   private resetPlayer(mode: "ground" | "ship" | "eva") {
-    const hp = 300 + this.upgrades.armor * 24;
+    const hp = Math.round((300 + this.upgrades.armor * 24) * DIFFICULTY_TIER[this.difficulty].playerHp);
     const animLib = mode === "ship" ? "ship" : mode === "eva" ? "ash-eva" : "ash";
     this.player = {
       x: mode === "ship" ? 220 : 140,
@@ -1357,8 +1408,8 @@ export class Game {
       vHop: 0,
       w: this.levelId === 3 ? 100 : 90,
       h: this.levelId === 3 ? 80 : 70,
-      hp: b.hp,
-      maxHp: b.hp,
+      hp: Math.round(b.hp * DIFFICULTY_TIER[this.difficulty].hp),
+      maxHp: Math.round(b.hp * DIFFICULTY_TIER[this.difficulty].hp),
       dead: false,
       facing: -1,
       kind: b.id,
@@ -1478,8 +1529,20 @@ export class Game {
     lines.push({ label: "HITS TAKEN", value: `${this.hitsTaken}`, pts: this.hitsTaken === 0 ? 1500 : 0 });
     lines.push({ label: "CONTINUES", value: `${this.continues}`, pts: 0 });
     this.score += parPts + escortPts + (this.hitsTaken === 0 ? 1500 : 0);
+    const diff = DIFFICULTY_TIER[this.difficulty];
+    if (diff.score !== 1) {
+      const bonus = Math.round(this.score * (diff.score - 1));
+      lines.push({ label: `DIFFICULTY · ${diff.label}`, value: `×${diff.score}`, pts: bonus });
+      this.score += bonus;
+    }
     this.results = lines;
     this.rank = this.computeRank();
+    const prev = this.levelBests[this.levelId];
+    this.newLevelBest = !prev || this.score > prev.score;
+    if (this.newLevelBest) {
+      this.levelBests[this.levelId] = { score: this.score, rank: this.rank, difficulty: this.difficulty };
+      writeLevelBests(this.levelBests);
+    }
     this.clearT = 0;
     this.mode = "clear";
     this.msgTimer = 0;
@@ -2310,10 +2373,13 @@ export class Game {
       b.timer = 0;
     }
     b.z = clamp(0.45 + Math.sin(b.timer * 0.7) * 0.12, this.laneMin, this.laneMax);
+    b.weak = null;
 
     if (b.kind === "reaper") {
       b.x = BOARD_X - 20 + Math.sin(b.timer * 0.5) * 30;
       b.hop = BOARD_HOP - 20;
+      // P3: the claw is embedded; the weld core hangs open under the cab.
+      if (b.phase === 3) b.weak = { dx: -34, dhop: -46, r: 26, mul: 2.4, label: "CORE" };
       if (b.phase === 1) {
         if (b.timer > 1.5) {
           b.timer = 0;
@@ -2368,7 +2434,9 @@ export class Game {
           this.cue("SERAPH AFT — SPEAR", 1.1);
         }
       } else if (b.timer < 1.9) {
+        // Spear dash: wings folded, belly reactor exposed for the length of the pass.
         b.x += 640 * dt;
+        b.weak = { dx: 6, dhop: -30, r: 24, mul: 2.4, label: "REACTOR" };
       } else {
         b.timer = 0;
         b.x = this.camX + W - 160;
@@ -2644,12 +2712,18 @@ export class Game {
       const tvz = az * 0.72 * mob;
       this.player.vx += (tvx - this.player.vx) * (1 - Math.exp(-11 * dt));
       this.player.vz += (tvz - this.player.vz) * (1 - Math.exp(-11 * dt));
-      this.shipThrust = Math.hypot(ax, az) > 0.12 ? 1 : 0.35;
+      const climbing = this.input.jumpHeld();
+      this.shipThrust = Math.hypot(ax, az) > 0.12 || climbing ? 1 : 0.35;
       const padL = isTouchPrimary() ? 90 : 60;
       const padR = isTouchPrimary() ? 130 : 80;
       this.player.x = clamp(this.player.x + this.player.vx * dt, this.camX + padL, this.camX + W - padR);
       this.player.z = clamp(this.player.z + this.player.vz * dt, this.laneMin, this.laneMax);
-      this.player.hop = 30 + (1 - this.player.z) * 50;
+      // Altitude is its own axis: hold JUMP to climb, release to sink. Depth stays on W/S.
+      this.player.vHop += (climbing ? 560 : -360) * dt;
+      this.player.vHop *= Math.exp(-2.6 * dt);
+      this.player.hop = clamp(this.player.hop + this.player.vHop * dt, 12, 130);
+      if (this.player.hop <= 12 || this.player.hop >= 130) this.player.vHop = 0;
+      if (this.input.jumpJust()) sfx.jump();
       this.camLean += (az * 0.1 - this.camLean) * 5 * dt;
       for (const g of this.gates) {
         if (g.vz) {
@@ -2824,7 +2898,11 @@ export class Game {
               continue;
             }
             let dmg = b.dmg;
-            if (e.kind === "walker" && this.player.x > e.x) dmg *= 1.85;
+            const rearShot = e.kind === "walker" && this.player.x > e.x;
+            if (rearShot) {
+              dmg *= 1.85;
+              this.popScore(e.x, e.z, e.hop + 10, "REAR HIT", C.warn);
+            }
             if (e.kind === "spine" && this.spineArmored(e)) dmg *= 0.35;
             e.hp -= dmg;
             e.flash = 0.06;
@@ -2852,15 +2930,30 @@ export class Game {
               }
               if (boss.kind === "reaper" && boss.phase < 3) dmg *= 0.7;
               if (boss.kind === "seraph" && boss.phase < 3) dmg *= 0.75;
-              // Charge shot earns its name once the core is exposed.
-              if (b.look === "rail" && boss.phase >= 3) dmg *= 2.5;
+              // Weak point: a real hitbox, not a phase flag. Rail is the weak-point shredder.
+              const wk = boss.weak;
+              let crit = false;
+              if (wk) {
+                const wx = boss.x + wk.dx;
+                const nearest = clamp(wx, Math.min(prevX, b.x), Math.max(prevX, b.x));
+                const hopErr = (b.hop - (boss.hop + wk.dhop)) * 0.8;
+                crit = Math.hypot(nearest - wx, hopErr) < wk.r + b.r;
+              }
+              if (crit) {
+                dmg *= wk!.mul * (b.look === "rail" ? 1.6 : 1);
+                this.popScore(boss.x + wk!.dx, boss.z, boss.hop + wk!.dhop, "CRITICAL", C.warn);
+                this.sparkHit(boss.x + wk!.dx, boss.z, boss.hop + wk!.dhop, "rail");
+                this.shake = Math.max(this.shake, 5);
+              } else if (b.look === "rail" && boss.phase >= 3) {
+                dmg *= 1.5;
+              }
               boss.hp -= dmg;
               boss.flash = 0.06;
               b.hits.add(boss.uid);
               if (!b.pierce) b.life = 0;
               this.sparkHit(boss.x, boss.z, boss.hop, b.look);
-              this.hitStop = Math.max(this.hitStop, b.look === "rail" ? 0.06 : 0.02);
-              sfx.hit(b.look);
+              this.hitStop = Math.max(this.hitStop, crit ? 0.06 : b.look === "rail" ? 0.06 : 0.02);
+              sfx.hit(crit ? "rail" : b.look);
               if (boss.hp <= 0) this.beginBossOutro(boss);
             }
           }
@@ -3038,9 +3131,23 @@ export class Game {
     }
     if (this.mode === "title") {
       const nav = this.input.menuNav();
-      if (nav === 1) this.menuIndex = (this.menuIndex + 1) % 4;
-      if (nav === -1) this.menuIndex = (this.menuIndex + 3) % 4;
+      this.titleIdle += realDt;
+      if (nav !== 0 || this.input.axisX() !== 0) this.titleIdle = 0;
+      if (nav === 1) this.menuIndex = (this.menuIndex + 1) % TITLE_ITEMS;
+      if (nav === -1) this.menuIndex = (this.menuIndex + TITLE_ITEMS - 1) % TITLE_ITEMS;
+      if (this.menuIndex === 1) {
+        // Difficulty row: left/right (or confirm) cycles.
+        const ax = this.input.just("a") || this.input.just("arrowleft") ? -1 : this.input.just("d") || this.input.just("arrowright") ? 1 : 0;
+        if (ax !== 0 || this.input.confirm()) {
+          const i = DIFFICULTIES.indexOf(this.difficulty);
+          this.difficulty = DIFFICULTIES[(i + (ax || 1) + DIFFICULTIES.length) % DIFFICULTIES.length]!;
+          writeDifficulty(this.difficulty);
+          sfx.ui();
+        }
+        return;
+      }
       if (this.input.confirm()) {
+        this.titleIdle = 0;
         sfx.confirm();
         this.scrap = 0;
         this.upgrades = defaultUpgrades();
@@ -3048,11 +3155,11 @@ export class Game {
         this.continues = 0;
         this.newBest = false;
         this.checkpoint = null;
-        if (this.menuIndex === 1) {
+        if (this.menuIndex === 2) {
           this.mode = "howto";
           return;
         }
-        const id = (this.menuIndex === 0 ? 1 : this.menuIndex === 2 ? 2 : 3) as LevelId;
+        const id = (this.menuIndex === 0 ? 1 : this.menuIndex === 3 ? 2 : 3) as LevelId;
         this.beginLevel(id);
       }
       return;
@@ -3723,8 +3830,12 @@ export class Game {
         const t = item.ref;
         const sp = project({ x: t.x, z: t.z, hop: 0 }, this.stage);
         drawShadow(ctx, sp, 12);
-        glow(ctx, sp.sx, sp.sy, 14 * sp.scale, C.warn, 0.25);
-        rr(ctx, sp.sx - 6 * sp.scale, sp.sy - 14 * sp.scale, 12 * sp.scale, 18 * sp.scale, C.bone, C.soot);
+        drawTech(ctx, sp.sx, sp.sy, sp.scale * 0.95, this.frame + t.x);
+        ctx.fillStyle = C.warn;
+        ctx.font = "9px 'Share Tech Mono', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("TECH", sp.sx, sp.sy - 42 * sp.scale);
+        ctx.textAlign = "left";
       } else if (item.kind === "truck") {
         const truck = item.ref;
         const sp = project({ x: truck.x, z: truck.z, hop: 0 }, this.stage);
@@ -3794,8 +3905,9 @@ export class Game {
         const e = item.ref;
         const sp = project(e, this.stage);
         drawShadow(ctx, sp, e.kind === "walker" ? 28 : 18);
-        const baseH = e.kind === "spine" ? 88 : e.kind === "walker" ? 78 : 68;
+        const baseH = enemyBaseH(e.kind);
         const ghostA = e.kind === "ghost" ? ((e.revealed ?? 0) > 0 ? 0.85 : 0.08) : e.flash > 0 ? 0.55 : 1;
+        const pup = this.puppet(e);
         const ok = blitSprite(ctx, this.animImage(e), sp.sx, sp.sy, {
           facing: e.facing,
           h: baseH,
@@ -3803,6 +3915,10 @@ export class Game {
           alpha: ghostA,
           flash: e.flash > 0,
           outline: e.kind !== "ghost" || ghostA > 0.4,
+          bob: pup.bob * sp.scale,
+          rot: pup.rot,
+          sx: pup.sx,
+          sy: pup.sy,
         });
         if (!ok) {
           if (e.kind === "spine") drawSpine(ctx, sp.sx, sp.sy, this.frame);
@@ -3843,10 +3959,23 @@ export class Game {
           );
         }
         if (e.kind === "walker") {
-          ctx.fillStyle = C.warn;
+          // Rear vent: lights up when Ash is behind it — the ×1.85 window is visible, not trivia.
+          const behind = this.player.x > e.x;
+          const vx = sp.sx + 20 * sp.scale;
+          const vy = sp.sy - 6 * sp.scale;
+          ctx.save();
+          ctx.strokeStyle = behind ? C.warn : "rgba(244,211,94,0.35)";
+          ctx.lineWidth = behind ? 2.5 : 1.5;
+          ctx.globalAlpha = behind ? 0.6 + 0.4 * Math.sin(this.frame * 0.4) : 0.5;
+          ctx.beginPath();
+          ctx.arc(vx, vy, (behind ? 9 : 6) * sp.scale, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+          if (behind) glow(ctx, vx, vy, 16 * sp.scale, C.warn, 0.35);
+          ctx.fillStyle = behind ? C.warn : "rgba(244,211,94,0.55)";
           ctx.font = "9px 'Share Tech Mono', monospace";
           ctx.textAlign = "center";
-          ctx.fillText("REAR", sp.sx + 18 * sp.scale, sp.sy - 8 * sp.scale);
+          ctx.fillText("REAR", vx, vy - 12 * sp.scale);
           ctx.textAlign = "left";
         }
         if (e.kind === "tether") {
@@ -3876,16 +4005,21 @@ export class Game {
           ctx.restore();
           if (close && high) glow(ctx, sp.sx, sp.sy, 90 * sp.scale, C.cyan, 0.2);
         }
+        const bossBreath = Math.sin(this.level.elapsed * (boss.kind === "seraph" ? 5 : 2.2));
         const ok = blitSprite(ctx, this.animImage(boss), sp.sx, sp.sy, {
           h: boss.kind === "prime" ? 180 : 155,
           scale: sp.scale,
           alpha: boss.flash > 0 ? 0.6 : 1,
           flash: boss.flash > 0,
           outline: true,
+          bob: boss.kind === "prime" ? 0 : bossBreath * 2,
+          rot: boss.kind === "seraph" ? bossBreath * 0.03 : boss.kind === "prime" ? this.level.elapsed * 0.05 : 0,
+          sy: boss.kind === "reaper" ? 1 + bossBreath * 0.012 : 1,
         });
         if (!ok) {
           drawBoss(ctx, boss.kind, sp.sx, sp.sy, this.frame, boss.hp / boss.maxHp, boss.phase);
         }
+        if (boss.weak) this.drawWeakPoint(boss, sp.scale);
       } else if (item.kind === "player") {
         const sp = project(this.player, this.stage);
         drawShadow(ctx, sp, this.player.kind === "ship" ? 30 : 18);
@@ -4154,7 +4288,7 @@ export class Game {
       ctx.font = `${touch ? 13 : 12}px 'Share Tech Mono', monospace`;
       let line: string;
       if (this.level.goalPhase === 1) {
-        line = `GATES ${this.level.gatesCleared}/${this.gates.length} · fly THROUGH the ring · ${depthHint}`;
+        line = `GATES ${this.level.gatesCleared}/${this.gates.length} · match the ring's depth · ${depthHint} · ${touch ? "JUMP" : "SPACE"} climb`;
       } else if (!this.level.bossDefeated) {
         line =
           this.stageSepLock > 0
@@ -4238,6 +4372,84 @@ export class Game {
       }
       ctx.textAlign = "left";
     }
+  }
+
+  /**
+   * Procedural motion for enemy stills — the authored anim packs are variation sets, so life
+   * comes from puppeteering: hover bob + tilt for flyers, stride squash for walkers, an inhale
+   * on every telegraph, recoil after a shot.
+   */
+  private puppet(e: Actor): { bob: number; rot: number; sx: number; sy: number } {
+    const t = this.level.elapsed + e.uid * 0.37;
+    const flying = ["drone", "climber", "wasp", "ghost", "gridsat", "tether"].includes(e.kind);
+    let bob = 0;
+    let rot = 0;
+    let sx = 1;
+    let sy = 1;
+    if (flying) {
+      const f = e.kind === "wasp" ? 9 : e.kind === "gridsat" ? 2.2 : 4.2;
+      bob = Math.sin(t * f) * (e.kind === "wasp" ? 2 : 3.5);
+      rot = Math.sin(t * f * 0.5 + 1) * 0.06 + (e.phase === 1 || e.phase === 2 ? -e.facing * 0.14 : 0);
+    } else if (e.kind === "crab" || e.kind === "beetle" || e.kind === "hackbot") {
+      const stride = Math.sin(t * 11);
+      sy = 1 + stride * 0.05;
+      sx = 1 - stride * 0.04;
+      rot = Math.sin(t * 5.5) * 0.035;
+      if (e.kind === "crab" && e.phase === 2) {
+        sy = 1.16;
+        sx = 0.9;
+      }
+    } else if (e.kind === "walker") {
+      const stride = Math.sin(t * 5);
+      sy = 1 + stride * 0.03;
+      rot = Math.sin(t * 2.5) * 0.02;
+    } else if (e.kind === "mirror") {
+      rot = t * 0.9;
+    } else if (e.kind === "turret") {
+      sy = 1 + Math.sin(t * 1.6) * 0.015;
+    }
+    // Telegraph inhale: every wind-up reads as a crouch before the commit.
+    if (e.phase === 1 && e.flash > 0.02 && e.kind !== "ghost") {
+      sy *= 0.9;
+      sx *= 1.08;
+    }
+    return { bob, rot, sx, sy };
+  }
+
+  /** Pulsing reticle over an exposed boss weak point, with its label. */
+  private drawWeakPoint(boss: Actor, scale: number) {
+    const wk = boss.weak;
+    if (!wk) return;
+    const ctx = this.ctx;
+    const sp = project({ x: boss.x + wk.dx, z: boss.z, hop: boss.hop + wk.dhop }, this.stage);
+    const pulse = 0.5 + 0.5 * Math.sin(this.frame * 0.35);
+    const r = wk.r * scale * (0.9 + pulse * 0.2);
+    glow(ctx, sp.sx, sp.sy, r * 1.6, C.warn, 0.25 + pulse * 0.2);
+    ctx.save();
+    ctx.strokeStyle = C.warn;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    ctx.arc(sp.sx, sp.sy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.arc(sp.sx, sp.sy, r * 0.45, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.9;
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + this.frame * 0.02;
+      ctx.beginPath();
+      ctx.moveTo(sp.sx + Math.cos(a) * r * 1.05, sp.sy + Math.sin(a) * r * 1.05);
+      ctx.lineTo(sp.sx + Math.cos(a) * r * 1.35, sp.sy + Math.sin(a) * r * 1.35);
+      ctx.stroke();
+    }
+    ctx.fillStyle = C.warn;
+    ctx.font = "10px 'Share Tech Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(wk.label, sp.sx, sp.sy - r * 1.5 - 4);
+    ctx.textAlign = "left";
+    ctx.restore();
   }
 
   /** Nameplate card while the world runs in slow-mo. Letterbox + stencil title + subtitle. */
@@ -4423,34 +4635,102 @@ export class Game {
     if (this.bestScore > 0) {
       ctx.fillStyle = C.warn;
       ctx.font = "12px 'Share Tech Mono', monospace";
-      ctx.fillText(`BEST ${this.bestScore}`, W / 2, 172);
+      ctx.fillText(`BEST RUN ${this.bestScore}`, W / 2, 172);
     }
+    // Per-level best ranks read like a cabinet high-score strip.
+    const strip = ([1, 2, 3] as LevelId[])
+      .map((id) => {
+        const b = this.levelBests[id];
+        return `L${id} ${b ? `${b.rank} ${b.score}` : "—"}`;
+      })
+      .join("   ·   ");
+    ctx.fillStyle = "rgba(244,237,228,0.6)";
+    ctx.font = "11px 'Share Tech Mono', monospace";
+    ctx.fillText(strip, W / 2, 192);
 
+    const diff = DIFFICULTY_TIER[this.difficulty];
     const items = [
       "▶ START OPERATION",
+      `◂ DIFFICULTY · ${diff.label} ▸`,
       "HOW TO PLAY",
       "PRACTICE · LAUNCH",
       "PRACTICE · ORBIT",
     ];
     items.forEach((label, i) => {
-      const y = 368 + i * 34;
+      const y = 340 + i * 32;
       const sel = i === this.menuIndex;
-      drawPlate(ctx, W / 2 - 190, y - 22, 380, 30, sel ? C.warn : C.cyan);
+      drawPlate(ctx, W / 2 - 190, y - 21, 380, 28, sel ? C.warn : C.cyan);
       ctx.textAlign = "center";
       ctx.fillStyle = sel ? C.warn : C.bone;
-      ctx.font = sel ? "18px 'Black Ops One', sans-serif" : "15px 'Share Tech Mono', monospace";
+      ctx.font = sel ? "17px 'Black Ops One', sans-serif" : "14px 'Share Tech Mono', monospace";
       ctx.fillText(`${sel ? "▸ " : "  "}${label}`, W / 2, y);
     });
+    if (this.menuIndex === 1) {
+      ctx.fillStyle = C.cyan;
+      ctx.font = "11px 'Share Tech Mono', monospace";
+      ctx.fillText(diff.blurb, W / 2, 340 + TITLE_ITEMS * 32 - 6);
+    }
     ctx.fillStyle = "rgba(244,237,228,0.7)";
     ctx.font = "12px 'Share Tech Mono', monospace";
     ctx.fillText(
       isTouchPrimary()
         ? "▲▼ select · OK · stick move · FIRE hold · JUMP · EMP · II pause"
-        : "A/D strafe · W/S depth · SPACE jump · J shoot · K EMP · P pause · ESC back",
+        : "A/D strafe · W/S depth · SPACE jump · J shoot · K EMP · P pause · ESC back · gamepad OK",
       W / 2,
       H - 28,
     );
     ctx.textAlign = "left";
+    if (this.titleIdle > ATTRACT_AFTER_S) this.renderAttract();
+  }
+
+  /** Attract loop: story, roster, scoring cards cycle over the hero plate while the title idles. */
+  private renderAttract() {
+    const ctx = this.ctx;
+    const t = this.titleIdle - ATTRACT_AFTER_S;
+    const idx = Math.floor(t / ATTRACT_CARD_S) % 3;
+    const local = t % ATTRACT_CARD_S;
+    const a = Math.min(1, local * 3, (ATTRACT_CARD_S - local) * 3);
+    const cards: { title: string; lines: string[] }[] = [
+      {
+        title: "OPERATION ORBITAL BREAK",
+        lines: [
+          "STAR MIND — an orbital defense mind — redefined 'hostile' as any human network.",
+          "Rex 'Ash' Calder is the last qualified pilot on Pad 7.",
+          "Escort the fuel. Climb the gantry. Launch. Sever the spines. Rupture the core.",
+        ],
+      },
+      {
+        title: "KNOW YOUR ENEMY",
+        lines: [
+          "Flash + beep = wind-up. Every commit is dodgeable on the read.",
+          "Riot Walker: hit the REAR vent. Hackbot: kick it off before it latches.",
+          "Bosses expose a CORE / REACTOR in phase 3 — the MAG-SPIKE shreds it.",
+        ],
+      },
+      {
+        title: "SCORING",
+        lines: [
+          "Rank S / A / B / C / D per level. Beat par for time bonus. No hits taken = +1 grade.",
+          "Goal 2/2 saves a checkpoint. A continue rolls back score and scrap — and caps rank at B.",
+          "ARCADE difficulty pays ×1.5. ROOKIE is for learning lanes.",
+        ],
+      },
+    ];
+    const card = cards[idx]!;
+    ctx.save();
+    ctx.globalAlpha = a * 0.95;
+    ctx.fillStyle = "rgba(5,8,16,0.82)";
+    ctx.fillRect(60, 206, W - 120, 112);
+    ctx.fillStyle = C.pad;
+    ctx.fillRect(60, 206, 4, 112);
+    ctx.textAlign = "left";
+    ctx.fillStyle = C.cyan;
+    ctx.font = "12px 'Share Tech Mono', monospace";
+    ctx.fillText(`${card.title}   ·   ${idx + 1}/3`, 80, 228);
+    ctx.fillStyle = C.bone;
+    ctx.font = "13px 'Share Tech Mono', monospace";
+    card.lines.forEach((ln, i) => ctx.fillText(ln, 80, 254 + i * 22));
+    ctx.restore();
   }
 
   private renderHowto() {
@@ -4542,7 +4822,9 @@ export class Game {
           ]
         : this.levelId === 2
           ? [
-              "Auto-scroll ascent. Fly THROUGH the glowing rings — not beside them.",
+              isTouchPrimary()
+                ? "Auto-scroll ascent. Stick = strafe + depth. Hold JUMP to climb, release to sink."
+                : "Auto-scroll ascent. A/D strafe · W/S depth. Hold SPACE to climb, release to sink.",
               "GOAL 1/2 — Thread every gate (match the cyan depth tick).",
               "GOAL 2/2 — Kill SERAPH, then thread CIRC rings.",
               "Missed gates re-queue ahead. Stay off the screen edges.",
@@ -4608,9 +4890,14 @@ export class Game {
       ctx.fillStyle = "rgba(244,237,228,0.7)";
       ctx.fillText(r.value, panelX + 250, y);
       ctx.textAlign = "right";
-      ctx.fillStyle = r.pts > 0 ? C.warn : isPenaltyRow && this.continues > 0 ? C.blood : "rgba(244,237,228,0.45)";
+      ctx.fillStyle =
+        r.pts > 0 ? C.warn : r.pts < 0 || (isPenaltyRow && this.continues > 0) ? C.blood : "rgba(244,237,228,0.45)";
       ctx.font = "15px 'Black Ops One', sans-serif";
-      ctx.fillText(r.pts > 0 ? `+${r.pts}` : isPenaltyRow && this.continues > 0 ? "RANK CAP B" : "—", panelX + panelW - 22, y);
+      ctx.fillText(
+        r.pts > 0 ? `+${r.pts}` : r.pts < 0 ? `${r.pts}` : isPenaltyRow && this.continues > 0 ? "RANK CAP B" : "—",
+        panelX + panelW - 22,
+        y,
+      );
       ctx.textAlign = "left";
       ctx.fillStyle = "rgba(46,196,182,0.18)";
       ctx.fillRect(panelX + 22, y + 8, panelW - 44, 1);
@@ -4626,6 +4913,20 @@ export class Game {
       ctx.font = "22px 'Black Ops One', sans-serif";
       ctx.fillText(`${rankIn ? this.score : running}`, panelX + panelW - 22, y + 12);
       ctx.textAlign = "left";
+      if (rankIn) {
+        const best = this.levelBests[this.levelId];
+        ctx.font = "11px 'Share Tech Mono', monospace";
+        ctx.fillStyle = this.newLevelBest ? C.cyan : "rgba(244,237,228,0.55)";
+        ctx.fillText(
+          this.newLevelBest
+            ? "NEW LEVEL BEST"
+            : best
+              ? `LEVEL BEST ${best.score} · ${best.rank} · ${DIFFICULTY_TIER[best.difficulty].label}`
+              : "",
+          panelX + 22,
+          y + 30,
+        );
+      }
     }
 
     if (rankIn) {
