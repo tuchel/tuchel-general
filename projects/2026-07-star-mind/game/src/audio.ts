@@ -263,6 +263,12 @@ class Music {
     this.duck = Math.max(this.duck, amount);
   }
 
+  /** Each act sits in its own key: Earth A, Launch up a minor third (C), Orbit down a fourth (E). */
+  private transpose = 1;
+  setLevel(level: 1 | 2 | 3) {
+    this.transpose = level === 1 ? 1 : level === 2 ? 1.1892 : 0.7492;
+  }
+
   tick(dt: number, intensity: number, active: boolean, boss = false) {
     const ctx = sfx.ac();
     const bus = sfx.musicNode();
@@ -318,7 +324,7 @@ class Music {
     const s = this.step % 16;
     const bar = Math.floor(s / 4);
     const rootIdx = (boss ? this.bossBass : this.bassLine)[bar]!;
-    const root = this.scale[rootIdx]! * 0.5;
+    const root = this.scale[rootIdx]! * 0.5 * this.transpose;
     if (s % 4 === 0) {
       this.voice(ctx, bus, root, "sawtooth", 0.22, 0.3, 380 + intensity * 700);
     } else if (s % 2 === 0) {
@@ -331,7 +337,7 @@ class Music {
     const phrase = this.phrases[intensity < 0.3 ? 0 : intensity < 0.65 ? 1 : 2]!;
     const lead = phrase[s]!;
     if (lead >= 0 && (intensity > 0.12 || boss)) {
-      const f = this.scale[lead]! * (boss ? 1 : 1) * (Math.floor(this.step / 32) % 2 === 0 ? 1 : 1.5);
+      const f = this.scale[lead]! * this.transpose * (Math.floor(this.step / 32) % 2 === 0 ? 1 : 1.5);
       this.voice(ctx, bus, f, boss ? "sawtooth" : "triangle", boss ? 0.06 : 0.075, 0.16, 900 + intensity * 1400);
     }
   }

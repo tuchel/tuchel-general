@@ -237,9 +237,13 @@ body.is-touch #touch-layer.touch-sheet {
 }
 
 .touch-stick-zone.is-on,
-.touch-btns.is-on,
 .touch-menu.is-on {
   display: flex;
+  pointer-events: auto;
+}
+
+.touch-btns.is-on {
+  display: grid;
   pointer-events: auto;
 }
 
@@ -317,24 +321,22 @@ body.is-touch #touch-layer.touch-sheet {
   color: color-mix(in srgb, var(--bone) 55%, transparent);
 }
 
+/* Explicit 2×2 grid (SWAP EMP / JUMP FIRE) anchored bottom-right — never wraps off-screen. */
 .touch-btns {
   position: absolute;
   right: max(0.3rem, var(--safe-r));
   bottom: max(0.5rem, var(--safe-b));
-  width: min(200px, 48vw);
-  height: min(168px, 42vw);
-  align-items: flex-end;
-  justify-content: flex-end;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-  flex-direction: row;
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto auto;
+  justify-items: end;
+  align-items: end;
+  gap: 0.35rem 0.4rem;
 }
 
 #touch-layer.touch-sheet .touch-btns {
   right: max(0.5rem, var(--safe-r));
   bottom: max(0.85rem, var(--safe-b));
-  width: min(210px, 50vw);
-  height: min(176px, 46vw);
 }
 
 .touch-btn {
@@ -364,6 +366,14 @@ body.is-touch #touch-layer.touch-sheet {
   width: clamp(58px, 17vw, 72px);
   height: clamp(58px, 17vw, 72px);
   border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+.touch-btn-swap {
+  width: clamp(46px, 13vw, 54px);
+  height: clamp(46px, 13vw, 54px);
+  font-size: 0.56rem;
+  border-color: color-mix(in srgb, var(--cyan) 70%, transparent);
   color: var(--cyan);
 }
 
@@ -483,8 +493,6 @@ body.is-touch #touch-layer.touch-sheet {
     bottom: max(0.35rem, var(--safe-b));
   }
   .touch-btns {
-    width: min(180px, 34vmin);
-    height: min(150px, 28vmin);
     opacity: 0.9;
     right: max(0.45rem, var(--safe-r));
     bottom: max(0.3rem, var(--safe-b));
@@ -501,8 +509,7 @@ body.is-touch #touch-layer.touch-sheet {
     height: min(120px, 26vmin);
   }
   .touch-btns {
-    width: min(150px, 32vmin);
-    height: min(120px, 26vmin);
+    gap: 0.25rem 0.3rem;
   }
   .touch-btn-fire {
     width: clamp(56px, 18vmin, 76px);
@@ -515,5 +522,9 @@ body.is-touch #touch-layer.touch-sheet {
   .touch-btn-emp {
     width: clamp(44px, 12vmin, 54px);
     height: clamp(44px, 12vmin, 54px);
+  }
+  .touch-btn-swap {
+    width: clamp(40px, 11vmin, 48px);
+    height: clamp(40px, 11vmin, 48px);
   }
 }

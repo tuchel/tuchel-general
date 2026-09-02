@@ -336,6 +336,8 @@ interface Pickup {
   hop: number;
   kind: "scrap" | "health" | WeaponId;
   life: number;
+  /** Seconds before this can be magnetized or grabbed — dropped guns must not re-enter the hand. */
+  noGrab?: number;
 }
 
 interface Platform {
@@ -424,6 +426,9 @@ export class Game {
   private player!: Actor;
   private weapon: WeaponId = "coil";
   private ammo = 999;
+  /** Second weapon slot. Pickups push the current gun here; a full stash drops to the floor. */
+  private stash: WeaponId | null = null;
+  private stashAmmo = 0;
   private cooldown = 0;
   private special = 3;
   private specialMax = 3;
@@ -774,6 +779,8 @@ export class Game {
     };
     this.weapon = "coil";
     this.ammo = 80 + this.upgrades.mag * 25;
+    this.stash = null;
+    this.stashAmmo = 0;
     this.cooldown = 0;
     this.specialMax = 3 + this.upgrades.special;
     this.special = this.specialMax;
@@ -983,6 +990,7 @@ export class Game {
 
     if (cp) this.restoreCheckpoint(cp);
     this.syncStage();
+    music.setLevel(id);
     this.mode = "briefing";
     this.msgTimer = 0;
   }
@@ -1762,14 +1770,7 @@ export class Game {
       shootOne(0, 0);
     }
     this.cooldown = def.cooldown * cdMul;
-    if (this.weapon !== "pistol") {
-      this.ammo -= 1;
-      if (this.ammo <= 0) {
-        this.weapon = "pistol";
-        this.ammo = 999;
-        this.announce("SIDEARM ONLY");
-      }
-    }
+    this.spendAmmo();
     if (def.heat) this.heat = Math.min(1.4, this.heat + 0.045);
     this.burst(this.player.x + dir * 20, this.player.z, this.player.hop + 16, C.warn, 3);
     this.player.shooting = true;
@@ -1793,6 +1794,49 @@ export class Game {
     sfx.shoot(def.id);
   }
 
+  /** One round off the mag; an empty mag falls through to the stash, then the sidearm. */
+  private spendAmmo() {
+    if (this.weapon === "pistol") return;
+    this.ammo -= 1;
+    if (this.ammo > 0) return;
+    if (this.stash) {
+      this.weapon = this.stash;
+      this.ammo = this.stashAmmo;
+      this.stash = null;
+      this.stashAmmo = 0;
+      this.railCharge = 0;
+      this.announce(`${WEAPONS[this.weapon].name}`, 1);
+      sfx.ui();
+    } else {
+      this.weapon = "pistol";
+      this.ammo = 999;
+      this.announce("SIDEARM ONLY", 1.2);
+    }
+  }
+
+  /** L / Shift / SWAP: trade the live gun for the stashed one. */
+  private swapWeapon() {
+    if (!this.stash) {
+      this.note("No stashed weapon — grab a second gun to swap.", 1.2);
+      return;
+    }
+    const w = this.weapon;
+    const a = this.ammo;
+    this.weapon = this.stash;
+    this.ammo = this.stashAmmo;
+    if (w === "pistol") {
+      this.stash = null;
+      this.stashAmmo = 0;
+    } else {
+      this.stash = w;
+      this.stashAmmo = a;
+    }
+    this.railCharge = 0;
+    this.cooldown = Math.max(this.cooldown, 0.12);
+    this.note(`⇄ ${WEAPONS[this.weapon].name}${this.stash ? ` · stashed ${WEAPONS[this.stash].name}` : ""}`, 1.4);
+    sfx.ui();
+  }
+
   private fireRail(charge: number) {
     const def = WEAPONS.rail;
     const dmgMul = 1 + this.upgrades.damage * 0.12;
@@ -1814,13 +1858,7 @@ export class Game {
       look: "rail",
     });
     this.cooldown = def.cooldown * (1 - this.upgrades.fireRate * 0.08);
-    if (this.weapon !== "pistol") {
-      this.ammo -= 1;
-      if (this.ammo <= 0) {
-        this.weapon = "pistol";
-        this.ammo = 999;
-      }
-    }
+    this.spendAmmo();
     this.shake = Math.max(this.shake, 5 + power * 6);
     this.hitStop = 0.045;
     this.muzzle = 0.1;
@@ -2367,7 +2405,12 @@ export class Game {
         2.2,
       );
       sfx.boss();
-      this.shake = 8;
+      // Phase turn is a beat: freeze, flash, and clear the screen of its old pattern.
+      this.shake = 10;
+      this.hitStop = Math.max(this.hitStop, 0.14);
+      this.screenFlash = Math.max(this.screenFlash, 0.35);
+      this.bullets = this.bullets.filter((sh) => sh.friendly);
+      b.flash = 0.3;
       if (b.kind === "reaper" && b.phase === 3) this.fireSetPiece("deck-slam");
       if (b.kind === "prime" && b.phase === 3) this.fireSetPiece("arena-shrink");
       b.timer = 0;
@@ -2855,6 +2898,7 @@ export class Game {
     } else if (shooting) this.fireWeapon();
     this.wasShooting = shooting;
     if (this.input.specialJust()) this.fireSpecial();
+    if (this.input.swapJust()) this.swapWeapon();
     this.drivePlayerAnim(dt);
 
     for (const e of this.enemies) {
@@ -2974,6 +3018,10 @@ export class Game {
     for (const p of this.pickups) {
       p.life -= dt;
       p.hop += Math.sin(this.frame * 0.2) * 0.2;
+      if (p.noGrab && p.noGrab > 0) {
+        p.noGrab -= dt;
+        continue;
+      }
       const pull = Math.hypot(
         this.player.x - p.x,
         (this.player.z - p.z) * 160,
@@ -3001,16 +3049,35 @@ export class Game {
           this.popScore(p.x, p.z, p.hop, `+${heal} HP`, C.pad);
           sfx.heal();
         } else {
-          // A gun on the floor is always a yes — swapping is the fun part.
+          // A gun on the floor is always a yes. The live gun moves to the stash; a displaced
+          // stash drops back to the floor so nothing is lost without a choice.
           const mag = 40 + this.upgrades.mag * 15;
           if (p.kind === this.weapon) {
             this.ammo += mag;
             this.note(`${WEAPONS[p.kind].name} +${mag}`);
+          } else if (p.kind === this.stash) {
+            this.stashAmmo += mag;
+            this.note(`stashed ${WEAPONS[p.kind].name} +${mag}`);
           } else {
+            if (this.weapon !== "pistol") {
+              if (this.stash) {
+                this.pickups.push({
+                  x: p.x - this.player.facing * 40,
+                  z: p.z,
+                  hop: 0,
+                  kind: this.stash,
+                  life: 12,
+                  noGrab: 1.6,
+                });
+              }
+              this.stash = this.weapon;
+              this.stashAmmo = this.ammo;
+            }
             this.weapon = p.kind;
             this.ammo = mag;
             this.railCharge = 0;
             this.announce(WEAPONS[p.kind].name, 1.1);
+            if (this.stash) this.note(`stashed ${WEAPONS[this.stash].name} · ${isTouchPrimary() ? "SWAP" : "L"} to trade`, 2);
           }
           this.popScore(p.x, p.z, p.hop, WEAPONS[p.kind].name, C.cyan);
           sfx.pickup();
@@ -4208,6 +4275,12 @@ export class Game {
       ctx.fillRect(218, 28, 56 * clamp(this.heat, 0, 1), 3);
     }
 
+    if (this.stash) {
+      ctx.fillStyle = "rgba(46,196,182,0.8)";
+      ctx.font = "10px 'Share Tech Mono', monospace";
+      ctx.fillText(`⇄ ${WEAPONS[this.stash].name} ${this.stashAmmo} · ${touch ? "SWAP" : "L"}`, 584, 46);
+    }
+
     drawPlate(ctx, 384, 6, 88, 28, C.warn);
     ctx.fillStyle = C.warn;
     ctx.font = "11px 'Share Tech Mono', monospace";
@@ -4674,8 +4747,8 @@ export class Game {
     ctx.font = "12px 'Share Tech Mono', monospace";
     ctx.fillText(
       isTouchPrimary()
-        ? "▲▼ select · OK · stick move · FIRE hold · JUMP · EMP · II pause"
-        : "A/D strafe · W/S depth · SPACE jump · J shoot · K EMP · P pause · ESC back · gamepad OK",
+        ? "▲▼ select · OK · stick move · FIRE hold · JUMP · EMP · SWAP · II pause"
+        : "A/D strafe · W/S depth · SPACE jump · J shoot · K EMP · L swap · P pause · gamepad OK",
       W / 2,
       H - 28,
     );
@@ -4750,7 +4823,7 @@ export class Game {
           "Each level has two goals. Finish 1/2 to unlock 2/2.",
           "Stick = strafe + depth (NEAR / FAR). Match the cyan tick.",
           "Hold FIRE. JUMP hops — on orbit, hold JUMP to thrust.",
-          "EMP wipes nearby enemy shots and stuns the grid.",
+          "EMP wipes nearby enemy shots. Carry two guns — SWAP trades them.",
           "Earth: the fuel truck rolls with you to Pad 7.",
           "Launch: fly THROUGH the glowing rings, not beside them.",
           "Keep moving RIGHT. II pauses.",
@@ -4759,7 +4832,7 @@ export class Game {
           "Each level has two goals. Finish 1/2 to unlock 2/2.",
           "A/D strafe · W/S depth (NEAR / FAR). Match the cyan tick.",
           "Hold J to shoot · Space jump (orbit: hold Space to thrust).",
-          "K EMP — strips nearby hostile fire and stuns.",
+          "K EMP — strips nearby hostile fire. Carry two guns — L swaps them.",
           "Earth: the fuel truck rolls with you to Pad 7.",
           "Launch: fly THROUGH the glowing rings, not beside them.",
           "Keep moving RIGHT. P pauses · Esc from pause returns here.",

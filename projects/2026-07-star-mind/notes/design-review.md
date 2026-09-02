@@ -69,11 +69,21 @@ Solid SFX coverage; the music is an A-minor pentatonic pulse with no lead line a
 6. **Presentation & performance.** Cached silhouette outlines (no `ctx.filter`), cached glow sprites, cached HUD gradient, pickup icons by kind, center plate reserved for state changes with a bottom ticker for NIX chatter, weapon pickups always swap.
 7. **Audio.** SFX-triggered music ducking and a per-level lead line so the bed reads as music, with a boss variant.
 
+8. **Escort lock.** The truck crawls at 44–66 u/s (~50 s to Pad 7) and never stops unless clamped; Ash may lead by 300 u before a soft screen lock. Goal A is an escort again, not a 12 s sprint.
+
+## Second tranche (same branch)
+
+9. **Weak points are hitboxes.** Reaper P3 exposes a CORE under the cab; Seraph exposes its REACTOR only during the spear dash. A pulsing reticle marks each; hits read CRITICAL (×2.4, rail ×1.6 on top). Walker's rear vent lights when Ash is behind it and rear hits pop REAR HIT.
+10. **Puppeteered enemies.** The authored packs are variation sets, so life comes from procedural motion on the stills: hover bob + tilt for flyers, stride squash for crawlers, a spin for mirrors, an inhale crouch on every wind-up. Bosses breathe.
+11. **Difficulty select** on the title (ROOKIE / VETERAN / ARCADE), persisted. Layered on the act tier: enemy HP/damage/speed, Ash's HP (×1.35 / ×1 / ×0.6), and a score multiplier (×0.8 / ×1 / ×1.5) shown as its own results row.
+12. **Per-level bests** (score, rank, difficulty) persisted and shown as a cabinet strip on the title; results show LEVEL BEST or NEW LEVEL BEST.
+13. **Ship altitude** is a real axis in L2: hold JUMP to climb, release to sink; depth stays on W/S. Enemy fire aims at your altitude, so it is a dodge axis, not decoration.
+14. **Attract loop.** Seven seconds idle on the title cycles story / roster / scoring cards over the hero plate.
+15. **Techs are people.** The rescue NPC is a drawn pad tech (hard hat, jumpsuit, waving), not a bone rectangle.
+
 ## Parked (bigger than one change)
 
-- L2 as a true vertical shooter (separate projection, not depth-as-height).
-- Lives + shared HP à la Slug instead of a 300 HP pool — the current HP model is now *fair* with checkpoints; converting it is a tuning project.
-- Seraph belly collider and Reaper claw-core mesh as separate hitboxes.
-- Weapon stash / dual-slot.
-- Enemy anim clips — the authored packs are variation packs, not frames; real loops need re-authoring.
-- Attract mode, difficulty select (wire `actTier`), per-level best table.
+- L2 as a true vertical shooter (separate projection). Free altitude closes most of the gap; a real re-projection is still a project.
+- Lives + shared HP à la Slug instead of an HP pool — ARCADE difficulty (×0.6 HP) is the first step; a lives model is a tuning project.
+- Weapon stash / dual-slot (needs a new input action on touch).
+- Enemy anim clips — real loops need re-authoring.

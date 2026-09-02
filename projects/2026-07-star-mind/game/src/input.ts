@@ -17,6 +17,7 @@ export class Input {
   private touchConfirmEdge = false;
   private touchBackEdge = false;
   private touchPauseEdge = false;
+  private touchSwapEdge = false;
   private touchMenuEdge = 0; // -1 | 0 | 1
 
   /** Gamepad backend — standard mapping; polled once per frame. */
@@ -29,6 +30,7 @@ export class Input {
   private padConfirmEdge = false;
   private padBackEdge = false;
   private padPauseEdge = false;
+  private padSwapEdge = false;
   private padMenuEdge = 0;
   private padPrev = new Set<number>();
 
@@ -52,6 +54,8 @@ export class Input {
             "k",
             "z",
             "x",
+            "l",
+            "shift",
             "enter",
             "escape",
             "p",
@@ -92,18 +96,20 @@ export class Input {
     this.touchConfirmEdge = false;
     this.touchBackEdge = false;
     this.touchPauseEdge = false;
+    this.touchSwapEdge = false;
     this.touchMenuEdge = 0;
     this.padJumpEdge = false;
     this.padSpecialEdge = false;
     this.padConfirmEdge = false;
     this.padBackEdge = false;
     this.padPauseEdge = false;
+    this.padSwapEdge = false;
     this.padMenuEdge = 0;
   }
 
   /**
-   * Standard-mapping gamepad: left stick / d-pad move, A jump, X or RT fire, B / Y / RB EMP,
-   * Start pause, Select back. Edges are computed here against the previous poll.
+   * Standard-mapping gamepad: left stick / d-pad move, A jump, X / RB / RT fire, B / Y EMP,
+   * LB / LT swap weapon, Start pause, Select back. Edges are computed against the previous poll.
    */
   pollGamepad() {
     const pads = typeof navigator !== "undefined" && navigator.getGamepads ? navigator.getGamepads() : null;
@@ -138,7 +144,8 @@ export class Input {
     const jump = down.has(0);
     if (jump && !this.padJumpHeld) this.padJumpEdge = true;
     this.padJumpHeld = jump;
-    if (edge(1) || edge(3) || edge(4) || edge(6)) this.padSpecialEdge = true;
+    if (edge(1) || edge(3)) this.padSpecialEdge = true;
+    if (edge(4) || edge(6)) this.padSwapEdge = true;
     if (edge(0) || edge(2)) this.padConfirmEdge = true;
     if (edge(1) || edge(8)) this.padBackEdge = true;
     if (edge(9)) this.padPauseEdge = true;
@@ -180,6 +187,10 @@ export class Input {
 
   pulseTouchPause() {
     this.touchPauseEdge = true;
+  }
+
+  pulseTouchSwap() {
+    this.touchSwapEdge = true;
   }
 
   pulseTouchMenu(dir: -1 | 1) {
@@ -244,6 +255,11 @@ export class Input {
 
   specialJust() {
     return this.just("k") || this.just("x") || this.touchSpecialEdge || this.padSpecialEdge;
+  }
+
+  /** L / Shift / SWAP / pad LB–LT — swap to the stashed weapon. */
+  swapJust() {
+    return this.just("l") || this.just("shift") || this.touchSwapEdge || this.padSwapEdge;
   }
 
   confirm() {

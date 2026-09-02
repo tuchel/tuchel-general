@@ -107,3 +107,5 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-09-02] review | star-mind | Full design interrogation (notes/design-review.md): the build lacked the arcade contract — free continues, no rank, 6 s bosses, vanishing enemies
 
 ## [2026-09-02] polish | star-mind | Results + S–D rank, checkpoints with continue cost, par timer, boss intro/outro, wind-up telegraphs, corpses, 120 Hz step, gamepad, cached outlines/glows, music lead + ducking
+
+## [2026-09-02] polish | star-mind | Boss weak-point hitboxes (CORE / REACTOR), puppeteered enemy stills, difficulty select, per-level bests, ship altitude axis, attract loop, drawn tech NPC

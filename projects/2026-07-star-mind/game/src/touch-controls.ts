@@ -50,6 +50,7 @@ export class TouchControls {
       </div>
       <div class="touch-btns" id="touch-btns">
         <button type="button" class="touch-btn touch-btn-pause" id="btn-pause" aria-label="Pause">II</button>
+        <button type="button" class="touch-btn touch-btn-swap" id="btn-swap" aria-label="Swap weapon">SWAP</button>
         <button type="button" class="touch-btn touch-btn-emp" id="btn-emp" aria-label="EMP">EMP</button>
         <button type="button" class="touch-btn touch-btn-jump" id="btn-jump" aria-label="Jump">JUMP</button>
         <button type="button" class="touch-btn touch-btn-fire" id="btn-fire" aria-label="Fire">FIRE</button>
@@ -88,6 +89,9 @@ export class TouchControls {
     });
     this.bindPulse(this.root.querySelector("#btn-pause")!, () =>
       this.input.pulseTouchPause(),
+    );
+    this.bindPulse(this.root.querySelector("#btn-swap")!, () =>
+      this.input.pulseTouchSwap(),
     );
     this.bindPulse(this.root.querySelector("#btn-menu-up")!, () =>
       this.input.pulseTouchMenu(-1),
