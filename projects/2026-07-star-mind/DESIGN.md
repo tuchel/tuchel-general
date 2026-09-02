@@ -88,6 +88,8 @@ Metal Slug rule: **heavy, readable, absurdly fun munitions** with clear silhouet
 | `FLAME` | Torch Pack | Short-range cone; melts drone armor |
 | `RAIL` | Mag-Spike | Charge shot; boss shredder |
 
+**Two slots.** A pickup moves the live gun to the stash; a displaced stash drops to the floor (brief no-grab). Swap with L / Shift / SWAP / pad LB. An empty mag falls through to the stash, then the sidearm.
+
 ### 5.2 Specials / vehicles
 
 | ID | Name | Level |
@@ -114,7 +116,7 @@ Each level has **two stacked goals** (A unlocks B). Full option board: [`notes/d
 **Goal A:** Escort the **fuel truck** to Pad 7 (truck has HP; it keeps rolling with you unless a walker clamps it).  
 **Goal B:** **Climb the gantry tower** and board *Black Finch* — **PAD REAPER** holds the tower.
 
-**Dynamic:** Classic Metal-Slug run-and-gun for the convoy, then a vertical climb. Optional tech rescues for scrap. Kill-clock still ticks.
+**Dynamic:** Classic Metal-Slug run-and-gun for the convoy, then a vertical climb. Optional tech rescues for scrap. Ash can lead the truck by ~a screen-third but not abandon it (escort lock); the truck crawls to Pad 7 in ~50 s and never stops unless clamped. Par time (3:00) pays a bonus; it never fails the run.
 
 **Art beat:** Night storm, sodium pad lights, orange flame, rusted scaffolding, SpaceX-ish towers + cartoon exaggeration. Rain + lightning flashes.
 
@@ -140,7 +142,7 @@ A crane/gantry possessed by STAR MIND: swinging claw, weld-laser eye, missile po
 **Goal A:** **Thread every trajectory gate** through the ascent.  
 **Goal B:** Down **STRATOS SERAPH**, then **hold circularization** through LEO rings.
 
-**Dynamic:** Vertical / diagonal auto-scroll shooter. Player flies the starship. Gates first; boss only after the corridor is clean; short ring-burn coda after the kill.
+**Dynamic:** Auto-scroll ascent. Player flies the starship: A/D strafe, W/S depth lane, hold JUMP to climb and release to sink (altitude is its own dodge axis). Gates match depth; boss only after the corridor is clean; short ring-burn coda after the kill.
 
 **Art beat:** Atmosphere gradient (navy → indigo → black), engine plume bloom, cloud sheets, debris fields, interceptor drones climbing with you.
 
@@ -203,7 +205,13 @@ Per level:
 - **Spines under par time** (L3)  
 - **Time** under par · **No continue** bonus  
 
-Ranks: `S / A / B / C / D` with sarcastic CAPCOM lines.
+Ranks: `S / A / B / C / D` with sarcastic CAPCOM lines. Rank = level score ÷ a per-level target (S ≥ 1.2×, A ≥ 1×, B ≥ 0.62×, C ≥ 0.36×); a no-hit clear bumps one grade, any continue caps at B.
+
+**Difficulty:** ROOKIE / VETERAN / ARCADE, chosen on the title and remembered. Layered on the act tier: enemy HP ×0.8 / ×1 / ×1.25, damage ×0.7 / ×1 / ×1.35, Ash HP ×1.35 / ×1 / ×0.6, score ×0.8 / ×1 / ×1.5.
+
+**Weak points:** bosses expose a real hitbox in a phase (Reaper P3 CORE under the cab; Seraph REACTOR during the spear dash; Prime's core is positional — close and high). Hits there are CRITICAL (×2.4; Mag-Spike ×1.6 on top). Riot Walker's rear vent is ×1.85.
+
+**Continues and checkpoints:** reaching Goal B saves a checkpoint. Dying resumes there (or at level start before it) with score and scrap rolled back to that moment — a continue always costs what you earned since.
 
 ---
 
