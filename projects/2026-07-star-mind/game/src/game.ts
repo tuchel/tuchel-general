@@ -930,7 +930,7 @@ export class Game {
     if (cp) this.restoreCheckpoint(cp);
     this.syncStage();
     this.mode = "briefing";
-    this.announce(cp ? `${this.level.name} · CHECKPOINT` : `${this.level.name}`);
+    this.msgTimer = 0;
   }
 
   private saveCheckpoint() {
@@ -988,6 +988,8 @@ export class Game {
     else this.unlockPrimeArena();
     this.msgTimer = 0;
     this.tickerT = 0;
+    this.twistCueT = 0;
+    this.twistCue = "";
     this.shake = 0;
   }
 
@@ -1086,10 +1088,12 @@ export class Game {
     return this.enemies.filter((e) => !e.dead && e.kind !== "spine").length;
   }
 
+  /** Authored twist: center plate for the beat itself, ticker keeps the instruction up a little longer. */
   private cue(text: string, time = 2.4) {
+    this.msg = text;
+    this.msgTimer = Math.min(time, 1.4);
     this.twistCue = text;
-    this.twistCueT = time;
-    this.announce(text, time);
+    this.twistCueT = time + 1.2;
   }
 
   private spineArmored(e: Actor): boolean {
@@ -3838,6 +3842,22 @@ export class Game {
         const boss = item.ref;
         const sp = project(boss, this.stage);
         drawShadow(ctx, sp, 50);
+        if (boss.kind === "prime" && boss.phase >= 3) {
+          // Core range: full damage only inside this ring and above hop 42. Make the gimmick visible.
+          const close = Math.hypot(this.player.x - boss.x, (this.player.z - boss.z) * 160) < 120;
+          const high = this.player.hop > 42;
+          const gp = project({ x: boss.x, z: boss.z, hop: 0 }, this.stage);
+          ctx.save();
+          ctx.strokeStyle = close && high ? C.cyan : C.warn;
+          ctx.globalAlpha = close && high ? 0.9 : 0.4 + 0.2 * Math.sin(this.frame * 0.3);
+          ctx.lineWidth = close && high ? 3 : 2;
+          ctx.setLineDash(close && high ? [] : [8, 8]);
+          ctx.beginPath();
+          ctx.ellipse(gp.sx, gp.sy, 120 * gp.scale, 120 * gp.scale * 0.32, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+          if (close && high) glow(ctx, sp.sx, sp.sy, 90 * sp.scale, C.cyan, 0.2);
+        }
         const ok = blitSprite(ctx, this.animImage(boss), sp.sx, sp.sy, {
           h: boss.kind === "prime" ? 180 : 155,
           scale: sp.scale,
@@ -3941,6 +3961,19 @@ export class Game {
     for (const b of this.bullets) {
       const sp = project(b, this.stage);
       drawBullet(ctx, sp.sx, sp.sy, sp.scale, b.vx, b.vHop, b.r, b.color, b.look);
+      // Falling ordnance (claw, mortar lob) paints its landing spot so the dodge is a read, not a guess.
+      if (!b.friendly && (b.look === "claw" || b.grav) && b.hop > 6) {
+        const gp = project({ x: b.x, z: b.z, hop: 0 }, this.stage);
+        const r = (b.blast ?? 24) * gp.scale * 0.55;
+        ctx.save();
+        ctx.strokeStyle = C.blood;
+        ctx.globalAlpha = 0.45 + 0.35 * Math.sin(this.frame * 0.5);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(gp.sx, gp.sy, r, r * 0.32, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
     for (const p of this.particles) {
       const sp = project(p, this.stage);
@@ -4038,7 +4071,7 @@ export class Game {
     ctx.fillText(`${this.score}`, 592, 25);
     if (this.combo > 1) {
       ctx.fillStyle = C.pad;
-      ctx.fillText(`x${this.combo}`, 700, 25);
+      ctx.fillText(`x${this.combo}`, 710, 25);
     }
 
     ctx.fillStyle = C.cyan;
@@ -4197,7 +4230,6 @@ export class Game {
     const inA = clamp(u * 4, 0, 1);
     const outA = clamp((1 - u) * 5, 0, 1);
     const a = Math.min(inA, outA);
-    drawLetterbox(ctx, 1);
     ctx.save();
     ctx.globalAlpha = a;
     ctx.fillStyle = "rgba(5,8,16,0.55)";
@@ -4246,7 +4278,7 @@ export class Game {
       const fade = this.hintT < 1 ? this.hintT : this.hintT > 7 ? 8 - this.hintT : 1;
       ctx.globalAlpha = clamp(fade, 0, 0.9);
       ctx.fillStyle = "rgba(11,18,32,0.72)";
-      ctx.fillRect(W / 2 - 250, H - 78, 500, 44);
+      ctx.fillRect(W / 2 - 250, H - 92, 500, 40);
       ctx.fillStyle = C.warn;
       ctx.font = "13px 'Share Tech Mono', monospace";
       ctx.textAlign = "center";
@@ -4255,10 +4287,15 @@ export class Game {
           ? "Escort the fuel truck · stick UP/DOWN = depth"
           : "Escort the fuel truck · W/S = depth lanes · J fire",
         W / 2,
-        H - 52,
+        H - 67,
       );
       ctx.textAlign = "left";
       ctx.globalAlpha = 1;
+    }
+    // Fade up from black on deploy so each level opens on a cut, not a pop.
+    if ((this.mode === "play" || this.mode === "boss") && this.level.elapsed < 0.6) {
+      ctx.fillStyle = `rgba(5,8,16,${1 - this.level.elapsed / 0.6})`;
+      ctx.fillRect(0, 0, W, H);
     }
   }
 
@@ -4321,7 +4358,7 @@ export class Game {
       const far = project({ x: this.camX + 80, z: this.laneMax, hop: 0 }, this.stage);
       drawArenaRails(ctx, near.sy, far.sy);
     }
-    if (this.mode === "boss") drawLetterbox(ctx, this.bossOutroT > 0 ? 1 : 0.85);
+    if (this.mode === "boss") drawLetterbox(ctx, this.bossOutroT > 0 || this.bossIntroT > 0 ? 1 : 0.85);
     ctx.restore();
 
     if (this.mode === "briefing") this.renderBriefingOverlay();
@@ -4466,6 +4503,11 @@ export class Game {
     ctx.fillStyle = C.pad;
     ctx.font = "22px 'Black Ops One', sans-serif";
     ctx.fillText(this.level.name, 110, 120);
+    if (this.level.goalPhase === 2) {
+      ctx.fillStyle = C.cyan;
+      ctx.font = "12px 'Share Tech Mono', monospace";
+      ctx.fillText(`RESUMING AT CHECKPOINT · GOAL 2/2 · CONTINUES ${this.continues}`, 110, 140);
+    }
     ctx.fillStyle = C.bone;
     ctx.font = "14px 'Share Tech Mono', monospace";
     const lines =
@@ -4574,17 +4616,17 @@ export class Game {
       const rankColor =
         this.rank === "S" ? C.cyan : this.rank === "A" ? C.warn : this.rank === "B" ? C.pad : this.rank === "C" ? C.bone : C.blood;
       ctx.save();
-      ctx.translate(panelX + panelW - 96, top + 88);
+      ctx.translate(panelX + panelW - 74, top + 52);
       ctx.rotate(-0.12);
       ctx.scale(stamp, stamp);
       ctx.strokeStyle = rankColor;
       ctx.lineWidth = 4;
       ctx.globalAlpha = 0.9;
-      ctx.strokeRect(-46, -46, 92, 92);
+      ctx.strokeRect(-36, -36, 72, 72);
       ctx.fillStyle = rankColor;
       ctx.textAlign = "center";
-      ctx.font = "72px 'Black Ops One', sans-serif";
-      ctx.fillText(this.rank, 0, 28);
+      ctx.font = "56px 'Black Ops One', sans-serif";
+      ctx.fillText(this.rank, 0, 22);
       ctx.restore();
       ctx.textAlign = "center";
       ctx.fillStyle = C.bone;

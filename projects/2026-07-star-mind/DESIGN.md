@@ -114,7 +114,7 @@ Each level has **two stacked goals** (A unlocks B). Full option board: [`notes/d
 **Goal A:** Escort the **fuel truck** to Pad 7 (truck has HP; it keeps rolling with you unless a walker clamps it).  
 **Goal B:** **Climb the gantry tower** and board *Black Finch* — **PAD REAPER** holds the tower.
 
-**Dynamic:** Classic Metal-Slug run-and-gun for the convoy, then a vertical climb. Optional tech rescues for scrap. Kill-clock still ticks.
+**Dynamic:** Classic Metal-Slug run-and-gun for the convoy, then a vertical climb. Optional tech rescues for scrap. Par time (3:30) pays a bonus; it never fails the run.
 
 **Art beat:** Night storm, sodium pad lights, orange flame, rusted scaffolding, SpaceX-ish towers + cartoon exaggeration. Rain + lightning flashes.
 
@@ -203,7 +203,9 @@ Per level:
 - **Spines under par time** (L3)  
 - **Time** under par · **No continue** bonus  
 
-Ranks: `S / A / B / C / D` with sarcastic CAPCOM lines.
+Ranks: `S / A / B / C / D` with sarcastic CAPCOM lines. Rank = level score ÷ a per-level target (S ≥ 1.2×, A ≥ 1×, B ≥ 0.62×, C ≥ 0.36×); a no-hit clear bumps one grade, any continue caps at B.
+
+**Continues and checkpoints:** reaching Goal B saves a checkpoint. Dying resumes there (or at level start before it) with score and scrap rolled back to that moment — a continue always costs what you earned since.
 
 ---
 

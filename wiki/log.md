@@ -103,3 +103,7 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 ## [2026-08-30] build | daycare-search | Focus section: Sunset Trail, Mariposa, Primrose West Lake Hills — photos, sourced reviews, Finn-fit, downsides
 
 ## [2026-08-30] schema | AGENTS.md | Reader-facing prose: conclusion only; no snapshot tags, process residue, or writing about writing
+
+## [2026-09-02] review | star-mind | Full design interrogation (notes/design-review.md): the build lacked the arcade contract — free continues, no rank, 6 s bosses, vanishing enemies
+
+## [2026-09-02] polish | star-mind | Results + S–D rank, checkpoints with continue cost, par timer, boss intro/outro, wind-up telegraphs, corpses, 120 Hz step, gamepad, cached outlines/glows, music lead + ducking
