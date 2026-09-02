@@ -34,7 +34,7 @@ Rules:
 
 | Act | HP | Damage | Speed | Notes |
 |-----|----|--------|-------|-------|
-| L1 Earth | ×1.00 | ×1.00 | ×1.00 | Teaching floor. Par 3:30 (bonus only). |
+| L1 Earth | ×1.00 | ×1.00 | ×1.00 | Teaching floor. Par 3:00 (bonus only). Truck crawls 44–66 u/s; Ash may lead it by 300 u. |
 | L2 Launch | ×1.15 | ×1.20 | ×1.12 | Faster density. Late gates drift. |
 | L3 Orbit | ×1.35 | ×1.35 | ×1.08 | More live foes. Spines armored near beetles. |
 

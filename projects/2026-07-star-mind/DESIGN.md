@@ -114,7 +114,7 @@ Each level has **two stacked goals** (A unlocks B). Full option board: [`notes/d
 **Goal A:** Escort the **fuel truck** to Pad 7 (truck has HP; it keeps rolling with you unless a walker clamps it).  
 **Goal B:** **Climb the gantry tower** and board *Black Finch* — **PAD REAPER** holds the tower.
 
-**Dynamic:** Classic Metal-Slug run-and-gun for the convoy, then a vertical climb. Optional tech rescues for scrap. Par time (3:30) pays a bonus; it never fails the run.
+**Dynamic:** Classic Metal-Slug run-and-gun for the convoy, then a vertical climb. Optional tech rescues for scrap. Ash can lead the truck by ~a screen-third but not abandon it (escort lock); the truck crawls to Pad 7 in ~50 s and never stops unless clamped. Par time (3:00) pays a bonus; it never fails the run.
 
 **Art beat:** Night storm, sodium pad lights, orange flame, rusted scaffolding, SpaceX-ish towers + cartoon exaggeration. Rain + lightning flashes.
 

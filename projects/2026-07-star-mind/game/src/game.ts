@@ -106,6 +106,8 @@ const BOARD_X = 3180;
 const BOARD_HOP = 168;
 /** L3 Prime cavity entry (walk-right after spines) */
 const PRIME_ARENA_X = 2100;
+/** How far Ash may lead the fuel truck during Goal A (world units) */
+const TRUCK_LEAD = 300;
 
 function laneLabel(z: number): string {
   if (z < 0.34) return "NEAR";
@@ -131,7 +133,7 @@ const KILL_SCORE: Record<string, number> = {
 };
 
 /** Par time per level (s). Beating par pays PAR_PTS_PER_S per second left; never a fail. */
-const LEVEL_PAR: Record<LevelId, number> = { 1: 210, 2: 160, 3: 230 };
+const LEVEL_PAR: Record<LevelId, number> = { 1: 180, 2: 120, 3: 200 };
 const PAR_PTS_PER_S = 12;
 /** Level score that earns an A; S is 1.2×, B 0.62×, C 0.36×. */
 const RANK_TARGET: Record<LevelId, number> = { 1: 7800, 2: 7200, 3: 9600 };
@@ -467,6 +469,7 @@ export class Game {
   private newBest = false;
   private corpses: Corpse[] = [];
   private jumpCut = false;
+  private leadNoteT = 0;
   private hudFade: CanvasGradient | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -2419,8 +2422,10 @@ export class Game {
     );
     truck.moving = this.level.goalPhase === 1 && !truck.clamped;
     if (truck.moving) {
+      // The truck is the metronome of Goal A: a steady crawl (~50 s to Pad 7) that never
+      // stops for Ash, plus a gentle catch-up so leading it forward still feels rewarded.
       const gap = this.player.x - truck.x;
-      const speed = gap > 40 ? Math.min(250, 90 + (gap - 40) * 1.8) : 70;
+      const speed = gap > 60 ? Math.min(66, 44 + (gap - 60) * 0.1) : 44;
       truck.x += speed * dt;
       truck.z += (this.player.z - truck.z) * 1.8 * dt;
     }
@@ -2602,6 +2607,19 @@ export class Game {
       this.player.grounded = onGround;
       this.landSquash = Math.max(0, this.landSquash - dt);
       this.player.x = clamp(this.player.x, 40, this.level.length - 40);
+      // Escort lock: Ash can lead the convoy by a screen-third, not abandon it.
+      this.leadNoteT = Math.max(0, this.leadNoteT - dt);
+      if (this.levelId === 1 && this.truck && !this.truck.arrived && this.level.goalPhase === 1) {
+        const cap = this.truck.x + TRUCK_LEAD;
+        if (this.player.x > cap) {
+          this.player.x = cap;
+          this.player.vx = Math.min(this.player.vx, 0);
+          if (this.leadNoteT <= 0) {
+            this.note("NIX: Don't outrun the fuel — hold the line until the truck catches up.", 2.4);
+            this.leadNoteT = 6;
+          }
+        }
+      }
       const look = this.player.facing * 70;
       this.camXTarget = clamp(this.player.x - W * 0.36 + look, 0, this.level.length - W);
       this.camX += (this.camXTarget - this.camX) * (1 - Math.exp(-7 * dt));
