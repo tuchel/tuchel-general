@@ -25,6 +25,7 @@ Live: https://tuchel.github.io/tuchel-general/star-mind/
 | Fire | Hold J / Z | Hold **FIRE** |
 | Jump / thrust | Space (hold in orbit) | **JUMP** |
 | EMP | K / X | **EMP** (tap) |
+| Swap weapon | L / Shift | **SWAP** (tap) |
 | Pause | P / Esc | **II** |
 | Menu select | W/S | ▲ / ▼ |
 | Confirm | Enter / Space / J | **OK** |
@@ -33,7 +34,7 @@ Live: https://tuchel.github.io/tuchel-general/star-mind/
 
 ## Layout
 
-- **Landscape (preferred):** canvas fills the viewport; stick left, action buttons right, semi-transparent over the playfield edges.
+- **Landscape (preferred):** canvas fills the viewport; stick left, action buttons right as a fixed 2×2 grid (SWAP EMP / JUMP FIRE, pause above), semi-transparent over the playfield edges. The grid never wraps, so FIRE cannot fall off a short phone screen.
 - **Portrait:** canvas capped ~52dvh on top; `#touch-layer` reparents into `#app` as a bottom control sheet (`touch-sheet` class). Soft “ROTATE DEVICE” hint stays on.
 
 Safe-area insets (`viewport-fit=cover`) pad notch / home indicator.

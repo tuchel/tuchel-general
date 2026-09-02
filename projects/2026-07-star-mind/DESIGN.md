@@ -88,6 +88,8 @@ Metal Slug rule: **heavy, readable, absurdly fun munitions** with clear silhouet
 | `FLAME` | Torch Pack | Short-range cone; melts drone armor |
 | `RAIL` | Mag-Spike | Charge shot; boss shredder |
 
+**Two slots.** A pickup moves the live gun to the stash; a displaced stash drops to the floor (brief no-grab). Swap with L / Shift / SWAP / pad LB. An empty mag falls through to the stash, then the sidearm.
+
 ### 5.2 Specials / vehicles
 
 | ID | Name | Level |

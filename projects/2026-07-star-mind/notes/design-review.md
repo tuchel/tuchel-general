@@ -80,10 +80,13 @@ Solid SFX coverage; the music is an A-minor pentatonic pulse with no lead line a
 13. **Ship altitude** is a real axis in L2: hold JUMP to climb, release to sink; depth stays on W/S. Enemy fire aims at your altitude, so it is a dodge axis, not decoration.
 14. **Attract loop.** Seven seconds idle on the title cycles story / roster / scoring cards over the hero plate.
 15. **Techs are people.** The rescue NPC is a drawn pad tech (hard hat, jumpsuit, waving), not a bone rectangle.
+16. **Weapon stash.** Two slots. A pickup moves the live gun to the stash; a displaced stash drops back to the floor with a 1.6 s no-grab window so nothing ping-pongs. L / Shift / SWAP / pad LB–LT trades; an empty mag falls through to the stash before the sidearm. HUD shows the stashed gun and its ammo.
+17. **Boss phase turns are beats.** Hit-stop, screen flash, hostile bullets cleared, boss flash.
+18. **Each act in its own key.** Music transposes per level (Earth A, Launch C, Orbit E).
+19. **Touch cluster is a fixed 2×2 grid** (SWAP EMP / JUMP FIRE) — the old wrap layout let FIRE fall off the bottom of a phone in landscape.
 
 ## Parked (bigger than one change)
 
 - L2 as a true vertical shooter (separate projection). Free altitude closes most of the gap; a real re-projection is still a project.
 - Lives + shared HP à la Slug instead of an HP pool — ARCADE difficulty (×0.6 HP) is the first step; a lives model is a tuning project.
-- Weapon stash / dual-slot (needs a new input action on touch).
 - Enemy anim clips — real loops need re-authoring.
