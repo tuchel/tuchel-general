@@ -114,4 +114,6 @@ Append-only. Newest entries at the bottom. Format: `## [YYYY-MM-DD] {verb} | {su
 
 ## [2026-09-02] polish | star-mind | Two-slot weapon stash (L / SWAP / pad LB), boss phase-turn beat, per-act music key; touch cluster fixed to a 2×2 grid after FIRE fell off phone landscape
 
+## [2026-09-10] schema | AGENTS.md | Cut wasteful gates: skip session ritual when the task is stated; surfacing and prior-art only on new capability; ingest/wiki-file only when load-bearing; Tufte refs and rich tooltips only on real charts; verify the diff, not the repo
+
 ## [2026-09-10] policy | daycare-search | Focus excludes religious schools; St. Michael’s Episcopal Day School stays off the shortlist
