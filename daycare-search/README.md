@@ -37,6 +37,8 @@ Waitlists, tuition, and credentials appear only when a school published them.
 
 **Focus** is Sunset Trail, Mariposa, and Primrose West Lake Hills. No religious schools (church, parish, or faith-based ministry). Ranked trays may still list a religious campus (Light of Christ is Eligible at 3).
 
+Before adding a Focus school: read this paragraph. If the campus is religious, stop — do not fetch the site, download photos, time the drive, or open a PR. Other household constraints on this page are hard stops the same way.
+
 ## Prior art (kickoff, 28 Aug 2026)
 
 **Job to be done:** James Tuchel, at home in West Lake Hills, needs to re-rank a researched set of schools for Finn this fall by outdoor / Montessori-Reggio / age / drive / nature / logistics — with unknown scores dropped, not zeroed.

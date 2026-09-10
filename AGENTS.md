@@ -2,6 +2,23 @@
 
 This file tells any LLM agent entering this repo how to behave. It is already in context — do not re-read it when the task is stated. The goal is a disciplined compounding knowledge system for a personal projects monorepo — not a bag of markdown files.
 
+## Do this first (time)
+
+The ask is already stated. Start the work. Parallel PRs that all append `wiki/log.md` waste a turn each on merge conflicts. Research that ignores a household constraint wastes the whole card.
+
+**Do not:**
+
+- Re-read this file, or fetch git, unless merging / rebasing / the task needs latest `main`
+- Open `wiki/index.md` or `wiki/log.md` unless the task is a wiki query, you are adding or removing a catalog page, or you are logging a **kickoff or ingest**
+- Append `wiki/log.md` for polish, policy, schema tweaks, copy, bugfix, scrap, or conflict resolution — git is the record
+- Print a prior-art or prior-work tour on polish, copy, bugfix, schema, or conflicts
+- Scrape, photograph, time a drive, or open a PR for a Focus school before reading Focus constraints in `daycare-search/README.md`. No religious schools. Fail a constraint → stop in the thread; do not build the card
+- Open a draft PR before the first local check. Schema / policy / wiki-only: open the PR ready
+- Subscribe to CI unless a `pull_request` workflow covers the diff
+- Browser-verify or record video for schema, wiki, policy, copy, or conflict fixes
+- Open a second PR to “log” a scrap. Close the PR. Add a one-file guardrail only if a repeat is likely
+- Present alternate interpretations when the ask is a single stated action
+
 ---
 
 ## Who this repo is for
@@ -162,7 +179,7 @@ The reader came for a decision or a fact. They did not come for the snapshot nam
 - How-we-got-here (`this is a household pick, not first-pass sort order`; `compared in depth`; `not some earlier table`).
 - Past-version framing (`we used to say`, `previously`, `reweighted`). Present tense only.
 
-**Where that material belongs:** `wiki/log.md`, git, code comments, working `notes/`. Scoring math that *is* the tool (live weights, unknown dropped from the denominator) may stay — say the human rule once, not a recap of the operator schema.
+**Where that material belongs:** git, code comments, working `notes/`. Kickoff and ingest lines may go in `wiki/log.md`. Scoring math that *is* the tool (live weights, unknown dropped from the denominator) may stay — say the human rule once, not a recap of the operator schema.
 
 **Test:** delete any phrase a stranger would have to ask you to explain. If the sentence still decides, keep it. If it only records how the writer worked, cut it.
 
@@ -173,9 +190,9 @@ The reader came for a decision or a fact. They did not come for the snapshot nam
 `wiki/` is the durable layer. Projects are ephemeral relative to it.
 
 - Prefer promoting recurring ideas to `wiki/concepts/` or `wiki/methods/` over leaving them buried in one project's notes.
-- Lessons from mistakes go in `wiki/lessons/` with a link back to the project that taught them.
-- `wiki/index.md` stays thin and current; long synthesis gets its own page.
-- `wiki/log.md` is append-only and date-stamped. Append; do not reflow history in the same change as unrelated edits.
+- Lessons from mistakes go in `wiki/lessons/` with a link back to the project that taught them. New lessons stay human-in-loop.
+- `wiki/index.md` stays thin. Edit it only when adding or removing a catalog page — not to rephrase a one-line blurb.
+- `wiki/log.md` is append-only. Append **only** for project kickoff or source ingest. Date-stamp. Do not reflow history. Do not log polish, policy, schema, copy, or scraps.
 
 ---
 
@@ -224,25 +241,27 @@ Solo repo. No co-author merge theater.
 - Branch naming: `cursor/{short-topic}` for agent-driven work; `tuchel/{short-topic}` for human-driven work. Lowercase only.
 - One PR per logical change. Split sprawling sessions.
 - Run the project's local checks, then one commit and push, then open the PR. Do not open a draft PR before the first local check.
-- Open PRs as draft when the work is not ready to merge; mark ready when it is.
+- Schema, policy, and wiki-only: open the PR **ready**. Draft only when the work is unfinished (UI still unverified, tests still failing).
+- When asked to scrap a PR: close it. Do not open a follow-up just to write a log line.
 - Subscribe to CI only if a workflow runs on `pull_request` for the files you touched. Deploy-on-main workflows do not count. If that CI fails on an agent-opened PR, diagnose from the logs and push a fix to the same branch — no human ping required for routine lint/test failures.
 - Auto-merge on green CI is fine when configured; treat merges as releases of whatever this monorepo publishes.
 
 ### Autonomy ladder
 
-- **Max autonomy:** wiki ingest, summarization, cross-references, index/log updates, lint cleanups, prior-art search + report (file once; skip if the block exists and the job is unchanged), scaffolding empty project folders when no named incumbent already does the core job.
+- **Max autonomy:** wiki ingest, summarization, cross-references, index updates, kickoff/ingest log lines, lint cleanups, prior-art search + report (file once; skip if the block exists and the job is unchanged), scaffolding empty project folders when no named incumbent already does the core job, **closing a PR the user asked to scrap**.
+- **Hard stop, not a prompt:** household constraints already on file (Focus: no religious schools). Do not build and then ask.
 - **Human-in-loop by default:** new wiki pages that assert load-bearing claims, new lessons (framing matters), anything user-facing that will be shared outside the repo, deletions/renames of existing content, **building a new app/capability when a named external incumbent already does the core job**.
 - **Explicit confirmation:** irreversible ops (force-push, deleting remote branches you did not create for this task, publishing/deploying, scheduled cron, secrets handling).
 - When in doubt: take the action as a draft on a branch, surface it for review. Do not block on small decisions.
 
 ### Shared narrative files
 
-`wiki/index.md` and `wiki/log.md` are append-heavy:
+`wiki/index.md` and `wiki/log.md` collide when every PR touches them.
 
-- Pull/rebase before editing if the remote may have moved.
-- Append; do not reorder existing rows in the same PR as unrelated content.
-- Date-stamp every append.
-- Long-form synthesis gets its own page; keep indexes thin.
+- Do not edit `wiki/log.md` unless this change **is** a kickoff or ingest.
+- Do not edit `wiki/index.md` unless this change **adds or removes** a catalog page.
+- If you must append the log, that is the whole PR — do not mix it with feature work.
+- Pull/rebase before editing if the remote may have moved. Date-stamp. Do not reorder history.
 
 ---
 
@@ -271,7 +290,7 @@ Applies to new code under `projects/` and anywhere else code is authored. Does n
 
 ### 1. Think before coding
 
-State assumptions. Surface tradeoffs. If multiple interpretations exist, present them — do not pick silently. If something is unclear on a coding/sim task, stop and name the confusion.
+A stated “do X” is not a fork — do X. Surface tradeoffs only when a coding or sim task is actually ambiguous. If something material is unclear, stop and name it; do not list options for a closed ask.
 
 ### 2. Simplicity first
 
