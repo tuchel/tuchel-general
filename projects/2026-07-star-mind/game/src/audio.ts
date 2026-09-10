@@ -135,6 +135,7 @@ class Sfx {
   }
 
   explode() {
+    music.hit(0.6);
     this.noise(0.22, 0.16, 200);
     this.tone(90, 0.2, "sawtooth", 0.14, -50);
   }
@@ -165,11 +166,13 @@ class Sfx {
   }
 
   hurt() {
+    music.hit(0.5);
     this.tone(110, 0.16, "sawtooth", 0.16, -80);
     this.noise(0.1, 0.1, 200);
   }
 
   death() {
+    music.hit(1);
     this.tone(160, 0.4, "sawtooth", 0.18, -120);
     this.noise(0.3, 0.12, 150);
   }
@@ -189,6 +192,7 @@ class Sfx {
   }
 
   boss() {
+    music.hit(1);
     this.tone(70, 0.35, "sawtooth", 0.18, 40);
     this.noise(0.25, 0.12, 180);
   }
@@ -232,53 +236,110 @@ class Sfx {
   }
 }
 
-/** Low bed under combat — A-minor pentatonic pulse, ducks on pause. */
+/**
+ * Combat bed — a 16-step bass/percussion pattern with a lead that changes phrase by intensity,
+ * a boss variant a fourth down, and SFX-triggered ducking so explosions cut through.
+ */
 class Music {
   private acc = 0;
   private step = 0;
   private target = 0;
-  private readonly notes = [110, 130.81, 146.83, 164.81, 196, 220, 261.63];
+  private duck = 0;
+  private wasBoss = false;
+  /** A minor: root, b3, 4, 5, b7, octave, b3' */
+  private readonly scale = [110, 130.81, 146.83, 164.81, 196, 220, 261.63, 293.66];
+  /** Bass root per 4-step bar: i – i – iv – v (A A D E), boss: i – bVI – bVII – v */
+  private readonly bassLine = [0, 0, 3, 4];
+  private readonly bossBass = [0, 5, 6, 4];
+  /** Lead phrases (scale indices, -1 = rest) — calm, patrol, sprint. */
+  private readonly phrases = [
+    [5, -1, -1, 4, -1, -1, 3, -1, 5, -1, -1, 4, -1, 2, -1, -1],
+    [5, -1, 4, 5, -1, 6, -1, 4, 5, -1, 4, 3, -1, 2, -1, 4],
+    [5, 6, 7, 6, 5, -1, 4, 5, 6, 5, 4, 3, 4, -1, 5, -1],
+  ];
 
-  tick(dt: number, intensity: number, active: boolean) {
+  /** Called by SFX that should sit on top of the bed. */
+  hit(amount = 0.5) {
+    this.duck = Math.max(this.duck, amount);
+  }
+
+  /** Each act sits in its own key: Earth A, Launch up a minor third (C), Orbit down a fourth (E). */
+  private transpose = 1;
+  setLevel(level: 1 | 2 | 3) {
+    this.transpose = level === 1 ? 1 : level === 2 ? 1.1892 : 0.7492;
+  }
+
+  tick(dt: number, intensity: number, active: boolean, boss = false) {
     const ctx = sfx.ac();
     const bus = sfx.musicNode();
     if (!ctx || !bus) return;
-    this.target = active ? 0.055 + intensity * 0.05 : 0;
+    this.duck = Math.max(0, this.duck - dt * 2.4);
+    this.target = active ? (0.06 + intensity * 0.05) * (1 - this.duck * 0.7) : 0;
     const g = bus.gain;
     const now = ctx.currentTime;
     g.cancelScheduledValues(now);
-    g.linearRampToValueAtTime(this.target, now + 0.12);
+    g.linearRampToValueAtTime(this.target, now + 0.1);
     if (!active) return;
+    if (boss !== this.wasBoss) {
+      this.wasBoss = boss;
+      this.step = 0;
+    }
 
-    const beat = 0.24 - intensity * 0.07;
+    const beat = (boss ? 0.19 : 0.24) - intensity * 0.06;
     this.acc += dt;
     while (this.acc >= beat) {
       this.acc -= beat;
-      this.hit(ctx, bus, intensity);
+      this.play(ctx, bus, intensity, boss);
       this.step++;
     }
   }
 
-  private hit(ctx: AudioContext, bus: GainNode, intensity: number) {
+  private voice(
+    ctx: AudioContext,
+    bus: GainNode,
+    freq: number,
+    type: OscillatorType,
+    gain: number,
+    dur: number,
+    cutoff: number,
+  ) {
     const t0 = ctx.currentTime;
-    const bass = this.step % 4 === 0;
-    const freq = bass
-      ? this.notes[0]! * (this.step % 8 === 0 ? 0.5 : 0.5)
-      : this.notes[(this.step * 3 + Math.floor(intensity * 4)) % this.notes.length]!;
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
     const f = ctx.createBiquadFilter();
-    osc.type = bass ? "sawtooth" : "triangle";
+    osc.type = type;
     osc.frequency.setValueAtTime(freq, t0);
     f.type = "lowpass";
-    f.frequency.setValueAtTime(420 + intensity * 900, t0);
-    g.gain.setValueAtTime(bass ? 0.22 : 0.09, t0);
-    g.gain.exponentialRampToValueAtTime(0.001, t0 + (bass ? 0.28 : 0.12));
+    f.frequency.setValueAtTime(cutoff, t0);
+    g.gain.setValueAtTime(gain, t0);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
     osc.connect(f);
     f.connect(g);
     g.connect(bus);
     osc.start(t0);
-    osc.stop(t0 + 0.32);
+    osc.stop(t0 + dur + 0.02);
+  }
+
+  private play(ctx: AudioContext, bus: GainNode, intensity: number, boss: boolean) {
+    const s = this.step % 16;
+    const bar = Math.floor(s / 4);
+    const rootIdx = (boss ? this.bossBass : this.bassLine)[bar]!;
+    const root = this.scale[rootIdx]! * 0.5 * this.transpose;
+    if (s % 4 === 0) {
+      this.voice(ctx, bus, root, "sawtooth", 0.22, 0.3, 380 + intensity * 700);
+    } else if (s % 2 === 0) {
+      this.voice(ctx, bus, root, "square", 0.07, 0.09, 300);
+    }
+    // Hat on every step, snare-ish noise burst on the backbeat once things heat up.
+    if (intensity > 0.3 && s % 4 === 2) {
+      this.voice(ctx, bus, 1800 + intensity * 600, "square", 0.025, 0.05, 3200);
+    }
+    const phrase = this.phrases[intensity < 0.3 ? 0 : intensity < 0.65 ? 1 : 2]!;
+    const lead = phrase[s]!;
+    if (lead >= 0 && (intensity > 0.12 || boss)) {
+      const f = this.scale[lead]! * this.transpose * (Math.floor(this.step / 32) % 2 === 0 ? 1 : 1.5);
+      this.voice(ctx, bus, f, boss ? "sawtooth" : "triangle", boss ? 0.06 : 0.075, 0.16, 900 + intensity * 1400);
+    }
   }
 }
 

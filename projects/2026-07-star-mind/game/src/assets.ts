@@ -174,6 +174,31 @@ export class ArtBank {
 
 export const art = new ArtBank();
 
+/**
+ * Black silhouette per source image, built once. Replaces `ctx.filter = "brightness(0)"`,
+ * which re-filters the bitmap on every draw and is the single most expensive call on phones.
+ */
+const silhouettes = new WeakMap<HTMLImageElement, HTMLCanvasElement | null>();
+
+function silhouetteOf(img: HTMLImageElement): HTMLCanvasElement | null {
+  if (silhouettes.has(img)) return silhouettes.get(img) ?? null;
+  let c: HTMLCanvasElement | null = null;
+  if (img.width > 0 && img.height > 0) {
+    c = document.createElement("canvas");
+    c.width = img.width;
+    c.height = img.height;
+    const g = c.getContext("2d");
+    if (g) {
+      g.drawImage(img, 0, 0);
+      g.globalCompositeOperation = "source-in";
+      g.fillStyle = "#000";
+      g.fillRect(0, 0, c.width, c.height);
+    } else c = null;
+  }
+  silhouettes.set(img, c);
+  return c;
+}
+
 export function blitSprite(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement | null,
@@ -190,6 +215,10 @@ export function blitSprite(
     outline?: boolean;
     /** center = mid-sprite (default); feet = bottom-center on ground line */
     anchor?: "center" | "feet";
+    /** Procedural puppeteering: tilt (radians) and squash-stretch about the sprite's base. */
+    rot?: number;
+    sx?: number;
+    sy?: number;
   } = {},
 ) {
   if (!img) return false;
@@ -202,23 +231,33 @@ export function blitSprite(
   const dh = targetH;
   const bob = opts.bob ?? 0;
   const anchorY = opts.anchor === "feet" ? -dh : -dh / 2;
+  const sqx = opts.sx ?? 1;
+  const sqy = opts.sy ?? 1;
   ctx.save();
   ctx.translate(Math.round(x), Math.round(y + bob));
+  if (opts.rot) ctx.rotate(opts.rot);
+  if (sqx !== 1 || sqy !== 1) {
+    // Keep the base planted: squash about the bottom edge, not the center.
+    const base = opts.anchor === "feet" ? 0 : dh / 2;
+    ctx.translate(0, base);
+    ctx.scale(sqx, sqy);
+    ctx.translate(0, -base);
+  }
   ctx.scale(facing, 1);
   ctx.globalAlpha = opts.alpha ?? 1;
   if (opts.flash) ctx.globalCompositeOperation = "lighter";
   ctx.imageSmoothingEnabled = true;
   if (opts.outline) {
-    ctx.save();
-    ctx.filter = "brightness(0)";
-    ctx.globalAlpha = (opts.alpha ?? 1) * 0.85;
-    const o = Math.max(1, Math.round(s));
-    ctx.drawImage(img, -dw / 2 - o, anchorY, dw, dh);
-    ctx.drawImage(img, -dw / 2 + o, anchorY, dw, dh);
-    ctx.drawImage(img, -dw / 2, anchorY - o, dw, dh);
-    ctx.drawImage(img, -dw / 2, anchorY + o, dw, dh);
-    ctx.restore();
-    ctx.globalAlpha = opts.alpha ?? 1;
+    const sil = silhouetteOf(img);
+    if (sil) {
+      ctx.globalAlpha = (opts.alpha ?? 1) * 0.85;
+      const o = Math.max(1, Math.round(s));
+      ctx.drawImage(sil, -dw / 2 - o, anchorY, dw, dh);
+      ctx.drawImage(sil, -dw / 2 + o, anchorY, dw, dh);
+      ctx.drawImage(sil, -dw / 2, anchorY - o, dw, dh);
+      ctx.drawImage(sil, -dw / 2, anchorY + o, dw, dh);
+      ctx.globalAlpha = opts.alpha ?? 1;
+    }
   }
   ctx.drawImage(img, -dw / 2, anchorY, dw, dh);
   ctx.restore();

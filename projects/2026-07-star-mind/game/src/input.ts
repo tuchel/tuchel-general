@@ -17,7 +17,22 @@ export class Input {
   private touchConfirmEdge = false;
   private touchBackEdge = false;
   private touchPauseEdge = false;
+  private touchSwapEdge = false;
   private touchMenuEdge = 0; // -1 | 0 | 1
+
+  /** Gamepad backend — standard mapping; polled once per frame. */
+  private padX = 0;
+  private padZ = 0;
+  private padShoot = false;
+  private padJumpHeld = false;
+  private padJumpEdge = false;
+  private padSpecialEdge = false;
+  private padConfirmEdge = false;
+  private padBackEdge = false;
+  private padPauseEdge = false;
+  private padSwapEdge = false;
+  private padMenuEdge = 0;
+  private padPrev = new Set<number>();
 
   constructor() {
     window.addEventListener(
@@ -39,6 +54,8 @@ export class Input {
             "k",
             "z",
             "x",
+            "l",
+            "shift",
             "enter",
             "escape",
             "p",
@@ -79,7 +96,62 @@ export class Input {
     this.touchConfirmEdge = false;
     this.touchBackEdge = false;
     this.touchPauseEdge = false;
+    this.touchSwapEdge = false;
     this.touchMenuEdge = 0;
+    this.padJumpEdge = false;
+    this.padSpecialEdge = false;
+    this.padConfirmEdge = false;
+    this.padBackEdge = false;
+    this.padPauseEdge = false;
+    this.padSwapEdge = false;
+    this.padMenuEdge = 0;
+  }
+
+  /**
+   * Standard-mapping gamepad: left stick / d-pad move, A jump, X / RB / RT fire, B / Y EMP,
+   * LB / LT swap weapon, Start pause, Select back. Edges are computed against the previous poll.
+   */
+  pollGamepad() {
+    const pads = typeof navigator !== "undefined" && navigator.getGamepads ? navigator.getGamepads() : null;
+    const pad = pads ? Array.from(pads).find((p) => p && p.connected) : null;
+    if (!pad) {
+      if (this.padPrev.size || this.padX || this.padZ || this.padShoot || this.padJumpHeld) {
+        this.padPrev.clear();
+        this.padX = 0;
+        this.padZ = 0;
+        this.padShoot = false;
+        this.padJumpHeld = false;
+      }
+      return;
+    }
+    const down = new Set<number>();
+    pad.buttons.forEach((b, i) => {
+      if (b.pressed || b.value > 0.5) down.add(i);
+    });
+    const edge = (i: number) => down.has(i) && !this.padPrev.has(i);
+    const dead = 0.22;
+    let x = pad.axes[0] ?? 0;
+    let y = pad.axes[1] ?? 0;
+    if (Math.abs(x) < dead) x = 0;
+    if (Math.abs(y) < dead) y = 0;
+    if (down.has(14)) x = -1;
+    if (down.has(15)) x = 1;
+    if (down.has(12)) y = -1;
+    if (down.has(13)) y = 1;
+    this.padX = Math.max(-1, Math.min(1, x));
+    this.padZ = Math.max(-1, Math.min(1, -y));
+    this.padShoot = down.has(2) || down.has(7) || down.has(5);
+    const jump = down.has(0);
+    if (jump && !this.padJumpHeld) this.padJumpEdge = true;
+    this.padJumpHeld = jump;
+    if (edge(1) || edge(3)) this.padSpecialEdge = true;
+    if (edge(4) || edge(6)) this.padSwapEdge = true;
+    if (edge(0) || edge(2)) this.padConfirmEdge = true;
+    if (edge(1) || edge(8)) this.padBackEdge = true;
+    if (edge(9)) this.padPauseEdge = true;
+    if (edge(12)) this.padMenuEdge = -1;
+    if (edge(13)) this.padMenuEdge = 1;
+    this.padPrev = down;
   }
 
   // --- Touch backend API (used by touch-controls.ts) ---
@@ -117,6 +189,10 @@ export class Input {
     this.touchPauseEdge = true;
   }
 
+  pulseTouchSwap() {
+    this.touchSwapEdge = true;
+  }
+
   pulseTouchMenu(dir: -1 | 1) {
     this.touchMenuEdge = dir;
   }
@@ -143,6 +219,7 @@ export class Input {
     if (this.hold("a") || this.hold("arrowleft")) x -= 1;
     if (this.hold("d") || this.hold("arrowright")) x += 1;
     if (x === 0) x = this.touchX;
+    if (x === 0) x = this.padX;
     return Math.max(-1, Math.min(1, x));
   }
 
@@ -151,6 +228,7 @@ export class Input {
     if (this.hold("w") || this.hold("arrowup")) z += 1;
     if (this.hold("s") || this.hold("arrowdown")) z -= 1;
     if (z === 0) z = this.touchZ;
+    if (z === 0) z = this.padZ;
     return Math.max(-1, Math.min(1, z));
   }
 
@@ -159,24 +237,29 @@ export class Input {
   }
 
   jumpJust() {
-    return this.just(" ") || this.touchJumpEdge;
+    return this.just(" ") || this.touchJumpEdge || this.padJumpEdge;
   }
 
   jumpHeld() {
-    return this.hold(" ") || this.touchJumpHeld;
+    return this.hold(" ") || this.touchJumpHeld || this.padJumpHeld;
   }
 
-  /** P / II — does not include Escape (Escape pauses in play, quits from pause). */
+  /** P / II / Start — does not include Escape (Escape pauses in play, quits from pause). */
   pauseJust() {
-    return this.just("p") || this.touchPauseEdge;
+    return this.just("p") || this.touchPauseEdge || this.padPauseEdge;
   }
 
   shoot() {
-    return this.hold("j") || this.hold("z") || this.touchShoot;
+    return this.hold("j") || this.hold("z") || this.touchShoot || this.padShoot;
   }
 
   specialJust() {
-    return this.just("k") || this.just("x") || this.touchSpecialEdge;
+    return this.just("k") || this.just("x") || this.touchSpecialEdge || this.padSpecialEdge;
+  }
+
+  /** L / Shift / SWAP / pad LB–LT — swap to the stashed weapon. */
+  swapJust() {
+    return this.just("l") || this.just("shift") || this.touchSwapEdge || this.padSwapEdge;
   }
 
   confirm() {
@@ -184,13 +267,14 @@ export class Input {
       this.just("enter") ||
       this.just(" ") ||
       this.just("j") ||
-      this.touchConfirmEdge
+      this.touchConfirmEdge ||
+      this.padConfirmEdge
     );
   }
 
-  /** Escape / title return (keyboard Escape or touch TITLE) */
+  /** Escape / title return (keyboard Escape, touch TITLE, pad B / Select) */
   back() {
-    return this.just("escape") || this.touchBackEdge;
+    return this.just("escape") || this.touchBackEdge || this.padBackEdge;
   }
 
   /** Menu / upgrade list navigation: −1 up, +1 down, 0 none (edge) */
@@ -198,6 +282,7 @@ export class Input {
     if (this.just("arrowup") || this.just("w")) return -1;
     if (this.just("arrowdown") || this.just("s")) return 1;
     if (this.touchMenuEdge === -1 || this.touchMenuEdge === 1) return this.touchMenuEdge;
+    if (this.padMenuEdge === -1 || this.padMenuEdge === 1) return this.padMenuEdge;
     return 0;
   }
 }

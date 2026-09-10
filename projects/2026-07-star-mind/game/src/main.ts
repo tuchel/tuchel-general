@@ -89,6 +89,10 @@ if (ctx) {
 }
 
 const game = new Game(canvas);
+// `?debug` exposes the game instance for headless smoke tests and console poking.
+if (location.search.includes("debug")) {
+  (window as unknown as { __starmind: Game }).__starmind = game;
+}
 window.addEventListener("pointerdown", () => sfx.unlock(), { once: true });
 window.addEventListener("keydown", () => sfx.unlock(), { once: true });
 

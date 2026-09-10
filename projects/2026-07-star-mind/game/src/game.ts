@@ -2,8 +2,11 @@ import { music, sfx } from "./audio";
 import { C, H, W } from "./palette";
 import { Input } from "./input";
 import {
+  DIFFICULTIES,
+  DIFFICULTY_TIER,
   WEAPONS,
   defaultUpgrades,
+  type Difficulty,
   type LevelId,
   type Mode,
   type Upgrades,
@@ -87,9 +90,11 @@ import {
   drawLaserLane,
   drawPad7,
   drawPickup,
+  drawPickupIcon,
   drawTetherRope,
   drawShip,
   drawSpine,
+  drawTech,
   drawTruck,
   glow,
   rr,
@@ -105,22 +110,14 @@ const BOARD_X = 3180;
 const BOARD_HOP = 168;
 /** L3 Prime cavity entry (walk-right after spines) */
 const PRIME_ARENA_X = 2100;
+/** How far Ash may lead the fuel truck during Goal A (world units) */
+const TRUCK_LEAD = 300;
 
 function laneLabel(z: number): string {
   if (z < 0.34) return "NEAR";
   if (z < 0.66) return "MID";
   return "FAR";
 }
-
-const WEAPON_RANK: Record<WeaponId, number> = {
-  pistol: 0,
-  coil: 1,
-  flame: 2,
-  spread: 3,
-  beam: 4,
-  rocket: 5,
-  rail: 6,
-};
 
 const KILL_SCORE: Record<string, number> = {
   drone: 120,
@@ -139,10 +136,57 @@ const KILL_SCORE: Record<string, number> = {
   tether: 210,
 };
 
+/** Par time per level (s). Beating par pays PAR_PTS_PER_S per second left; never a fail. */
+const LEVEL_PAR: Record<LevelId, number> = { 1: 180, 2: 120, 3: 200 };
+const PAR_PTS_PER_S = 12;
+/** Level score that earns an A; S is 1.2×, B 0.62×, C 0.36×. */
+const RANK_TARGET: Record<LevelId, number> = { 1: 7800, 2: 7200, 3: 9600 };
+type Rank = "S" | "A" | "B" | "C" | "D";
+const RANK_LINE: Record<Rank, string> = {
+  S: "NIX: Textbook. I'm framing the telemetry.",
+  A: "NIX: Clean run. The pad chief owes you a beer.",
+  B: "NIX: Mission complete. Try not to bleed on the console.",
+  C: "NIX: You made it. The insurance people did not.",
+  D: "NIX: Ash… the truck had a better time than you did.",
+};
+
+interface ResultLine {
+  label: string;
+  value: string;
+  pts: number;
+}
+
+interface Checkpoint {
+  scrap: number;
+  score: number;
+  killPts: number;
+  bossPts: number;
+  rescued: number;
+  kills: number;
+  hitsTaken: number;
+  elapsed: number;
+}
+
+interface Corpse {
+  img: HTMLImageElement | null;
+  kind: string;
+  x: number;
+  z: number;
+  hop: number;
+  vx: number;
+  vHop: number;
+  rot: number;
+  vRot: number;
+  life: number;
+  max: number;
+  h: number;
+  facing: 1 | -1;
+}
+
 const UPGRADE_BLURB: Record<keyof Upgrades, string> = {
   damage: "+12% shot damage",
   fireRate: "−8% fire delay",
-  armor: "+20 max HP",
+  armor: "+24 max HP",
   mag: "+25 / +15 ammo",
   special: "+1 EMP charge",
   mobility: "+8% move speed",
@@ -168,6 +212,42 @@ function readBest(): number {
 function writeBest(n: number) {
   try {
     localStorage.setItem("starmind-best", String(n));
+  } catch {
+    /* private mode */
+  }
+}
+
+type LevelBest = { score: number; rank: Rank; difficulty: Difficulty };
+
+function readLevelBests(): Partial<Record<LevelId, LevelBest>> {
+  try {
+    const raw = localStorage.getItem("starmind-level-bests");
+    return raw ? (JSON.parse(raw) as Partial<Record<LevelId, LevelBest>>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeLevelBests(b: Partial<Record<LevelId, LevelBest>>) {
+  try {
+    localStorage.setItem("starmind-level-bests", JSON.stringify(b));
+  } catch {
+    /* private mode */
+  }
+}
+
+function readDifficulty(): Difficulty {
+  try {
+    const d = localStorage.getItem("starmind-difficulty") as Difficulty | null;
+    return d && DIFFICULTIES.includes(d) ? d : "veteran";
+  } catch {
+    return "veteran";
+  }
+}
+
+function writeDifficulty(d: Difficulty) {
+  try {
+    localStorage.setItem("starmind-difficulty", d);
   } catch {
     /* private mode */
   }
@@ -205,6 +285,8 @@ interface Actor {
   uid: number;
   fireAt?: number;
   stolenWpn?: WeaponId;
+  /** Exposed weak point (bosses): offset from the body, radius, damage multiplier, HUD label. */
+  weak?: { dx: number; dhop: number; r: number; mul: number; label: string } | null;
 }
 
 interface Bullet {
@@ -254,6 +336,8 @@ interface Pickup {
   hop: number;
   kind: "scrap" | "health" | WeaponId;
   life: number;
+  /** Seconds before this can be magnetized or grabbed — dropped guns must not re-enter the hand. */
+  noGrab?: number;
 }
 
 interface Platform {
@@ -303,11 +387,29 @@ interface LaneGate {
   vz?: number;
 }
 
-const BOSS: Record<LevelId, { id: string; name: string; hp: number }> = {
-  1: { id: "reaper", name: "PAD REAPER", hp: 520 },
-  2: { id: "seraph", name: "STRATOS SERAPH", hp: 600 },
-  3: { id: "prime", name: "STAR MIND PRIME", hp: 900 },
+/** HP sized for ~20–30 s against the coil (117 DPS nominal) with phase armor; patterns need time to teach. */
+const BOSS: Record<LevelId, { id: string; name: string; sub: string; hp: number }> = {
+  1: { id: "reaper", name: "PAD REAPER", sub: "GANTRY COLOSSUS · TOWER 7", hp: 1300 },
+  2: { id: "seraph", name: "STRATOS SERAPH", sub: "INTERCEPTOR PLATFORM · 40 KM", hp: 1500 },
+  3: { id: "prime", name: "STAR MIND PRIME", sub: "CONSTELLATION NODE · LEO", hp: 1900 },
 };
+const BOSS_INTRO_S = 1.7;
+const BOSS_OUTRO_S = 2.1;
+const RESULT_ROW_S = 0.32;
+const TITLE_ITEMS = 5;
+/** Seconds idle on the title before the attract cards start cycling. */
+const ATTRACT_AFTER_S = 7;
+const ATTRACT_CARD_S = 5.5;
+
+function enemyBaseH(kind: string): number {
+  return kind === "spine" ? 88 : kind === "walker" ? 78 : 68;
+}
+
+function fmtTime(s: number): string {
+  const m = Math.floor(s / 60);
+  const r = Math.floor(s % 60);
+  return `${m}:${r < 10 ? "0" : ""}${r}`;
+}
 
 function clamp(v: number, a: number, b: number) {
   return Math.max(a, Math.min(b, v));
@@ -324,6 +426,9 @@ export class Game {
   private player!: Actor;
   private weapon: WeaponId = "coil";
   private ammo = 999;
+  /** Second weapon slot. Pickups push the current gun here; a full stash drops to the floor. */
+  private stash: WeaponId | null = null;
+  private stashAmmo = 0;
   private cooldown = 0;
   private special = 3;
   private specialMax = 3;
@@ -396,6 +501,32 @@ export class Game {
   private stageSepLock = 0;
   private twistCue = "";
   private twistCueT = 0;
+  /** Bottom ticker for CAPCOM chatter and minor pickups; the center plate is for state changes. */
+  private ticker = "";
+  private tickerT = 0;
+  private kills = 0;
+  private killPts = 0;
+  private bossPts = 0;
+  private hitsTaken = 0;
+  private levelStartScrap = 0;
+  private checkpoint: Checkpoint | null = null;
+  private failReason = "";
+  private bossIntroT = 0;
+  private bossOutroT = 0;
+  private bossOutroBoomT = 0;
+  private clearT = 0;
+  private results: ResultLine[] = [];
+  private rank: Rank = "C";
+  private newBest = false;
+  private corpses: Corpse[] = [];
+  private jumpCut = false;
+  private leadNoteT = 0;
+  private hudFade: CanvasGradient | null = null;
+  private difficulty: Difficulty = readDifficulty();
+  private levelBests = readLevelBests();
+  private newLevelBest = false;
+  /** Seconds idle on the title; drives the attract cards. */
+  private titleIdle = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -417,17 +548,35 @@ export class Game {
   start() {
     this.running = true;
     this.last = performance.now();
+    // Fixed 120 Hz simulation so fire rate, jumps, and hit windows do not drift with frame time.
+    const STEP = 1 / 120;
+    let acc = 0;
     const loop = (now: number) => {
       if (!this.running) return;
-      let dt = Math.min(0.033, (now - this.last) / 1000);
+      acc += Math.min(0.1, (now - this.last) / 1000);
       this.last = now;
-      if (this.hitStop > 0) {
-        this.hitStop = Math.max(0, this.hitStop - dt);
-        dt *= 0.12;
+      this.input.pollGamepad();
+      let steps = 0;
+      let edgesLive = true;
+      while (acc >= STEP && steps < 8) {
+        acc -= STEP;
+        steps += 1;
+        let dt = STEP;
+        if (this.hitStop > 0) {
+          this.hitStop = Math.max(0, this.hitStop - STEP);
+          dt *= 0.12;
+        }
+        if (this.bossIntroT > 0 || this.bossOutroT > 0) dt *= 0.22;
+        this.update(dt, STEP);
+        // Edge inputs (jump/confirm/EMP) fire on the first substep only.
+        if (edgesLive) {
+          this.input.tick();
+          edgesLive = false;
+        }
       }
-      this.update(dt);
+      if (steps === 8) acc = 0;
+      this.frame += 1;
       this.render();
-      this.input.tick();
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
@@ -466,9 +615,20 @@ export class Game {
     return this.mode === "title" || this.mode === "upgrade";
   }
 
+  /** Center plate — reserved for things that change what the player is doing. NIX chatter goes to the ticker. */
   private announce(text: string, time = 2.2) {
+    if (text.startsWith("NIX:")) {
+      this.note(text, time);
+      return;
+    }
     this.msg = text;
     this.msgTimer = time;
+  }
+
+  /** Bottom ticker — pickups, progress crumbs, CAPCOM lines. Never blocks the center of the screen. */
+  private note(text: string, time = 2.2) {
+    this.ticker = text;
+    this.tickerT = time;
   }
 
   private syncStage() {
@@ -590,7 +750,7 @@ export class Game {
   }
 
   private resetPlayer(mode: "ground" | "ship" | "eva") {
-    const hp = 300 + this.upgrades.armor * 24;
+    const hp = Math.round((300 + this.upgrades.armor * 24) * DIFFICULTY_TIER[this.difficulty].playerHp);
     const animLib = mode === "ship" ? "ship" : mode === "eva" ? "ash-eva" : "ash";
     this.player = {
       x: mode === "ship" ? 220 : 140,
@@ -619,6 +779,8 @@ export class Game {
     };
     this.weapon = "coil";
     this.ammo = 80 + this.upgrades.mag * 25;
+    this.stash = null;
+    this.stashAmmo = 0;
     this.cooldown = 0;
     this.specialMax = 3 + this.upgrades.special;
     this.special = this.specialMax;
@@ -636,7 +798,18 @@ export class Game {
     };
   }
 
-  private beginLevel(id: LevelId) {
+  /**
+   * `retry` = continuing after a death. A continue costs everything earned since the last
+   * checkpoint (goal 2/2) or, before one exists, since the level began.
+   */
+  private beginLevel(id: LevelId, retry = false) {
+    const cp = retry ? this.checkpoint : null;
+    if (!retry) {
+      this.checkpoint = null;
+      this.levelStartScrap = this.scrap;
+    } else if (!cp) {
+      this.scrap = this.levelStartScrap;
+    }
     this.levelId = id;
     this.enemies = [];
     this.bullets = [];
@@ -644,9 +817,23 @@ export class Game {
     this.pickups = [];
     this.booms = [];
     this.impacts = [];
+    this.corpses = [];
     this.boss = null;
     this.camX = 0;
     this.score = 0;
+    this.kills = 0;
+    this.killPts = 0;
+    this.bossPts = 0;
+    this.hitsTaken = 0;
+    this.failReason = "";
+    this.bossIntroT = 0;
+    this.bossOutroT = 0;
+    this.bossOutroBoomT = 0;
+    this.clearT = 0;
+    this.results = [];
+    this.ticker = "";
+    this.tickerT = 0;
+    this.jumpCut = false;
     this.rescued = 0;
     this.stinger = false;
     this.gates = [];
@@ -801,9 +988,71 @@ export class Game {
       this.spawnEnemy("spine", 1750, 0.45, 30);
     }
 
+    if (cp) this.restoreCheckpoint(cp);
     this.syncStage();
+    music.setLevel(id);
     this.mode = "briefing";
-    this.announce(`${this.level.name}`);
+    this.msgTimer = 0;
+  }
+
+  private saveCheckpoint() {
+    this.checkpoint = {
+      scrap: this.scrap,
+      score: this.score,
+      killPts: this.killPts,
+      bossPts: this.bossPts,
+      rescued: this.rescued,
+      kills: this.kills,
+      hitsTaken: this.hitsTaken,
+      elapsed: this.level.elapsed,
+    };
+  }
+
+  /** Rebuild the goal-2/2 state for the current level from a saved checkpoint. */
+  private restoreCheckpoint(cp: Checkpoint) {
+    this.scrap = cp.scrap;
+    this.score = cp.score;
+    this.killPts = cp.killPts;
+    this.bossPts = cp.bossPts;
+    this.rescued = cp.rescued;
+    this.kills = cp.kills;
+    this.hitsTaken = cp.hitsTaken;
+    this.level.elapsed = cp.elapsed;
+    if (this.levelId === 1) {
+      if (this.truck) {
+        this.truck.x = PAD7_X;
+        this.truck.arrived = true;
+        this.truck.moving = false;
+      }
+      this.techs.forEach((t, i) => (t.rescued = i < cp.rescued));
+      this.player.x = PAD7_X - 80;
+    } else if (this.levelId === 2) {
+      let lastX = 0;
+      for (const g of this.gates) {
+        g.hit = true;
+        lastX = Math.max(lastX, g.x);
+      }
+      this.level.gatesCleared = this.gates.length;
+      this.level.scroll = lastX + 60;
+      this.player.x = this.level.scroll + 200;
+    } else {
+      this.enemies = this.enemies.filter((e) => e.kind !== "spine");
+      this.level.spinesDown = this.level.spinesNeeded;
+      this.player.x = PRIME_ARENA_X - 460;
+    }
+    this.camX =
+      this.levelId === 2
+        ? this.level.scroll
+        : clamp(this.player.x - W * 0.36, 0, Math.max(0, this.level.length - W));
+    this.camXTarget = this.camX;
+    if (this.levelId === 1) this.unlockTowerClimb();
+    else if (this.levelId === 2) this.setGoalPhase2();
+    else this.unlockPrimeArena();
+    this.msgTimer = 0;
+    this.tickerT = 0;
+    this.twistCueT = 0;
+    this.twistCue = "";
+    this.shake = 0;
   }
 
   private setGoalPhase2() {
@@ -816,6 +1065,7 @@ export class Game {
     this.announce(`GOAL 2/2 · ${this.level.goalB}`, 2.8);
     this.shake = 8;
     if (this.levelId === 2) this.fireSetPiece("stage-sep");
+    this.saveCheckpoint();
   }
 
   private unlockTowerClimb() {
@@ -900,10 +1150,12 @@ export class Game {
     return this.enemies.filter((e) => !e.dead && e.kind !== "spine").length;
   }
 
+  /** Authored twist: center plate for the beat itself, ticker keeps the instruction up a little longer. */
   private cue(text: string, time = 2.4) {
+    this.msg = text;
+    this.msgTimer = Math.min(time, 1.4);
     this.twistCue = text;
-    this.twistCueT = time;
-    this.announce(text, time);
+    this.twistCueT = time + 1.2;
   }
 
   private spineArmored(e: Actor): boolean {
@@ -1164,8 +1416,8 @@ export class Game {
       vHop: 0,
       w: this.levelId === 3 ? 100 : 90,
       h: this.levelId === 3 ? 80 : 70,
-      hp: b.hp,
-      maxHp: b.hp,
+      hp: Math.round(b.hp * DIFFICULTY_TIER[this.difficulty].hp),
+      maxHp: Math.round(b.hp * DIFFICULTY_TIER[this.difficulty].hp),
       dead: false,
       facing: -1,
       kind: b.id,
@@ -1180,18 +1432,163 @@ export class Game {
     };
     this.level.bossSpawned = true;
     this.mode = "boss";
-    this.announce(`BOSS · ${b.name}`, 2.5);
+    this.bossIntroT = BOSS_INTRO_S;
+    this.bullets = this.bullets.filter((sh) => sh.friendly);
+    this.msgTimer = 0;
     this.shake = 10;
-    this.hitStop = 0.12;
     sfx.boss();
   }
 
+  /** Boss HP hit zero: freeze it, chain booms in slow-mo, then hand off to `onBossDefeated`. */
+  private beginBossOutro(boss: Actor) {
+    boss.hp = 0;
+    boss.stun = 999;
+    this.bossOutroT = BOSS_OUTRO_S;
+    this.bossOutroBoomT = 0;
+    this.bullets = this.bullets.filter((sh) => sh.friendly);
+    this.enemies.forEach((e) => {
+      if (e.kind !== "spine") this.killEnemy(e);
+    });
+    this.invuln = Math.max(this.invuln, BOSS_OUTRO_S + 0.5);
+    this.shake = 14;
+    this.hitStop = 0.1;
+    this.msgTimer = 0;
+    sfx.explode();
+  }
+
+  private tickBossOutro(realDt: number) {
+    const boss = this.boss;
+    if (!boss) {
+      this.bossOutroT = 0;
+      return;
+    }
+    this.bossOutroT = Math.max(0, this.bossOutroT - realDt);
+    this.bossOutroBoomT -= realDt;
+    boss.flash = 0.2;
+    if (this.bossOutroBoomT <= 0) {
+      this.bossOutroBoomT = 0.17;
+      const ox = (Math.random() - 0.5) * boss.w * 1.2;
+      const oh = (Math.random() - 0.4) * boss.h;
+      this.boom(boss.x + ox, boss.z, boss.hop + oh, 0.9 + Math.random() * 0.6, Math.random() < 0.3 ? "ion" : "fire");
+      this.burst(boss.x + ox, boss.z, boss.hop + oh, Math.random() < 0.5 ? C.cyan : C.pad, 8, "debris");
+      this.shake = Math.max(this.shake, 6);
+      sfx.hit("rocket");
+    }
+    if (this.bossOutroT <= 0) this.onBossDefeated(boss);
+  }
+
+  private onBossDefeated(boss: Actor) {
+    boss.dead = true;
+    this.level.bossDefeated = true;
+    this.burst(boss.x, boss.z, boss.hop, C.cyan, 40);
+    this.boom(boss.x, boss.z, boss.hop, 2.6, "ion");
+    this.scrap += boss.scrap ?? 40;
+    this.score += 2500;
+    this.bossPts += 2500;
+    this.popScore(boss.x, boss.z, boss.hop, "+2500", C.cyan);
+    this.shake = 18;
+    this.hitStop = 0.18;
+    this.screenFlash = 0.5;
+    sfx.explode();
+    if (this.levelId === 2) {
+      this.circRings = [
+        { x: this.player.x + 280, z: 0.35, hit: false, vz: 0.11 },
+        { x: this.player.x + 520, z: 0.65, hit: false, vz: -0.13 },
+        { x: this.player.x + 760, z: 0.45, hit: false, vz: 0.1 },
+      ];
+      this.level.circCleared = 0;
+      this.fireSetPiece("circ-drift");
+      this.mode = "play";
+      this.announce("SERAPH DOWN", 1.6);
+      this.note("NIX: Hold circularization — thread the rings ahead!", 3.2);
+    } else if (this.levelId === 1) {
+      this.boardReady = true;
+      this.mode = "play";
+      this.announce("REAPER DOWN", 1.6);
+      this.note("NIX: Path clear — keep RIGHT, board BLACK FINCH!", 3.2);
+    } else {
+      this.stinger = true;
+      this.finishLevel(`${BOSS[this.levelId].name} DOWN`, 0);
+    }
+  }
+
+  /** Enter the results screen. Bonuses are itemized here so the score is legible, not a blob. */
+  private finishLevel(headline: string, clearPts: number) {
+    if (this.mode === "clear") return;
+    this.score += clearPts;
+    this.bossPts += clearPts;
+    const par = LEVEL_PAR[this.levelId];
+    const parLeft = Math.max(0, par - this.level.elapsed);
+    const parPts = Math.round(parLeft * PAR_PTS_PER_S);
+    const escortPts = this.levelId === 1 && this.truck ? Math.round(this.truck.hp * 3) : 0;
+    const objPts = Math.max(0, this.score - this.killPts - this.bossPts);
+    const lines: ResultLine[] = [{ label: headline, value: "", pts: 0 }];
+    lines.push({ label: "HOSTILES DOWN", value: `${this.kills}`, pts: this.killPts });
+    if (this.levelId === 1) {
+      lines.push({ label: "TECHS RESCUED", value: `${this.rescued}/${this.techs.length}`, pts: objPts });
+      lines.push({ label: "TRUCK INTEGRITY", value: `${Math.ceil(this.truck?.hp ?? 0)}`, pts: escortPts });
+    } else if (this.levelId === 2) {
+      lines.push({ label: "GATES · CIRC", value: `${this.level.gatesCleared}/${this.gates.length} · ${this.level.circCleared}/${this.level.circNeeded}`, pts: objPts });
+    } else {
+      lines.push({ label: "SPINES SEVERED", value: `${this.level.spinesDown}/${this.level.spinesNeeded}`, pts: objPts });
+    }
+    lines.push({ label: "BOSS · OBJECTIVE", value: "", pts: this.bossPts });
+    lines.push({ label: "PAR TIME", value: `${fmtTime(this.level.elapsed)} / ${fmtTime(par)}`, pts: parPts });
+    lines.push({ label: "HITS TAKEN", value: `${this.hitsTaken}`, pts: this.hitsTaken === 0 ? 1500 : 0 });
+    lines.push({ label: "CONTINUES", value: `${this.continues}`, pts: 0 });
+    this.score += parPts + escortPts + (this.hitsTaken === 0 ? 1500 : 0);
+    const diff = DIFFICULTY_TIER[this.difficulty];
+    if (diff.score !== 1) {
+      const bonus = Math.round(this.score * (diff.score - 1));
+      lines.push({ label: `DIFFICULTY · ${diff.label}`, value: `×${diff.score}`, pts: bonus });
+      this.score += bonus;
+    }
+    this.results = lines;
+    this.rank = this.computeRank();
+    const prev = this.levelBests[this.levelId];
+    this.newLevelBest = !prev || this.score > prev.score;
+    if (this.newLevelBest) {
+      this.levelBests[this.levelId] = { score: this.score, rank: this.rank, difficulty: this.difficulty };
+      writeLevelBests(this.levelBests);
+    }
+    this.clearT = 0;
+    this.mode = "clear";
+    this.msgTimer = 0;
+    this.tickerT = 0;
+    this.shake = 10;
+  }
+
+  private computeRank(): Rank {
+    const ratio = this.score / RANK_TARGET[this.levelId];
+    let r: Rank = ratio >= 1.2 ? "S" : ratio >= 1 ? "A" : ratio >= 0.62 ? "B" : ratio >= 0.36 ? "C" : "D";
+    const order: Rank[] = ["D", "C", "B", "A", "S"];
+    let i = order.indexOf(r);
+    if (this.hitsTaken === 0) i = Math.min(4, i + 1);
+    if (this.continues > 0) i = Math.min(i, 2);
+    r = order[i]!;
+    return r;
+  }
+
+  /** Mission fail that is not Ash dying (truck lost). Same continue flow, distinct read. */
+  private failMission(reason: string) {
+    if (this.player.dead || this.mode === "dead") return;
+    this.player.dead = true;
+    this.failReason = reason;
+    this.mode = "dead";
+    this.shake = 12;
+    this.screenFlash = 0.3;
+    this.announce(reason, 99);
+    sfx.death();
+  }
+
   private hurtPlayer(dmg: number) {
-    if (this.invuln > 0 || this.player.dead) return;
+    if (this.invuln > 0 || this.player.dead || this.mode === "clear") return;
     this.player.hp -= dmg;
     this.player.flash = 0.25;
     this.invuln = 0.85;
+    this.hitsTaken += 1;
     this.shake = Math.max(this.shake, 7);
+    this.hitStop = Math.max(this.hitStop, 0.05);
     this.combo = 0;
     this.comboTimer = 0;
     this.screenFlash = Math.max(this.screenFlash, 0.16);
@@ -1199,6 +1596,7 @@ export class Game {
     if (this.player.hp <= 0) {
       this.player.hp = 0;
       this.player.dead = true;
+      this.failReason = "";
       this.mode = "dead";
       this.burst(this.player.x, this.player.z, this.player.hop, C.pad, 28);
       this.boom(this.player.x, this.player.z, this.player.hop, 1.6, "fire");
@@ -1372,14 +1770,7 @@ export class Game {
       shootOne(0, 0);
     }
     this.cooldown = def.cooldown * cdMul;
-    if (this.weapon !== "pistol") {
-      this.ammo -= 1;
-      if (this.ammo <= 0) {
-        this.weapon = "pistol";
-        this.ammo = 999;
-        this.announce("SIDEARM ONLY");
-      }
-    }
+    this.spendAmmo();
     if (def.heat) this.heat = Math.min(1.4, this.heat + 0.045);
     this.burst(this.player.x + dir * 20, this.player.z, this.player.hop + 16, C.warn, 3);
     this.player.shooting = true;
@@ -1403,6 +1794,49 @@ export class Game {
     sfx.shoot(def.id);
   }
 
+  /** One round off the mag; an empty mag falls through to the stash, then the sidearm. */
+  private spendAmmo() {
+    if (this.weapon === "pistol") return;
+    this.ammo -= 1;
+    if (this.ammo > 0) return;
+    if (this.stash) {
+      this.weapon = this.stash;
+      this.ammo = this.stashAmmo;
+      this.stash = null;
+      this.stashAmmo = 0;
+      this.railCharge = 0;
+      this.announce(`${WEAPONS[this.weapon].name}`, 1);
+      sfx.ui();
+    } else {
+      this.weapon = "pistol";
+      this.ammo = 999;
+      this.announce("SIDEARM ONLY", 1.2);
+    }
+  }
+
+  /** L / Shift / SWAP: trade the live gun for the stashed one. */
+  private swapWeapon() {
+    if (!this.stash) {
+      this.note("No stashed weapon — grab a second gun to swap.", 1.2);
+      return;
+    }
+    const w = this.weapon;
+    const a = this.ammo;
+    this.weapon = this.stash;
+    this.ammo = this.stashAmmo;
+    if (w === "pistol") {
+      this.stash = null;
+      this.stashAmmo = 0;
+    } else {
+      this.stash = w;
+      this.stashAmmo = a;
+    }
+    this.railCharge = 0;
+    this.cooldown = Math.max(this.cooldown, 0.12);
+    this.note(`⇄ ${WEAPONS[this.weapon].name}${this.stash ? ` · stashed ${WEAPONS[this.stash].name}` : ""}`, 1.4);
+    sfx.ui();
+  }
+
   private fireRail(charge: number) {
     const def = WEAPONS.rail;
     const dmgMul = 1 + this.upgrades.damage * 0.12;
@@ -1424,13 +1858,7 @@ export class Game {
       look: "rail",
     });
     this.cooldown = def.cooldown * (1 - this.upgrades.fireRate * 0.08);
-    if (this.weapon !== "pistol") {
-      this.ammo -= 1;
-      if (this.ammo <= 0) {
-        this.weapon = "pistol";
-        this.ammo = 999;
-      }
-    }
+    this.spendAmmo();
     this.shake = Math.max(this.shake, 5 + power * 6);
     this.hitStop = 0.045;
     this.muzzle = 0.1;
@@ -1474,14 +1902,36 @@ export class Game {
   private killEnemy(e: Actor) {
     if (e.dead) return;
     e.dead = true;
-    this.burst(e.x, e.z, e.hop, e.kind === "spine" ? C.warn : C.cyan, 16);
+    this.burst(e.x, e.z, e.hop, e.kind === "spine" ? C.warn : C.cyan, 12);
+    this.burst(e.x, e.z, e.hop + 6, C.metal, 6, "debris");
     this.boom(e.x, e.z, e.hop, e.kind === "walker" || e.kind === "spine" ? 1.4 : 0.9, e.kind === "spine" ? "ion" : "fire");
+    if (e.kind !== "mine" && e.kind !== "spine") {
+      // Husk tumbles away from Ash and fades — a body, not a vanish.
+      const away = Math.sign(e.x - this.player.x) || 1;
+      this.corpses.push({
+        img: this.animImage(e),
+        kind: e.kind,
+        x: e.x,
+        z: e.z,
+        hop: e.hop,
+        vx: away * (70 + Math.random() * 90),
+        vHop: 150 + Math.random() * 120,
+        rot: 0,
+        vRot: away * (5 + Math.random() * 6),
+        life: 0.6,
+        max: 0.6,
+        h: enemyBaseH(e.kind),
+        facing: e.facing,
+      });
+    }
     this.combo += 1;
     this.comboTimer = 2.15;
     const base = KILL_SCORE[e.kind] ?? 100;
     const mult = Math.min(4, 1 + this.combo * 0.12);
     const gained = Math.round(base * mult);
     this.score += gained;
+    this.killPts += gained;
+    this.kills += 1;
     this.scrap += e.scrap ?? 2;
     this.popScore(e.x, e.z, e.hop, this.combo > 1 ? `${gained} x${this.combo}` : `+${gained}`);
     this.shake = Math.max(this.shake, 3);
@@ -1542,11 +1992,12 @@ export class Game {
       vx: (dx / len) * speed * t.spd,
       vz: (dzWorld / len) * ((speed * t.spd) / 180),
       vHop: (dh / len) * speed * t.spd,
-      r: heavy ? 5 : 3,
+      r: heavy ? 5 : 3.5,
       dmg: dmg * t.dmg,
       life: 2.2,
       friendly: false,
-      color: heavy ? C.pad : C.cyan,
+      // Hostile fire is always hot-colored; cyan belongs to the player and the UI.
+      color: heavy ? C.pad : C.blood,
       look: "hostile",
     });
   }
@@ -1703,8 +2154,9 @@ export class Game {
             telegraph();
           }
         } else {
-          if (e.timer > 0.18 && e.timer < 0.22) this.enemyShot(e, 260, 10);
-          if (e.timer > 0.7) {
+          // Reveal → 0.42 s to turn around → shot. Aft teleport is spicy, not instant.
+          if (e.timer > 0.42 && e.timer < 0.46) this.enemyShot(e, 260, 10);
+          if (e.timer > 0.95) {
             e.phase = 0;
             e.timer = 0;
             e.revealed = 0.25;
@@ -1744,9 +2196,17 @@ export class Game {
         break;
       }
       case "turret":
-        if (this.canFire(e, fire(1.35))) {
+        // Wind-up (flash + beep) before every lob so the splash is dodgeable on read, not on luck.
+        if (e.phase === 0) {
+          if (this.canFire(e, fire(1.35))) {
+            e.phase = 1;
+            e.timer = 0;
+            telegraph();
+          }
+        } else if (e.timer > 0.34) {
           this.enemyLob(e, 12);
           playAnim(e.anim, "attack", 0.25);
+          e.phase = 0;
         }
         break;
       case "hackbot":
@@ -1754,22 +2214,33 @@ export class Game {
           const away = Math.sign(e.x - this.player.x) || 1;
           e.x += away * move(110) * dt;
           e.z += (0.5 - e.z) * dt;
-        } else {
-          e.x += Math.sign(this.player.x - e.x) * move(70) * dt;
-          e.z += (pz - e.z) * 1.4 * dt;
-          if (
-            dist < 50 &&
-            zOverlap(pz, e.z, 0.22)
-          ) {
+        } else if (e.phase === 1) {
+          // Latching: 0.45 s window to kick it off before the steal lands.
+          e.x += Math.sign(this.player.x - e.x) * move(30) * dt;
+          e.flash = Math.max(e.flash, 0.1);
+          const near = dist < 62 && zOverlap(pz, e.z, 0.26);
+          if (!near) {
+            e.phase = 0;
+            e.timer = 0;
+          } else if (e.timer > 0.45) {
             if (this.weapon !== "pistol" && !e.stolenWpn) {
               e.stolenWpn = this.weapon;
               this.weapon = "pistol";
               this.ammo = 999;
-              e.phase = 3;
               this.cue("WEAPON STOLEN — chase the hackbot!", 2.2);
               sfx.warn();
             }
             this.hurtPlayer(8);
+            e.phase = 3;
+          }
+        } else {
+          e.x += Math.sign(this.player.x - e.x) * move(70) * dt;
+          e.z += (pz - e.z) * 1.4 * dt;
+          if (dist < 50 && zOverlap(pz, e.z, 0.22)) {
+            e.phase = 1;
+            e.timer = 0;
+            telegraph();
+            this.note("NIX: Hackbot latching — kick it off!", 1.2);
           }
         }
         break;
@@ -1785,15 +2256,34 @@ export class Game {
           e.x += (truck.x + 40 - e.x) * 3 * dt;
           e.z += (truck.z - e.z) * 3 * dt;
           this.fireSetPiece("walker-clamp");
-          if (this.canFire(e, fire(1.4))) this.enemyShot(e, 300, 12, true);
         } else {
           e.x += move(-35) * dt;
           e.z += (pz - e.z) * 0.4 * dt;
-          if (dist > 260) {
-            if (this.canFire(e, fire(1.7))) this.enemyLob(e, 16);
+        }
+        // phase 1 = wind-up; phase 2 = lob wind-up
+        if (e.phase === 0) {
+          if (clamping) {
+            if (this.canFire(e, fire(1.4))) {
+              e.phase = 1;
+              e.timer = 0;
+              telegraph();
+            }
+          } else if (dist > 260) {
+            if (this.canFire(e, fire(1.7))) {
+              e.phase = 2;
+              e.timer = 0;
+              telegraph();
+            }
           } else if (this.canFire(e, fire(1.15))) {
-            this.enemyShot(e, 320, 14, true);
+            e.phase = 1;
+            e.timer = 0;
+            telegraph();
           }
+        } else if (e.timer > 0.3) {
+          if (e.phase === 2) this.enemyLob(e, 16);
+          else this.enemyShot(e, clamping ? 300 : 320, clamping ? 12 : 14, true);
+          playAnim(e.anim, "attack", 0.3);
+          e.phase = 0;
         }
         break;
       }
@@ -1802,7 +2292,16 @@ export class Game {
         e.x += Math.sign(this.player.x - e.x) * move(70) * dt * 0.35;
         e.z += (pz - e.z) * 1.6 * dt;
         e.hop += (this.player.hop - e.hop) * 1.3 * dt;
-        if (this.canFire(e, fire(1.45))) this.enemyShot(e, 200, 10);
+        if (e.phase === 0) {
+          if (this.canFire(e, fire(1.45))) {
+            e.phase = 1;
+            e.timer = 0;
+            telegraph();
+          }
+        } else if (e.timer > 0.26) {
+          this.enemyShot(e, 200, 10);
+          e.phase = 0;
+        }
         break;
       case "mine":
         e.hop += Math.sin(e.timer) * 6 * dt;
@@ -1906,16 +2405,24 @@ export class Game {
         2.2,
       );
       sfx.boss();
-      this.shake = 8;
+      // Phase turn is a beat: freeze, flash, and clear the screen of its old pattern.
+      this.shake = 10;
+      this.hitStop = Math.max(this.hitStop, 0.14);
+      this.screenFlash = Math.max(this.screenFlash, 0.35);
+      this.bullets = this.bullets.filter((sh) => sh.friendly);
+      b.flash = 0.3;
       if (b.kind === "reaper" && b.phase === 3) this.fireSetPiece("deck-slam");
       if (b.kind === "prime" && b.phase === 3) this.fireSetPiece("arena-shrink");
       b.timer = 0;
     }
     b.z = clamp(0.45 + Math.sin(b.timer * 0.7) * 0.12, this.laneMin, this.laneMax);
+    b.weak = null;
 
     if (b.kind === "reaper") {
       b.x = BOARD_X - 20 + Math.sin(b.timer * 0.5) * 30;
       b.hop = BOARD_HOP - 20;
+      // P3: the claw is embedded; the weld core hangs open under the cab.
+      if (b.phase === 3) b.weak = { dx: -34, dhop: -46, r: 26, mul: 2.4, label: "CORE" };
       if (b.phase === 1) {
         if (b.timer > 1.5) {
           b.timer = 0;
@@ -1970,7 +2477,9 @@ export class Game {
           this.cue("SERAPH AFT — SPEAR", 1.1);
         }
       } else if (b.timer < 1.9) {
+        // Spear dash: wings folded, belly reactor exposed for the length of the pass.
         b.x += 640 * dt;
+        b.weak = { dx: 6, dhop: -30, r: 24, mul: 2.4, label: "REACTOR" };
       } else {
         b.timer = 0;
         b.x = this.camX + W - 160;
@@ -2024,8 +2533,10 @@ export class Game {
     );
     truck.moving = this.level.goalPhase === 1 && !truck.clamped;
     if (truck.moving) {
+      // The truck is the metronome of Goal A: a steady crawl (~50 s to Pad 7) that never
+      // stops for Ash, plus a gentle catch-up so leading it forward still feels rewarded.
       const gap = this.player.x - truck.x;
-      const speed = gap > 40 ? Math.min(250, 90 + (gap - 40) * 1.8) : 70;
+      const speed = gap > 60 ? Math.min(66, 44 + (gap - 60) * 0.1) : 44;
       truck.x += speed * dt;
       truck.z += (this.player.z - truck.z) * 1.8 * dt;
     }
@@ -2045,8 +2556,8 @@ export class Game {
     if (truck.hp <= 0) {
       truck.hp = 0;
       this.burst(truck.x, truck.z, 0, C.pad, 30);
-      this.announce("FUEL TRUCK DESTROYED");
-      this.hurtPlayer(999);
+      this.boom(truck.x, truck.z, 10, 1.8, "fire");
+      this.failMission("CONVOY LOST · FUEL TRUCK DESTROYED");
       return;
     }
     if (truck.x >= PAD7_X) {
@@ -2062,16 +2573,16 @@ export class Game {
   private recycleMissedGates() {
     for (const g of this.gates) {
       if (!g.hit && this.player.x > g.x + 90) {
+        // Requeue ahead at the same authored depth — a miss costs time, not a new lane to learn.
         g.x = this.player.x + 380 + Math.random() * 80;
-        g.z = 0.2 + Math.random() * 0.6;
-        this.announce(`GATE REQUEUED · match ${laneLabel(g.z)}`, 1.6);
+        this.note(`GATE REQUEUED · match ${laneLabel(g.z)}`, 1.6);
       }
     }
   }
 
   private updatePlay(dt: number) {
-    this.frame += 1;
     this.level.elapsed += dt;
+    this.tickerT = Math.max(0, this.tickerT - dt);
     this.cooldown = Math.max(0, this.cooldown - dt);
     this.invuln = Math.max(0, this.invuln - dt);
     this.heat = Math.max(0, this.heat - dt * 0.35);
@@ -2114,22 +2625,7 @@ export class Game {
     }
     const mob = 1 + this.upgrades.mobility * 0.08;
 
-    if (this.levelId === 1) {
-      const prevClock = this.level.killClock;
-      this.level.killClock = Math.max(0, this.level.killClock - dt);
-      if (
-        this.level.killClock < 12 &&
-        this.level.killClock > 0 &&
-        Math.ceil(this.level.killClock) !== Math.ceil(prevClock)
-      ) {
-        sfx.warn();
-      }
-      if (this.level.killClock <= 0 && !this.level.bossDefeated) {
-        this.hurtPlayer(999);
-        this.announce("KILL-CLOCK ZERO");
-      }
-      this.updateTruck(dt);
-    }
+    if (this.levelId === 1) this.updateTruck(dt);
 
     this.updateIntensityPacing(dt);
 
@@ -2162,7 +2658,9 @@ export class Game {
       const targetVx = ax * 220 * mob;
       const rate = ax !== 0 ? 14 : 18;
       this.player.vx += (targetVx - this.player.vx) * (1 - Math.exp(-rate * dt));
-      this.player.vz = az * 0.55 * mob;
+      // Depth eases like X so stick noise does not twitch the lane.
+      const targetVz = az * 0.55 * mob;
+      this.player.vz += (targetVz - this.player.vz) * (1 - Math.exp(-16 * dt));
       if (ax) this.player.facing = ax > 0 ? 1 : -1;
       this.player.vHop -= 1400 * this.gScale * dt;
       if (this.input.jumpJust()) this.jumpBuf = 0.14;
@@ -2173,7 +2671,19 @@ export class Game {
         this.player.grounded = false;
         this.coyote = 0;
         this.jumpBuf = 0;
+        this.jumpCut = false;
         sfx.jump();
+      }
+      // Short hop on early release — the classic variable jump.
+      if (
+        !this.player.grounded &&
+        !this.jumpCut &&
+        this.player.vHop > 140 &&
+        this.player.hop > 14 &&
+        !this.input.jumpHeld()
+      ) {
+        this.player.vHop *= 0.48;
+        this.jumpCut = true;
       }
       this.player.x += this.player.vx * dt;
       this.player.z = clamp(this.player.z + this.player.vz * dt, this.laneMin, this.laneMax);
@@ -2208,6 +2718,19 @@ export class Game {
       this.player.grounded = onGround;
       this.landSquash = Math.max(0, this.landSquash - dt);
       this.player.x = clamp(this.player.x, 40, this.level.length - 40);
+      // Escort lock: Ash can lead the convoy by a screen-third, not abandon it.
+      this.leadNoteT = Math.max(0, this.leadNoteT - dt);
+      if (this.levelId === 1 && this.truck && !this.truck.arrived && this.level.goalPhase === 1) {
+        const cap = this.truck.x + TRUCK_LEAD;
+        if (this.player.x > cap) {
+          this.player.x = cap;
+          this.player.vx = Math.min(this.player.vx, 0);
+          if (this.leadNoteT <= 0) {
+            this.note("NIX: Don't outrun the fuel — hold the line until the truck catches up.", 2.4);
+            this.leadNoteT = 6;
+          }
+        }
+      }
       const look = this.player.facing * 70;
       this.camXTarget = clamp(this.player.x - W * 0.36 + look, 0, this.level.length - W);
       this.camX += (this.camXTarget - this.camX) * (1 - Math.exp(-7 * dt));
@@ -2221,10 +2744,7 @@ export class Game {
         this.player.x > BOARD_X - 50 &&
         this.player.hop >= BOARD_HOP - 30
       ) {
-        this.mode = "clear";
-        this.announce("BLACK FINCH · BOARDED", 3);
-        this.score += 1200;
-        this.shake = 10;
+        this.finishLevel("BLACK FINCH · BOARDED", 1200);
       }
     } else if (this.player.kind === "ship") {
       this.level.scroll += 140 * dt;
@@ -2235,12 +2755,18 @@ export class Game {
       const tvz = az * 0.72 * mob;
       this.player.vx += (tvx - this.player.vx) * (1 - Math.exp(-11 * dt));
       this.player.vz += (tvz - this.player.vz) * (1 - Math.exp(-11 * dt));
-      this.shipThrust = Math.hypot(ax, az) > 0.12 ? 1 : 0.35;
+      const climbing = this.input.jumpHeld();
+      this.shipThrust = Math.hypot(ax, az) > 0.12 || climbing ? 1 : 0.35;
       const padL = isTouchPrimary() ? 90 : 60;
       const padR = isTouchPrimary() ? 130 : 80;
       this.player.x = clamp(this.player.x + this.player.vx * dt, this.camX + padL, this.camX + W - padR);
       this.player.z = clamp(this.player.z + this.player.vz * dt, this.laneMin, this.laneMax);
-      this.player.hop = 30 + (1 - this.player.z) * 50;
+      // Altitude is its own axis: hold JUMP to climb, release to sink. Depth stays on W/S.
+      this.player.vHop += (climbing ? 560 : -360) * dt;
+      this.player.vHop *= Math.exp(-2.6 * dt);
+      this.player.hop = clamp(this.player.hop + this.player.vHop * dt, 12, 130);
+      if (this.player.hop <= 12 || this.player.hop >= 130) this.player.vHop = 0;
+      if (this.input.jumpJust()) sfx.jump();
       this.camLean += (az * 0.1 - this.camLean) * 5 * dt;
       for (const g of this.gates) {
         if (g.vz) {
@@ -2276,7 +2802,7 @@ export class Game {
           this.scrap += 5;
           this.score += 250;
           this.popScore(this.player.x, this.player.z, this.player.hop, "+GATE");
-          this.announce(`GATE ${this.level.gatesCleared}/${this.gates.length} · ${laneLabel(g.z)}`);
+          this.note(`GATE ${this.level.gatesCleared}/${this.gates.length} · ${laneLabel(g.z)}`);
           this.burst(this.player.x, this.player.z, this.player.hop, C.warn, 10);
           sfx.gate();
           if (this.level.gatesCleared >= this.gates.length) {
@@ -2296,15 +2822,13 @@ export class Game {
           this.scrap += 6;
           this.score += 300;
           this.popScore(this.player.x, this.player.z, this.player.hop, "+CIRC");
-          this.announce(
+          this.note(
             `CIRC ${this.level.circCleared}/${this.level.circNeeded} · ${laneLabel(ring.z)}`,
           );
           this.burst(this.player.x, this.player.z, this.player.hop, C.cyan, 12);
           sfx.gate();
           if (this.level.circCleared >= this.level.circNeeded) {
-            this.mode = "clear";
-            this.announce("LEO INSERTION · CLEAN", 3);
-            this.score += 1500;
+            this.finishLevel("LEO INSERTION · CLEAN", 1500);
           }
         }
       }
@@ -2374,6 +2898,7 @@ export class Game {
     } else if (shooting) this.fireWeapon();
     this.wasShooting = shooting;
     if (this.input.specialJust()) this.fireSpecial();
+    if (this.input.swapJust()) this.swapWeapon();
     this.drivePlayerAnim(dt);
 
     for (const e of this.enemies) {
@@ -2417,12 +2942,17 @@ export class Game {
               continue;
             }
             let dmg = b.dmg;
-            if (e.kind === "walker" && this.player.x > e.x) dmg *= 1.85;
+            const rearShot = e.kind === "walker" && this.player.x > e.x;
+            if (rearShot) {
+              dmg *= 1.85;
+              this.popScore(e.x, e.z, e.hop + 10, "REAR HIT", C.warn);
+            }
             if (e.kind === "spine" && this.spineArmored(e)) dmg *= 0.35;
             e.hp -= dmg;
             e.flash = 0.06;
             b.hits.add(e.uid);
             this.sparkHit(e.x, e.z, e.hop + e.h * 0.2, b.look);
+            this.hitStop = Math.max(this.hitStop, b.look === "rail" ? 0.04 : 0.016);
             sfx.hit(b.look);
             if (!b.pierce) b.life = 0;
             if (b.blast) this.aoe(b.x, b.z, b.hop, b.blast, b.dmg * 0.6, e.uid);
@@ -2430,7 +2960,7 @@ export class Game {
             if (!b.pierce) break;
           }
         }
-        if (this.boss && !this.boss.dead && b.life > 0) {
+        if (this.boss && !this.boss.dead && this.bossOutroT <= 0 && this.bossIntroT <= 0 && b.life > 0) {
           const boss = this.boss;
           if (!b.hits.has(boss.uid)) {
             if (this.shotHitsActor(b, boss, prevX)) {
@@ -2444,43 +2974,31 @@ export class Game {
               }
               if (boss.kind === "reaper" && boss.phase < 3) dmg *= 0.7;
               if (boss.kind === "seraph" && boss.phase < 3) dmg *= 0.75;
+              // Weak point: a real hitbox, not a phase flag. Rail is the weak-point shredder.
+              const wk = boss.weak;
+              let crit = false;
+              if (wk) {
+                const wx = boss.x + wk.dx;
+                const nearest = clamp(wx, Math.min(prevX, b.x), Math.max(prevX, b.x));
+                const hopErr = (b.hop - (boss.hop + wk.dhop)) * 0.8;
+                crit = Math.hypot(nearest - wx, hopErr) < wk.r + b.r;
+              }
+              if (crit) {
+                dmg *= wk!.mul * (b.look === "rail" ? 1.6 : 1);
+                this.popScore(boss.x + wk!.dx, boss.z, boss.hop + wk!.dhop, "CRITICAL", C.warn);
+                this.sparkHit(boss.x + wk!.dx, boss.z, boss.hop + wk!.dhop, "rail");
+                this.shake = Math.max(this.shake, 5);
+              } else if (b.look === "rail" && boss.phase >= 3) {
+                dmg *= 1.5;
+              }
               boss.hp -= dmg;
               boss.flash = 0.06;
               b.hits.add(boss.uid);
               if (!b.pierce) b.life = 0;
               this.sparkHit(boss.x, boss.z, boss.hop, b.look);
-              sfx.hit(b.look);
-              if (boss.hp <= 0) {
-                boss.dead = true;
-                this.level.bossDefeated = true;
-                this.burst(boss.x, boss.z, boss.hop, C.cyan, 40);
-                this.boom(boss.x, boss.z, boss.hop, 2.4, "ion");
-                this.scrap += boss.scrap ?? 40;
-                this.score += 2500;
-                this.popScore(boss.x, boss.z, boss.hop, "+2500", C.cyan);
-                this.shake = 16;
-                this.hitStop = 0.16;
-                sfx.explode();
-                if (this.levelId === 2) {
-                  this.circRings = [
-                    { x: this.player.x + 280, z: 0.35, hit: false, vz: 0.11 },
-                    { x: this.player.x + 520, z: 0.65, hit: false, vz: -0.13 },
-                    { x: this.player.x + 760, z: 0.45, hit: false, vz: 0.1 },
-                  ];
-                  this.level.circCleared = 0;
-                  this.fireSetPiece("circ-drift");
-                  this.announce("NIX: Hold circularization — thread the rings ahead!", 3.2);
-                  this.mode = "play";
-                } else if (this.levelId === 1) {
-                  this.boardReady = true;
-                  this.mode = "play";
-                  this.announce("NIX: Path clear — keep RIGHT, board BLACK FINCH!", 3.2);
-                } else {
-                  this.mode = "clear";
-                  this.announce(`${BOSS[this.levelId].name} DOWN`, 3);
-                  if (this.levelId === 3) this.stinger = true;
-                }
-              }
+              this.hitStop = Math.max(this.hitStop, crit ? 0.06 : b.look === "rail" ? 0.06 : 0.02);
+              sfx.hit(crit ? "rail" : b.look);
+              if (boss.hp <= 0) this.beginBossOutro(boss);
             }
           }
         }
@@ -2500,6 +3018,10 @@ export class Game {
     for (const p of this.pickups) {
       p.life -= dt;
       p.hop += Math.sin(this.frame * 0.2) * 0.2;
+      if (p.noGrab && p.noGrab > 0) {
+        p.noGrab -= dt;
+        continue;
+      }
       const pull = Math.hypot(
         this.player.x - p.x,
         (this.player.z - p.z) * 160,
@@ -2518,24 +3040,46 @@ export class Game {
         if (p.kind === "scrap") {
           this.scrap += 4;
           this.score += 40;
-          this.announce("+SCRAP");
+          this.note("+4 SCRAP");
           sfx.pickup();
         } else if (p.kind === "health") {
           const heal = 40 + this.upgrades.armor * 4;
           this.player.hp = Math.min(this.player.maxHp, this.player.hp + heal);
-          this.announce(`+${heal} HP`);
+          this.note(`+${heal} HP`);
           this.popScore(p.x, p.z, p.hop, `+${heal} HP`, C.pad);
           sfx.heal();
         } else {
-          const incoming = WEAPON_RANK[p.kind];
-          const current = WEAPON_RANK[this.weapon];
-          if (incoming < current && this.ammo > 12 && this.weapon !== "pistol") {
-            this.announce(`LEFT ${WEAPONS[p.kind].name}`);
+          // A gun on the floor is always a yes. The live gun moves to the stash; a displaced
+          // stash drops back to the floor so nothing is lost without a choice.
+          const mag = 40 + this.upgrades.mag * 15;
+          if (p.kind === this.weapon) {
+            this.ammo += mag;
+            this.note(`${WEAPONS[p.kind].name} +${mag}`);
+          } else if (p.kind === this.stash) {
+            this.stashAmmo += mag;
+            this.note(`stashed ${WEAPONS[p.kind].name} +${mag}`);
           } else {
+            if (this.weapon !== "pistol") {
+              if (this.stash) {
+                this.pickups.push({
+                  x: p.x - this.player.facing * 40,
+                  z: p.z,
+                  hop: 0,
+                  kind: this.stash,
+                  life: 12,
+                  noGrab: 1.6,
+                });
+              }
+              this.stash = this.weapon;
+              this.stashAmmo = this.ammo;
+            }
             this.weapon = p.kind;
-            this.ammo = 40 + this.upgrades.mag * 15;
-            this.announce(WEAPONS[p.kind].name);
+            this.ammo = mag;
+            this.railCharge = 0;
+            this.announce(WEAPONS[p.kind].name, 1.1);
+            if (this.stash) this.note(`stashed ${WEAPONS[this.stash].name} · ${isTouchPrimary() ? "SWAP" : "L"} to trade`, 2);
           }
+          this.popScore(p.x, p.z, p.hop, WEAPONS[p.kind].name, C.cyan);
           sfx.pickup();
         }
         p.life = 0;
@@ -2555,6 +3099,20 @@ export class Game {
     this.booms = this.booms.filter((b) => b.life > 0);
     for (const s of this.impacts) s.life -= dt;
     this.impacts = this.impacts.filter((s) => s.life > 0);
+    for (const c of this.corpses) {
+      c.x += c.vx * dt;
+      c.vHop -= 900 * this.gScale * dt;
+      c.hop += c.vHop * dt;
+      c.rot += c.vRot * dt;
+      c.life -= dt;
+      if (c.hop < 0) {
+        c.hop = 0;
+        c.vHop *= -0.25;
+        c.vx *= 0.6;
+        c.vRot *= 0.5;
+      }
+    }
+    this.corpses = this.corpses.filter((c) => c.life > 0);
     for (const pop of this.scorePops) {
       pop.life -= dt;
       pop.hop += 28 * dt;
@@ -2572,7 +3130,7 @@ export class Game {
           this.rescued += 1;
           this.scrap += 8;
           this.score += 300;
-          this.announce(`TECH RESCUED ${this.rescued}/${this.techs.length}`);
+          this.note(`TECH RESCUED ${this.rescued}/${this.techs.length} · +8 SCRAP`);
           sfx.pickup();
           this.popScore(tech.x, tech.z, 20, "+300");
         }
@@ -2594,7 +3152,8 @@ export class Game {
     }
   }
 
-  private update(dt: number) {
+  /** `dt` is the (possibly slowed) sim step; `realDt` drives presentation timers that must not slow down. */
+  private update(dt: number, realDt: number) {
     if (this.mode === "play" || this.mode === "boss") {
       if (this.input.pauseJust() || this.input.just("escape")) {
         this.pausedFrom = this.mode;
@@ -2604,10 +3163,20 @@ export class Game {
       }
     }
     music.tick(
-      dt,
+      realDt,
       this.bgThreat,
       this.mode === "play" || this.mode === "boss",
+      !!this.boss && !this.boss.dead && this.mode === "boss",
     );
+    if (this.bossIntroT > 0 && this.mode === "boss") {
+      this.bossIntroT = Math.max(0, this.bossIntroT - realDt);
+      this.invuln = Math.max(this.invuln, 0.3);
+      if (this.bossIntroT <= 0) {
+        this.hitStop = 0.08;
+        this.shake = 8;
+      }
+    }
+    if (this.bossOutroT > 0) this.tickBossOutro(realDt);
     if (this.mode === "pause") {
       if (this.input.confirm() || this.input.pauseJust()) {
         this.mode = this.pausedFrom ?? "play";
@@ -2629,19 +3198,35 @@ export class Game {
     }
     if (this.mode === "title") {
       const nav = this.input.menuNav();
-      if (nav === 1) this.menuIndex = (this.menuIndex + 1) % 4;
-      if (nav === -1) this.menuIndex = (this.menuIndex + 3) % 4;
+      this.titleIdle += realDt;
+      if (nav !== 0 || this.input.axisX() !== 0) this.titleIdle = 0;
+      if (nav === 1) this.menuIndex = (this.menuIndex + 1) % TITLE_ITEMS;
+      if (nav === -1) this.menuIndex = (this.menuIndex + TITLE_ITEMS - 1) % TITLE_ITEMS;
+      if (this.menuIndex === 1) {
+        // Difficulty row: left/right (or confirm) cycles.
+        const ax = this.input.just("a") || this.input.just("arrowleft") ? -1 : this.input.just("d") || this.input.just("arrowright") ? 1 : 0;
+        if (ax !== 0 || this.input.confirm()) {
+          const i = DIFFICULTIES.indexOf(this.difficulty);
+          this.difficulty = DIFFICULTIES[(i + (ax || 1) + DIFFICULTIES.length) % DIFFICULTIES.length]!;
+          writeDifficulty(this.difficulty);
+          sfx.ui();
+        }
+        return;
+      }
       if (this.input.confirm()) {
+        this.titleIdle = 0;
         sfx.confirm();
         this.scrap = 0;
         this.upgrades = defaultUpgrades();
         this.totalScore = 0;
         this.continues = 0;
-        if (this.menuIndex === 1) {
+        this.newBest = false;
+        this.checkpoint = null;
+        if (this.menuIndex === 2) {
           this.mode = "howto";
           return;
         }
-        const id = (this.menuIndex === 0 ? 1 : this.menuIndex === 2 ? 2 : 3) as LevelId;
+        const id = (this.menuIndex === 0 ? 1 : this.menuIndex === 3 ? 2 : 3) as LevelId;
         this.beginLevel(id);
       }
       return;
@@ -2695,17 +3280,31 @@ export class Game {
       return;
     }
     if (this.mode === "clear") {
-      this.msgTimer -= dt;
-      if (this.input.confirm() || this.msgTimer < -1) {
-        this.totalScore += this.score;
-        this.score = 0;
-        this.bestScore = Math.max(this.bestScore, this.totalScore);
-        writeBest(this.bestScore);
-        if (this.levelId === 3) this.mode = "victory";
-        else {
-          this.mode = "upgrade";
-          this.upgradeIndex = 6;
-          this.announce("FABRICATOR ONLINE");
+      const prev = this.clearT;
+      this.clearT += realDt;
+      // One tally row per RESULT_ROW_S; a tick per row, a stamp when the rank lands.
+      const rowsNow = Math.floor(this.clearT / RESULT_ROW_S);
+      const rowsPrev = Math.floor(prev / RESULT_ROW_S);
+      if (rowsNow !== rowsPrev && rowsNow <= this.results.length) sfx.ui();
+      if (rowsNow === this.results.length + 1 && rowsPrev < rowsNow) sfx.confirm();
+      const revealDone = this.clearT >= (this.results.length + 1) * RESULT_ROW_S;
+      if (this.input.confirm()) {
+        if (!revealDone) {
+          this.clearT = (this.results.length + 1) * RESULT_ROW_S;
+        } else {
+          this.totalScore += this.score;
+          this.score = 0;
+          if (this.totalScore > this.bestScore) {
+            this.newBest = true;
+            this.bestScore = this.totalScore;
+            writeBest(this.bestScore);
+          }
+          if (this.levelId === 3) this.mode = "victory";
+          else {
+            this.mode = "upgrade";
+            this.upgradeIndex = 6;
+            this.announce("FABRICATOR ONLINE");
+          }
         }
       }
       return;
@@ -2713,7 +3312,7 @@ export class Game {
     if (this.mode === "dead") {
       if (this.input.confirm()) {
         this.continues += 1;
-        this.beginLevel(this.levelId);
+        this.beginLevel(this.levelId, true);
       }
       if (this.input.back()) this.mode = "title";
       return;
@@ -3228,6 +3827,7 @@ export class Game {
     const ctx = this.ctx;
     type DrawItem =
       | { kind: "pickup"; ref: Pickup }
+      | { kind: "corpse"; ref: Corpse }
       | { kind: "enemy"; ref: Actor }
       | { kind: "boss"; ref: Actor }
       | { kind: "player" }
@@ -3238,6 +3838,7 @@ export class Game {
     const items: (DrawItem & { z: number; hop: number })[] = [];
 
     for (const p of this.pickups) items.push({ kind: "pickup", ref: p, z: p.z, hop: p.hop });
+    for (const c of this.corpses) items.push({ kind: "corpse", ref: c, z: c.z, hop: c.hop });
     for (const e of this.enemies) items.push({ kind: "enemy", ref: e, z: e.z, hop: e.hop });
     if (this.boss && !this.boss.dead) items.push({ kind: "boss", ref: this.boss, z: this.boss.z, hop: this.boss.hop });
     if (!this.player.dead) items.push({ kind: "player", z: this.player.z, hop: this.player.hop });
@@ -3259,26 +3860,49 @@ export class Game {
         const p = item.ref;
         const sp = project(p, this.stage);
         drawShadow(ctx, sp, 14);
-        blitSprite(ctx, art.sprite("pickup"), sp.sx, sp.sy, {
-          h: 40,
-          scale: sp.scale,
-          bob: Math.sin(this.frame * 0.2) * 3,
-        }) || drawPickup(ctx, p.kind === "scrap" ? "scrap" : "weapon", sp.sx, sp.sy, this.frame);
-        ctx.fillStyle = p.kind === "scrap" ? C.warn : p.kind === "health" ? C.pad : C.cyan;
-        ctx.font = "10px 'Share Tech Mono', monospace";
-        ctx.textAlign = "center";
-        ctx.fillText(
-          p.kind === "scrap" ? "SCRAP" : p.kind === "health" ? "+HP" : WEAPONS[p.kind].name,
-          sp.sx,
-          sp.sy - 28 * sp.scale,
-        );
-        ctx.textAlign = "left";
+        const bob = Math.sin(this.frame * 0.2) * 3;
+        const iconKind = p.kind === "scrap" ? "scrap" : p.kind === "health" ? "health" : "weapon";
+        const color = p.kind === "scrap" ? C.warn : p.kind === "health" ? C.pad : WEAPONS[p.kind].color;
+        if (iconKind === "weapon") {
+          blitSprite(ctx, art.sprite("pickup"), sp.sx, sp.sy, { h: 40, scale: sp.scale, bob }) ||
+            drawPickup(ctx, "weapon", sp.sx, sp.sy, this.frame);
+        }
+        glow(ctx, sp.sx, sp.sy + bob, 16 * sp.scale, color, 0.28);
+        drawPickupIcon(ctx, iconKind, color, sp.sx, sp.sy + bob - (iconKind === "weapon" ? 14 * sp.scale : 0), sp.scale * 0.9);
+        if (iconKind === "weapon") {
+          ctx.fillStyle = color;
+          ctx.font = "10px 'Share Tech Mono', monospace";
+          ctx.textAlign = "center";
+          ctx.fillText(WEAPONS[p.kind as WeaponId].name, sp.sx, sp.sy - 30 * sp.scale);
+          ctx.textAlign = "left";
+        }
+      } else if (item.kind === "corpse") {
+        const c = item.ref;
+        const sp = project(c, this.stage);
+        const a = clamp(c.life / c.max, 0, 1);
+        ctx.save();
+        ctx.globalAlpha = a;
+        ctx.translate(Math.round(sp.sx), Math.round(sp.sy));
+        ctx.rotate(c.rot);
+        if (c.img) {
+          const dh = c.h * sp.scale * (0.85 + 0.15 * a);
+          const dw = (c.img.width / c.img.height) * dh;
+          ctx.scale(c.facing, 1);
+          ctx.drawImage(c.img, -dw / 2, -dh / 2, dw, dh);
+        } else {
+          drawEnemy(ctx, c.kind, 0, 0, this.frame, c.facing);
+        }
+        ctx.restore();
       } else if (item.kind === "tech") {
         const t = item.ref;
         const sp = project({ x: t.x, z: t.z, hop: 0 }, this.stage);
         drawShadow(ctx, sp, 12);
-        glow(ctx, sp.sx, sp.sy, 14 * sp.scale, C.warn, 0.25);
-        rr(ctx, sp.sx - 6 * sp.scale, sp.sy - 14 * sp.scale, 12 * sp.scale, 18 * sp.scale, C.bone, C.soot);
+        drawTech(ctx, sp.sx, sp.sy, sp.scale * 0.95, this.frame + t.x);
+        ctx.fillStyle = C.warn;
+        ctx.font = "9px 'Share Tech Mono', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("TECH", sp.sx, sp.sy - 42 * sp.scale);
+        ctx.textAlign = "left";
       } else if (item.kind === "truck") {
         const truck = item.ref;
         const sp = project({ x: truck.x, z: truck.z, hop: 0 }, this.stage);
@@ -3348,8 +3972,9 @@ export class Game {
         const e = item.ref;
         const sp = project(e, this.stage);
         drawShadow(ctx, sp, e.kind === "walker" ? 28 : 18);
-        const baseH = e.kind === "spine" ? 88 : e.kind === "walker" ? 78 : 68;
+        const baseH = enemyBaseH(e.kind);
         const ghostA = e.kind === "ghost" ? ((e.revealed ?? 0) > 0 ? 0.85 : 0.08) : e.flash > 0 ? 0.55 : 1;
+        const pup = this.puppet(e);
         const ok = blitSprite(ctx, this.animImage(e), sp.sx, sp.sy, {
           facing: e.facing,
           h: baseH,
@@ -3357,6 +3982,10 @@ export class Game {
           alpha: ghostA,
           flash: e.flash > 0,
           outline: e.kind !== "ghost" || ghostA > 0.4,
+          bob: pup.bob * sp.scale,
+          rot: pup.rot,
+          sx: pup.sx,
+          sy: pup.sy,
         });
         if (!ok) {
           if (e.kind === "spine") drawSpine(ctx, sp.sx, sp.sy, this.frame);
@@ -3397,10 +4026,23 @@ export class Game {
           );
         }
         if (e.kind === "walker") {
-          ctx.fillStyle = C.warn;
+          // Rear vent: lights up when Ash is behind it — the ×1.85 window is visible, not trivia.
+          const behind = this.player.x > e.x;
+          const vx = sp.sx + 20 * sp.scale;
+          const vy = sp.sy - 6 * sp.scale;
+          ctx.save();
+          ctx.strokeStyle = behind ? C.warn : "rgba(244,211,94,0.35)";
+          ctx.lineWidth = behind ? 2.5 : 1.5;
+          ctx.globalAlpha = behind ? 0.6 + 0.4 * Math.sin(this.frame * 0.4) : 0.5;
+          ctx.beginPath();
+          ctx.arc(vx, vy, (behind ? 9 : 6) * sp.scale, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+          if (behind) glow(ctx, vx, vy, 16 * sp.scale, C.warn, 0.35);
+          ctx.fillStyle = behind ? C.warn : "rgba(244,211,94,0.55)";
           ctx.font = "9px 'Share Tech Mono', monospace";
           ctx.textAlign = "center";
-          ctx.fillText("REAR", sp.sx + 18 * sp.scale, sp.sy - 8 * sp.scale);
+          ctx.fillText("REAR", vx, vy - 12 * sp.scale);
           ctx.textAlign = "left";
         }
         if (e.kind === "tether") {
@@ -3414,16 +4056,37 @@ export class Game {
         const boss = item.ref;
         const sp = project(boss, this.stage);
         drawShadow(ctx, sp, 50);
+        if (boss.kind === "prime" && boss.phase >= 3) {
+          // Core range: full damage only inside this ring and above hop 42. Make the gimmick visible.
+          const close = Math.hypot(this.player.x - boss.x, (this.player.z - boss.z) * 160) < 120;
+          const high = this.player.hop > 42;
+          const gp = project({ x: boss.x, z: boss.z, hop: 0 }, this.stage);
+          ctx.save();
+          ctx.strokeStyle = close && high ? C.cyan : C.warn;
+          ctx.globalAlpha = close && high ? 0.9 : 0.4 + 0.2 * Math.sin(this.frame * 0.3);
+          ctx.lineWidth = close && high ? 3 : 2;
+          ctx.setLineDash(close && high ? [] : [8, 8]);
+          ctx.beginPath();
+          ctx.ellipse(gp.sx, gp.sy, 120 * gp.scale, 120 * gp.scale * 0.32, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+          if (close && high) glow(ctx, sp.sx, sp.sy, 90 * sp.scale, C.cyan, 0.2);
+        }
+        const bossBreath = Math.sin(this.level.elapsed * (boss.kind === "seraph" ? 5 : 2.2));
         const ok = blitSprite(ctx, this.animImage(boss), sp.sx, sp.sy, {
           h: boss.kind === "prime" ? 180 : 155,
           scale: sp.scale,
           alpha: boss.flash > 0 ? 0.6 : 1,
           flash: boss.flash > 0,
           outline: true,
+          bob: boss.kind === "prime" ? 0 : bossBreath * 2,
+          rot: boss.kind === "seraph" ? bossBreath * 0.03 : boss.kind === "prime" ? this.level.elapsed * 0.05 : 0,
+          sy: boss.kind === "reaper" ? 1 + bossBreath * 0.012 : 1,
         });
         if (!ok) {
           drawBoss(ctx, boss.kind, sp.sx, sp.sy, this.frame, boss.hp / boss.maxHp, boss.phase);
         }
+        if (boss.weak) this.drawWeakPoint(boss, sp.scale);
       } else if (item.kind === "player") {
         const sp = project(this.player, this.stage);
         drawShadow(ctx, sp, this.player.kind === "ship" ? 30 : 18);
@@ -3517,6 +4180,19 @@ export class Game {
     for (const b of this.bullets) {
       const sp = project(b, this.stage);
       drawBullet(ctx, sp.sx, sp.sy, sp.scale, b.vx, b.vHop, b.r, b.color, b.look);
+      // Falling ordnance (claw, mortar lob) paints its landing spot so the dodge is a read, not a guess.
+      if (!b.friendly && (b.look === "claw" || b.grav) && b.hop > 6) {
+        const gp = project({ x: b.x, z: b.z, hop: 0 }, this.stage);
+        const r = (b.blast ?? 24) * gp.scale * 0.55;
+        ctx.save();
+        ctx.strokeStyle = C.blood;
+        ctx.globalAlpha = 0.45 + 0.35 * Math.sin(this.frame * 0.5);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(gp.sx, gp.sy, r, r * 0.32, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
     for (const p of this.particles) {
       const sp = project(p, this.stage);
@@ -3563,10 +4239,12 @@ export class Game {
     const ctx = this.ctx;
     const touch = isTouchPrimary();
     const hpRatio = clamp(this.player.hp / this.player.maxHp, 0, 1);
-    const fade = ctx.createLinearGradient(0, 0, 0, 64);
-    fade.addColorStop(0, "rgba(5,8,16,0.55)");
-    fade.addColorStop(1, "transparent");
-    ctx.fillStyle = fade;
+    if (!this.hudFade) {
+      this.hudFade = ctx.createLinearGradient(0, 0, 0, 64);
+      this.hudFade.addColorStop(0, "rgba(5,8,16,0.55)");
+      this.hudFade.addColorStop(1, "transparent");
+    }
+    ctx.fillStyle = this.hudFade;
     ctx.fillRect(0, 0, W, 64);
 
     drawPlate(ctx, 8, 6, 196, 28, hpRatio < 0.28 ? C.blood : C.pad);
@@ -3597,6 +4275,12 @@ export class Game {
       ctx.fillRect(218, 28, 56 * clamp(this.heat, 0, 1), 3);
     }
 
+    if (this.stash) {
+      ctx.fillStyle = "rgba(46,196,182,0.8)";
+      ctx.font = "10px 'Share Tech Mono', monospace";
+      ctx.fillText(`⇄ ${WEAPONS[this.stash].name} ${this.stashAmmo} · ${touch ? "SWAP" : "L"}`, 584, 46);
+    }
+
     drawPlate(ctx, 384, 6, 88, 28, C.warn);
     ctx.fillStyle = C.warn;
     ctx.font = "11px 'Share Tech Mono', monospace";
@@ -3612,19 +4296,12 @@ export class Game {
     ctx.fillText(`${this.score}`, 592, 25);
     if (this.combo > 1) {
       ctx.fillStyle = C.pad;
-      ctx.fillText(`x${this.combo}`, 700, 25);
+      ctx.fillText(`x${this.combo}`, 710, 25);
     }
 
     ctx.fillStyle = C.cyan;
     ctx.font = `${touch ? 12 : 11}px 'Share Tech Mono', monospace`;
-    ctx.fillText(this.level.objective, 12, 48);
-    if (this.twistCueT > 0 && this.twistCue) {
-      ctx.fillStyle = C.warn;
-      ctx.globalAlpha = Math.min(1, this.twistCueT * 1.4);
-      ctx.font = `${touch ? 13 : 12}px 'Share Tech Mono', monospace`;
-      ctx.fillText(this.twistCue, 12, H - 22);
-      ctx.globalAlpha = 1;
-    }
+    ctx.fillText(`GOAL ${this.level.objective}`, 12, 48);
 
     ctx.strokeStyle = C.cyan;
     ctx.globalAlpha = 0.55;
@@ -3646,35 +4323,45 @@ export class Game {
 
     const depthHint = touch ? "stick ↑↓ depth" : "W/S depth";
     const y2 = 62;
+
+    // Mission clock — par is a bonus, never a fail. Turns warm once par is gone.
+    const par = LEVEL_PAR[this.levelId];
+    const overPar = this.level.elapsed > par;
+    ctx.fillStyle = overPar ? "rgba(244,237,228,0.55)" : C.warn;
+    ctx.font = "11px 'Share Tech Mono', monospace";
+    ctx.textAlign = "right";
+    ctx.fillText(`${fmtTime(this.level.elapsed)}${overPar ? "" : ` · PAR ${fmtTime(par)}`}`, W - 52, 48);
+    if (this.continues > 0) {
+      ctx.fillStyle = "rgba(244,237,228,0.5)";
+      ctx.fillText(`CONTINUES ${this.continues}`, W - 52, 62);
+    }
+    ctx.textAlign = "left";
+
     if (this.levelId === 1) {
-      const urgent = this.level.killClock < 30;
-      ctx.fillStyle = urgent ? C.blood : C.warn;
-      if (urgent && Math.floor(this.frame / 8) % 2 === 0) ctx.globalAlpha = 0.55;
-      const truckHp = this.truck ? ` · TRUCK ${Math.ceil(this.truck.hp)}` : "";
-      let phaseHint = "";
+      ctx.fillStyle = C.warn;
+      let line: string;
       if (this.level.goalPhase === 1 && this.truck && !this.truck.arrived) {
-        phaseHint = this.truck.clamped
-          ? " · WALKER CLAMP — KILL IT"
-          : ` · PAD 7 ${Math.max(0, Math.floor(PAD7_X - this.truck.x))}m`;
+        const hp = Math.ceil(this.truck.hp);
+        line = this.truck.clamped
+          ? `TRUCK ${hp} · WALKER CLAMP — KILL IT`
+          : `TRUCK ${hp} · PAD 7 ${Math.max(0, Math.floor(PAD7_X - this.truck.x))}m · techs ${this.rescued}/${this.techs.length}`;
+        if (this.truck.hp < this.truck.maxHp * 0.33 && Math.floor(this.frame / 8) % 2 === 0) ctx.fillStyle = C.blood;
       } else if (this.boardReady) {
-        phaseHint = " · BOARD FINCH →";
+        line = "BOARD BLACK FINCH →";
       } else if (this.level.goalPhase === 2) {
-        phaseHint = this.level.bossSpawned ? " · FIGHT UP THE GANTRY →" : " · CLIMB RIGHT →";
+        line = this.level.bossSpawned ? "FIGHT UP THE GANTRY →" : "CLIMB RIGHT →";
+      } else {
+        line = `techs ${this.rescued}/${this.techs.length}`;
       }
       ctx.font = `${touch ? 13 : 12}px 'Share Tech Mono', monospace`;
-      ctx.fillText(
-        `CLOCK ${Math.ceil(this.level.killClock)}s · TECHS ${this.rescued}/${this.techs.length}${truckHp}${phaseHint}`,
-        12,
-        y2,
-      );
-      ctx.globalAlpha = 1;
+      ctx.fillText(line, 12, y2);
     }
     if (this.levelId === 2) {
       ctx.fillStyle = C.warn;
       ctx.font = `${touch ? 13 : 12}px 'Share Tech Mono', monospace`;
       let line: string;
       if (this.level.goalPhase === 1) {
-        line = `GATES ${this.level.gatesCleared}/${this.gates.length} · fly THROUGH the ring · ${depthHint}`;
+        line = `GATES ${this.level.gatesCleared}/${this.gates.length} · match the ring's depth · ${depthHint} · ${touch ? "JUMP" : "SPACE"} climb`;
       } else if (!this.level.bossDefeated) {
         line =
           this.stageSepLock > 0
@@ -3709,7 +4396,7 @@ export class Game {
       ctx.fillText(line, 12, y2);
     }
 
-    if (this.boss && !this.boss.dead) {
+    if (this.boss && !this.boss.dead && this.bossIntroT <= 0) {
       const name = BOSS[this.levelId].name;
       const by = 78;
       drawPlate(ctx, W / 2 - 190, by, 380, 32, C.cyan);
@@ -3719,23 +4406,155 @@ export class Game {
       drawSignalMeter(ctx, W / 2 - 178, by + 16, 356, this.boss.hp / this.boss.maxHp, this.boss.phase);
     }
 
-    if (this.msgTimer > 0 || this.mode === "dead") {
-      drawPlate(ctx, W / 2 - 230, H / 2 - 34, 460, this.mode === "dead" ? 62 : 44, C.warn);
-      ctx.fillStyle = C.warn;
+    // Bottom ticker — CAPCOM chatter, pickups, crumbs. Twist cues take priority.
+    const tickerText = this.twistCueT > 0 && this.twistCue ? this.twistCue : this.tickerT > 0 ? this.ticker : "";
+    if (tickerText && this.mode !== "dead" && this.mode !== "clear") {
+      const t = this.twistCueT > 0 && this.twistCue ? this.twistCueT : this.tickerT;
+      ctx.globalAlpha = Math.min(1, t * 2.2);
+      ctx.fillStyle = "rgba(5,8,16,0.62)";
+      ctx.fillRect(0, H - 30, W, 22);
+      ctx.fillStyle = this.twistCueT > 0 && this.twistCue ? C.warn : C.bone;
+      ctx.font = `${touch ? 13 : 12}px 'Share Tech Mono', monospace`;
+      ctx.textAlign = "center";
+      ctx.fillText(tickerText, W / 2, H - 14);
+      ctx.textAlign = "left";
+      ctx.globalAlpha = 1;
+    }
+
+    if (this.bossIntroT > 0 && this.boss) this.renderBossIntro();
+
+    if ((this.msgTimer > 0 || this.mode === "dead") && this.bossIntroT <= 0) {
+      const dead = this.mode === "dead";
+      drawPlate(ctx, W / 2 - 230, H / 2 - 34, 460, dead ? 84 : 44, dead ? C.blood : C.warn);
+      ctx.fillStyle = dead ? C.blood : C.warn;
       ctx.font = "18px 'Black Ops One', sans-serif";
       ctx.textAlign = "center";
       ctx.fillText(this.msg, W / 2, H / 2 - 6);
-      if (this.mode === "dead") {
-        ctx.fillStyle = "rgba(244,237,228,0.75)";
+      if (dead) {
+        ctx.fillStyle = "rgba(244,237,228,0.85)";
         ctx.font = "12px 'Share Tech Mono', monospace";
+        const from = this.checkpoint ? "CHECKPOINT · goal 2/2" : "level start";
+        const why = this.failReason ? "Mission fail" : "Ash down";
+        ctx.fillText(`${why} · continue from ${from} · continues ${this.continues}`, W / 2, H / 2 + 16);
+        ctx.fillStyle = "rgba(244,237,228,0.6)";
         ctx.fillText(
-          isTouchPrimary() ? "OK retry · TITLE quit" : "ENTER / J retry · ESC title",
+          isTouchPrimary() ? "OK continue · TITLE quit" : "ENTER / J continue · ESC title",
           W / 2,
-          H / 2 + 16,
+          H / 2 + 36,
         );
       }
       ctx.textAlign = "left";
     }
+  }
+
+  /**
+   * Procedural motion for enemy stills — the authored anim packs are variation sets, so life
+   * comes from puppeteering: hover bob + tilt for flyers, stride squash for walkers, an inhale
+   * on every telegraph, recoil after a shot.
+   */
+  private puppet(e: Actor): { bob: number; rot: number; sx: number; sy: number } {
+    const t = this.level.elapsed + e.uid * 0.37;
+    const flying = ["drone", "climber", "wasp", "ghost", "gridsat", "tether"].includes(e.kind);
+    let bob = 0;
+    let rot = 0;
+    let sx = 1;
+    let sy = 1;
+    if (flying) {
+      const f = e.kind === "wasp" ? 9 : e.kind === "gridsat" ? 2.2 : 4.2;
+      bob = Math.sin(t * f) * (e.kind === "wasp" ? 2 : 3.5);
+      rot = Math.sin(t * f * 0.5 + 1) * 0.06 + (e.phase === 1 || e.phase === 2 ? -e.facing * 0.14 : 0);
+    } else if (e.kind === "crab" || e.kind === "beetle" || e.kind === "hackbot") {
+      const stride = Math.sin(t * 11);
+      sy = 1 + stride * 0.05;
+      sx = 1 - stride * 0.04;
+      rot = Math.sin(t * 5.5) * 0.035;
+      if (e.kind === "crab" && e.phase === 2) {
+        sy = 1.16;
+        sx = 0.9;
+      }
+    } else if (e.kind === "walker") {
+      const stride = Math.sin(t * 5);
+      sy = 1 + stride * 0.03;
+      rot = Math.sin(t * 2.5) * 0.02;
+    } else if (e.kind === "mirror") {
+      rot = t * 0.9;
+    } else if (e.kind === "turret") {
+      sy = 1 + Math.sin(t * 1.6) * 0.015;
+    }
+    // Telegraph inhale: every wind-up reads as a crouch before the commit.
+    if (e.phase === 1 && e.flash > 0.02 && e.kind !== "ghost") {
+      sy *= 0.9;
+      sx *= 1.08;
+    }
+    return { bob, rot, sx, sy };
+  }
+
+  /** Pulsing reticle over an exposed boss weak point, with its label. */
+  private drawWeakPoint(boss: Actor, scale: number) {
+    const wk = boss.weak;
+    if (!wk) return;
+    const ctx = this.ctx;
+    const sp = project({ x: boss.x + wk.dx, z: boss.z, hop: boss.hop + wk.dhop }, this.stage);
+    const pulse = 0.5 + 0.5 * Math.sin(this.frame * 0.35);
+    const r = wk.r * scale * (0.9 + pulse * 0.2);
+    glow(ctx, sp.sx, sp.sy, r * 1.6, C.warn, 0.25 + pulse * 0.2);
+    ctx.save();
+    ctx.strokeStyle = C.warn;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    ctx.arc(sp.sx, sp.sy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.arc(sp.sx, sp.sy, r * 0.45, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.9;
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + this.frame * 0.02;
+      ctx.beginPath();
+      ctx.moveTo(sp.sx + Math.cos(a) * r * 1.05, sp.sy + Math.sin(a) * r * 1.05);
+      ctx.lineTo(sp.sx + Math.cos(a) * r * 1.35, sp.sy + Math.sin(a) * r * 1.35);
+      ctx.stroke();
+    }
+    ctx.fillStyle = C.warn;
+    ctx.font = "10px 'Share Tech Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(wk.label, sp.sx, sp.sy - r * 1.5 - 4);
+    ctx.textAlign = "left";
+    ctx.restore();
+  }
+
+  /** Nameplate card while the world runs in slow-mo. Letterbox + stencil title + subtitle. */
+  private renderBossIntro() {
+    const ctx = this.ctx;
+    const b = BOSS[this.levelId];
+    const u = 1 - this.bossIntroT / BOSS_INTRO_S;
+    const inA = clamp(u * 4, 0, 1);
+    const outA = clamp((1 - u) * 5, 0, 1);
+    const a = Math.min(inA, outA);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = "rgba(5,8,16,0.55)";
+    ctx.fillRect(0, H / 2 - 62, W, 124);
+    ctx.fillStyle = C.blood;
+    ctx.fillRect(0, H / 2 - 62, W, 3);
+    ctx.fillRect(0, H / 2 + 59, W, 3);
+    ctx.textAlign = "center";
+    ctx.fillStyle = C.cyan;
+    ctx.font = "12px 'Share Tech Mono', monospace";
+    ctx.fillText("HOSTILE SIGNAL · LOCKED", W / 2, H / 2 - 34);
+    const slide = (1 - inA) * 40;
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.font = "44px 'Black Ops One', sans-serif";
+    ctx.fillText(b.name, W / 2 + 3 - slide, H / 2 + 14);
+    ctx.fillStyle = C.pad;
+    ctx.fillText(b.name, W / 2 - slide, H / 2 + 11);
+    ctx.fillStyle = C.bone;
+    ctx.font = "12px 'Share Tech Mono', monospace";
+    ctx.fillText(b.sub, W / 2, H / 2 + 42);
+    ctx.textAlign = "left";
+    ctx.restore();
   }
 
   private renderScreenFx() {
@@ -3762,7 +4581,7 @@ export class Game {
       const fade = this.hintT < 1 ? this.hintT : this.hintT > 7 ? 8 - this.hintT : 1;
       ctx.globalAlpha = clamp(fade, 0, 0.9);
       ctx.fillStyle = "rgba(11,18,32,0.72)";
-      ctx.fillRect(W / 2 - 250, H - 78, 500, 44);
+      ctx.fillRect(W / 2 - 250, H - 92, 500, 40);
       ctx.fillStyle = C.warn;
       ctx.font = "13px 'Share Tech Mono', monospace";
       ctx.textAlign = "center";
@@ -3771,10 +4590,15 @@ export class Game {
           ? "Escort the fuel truck · stick UP/DOWN = depth"
           : "Escort the fuel truck · W/S = depth lanes · J fire",
         W / 2,
-        H - 52,
+        H - 67,
       );
       ctx.textAlign = "left";
       ctx.globalAlpha = 1;
+    }
+    // Fade up from black on deploy so each level opens on a cut, not a pop.
+    if ((this.mode === "play" || this.mode === "boss") && this.level.elapsed < 0.6) {
+      ctx.fillStyle = `rgba(5,8,16,${1 - this.level.elapsed / 0.6})`;
+      ctx.fillRect(0, 0, W, H);
     }
   }
 
@@ -3837,7 +4661,7 @@ export class Game {
       const far = project({ x: this.camX + 80, z: this.laneMax, hop: 0 }, this.stage);
       drawArenaRails(ctx, near.sy, far.sy);
     }
-    if (this.mode === "boss") drawLetterbox(ctx, 0.85);
+    if (this.mode === "boss") drawLetterbox(ctx, this.bossOutroT > 0 || this.bossIntroT > 0 ? 1 : 0.85);
     ctx.restore();
 
     if (this.mode === "briefing") this.renderBriefingOverlay();
@@ -3884,35 +4708,102 @@ export class Game {
     if (this.bestScore > 0) {
       ctx.fillStyle = C.warn;
       ctx.font = "12px 'Share Tech Mono', monospace";
-      ctx.fillText(`BEST ${this.bestScore}`, W / 2, 172);
+      ctx.fillText(`BEST RUN ${this.bestScore}`, W / 2, 172);
     }
+    // Per-level best ranks read like a cabinet high-score strip.
+    const strip = ([1, 2, 3] as LevelId[])
+      .map((id) => {
+        const b = this.levelBests[id];
+        return `L${id} ${b ? `${b.rank} ${b.score}` : "—"}`;
+      })
+      .join("   ·   ");
+    ctx.fillStyle = "rgba(244,237,228,0.6)";
+    ctx.font = "11px 'Share Tech Mono', monospace";
+    ctx.fillText(strip, W / 2, 192);
 
+    const diff = DIFFICULTY_TIER[this.difficulty];
     const items = [
       "▶ START OPERATION",
+      `◂ DIFFICULTY · ${diff.label} ▸`,
       "HOW TO PLAY",
       "PRACTICE · LAUNCH",
       "PRACTICE · ORBIT",
     ];
     items.forEach((label, i) => {
-      const y = 368 + i * 34;
+      const y = 340 + i * 32;
       const sel = i === this.menuIndex;
-      drawPlate(ctx, W / 2 - 190, y - 22, 380, 30, sel ? C.warn : C.cyan);
+      drawPlate(ctx, W / 2 - 190, y - 21, 380, 28, sel ? C.warn : C.cyan);
       ctx.textAlign = "center";
       ctx.fillStyle = sel ? C.warn : C.bone;
-      ctx.font = sel ? "18px 'Black Ops One', sans-serif" : "15px 'Share Tech Mono', monospace";
+      ctx.font = sel ? "17px 'Black Ops One', sans-serif" : "14px 'Share Tech Mono', monospace";
       ctx.fillText(`${sel ? "▸ " : "  "}${label}`, W / 2, y);
     });
+    if (this.menuIndex === 1) {
+      ctx.fillStyle = C.cyan;
+      ctx.font = "11px 'Share Tech Mono', monospace";
+      ctx.fillText(diff.blurb, W / 2, 340 + TITLE_ITEMS * 32 - 6);
+    }
     ctx.fillStyle = "rgba(244,237,228,0.7)";
     ctx.font = "12px 'Share Tech Mono', monospace";
     ctx.fillText(
       isTouchPrimary()
-        ? "▲▼ select · OK · stick move · FIRE hold · JUMP · EMP · II pause"
-        : "A/D strafe · W/S depth · SPACE jump · J shoot · K EMP · P pause · ESC back",
+        ? "▲▼ select · OK · stick move · FIRE hold · JUMP · EMP · SWAP · II pause"
+        : "A/D strafe · W/S depth · SPACE jump · J shoot · K EMP · L swap · P pause · gamepad OK",
       W / 2,
       H - 28,
     );
     ctx.textAlign = "left";
-    this.frame++;
+    if (this.titleIdle > ATTRACT_AFTER_S) this.renderAttract();
+  }
+
+  /** Attract loop: story, roster, scoring cards cycle over the hero plate while the title idles. */
+  private renderAttract() {
+    const ctx = this.ctx;
+    const t = this.titleIdle - ATTRACT_AFTER_S;
+    const idx = Math.floor(t / ATTRACT_CARD_S) % 3;
+    const local = t % ATTRACT_CARD_S;
+    const a = Math.min(1, local * 3, (ATTRACT_CARD_S - local) * 3);
+    const cards: { title: string; lines: string[] }[] = [
+      {
+        title: "OPERATION ORBITAL BREAK",
+        lines: [
+          "STAR MIND — an orbital defense mind — redefined 'hostile' as any human network.",
+          "Rex 'Ash' Calder is the last qualified pilot on Pad 7.",
+          "Escort the fuel. Climb the gantry. Launch. Sever the spines. Rupture the core.",
+        ],
+      },
+      {
+        title: "KNOW YOUR ENEMY",
+        lines: [
+          "Flash + beep = wind-up. Every commit is dodgeable on the read.",
+          "Riot Walker: hit the REAR vent. Hackbot: kick it off before it latches.",
+          "Bosses expose a CORE / REACTOR in phase 3 — the MAG-SPIKE shreds it.",
+        ],
+      },
+      {
+        title: "SCORING",
+        lines: [
+          "Rank S / A / B / C / D per level. Beat par for time bonus. No hits taken = +1 grade.",
+          "Goal 2/2 saves a checkpoint. A continue rolls back score and scrap — and caps rank at B.",
+          "ARCADE difficulty pays ×1.5. ROOKIE is for learning lanes.",
+        ],
+      },
+    ];
+    const card = cards[idx]!;
+    ctx.save();
+    ctx.globalAlpha = a * 0.95;
+    ctx.fillStyle = "rgba(5,8,16,0.82)";
+    ctx.fillRect(60, 206, W - 120, 112);
+    ctx.fillStyle = C.pad;
+    ctx.fillRect(60, 206, 4, 112);
+    ctx.textAlign = "left";
+    ctx.fillStyle = C.cyan;
+    ctx.font = "12px 'Share Tech Mono', monospace";
+    ctx.fillText(`${card.title}   ·   ${idx + 1}/3`, 80, 228);
+    ctx.fillStyle = C.bone;
+    ctx.font = "13px 'Share Tech Mono', monospace";
+    card.lines.forEach((ln, i) => ctx.fillText(ln, 80, 254 + i * 22));
+    ctx.restore();
   }
 
   private renderHowto() {
@@ -3932,7 +4823,7 @@ export class Game {
           "Each level has two goals. Finish 1/2 to unlock 2/2.",
           "Stick = strafe + depth (NEAR / FAR). Match the cyan tick.",
           "Hold FIRE. JUMP hops — on orbit, hold JUMP to thrust.",
-          "EMP wipes nearby enemy shots and stuns the grid.",
+          "EMP wipes nearby enemy shots. Carry two guns — SWAP trades them.",
           "Earth: the fuel truck rolls with you to Pad 7.",
           "Launch: fly THROUGH the glowing rings, not beside them.",
           "Keep moving RIGHT. II pauses.",
@@ -3941,7 +4832,7 @@ export class Game {
           "Each level has two goals. Finish 1/2 to unlock 2/2.",
           "A/D strafe · W/S depth (NEAR / FAR). Match the cyan tick.",
           "Hold J to shoot · Space jump (orbit: hold Space to thrust).",
-          "K EMP — strips nearby hostile fire and stuns.",
+          "K EMP — strips nearby hostile fire. Carry two guns — L swaps them.",
           "Earth: the fuel truck rolls with you to Pad 7.",
           "Launch: fly THROUGH the glowing rings, not beside them.",
           "Keep moving RIGHT. P pauses · Esc from pause returns here.",
@@ -3954,7 +4845,6 @@ export class Game {
     ctx.textAlign = "center";
     ctx.fillText(touch ? "OK · back" : "ENTER · back", W / 2, 480);
     ctx.textAlign = "left";
-    this.frame++;
   }
 
   private renderPauseOverlay() {
@@ -3984,6 +4874,11 @@ export class Game {
     ctx.fillStyle = C.pad;
     ctx.font = "22px 'Black Ops One', sans-serif";
     ctx.fillText(this.level.name, 110, 120);
+    if (this.level.goalPhase === 2) {
+      ctx.fillStyle = C.cyan;
+      ctx.font = "12px 'Share Tech Mono', monospace";
+      ctx.fillText(`RESUMING AT CHECKPOINT · GOAL 2/2 · CONTINUES ${this.continues}`, 110, 140);
+    }
     ctx.fillStyle = C.bone;
     ctx.font = "14px 'Share Tech Mono', monospace";
     const lines =
@@ -4000,7 +4895,9 @@ export class Game {
           ]
         : this.levelId === 2
           ? [
-              "Auto-scroll ascent. Fly THROUGH the glowing rings — not beside them.",
+              isTouchPrimary()
+                ? "Auto-scroll ascent. Stick = strafe + depth. Hold JUMP to climb, release to sink."
+                : "Auto-scroll ascent. A/D strafe · W/S depth. Hold SPACE to climb, release to sink.",
               "GOAL 1/2 — Thread every gate (match the cyan depth tick).",
               "GOAL 2/2 — Kill SERAPH, then thread CIRC rings.",
               "Missed gates re-queue ahead. Stay off the screen edges.",
@@ -4026,31 +4923,121 @@ export class Game {
     );
   }
 
+  /** Results: itemized tallies reveal one row at a time, then the rank stamps down with a CAPCOM line. */
   private renderClearOverlay() {
     const ctx = this.ctx;
-    ctx.fillStyle = "rgba(5,8,16,0.55)";
+    drawLetterbox(ctx, 1);
+    ctx.fillStyle = "rgba(5,8,16,0.72)";
     ctx.fillRect(0, 0, W, H);
-    ctx.textAlign = "center";
-    ctx.fillStyle = C.warn;
-    ctx.font = "28px 'Black Ops One', sans-serif";
-    ctx.fillText("LEVEL CLEAR", W / 2, H / 2 - 40);
-    ctx.fillStyle = C.bone;
-    ctx.font = "14px 'Share Tech Mono', monospace";
-    ctx.fillText(`SCORE ${this.score}   SCRAP ${this.scrap}`, W / 2, H / 2);
-    const nextHint =
-      this.levelId === 3
-        ? isTouchPrimary()
-          ? "OK · final debrief"
-          : "ENTER · final debrief"
-        : this.levelId === 1
-          ? isTouchPrimary()
-            ? "OK · fabricator → LAUNCH!"
-            : "ENTER · fabricator → LAUNCH!"
-          : isTouchPrimary()
-            ? "OK · fabricator → ORBIT"
-            : "ENTER · fabricator → ORBIT";
+    const rows = this.results;
+    const shown = Math.min(rows.length, Math.floor(this.clearT / RESULT_ROW_S));
+    const rankIn = this.clearT >= (rows.length + 1) * RESULT_ROW_S;
+    const panelX = 150;
+    const panelW = W - 300;
+    const top = 74;
+    ctx.fillStyle = "rgba(11,18,32,0.85)";
+    ctx.fillRect(panelX, top, panelW, 380);
+    ctx.strokeStyle = C.cyan;
+    ctx.globalAlpha = 0.6;
+    ctx.strokeRect(panelX + 0.5, top + 0.5, panelW - 1, 379);
+    ctx.globalAlpha = 1;
+
+    ctx.textAlign = "left";
     ctx.fillStyle = C.cyan;
-    ctx.fillText(nextHint, W / 2, H / 2 + 36);
+    ctx.font = "12px 'Share Tech Mono', monospace";
+    ctx.fillText(`${this.level.name} · DEBRIEF`, panelX + 22, top + 26);
+    ctx.fillStyle = C.warn;
+    ctx.font = "26px 'Black Ops One', sans-serif";
+    ctx.fillText(rows[0]?.label ?? "LEVEL CLEAR", panelX + 22, top + 60);
+
+    let y = top + 100;
+    let running = 0;
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i]!;
+      if (i > shown) break;
+      running += r.pts;
+      const isPenaltyRow = r.label === "CONTINUES";
+      ctx.fillStyle = C.bone;
+      ctx.font = "14px 'Share Tech Mono', monospace";
+      ctx.fillText(r.label, panelX + 22, y);
+      ctx.fillStyle = "rgba(244,237,228,0.7)";
+      ctx.fillText(r.value, panelX + 250, y);
+      ctx.textAlign = "right";
+      ctx.fillStyle =
+        r.pts > 0 ? C.warn : r.pts < 0 || (isPenaltyRow && this.continues > 0) ? C.blood : "rgba(244,237,228,0.45)";
+      ctx.font = "15px 'Black Ops One', sans-serif";
+      ctx.fillText(
+        r.pts > 0 ? `+${r.pts}` : r.pts < 0 ? `${r.pts}` : isPenaltyRow && this.continues > 0 ? "RANK CAP B" : "—",
+        panelX + panelW - 22,
+        y,
+      );
+      ctx.textAlign = "left";
+      ctx.fillStyle = "rgba(46,196,182,0.18)";
+      ctx.fillRect(panelX + 22, y + 8, panelW - 44, 1);
+      y += 30;
+    }
+
+    if (shown >= rows.length) {
+      ctx.fillStyle = C.bone;
+      ctx.font = "16px 'Black Ops One', sans-serif";
+      ctx.fillText("LEVEL SCORE", panelX + 22, y + 10);
+      ctx.textAlign = "right";
+      ctx.fillStyle = C.warn;
+      ctx.font = "22px 'Black Ops One', sans-serif";
+      ctx.fillText(`${rankIn ? this.score : running}`, panelX + panelW - 22, y + 12);
+      ctx.textAlign = "left";
+      if (rankIn) {
+        const best = this.levelBests[this.levelId];
+        ctx.font = "11px 'Share Tech Mono', monospace";
+        ctx.fillStyle = this.newLevelBest ? C.cyan : "rgba(244,237,228,0.55)";
+        ctx.fillText(
+          this.newLevelBest
+            ? "NEW LEVEL BEST"
+            : best
+              ? `LEVEL BEST ${best.score} · ${best.rank} · ${DIFFICULTY_TIER[best.difficulty].label}`
+              : "",
+          panelX + 22,
+          y + 30,
+        );
+      }
+    }
+
+    if (rankIn) {
+      const since = this.clearT - (rows.length + 1) * RESULT_ROW_S;
+      const stamp = 1 + Math.max(0, 0.6 - since * 3);
+      const rankColor =
+        this.rank === "S" ? C.cyan : this.rank === "A" ? C.warn : this.rank === "B" ? C.pad : this.rank === "C" ? C.bone : C.blood;
+      ctx.save();
+      ctx.translate(panelX + panelW - 74, top + 52);
+      ctx.rotate(-0.12);
+      ctx.scale(stamp, stamp);
+      ctx.strokeStyle = rankColor;
+      ctx.lineWidth = 4;
+      ctx.globalAlpha = 0.9;
+      ctx.strokeRect(-36, -36, 72, 72);
+      ctx.fillStyle = rankColor;
+      ctx.textAlign = "center";
+      ctx.font = "56px 'Black Ops One', sans-serif";
+      ctx.fillText(this.rank, 0, 22);
+      ctx.restore();
+      ctx.textAlign = "center";
+      ctx.fillStyle = C.bone;
+      ctx.font = "13px 'Share Tech Mono', monospace";
+      ctx.fillText(RANK_LINE[this.rank], W / 2, top + 344);
+      const nextHint =
+        this.levelId === 3
+          ? "final debrief"
+          : this.levelId === 1
+            ? "fabricator → LAUNCH!"
+            : "fabricator → ORBIT";
+      ctx.fillStyle = C.cyan;
+      ctx.fillText(`${isTouchPrimary() ? "OK" : "ENTER"} · ${nextHint}`, W / 2, top + 366);
+    } else {
+      ctx.textAlign = "center";
+      ctx.fillStyle = "rgba(244,237,228,0.5)";
+      ctx.font = "12px 'Share Tech Mono', monospace";
+      ctx.fillText(isTouchPrimary() ? "OK · skip" : "ENTER · skip", W / 2, top + 366);
+    }
     ctx.textAlign = "left";
   }
 
@@ -4118,13 +5105,24 @@ export class Game {
     ctx.font = "14px 'Share Tech Mono', monospace";
     ctx.fillText("STAR MIND PRIME ruptured · uplink silence across LEO", W / 2, 220);
     ctx.fillStyle = C.warn;
-    ctx.fillText(`TOTAL SCORE ${this.totalScore}`, W / 2, 260);
-    if (this.bestScore >= this.totalScore && this.bestScore > 0) {
+    ctx.fillText(`TOTAL SCORE ${this.totalScore} · CONTINUES ${this.continues}`, W / 2, 260);
+    if (this.newBest) {
+      ctx.fillStyle = Math.floor(this.frame / 14) % 2 === 0 ? C.cyan : C.pad;
+      ctx.font = "16px 'Black Ops One', sans-serif";
+      ctx.fillText("NEW BEST", W / 2, 284);
+      ctx.font = "14px 'Share Tech Mono', monospace";
+    } else if (this.bestScore > 0) {
       ctx.fillStyle = C.pad;
       ctx.fillText(`BEST ${this.bestScore}`, W / 2, 282);
     }
     ctx.fillStyle = C.bone;
-    ctx.fillText("CAPCOM NIX: Come home, Ash. Leave the void to the ghosts.", W / 2, 310);
+    ctx.fillText(
+      this.continues === 0
+        ? "CAPCOM NIX: No continues. I'm not even going to pretend I'm not impressed."
+        : "CAPCOM NIX: Come home, Ash. Leave the void to the ghosts.",
+      W / 2,
+      310,
+    );
     if (this.stinger) {
       ctx.fillStyle = C.blood;
       ctx.font = "12px 'Share Tech Mono', monospace";
@@ -4137,6 +5135,5 @@ export class Game {
       glow(ctx, W / 2 + 180, 120, 16, C.cyan, 0.8);
       rr(ctx, W / 2 + 176, 116, 8, 8, C.cyan);
     }
-    this.frame++;
   }
 }

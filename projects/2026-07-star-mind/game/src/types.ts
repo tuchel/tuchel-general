@@ -42,6 +42,20 @@ export interface Upgrades {
   mobility: number;
 }
 
+export type Difficulty = "rookie" | "veteran" | "arcade";
+
+export const DIFFICULTIES: Difficulty[] = ["rookie", "veteran", "arcade"];
+
+/** Multipliers layered on top of the act tier. Arcade pays more score for less HP. */
+export const DIFFICULTY_TIER: Record<
+  Difficulty,
+  { label: string; hp: number; dmg: number; spd: number; playerHp: number; score: number; blurb: string }
+> = {
+  rookie: { label: "ROOKIE", hp: 0.8, dmg: 0.7, spd: 0.94, playerHp: 1.35, score: 0.8, blurb: "More HP, softer hits. Learn the lanes." },
+  veteran: { label: "VETERAN", hp: 1, dmg: 1, spd: 1, playerHp: 1, score: 1, blurb: "The intended run." },
+  arcade: { label: "ARCADE", hp: 1.25, dmg: 1.35, spd: 1.08, playerHp: 0.6, score: 1.5, blurb: "Glass Ash, ×1.5 score. Bring quarters." },
+};
+
 export const defaultUpgrades = (): Upgrades => ({
   damage: 0,
   fireRate: 0,

@@ -88,6 +88,29 @@ export function drawBullet(
   ctx.restore();
 }
 
+/** One radial-gradient sprite per color; glows are then a single scaled drawImage instead of a gradient build per call. */
+const GLOW_PX = 128;
+const glowSprites = new Map<string, HTMLCanvasElement>();
+
+function glowSprite(color: string): HTMLCanvasElement | null {
+  let c = glowSprites.get(color);
+  if (c) return c;
+  if (typeof document === "undefined") return null;
+  c = document.createElement("canvas");
+  c.width = GLOW_PX;
+  c.height = GLOW_PX;
+  const g2 = c.getContext("2d");
+  if (!g2) return null;
+  const half = GLOW_PX / 2;
+  const grad = g2.createRadialGradient(half, half, 0, half, half, half);
+  grad.addColorStop(0, color);
+  grad.addColorStop(1, "transparent");
+  g2.fillStyle = grad;
+  g2.fillRect(0, 0, GLOW_PX, GLOW_PX);
+  glowSprites.set(color, c);
+  return c;
+}
+
 export function glow(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -96,15 +119,63 @@ export function glow(
   color: string,
   a = 0.35,
 ) {
-  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-  g.addColorStop(0, color);
-  g.addColorStop(1, "transparent");
+  if (r <= 0) return;
+  const spr = glowSprite(color);
   ctx.globalAlpha = a;
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fill();
+  if (spr) {
+    ctx.drawImage(spr, x - r, y - r, r * 2, r * 2);
+  } else {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, color);
+    g.addColorStop(1, "transparent");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.globalAlpha = 1;
+}
+
+/** Pickup glyph by kind so loot reads at a glance: scrap gear, health cross, weapon cartridge in its color. */
+export function drawPickupIcon(
+  ctx: CanvasRenderingContext2D,
+  kind: "scrap" | "health" | "weapon",
+  color: string,
+  x: number,
+  y: number,
+  s: number,
+) {
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.scale(s, s);
+  if (kind === "scrap") {
+    ctx.fillStyle = C.warn;
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      ctx.fillRect(Math.cos(a) * 7 - 2, Math.sin(a) * 7 - 2, 4, 4);
+    }
+    ctx.beginPath();
+    ctx.arc(0, 0, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = C.soot;
+    ctx.beginPath();
+    ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (kind === "health") {
+    ctx.fillStyle = C.bone;
+    ctx.fillRect(-9, -9, 18, 18);
+    ctx.fillStyle = C.pad;
+    ctx.fillRect(-2.5, -6, 5, 12);
+    ctx.fillRect(-6, -2.5, 12, 5);
+  } else {
+    ctx.fillStyle = C.soot;
+    ctx.fillRect(-11, -6, 22, 12);
+    ctx.fillStyle = color;
+    ctx.fillRect(-9, -4, 14, 8);
+    ctx.fillStyle = C.bone;
+    ctx.fillRect(6, -3, 4, 6);
+  }
+  ctx.restore();
 }
 
 /** Chunky astronaut — Ash Calder */
@@ -381,6 +452,44 @@ export function drawPickup(
     rr(ctx, -10, -8, 20, 16, C.navy, C.cyan);
     rr(ctx, -6, -4, 12, 8, C.warn);
   }
+  ctx.restore();
+}
+
+/** Stranded pad tech — hard hat, jumpsuit, waving arm. Anchored at the feet. */
+export function drawTech(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  s: number,
+  frame: number,
+) {
+  const wave = Math.sin(frame * 0.18);
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.scale(s, s);
+  glow(ctx, 0, -14, 22, C.warn, 0.22 + 0.08 * wave);
+  // boots
+  rr(ctx, -6, -4, 5, 4, C.soot);
+  rr(ctx, 1, -4, 5, 4, C.soot);
+  // legs + jumpsuit
+  rr(ctx, -5, -14, 4, 10, C.pad);
+  rr(ctx, 1, -14, 4, 10, C.pad);
+  rr(ctx, -6, -24, 12, 11, C.bone, C.soot);
+  rr(ctx, -6, -24, 12, 3, C.pad);
+  // arms: one on hip, one waving
+  rr(ctx, -9, -22, 3, 8, C.bone);
+  ctx.save();
+  ctx.translate(7, -22);
+  ctx.rotate(-2.2 + wave * 0.5);
+  rr(ctx, 0, -1, 9, 3, C.bone);
+  rr(ctx, 8, -2, 3, 4, C.pad);
+  ctx.restore();
+  // head + hard hat
+  rr(ctx, -4, -32, 8, 8, "#e7b98a");
+  rr(ctx, -5, -35, 10, 4, C.warn, C.soot);
+  rr(ctx, -6, -32, 12, 2, C.warn);
+  // radio blink
+  if (Math.floor(frame / 12) % 2 === 0) rr(ctx, 4, -30, 2, 2, C.cyan);
   ctx.restore();
 }
 

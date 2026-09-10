@@ -2,7 +2,7 @@
  * Intensity Director — narrative pressure curves per level × goal.
  * See notes/pacing.md for the design source of truth.
  */
-import type { LevelId } from "./types";
+import { DIFFICULTY_TIER, type Difficulty, type LevelId } from "./types";
 
 export interface IntensityKeyframe {
   /** Goal progress 0–1 */
@@ -36,11 +36,12 @@ export interface IntensitySample {
   allowHeavies: boolean;
 }
 
-/** Act-wide HP / damage / move multipliers. L1 is the teaching floor. */
-export function actTier(level: LevelId): { hp: number; dmg: number; spd: number } {
-  if (level === 1) return { hp: 1, dmg: 1, spd: 1 };
-  if (level === 2) return { hp: 1.15, dmg: 1.2, spd: 1.12 };
-  return { hp: 1.35, dmg: 1.35, spd: 1.08 };
+/** Act-wide HP / damage / move multipliers, times the chosen difficulty. L1 is the teaching floor. */
+export function actTier(level: LevelId, difficulty: Difficulty = "veteran"): { hp: number; dmg: number; spd: number } {
+  const act =
+    level === 1 ? { hp: 1, dmg: 1, spd: 1 } : level === 2 ? { hp: 1.15, dmg: 1.2, spd: 1.12 } : { hp: 1.35, dmg: 1.35, spd: 1.08 };
+  const d = DIFFICULTY_TIER[difficulty];
+  return { hp: act.hp * d.hp, dmg: act.dmg * d.dmg, spd: act.spd * d.spd };
 }
 
 const L1A: GoalCurve = {
