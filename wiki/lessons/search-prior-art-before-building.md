@@ -20,7 +20,7 @@ Not a feature checklist score. The whale-map core job was real-time / recent wha
 
 ### Rule now in force
 
-See [`AGENTS.md`](../../AGENTS.md) → **Prior-art search (external — before building)**. Pause when a named incumbent does the core job. Always file findings in the project README or `notes/prior-art.md`.
+See [`AGENTS.md`](../../AGENTS.md) → **Prior-art search (external — before building)**. Pause when a named incumbent does the core job. File findings once in the project README or `notes/prior-art.md`. Skip a new search if that block already exists and the job sentence has not changed.
 
 ## Sources
 
