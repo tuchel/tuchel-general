@@ -93,7 +93,7 @@ export const SCHOOLS: School[] = [
     url: 'https://www.discoveryschools.com/south-school',
     flags: ['play-based'],
     notes: [
-      'Pedagogy is a known 0 (play-based), not unknown. Coverage stays 100%; outdoor, age, and logistics carry the rank.',
+      'Play-based (pedagogy 0).',
     ],
     missingUnverified: [],
   },
@@ -110,7 +110,7 @@ export const SCHOOLS: School[] = [
     address: '6305 Menchaca Rd, Austin 78745',
     url: 'https://www.headwaters.org/academics/young-childrens-community',
     flags: ['hours unpublished', 'range can hit 20'],
-    notes: ['Hours unpublished, so logistics is unknown and dropped from the denominator.'],
+    notes: ['Hours unpublished, so logistics is unknown.'],
     missingUnverified: ['logistics (hours unpublished)'],
   },
   {
@@ -127,7 +127,7 @@ export const SCHOOLS: School[] = [
     url: 'https://www.austinbutterflyacademy.com/',
     flags: ['play-based', 'licensed home', 'two addresses', 'S 3rd range can hit 20'],
     notes: [
-      'Typical 8am is 14 minutes at both doors. 51.5 was the uncongested-distance version; at 14 min typical the sort is 46.5.',
+      'Typical 8am is 14 minutes at both doors.',
     ],
     missingUnverified: [],
   },
@@ -145,14 +145,14 @@ export const SCHOOLS: School[] = [
     url: 'https://guidepostmontessori.com/schools/westlake-austin-tx/',
     flags: ['credential unverified'],
     notes: [
-      'Montessori is unknown — dropped from the denominator — not scored as zero. Closest campus; outdoor and nature are thin.',
+      'Montessori is unknown, not zero. Closest campus; outdoor and nature are thin.',
     ],
     missingUnverified: ['Montessori credential unverified'],
   },
   {
     id: 'mariposa',
     name: 'Mariposa',
-    bluntClass: 'Montessori, thin outdoor file',
+    bluntClass: 'Montessori, outdoor unknown',
     tray: 'ranked',
     scores: row({ outdoor: null, montessori: 70, age_fit: 100, distance: D16, nature: null, logistics: 50 }),
     scoreSource: 'published',
@@ -161,9 +161,9 @@ export const SCHOOLS: School[] = [
     straddle: true,
     address: '3338 Paisano Trail, Austin 78745',
     url: 'https://www.mariposamontessori.com/',
-    flags: ['AMS claim first-party', 'range can hit 20'],
+    flags: ['AMS claim on the school site', 'range can hit 20'],
     notes: [
-      'Outdoor and nature unknown. School site claims AMS Fully Accredited Member (30 Aug 2026); AMS public locator did not return this campus in that pass.',
+      'Outdoor and nature unknown. School site claims AMS Fully Accredited Member. The AMS public directory does not list this campus.',
     ],
     missingUnverified: ['outdoor', 'nature', 'AMS directory row for Paisano Trail'],
   },
@@ -180,7 +180,7 @@ export const SCHOOLS: School[] = [
     address: '3801 Keats Dr, Austin 78704',
     url: 'https://www.townandcountrychildrensmontessori.com/',
     flags: [],
-    notes: ['Pedagogy unknown — dropped, not zero. Ties Mariposa and WonderWell on First-pass sort (39.0).'],
+    notes: ['Pedagogy unknown, not zero. Ties Mariposa and WonderWell on first-pass sort (39.0).'],
     missingUnverified: ['Montessori'],
   },
   {
@@ -215,13 +215,13 @@ export const SCHOOLS: School[] = [
     address: '6817 Great Northern Blvd, Austin 78757',
     url: 'https://austinmontessori.org',
     flags: ['AMI', 'range can hit 20'],
-    notes: ['Do not copy the Sunset Trail garden onto this campus. Outdoor and nature unknown.'],
-    missingUnverified: ['outdoor', 'nature', 'do not copy Sunset Trail garden'],
+    notes: ['Outdoor and nature unknown. This is not the Sunset Trail campus.'],
+    missingUnverified: ['outdoor', 'nature'],
   },
   {
     id: 'renaissance',
     name: 'Renaissance',
-    bluntClass: 'Montessori, thin file',
+    bluntClass: 'Montessori, outdoor unknown',
     tray: 'ranked',
     scores: row({
       outdoor: null,
@@ -237,8 +237,8 @@ export const SCHOOLS: School[] = [
     straddle: false,
     address: '5014 Bull Creek Rd, Austin 78731',
     url: 'https://www.renaissance-montessori-school.com/',
-    flags: ['thin file'],
-    notes: ['Thin file. Outdoor, nature, and logistics unknown.'],
+    flags: [],
+    notes: ['Outdoor, nature, and logistics unknown.'],
     missingUnverified: ['outdoor', 'nature', 'logistics'],
   },
   {
@@ -270,7 +270,7 @@ export const SCHOOLS: School[] = [
     address: '6000 Mountain Shadows Dr, Austin 78735',
     url: 'https://www.gardenblossompreschool.com/',
     flags: ['HHSC 1724309', 'range can hit 20'],
-    notes: ['HHSC 1724309 / URL id 1382459. Montessori is a known 0.'],
+    notes: ['HHSC 1724309. Montessori is a known 0.'],
     missingUnverified: [],
   },
   {
@@ -338,7 +338,7 @@ export const SCHOOLS: School[] = [
     url: 'https://www.parksidecommunityschool.org/primary',
     flags: ['12 acres', 'range can hit 20'],
     notes: [
-      'Typical 8am is 18 minutes, so this is not Worth the drive. Age-gated this fall.',
+      'Typical 8am is 18 minutes. Age-gated this fall.',
     ],
     missingUnverified: ['outdoor'],
   },
@@ -372,7 +372,7 @@ export const SCHOOLS: School[] = [
     url: 'https://www.cedarsmontessori.com/',
     flags: ['16 acres', 'range can hit 20'],
     notes: [
-      'Typical 8am is 16 minutes, so this is not Worth the drive. Age-gated this fall.',
+      'Typical 8am is 16 minutes. Age-gated this fall.',
     ],
     missingUnverified: ['outdoor', 'Montessori'],
   },
@@ -406,7 +406,7 @@ export const SCHOOLS: School[] = [
     url: 'https://tigerlilypreschool.com/',
     flags: ['HHSC 1743815', 'part-day', 'typical 22 min'],
     notes: [
-      'Age-gated this fall, so this tray is primary even though typical 8am is 22 minutes (over 20). Not duplicated in Worth the drive.',
+      'Age-gated this fall. Typical 8am is 22 minutes.',
       'Part-day 9:30–2:30 Monday–Thursday. Pedagogy 50. Logistics 0 (part-day, not unknown).',
     ],
     missingUnverified: [],
@@ -426,7 +426,7 @@ export const SCHOOLS: School[] = [
     url: 'https://www.klaschools.com/sweetwater',
     flags: ['franchise overlay', 'HHSC 1704165', 'eligible now 7:00–6:00'],
     notes: [
-      'Only pedagogy-100 Reggio in this file. Dedicated Atelier, documentation, and Director of Pedagogy Janice Vega. Franchise overlay. Tuition unpublished.',
+      'Only pedagogy-100 Reggio. Dedicated Atelier, documentation, and Director of Pedagogy Janice Vega. Franchise overlay. Tuition unpublished.',
     ],
     missingUnverified: ['tuition unpublished'],
   },
@@ -444,7 +444,7 @@ export const SCHOOLS: School[] = [
     url: 'https://www.piopiopreschool.com/',
     flags: ['HHSC 1798900', 'licensed home', '18m–4'],
     notes: [
-      'Typical 8am is 20 minutes, so Worth the drive, not Ranked. Hours 8:30–3:30. $1575/mo.',
+      'Typical 8am is 20 minutes. Hours 8:30–3:30. $1575/mo.',
     ],
     missingUnverified: [],
   },
@@ -511,7 +511,7 @@ export const SCHOOLS: School[] = [
     address: '10819 Ranch Road 2222',
     url: 'https://www.schoolinthehills.com/river-place/',
     flags: ['AMS Pathway'],
-    notes: ['AMS Pathway. Logistics unknown — dropped from the denominator.'],
+    notes: ['AMS Pathway. Logistics unknown.'],
     missingUnverified: ['logistics'],
   },
   {
@@ -528,14 +528,14 @@ export const SCHOOLS: School[] = [
     url: 'https://www.lakehillsmontessori.com/',
     flags: ['range can hit 20'],
     notes: [
-      'Typical 8am is 24 minutes, so this stays Worth the drive even though the range dips to 18. Range-high is a flag, not a fail.',
+      'Typical 8am is 24 minutes. Range 18–35 minutes.',
     ],
     missingUnverified: [],
   },
   {
     id: 'bluebonnet',
     name: 'Bluebonnet',
-    bluntClass: 'Montessori, thin outdoor file',
+    bluntClass: 'Montessori, outdoor unknown',
     tray: 'worth_the_drive',
     scores: row({ outdoor: 40, montessori: 50, age_fit: 50, distance: 0, nature: 50, logistics: null }),
     scoreSource: 'published',
@@ -545,8 +545,8 @@ export const SCHOOLS: School[] = [
     address: '',
     url: 'https://www.bluebonnetmontessori.com/',
     flags: [],
-    notes: ['Logistics unknown — dropped from the denominator.'],
-    missingUnverified: ['logistics', 'address thin'],
+    notes: ['Logistics unknown.'],
+    missingUnverified: ['logistics', 'address unpublished'],
   },
   {
     id: 'guidepost-bee-cave',
@@ -561,7 +561,7 @@ export const SCHOOLS: School[] = [
     address: '14058 Bee Cave Pkwy Building C, Austin, TX 78738',
     url: 'https://guidepostmontessori.com/schools/bee-cave-austin-tx/',
     flags: ['credential unverified'],
-    notes: ['Montessori unknown — dropped from the denominator, not zero. Logistics unknown.'],
+    notes: ['Montessori unknown, not zero. Logistics unknown.'],
     missingUnverified: ['Montessori credential unverified', 'logistics'],
   },
 ]

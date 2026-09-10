@@ -87,7 +87,7 @@ export function SchoolCard({
       {open && (
         <div className="card-body">
           <p className="where">
-            {school.address || 'Address thin in ranked-v2.'} ·{' '}
+            {school.address || 'Address unpublished.'} ·{' '}
             <a href={school.url} target="_blank" rel="noreferrer">
               {displayHost(school.url)}
             </a>
@@ -97,12 +97,12 @@ export function SchoolCard({
           )}
           {school.driveRange && (
             <p className="range-line">
-              Range {school.driveRange[0]}–{school.driveRange[1]} min. Straddle is a flag, not a fail.
+              Drive range {school.driveRange[0]}–{school.driveRange[1]} minutes.
             </p>
           )}
           {school.scoreSource === 'fitted-aggregate' && (
             <p className="fitted">
-              Per-criterion scores were fitted to a published aggregate. Treat slider re-ranks as approximate.
+              Criterion scores were fitted to a published total.
             </p>
           )}
 
