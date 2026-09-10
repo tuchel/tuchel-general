@@ -2,7 +2,7 @@
 
 Personal monorepo for projects and ideas that do not warrant their own repository.
 
-Agents: read [`AGENTS.md`](AGENTS.md) first. Work lives under [`projects/`](projects/).
+Operator schema: [`AGENTS.md`](AGENTS.md) (already in agent context). Work lives under [`projects/`](projects/).
 
 ## Live projects
 

@@ -35,7 +35,7 @@ Trays are frozen, not re-derived from sliders:
 
 Waitlists, tuition, and credentials appear only when a school published them.
 
-**Focus** is Sunset Trail, Mariposa, and Primrose West Lake Hills. No religious schools (church, parish, or faith-based ministry). Ranked trays may still list a religious campus (Light of Christ is Eligible at 3).
+**Focus** is Sunset Trail, Mariposa, and Primrose West Lake Hills. No religious schools (church, parish, or faith-based ministry). Ranked trays may still list a religious campus (Light of Christ is Eligible at 3). Before adding a Focus school: if the campus is religious, stop — do not fetch the site, download photos, time the drive, or open a PR.
 
 ## Prior art (kickoff, 28 Aug 2026)
 
