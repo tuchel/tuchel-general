@@ -1,6 +1,6 @@
 # AGENTS.md — Personal Operator Schema
 
-This file tells any LLM agent entering this repo how to behave. It is already in context — do not re-read it when the task is stated. The goal is a disciplined compounding knowledge system for a personal projects monorepo — not a bag of markdown files.
+This file tells any LLM agent entering this repo how to behave. Read it before doing other work. The goal is a disciplined compounding knowledge system for a personal projects monorepo — not a bag of markdown files.
 
 ---
 
@@ -11,7 +11,7 @@ This file tells any LLM agent entering this repo how to behave. It is already in
 What the system amplifies:
 
 1. **First-principles thinking.** Rebuild claims from scratch; do not trust secondhand numbers.
-2. **Compounding knowledge.** Distilled lessons, concepts, and methods go into `wiki/` so later work starts smarter.
+2. **Compounding knowledge.** Distilled lessons stay in the project that taught them (`README.md`, `notes/`) and in git. Do not file them into `wiki/` unless the human asked.
 3. **High-polish artifacts when it matters.** Charts, sims, and writeups that leave this repo should meet the same information and graphic discipline as anything client-facing.
 
 Tone: understated, precise, falsifiable. No showy branding language. Reader-facing copy is the conclusion, not the lab notebook (see **Reader-facing prose**).
@@ -22,27 +22,22 @@ Tone: understated, precise, falsifiable. No showy branding language. Reader-faci
 
 ```
 tuchel-general/
-├── AGENTS.md                 # this schema (agent entrypoint)
-├── README.md                 # human-facing overview
-├── skills/                   # agent skills
-│   └── tufte design/         # new or refactored charts (SKILL.md + 7-question test)
-├── wiki/                     # LLM-owned compounding knowledge base
-│   ├── index.md              # catalog of every wiki page
-│   ├── log.md                # append-only chronological log
-│   ├── concepts/             # reusable primitives (physics, engineering, finance, process)
-│   ├── entities/             # people / companies / orgs / tools
-│   ├── methods/              # how we analyze or build things
-│   ├── lessons/              # compounding lessons-learned
-│   └── _templates/           # templates for new wiki pages
-└── projects/                 # one folder per project or idea
-    └── {yyyy-mm}-{slug}/     # or {slug}/ when date prefix is awkward
-        ├── README.md         # purpose, status, pointers
-        ├── raw/              # immutable sources (never copy verbatim into wiki/)
-        ├── notes/            # working notes
-        └── ...               # code, sims, writeups as needed
+├── AGENTS.md          # this schema (agent entrypoint)
+├── README.md          # human-facing overview
+├── skills/            # agent skills
+│   └── tufte design/  # mandatory for charts / infographics
+├── wiki/              # optional notes. Leave on disk. Do not open, lint, or append unless the human asked.
+└── projects/          # one folder per project or idea
+    └── {yyyy-mm}-{slug}/   # or {slug}/ when date prefix is awkward
+        ├── README.md  # purpose, status, pointers
+        ├── raw/       # immutable sources (never copy verbatim into shared pages)
+        ├── notes/     # working notes
+        └── ...        # code, sims, writeups as needed
 ```
 
 Add folders only when a project needs them. Do not invent empty ceremony directories.
+
+`wiki/` is not part of the default workflow. The human will call on it when it is valuable. Until then: do not read `wiki/index.md` or `wiki/log.md` at session start, do not append the log, do not lint the wiki, do not create or update wiki pages, and do not register new pages in the catalog.
 
 ---
 
@@ -52,39 +47,13 @@ Add folders only when a project needs them. Do not invent empty ceremony directo
 
 When a new file lands in `projects/{slug}/raw/`, or when asked to ingest a source:
 
-**Required:**
-
 1. Read the source in full.
 2. Write a summary under `projects/{slug}/raw/_summaries/{source-name}.md` (or `projects/{slug}/notes/` if there is no `raw/`).
-3. Append to `projects/{slug}/` log if one exists, else `wiki/log.md`: `## [YYYY-MM-DD] ingest | {source-name} | {one-line takeaway}`.
-4. Surface key takeaways after bookkeeping.
+3. Surface key takeaways after bookkeeping.
 
-**Only if the name already appears elsewhere, or the claim is load-bearing:**
+Stop there. Do not create entity or concept wiki pages, do not append `wiki/log.md`, and do not update `wiki/index.md`.
 
-5. Create or update `wiki/entities/` / `wiki/concepts/` with facts and citations.
-6. Update `wiki/index.md` with those new pages.
-
-Do not create a wiki page per extracted noun. Never copy proprietary or private source text verbatim into `wiki/`. Distill and de-identify.
-
-### Answer a query against the wiki
-
-1. Read `wiki/index.md` first.
-2. Read the relevant project README / notes if the query is project-adjacent.
-3. Drill into specific pages.
-4. Synthesize with citations (paths + line numbers, or wiki-links).
-5. Answer in the thread. File a wiki page only when asked, or when the same miss happens a second time. New lessons stay human-in-loop.
-
-### Lint the wiki
-
-Run periodically or on request:
-
-1. Scan for contradictions between pages.
-2. Flag stale claims superseded by newer sources.
-3. Find orphan pages with no inbound links.
-4. Find concepts mentioned but lacking a page.
-5. Find missing cross-references.
-6. Spot repeated ad-hoc analyses that should become `wiki/methods/` or a shared primitive.
-7. Suggest new questions, sources, and primitives.
+Never copy proprietary or private source text verbatim into shared pages. Distill and de-identify.
 
 ### Start a new project
 
@@ -93,8 +62,8 @@ When asked to start a project for `{name}`:
 1. **Run prior-art search first** (below) — before scaffolding folders or writing substantial code. Surface results and wait for direction when a named incumbent already does the core job.
 2. Create `projects/{yyyy-mm}-{slug}/` with at least `README.md` (purpose, status, open questions, prior-art notes).
 3. Add `raw/`, `notes/`, or code folders only as needed.
-4. Run internal proactive surfacing (below) and record pointers in the README.
-5. Append a kickoff line to `wiki/log.md` and register any new entity/concept pages in `wiki/index.md`.
+
+Do not append `wiki/log.md` or register wiki pages.
 
 ### Prior-art search (external — before building)
 
@@ -104,27 +73,24 @@ When kicking off a **new project** or a **substantial new capability** (new user
 
 1. State the **job to be done** in one sentence (who, where, what decision or action).
 2. Search **outside the repo** for existing solutions: web products, mobile apps, GitHub repos, papers, agency/NGO tools, and obvious incumbents. Use the job sentence and concrete domain keywords — not only the working title.
-3. Search **inside the repo** (`wiki/`, `projects/`) for related threads.
+3. Search **inside the repo** (`projects/`) for related threads. Search `wiki/` only if the human asked.
 4. Report **3–5 closest matches** before writing substantial code. For each: name, URL (or install path), what job it covers, and the gap vs our goal (if any). Include “no close match found” with what was searched when that is the honest answer.
 5. Recommend one of:
-   - **Adopt / stop** — an existing tool already does the core job; prefer using it (and optionally documenting why in `wiki/`).
+   - **Adopt / stop** — an existing tool already does the core job; prefer using it.
    - **Differentiate** — proceed only with a named delta the incumbent lacks (narrower audience, offline, different data, learning exercise, etc.).
    - **Rebuild for learning** — intentional recreation; state what skill or proof the rebuild is for.
    - **Proceed** — no close match; greenfield is justified.
 6. **Named incumbent already does the core job:** pause. Do not scaffold a competing app or pour sessions into parity features until the human chooses adopt, differentiate, or rebuild-for-learning. “Core job” means the primary decision or action in step 1 — not a fuzzy feature-overlap percentage. Adjacent tools and inspiration still count as findings; they do not by themselves trigger the pause.
-7. **File the search once** in the project `README.md` (or `notes/prior-art.md`), including inspiration-only matches and honest “no close match” notes.
-8. **Skip a new search** if a prior-art block already exists and the job sentence has not changed. Do not re-paste a match table when adding a section, rewriting copy, or fixing a bug.
+7. **Always file the search** in the project `README.md` (or `notes/prior-art.md`), including inspiration-only matches and honest “no close match” notes, so later agents do not repeat the miss.
 
 Prior-art search is **max autonomy**. Choosing to build anyway when a named incumbent already does the core job is **human-in-loop**.
 
-### Proactive surfacing (internal — new project or new capability)
+### Proactive surfacing (internal — on task start)
 
-Run this only for a **new project** or a **new capability** (new user-facing surface, data product, or end-to-end tool). Skip on polish, copy, bugfix, schema lint, and merge-conflict work. Do not print a prior-work tour in the user reply for those tasks.
-
-When it applies:
+When opening or continuing project work (after kickoff prior-art is on file, or for smaller tasks):
 
 1. Extract topic keywords from path, headers, and existing content.
-2. Search `wiki/concepts/`, `wiki/methods/`, `wiki/lessons/`, and prior `projects/`.
+2. Search prior `projects/` for related threads. Do not search `wiki/` unless the human asked.
 3. Print the top 3–5 relevant prior-work pointers with a one-line reason each.
 4. If an existing project already does the **core job**, recommend reuse vs branch.
 5. If the task has grown into a new end-to-end product shape and no external prior-art note exists yet, run the external prior-art search above before expanding scope.
@@ -149,7 +115,7 @@ Rules:
 
 ### Reader-facing prose
 
-Copy a person will read — apps, product READMEs, wiki canonical pages, chart labels, ledes — is the **final conclusion**. Tight. No meandering. Zero writing about writing.
+Copy a person will read — apps, product READMEs, wiki pages the human asked you to write, chart labels, ledes — is the **final conclusion**. Tight. No meandering. Zero writing about writing.
 
 The reader came for a decision or a fact. They did not come for the snapshot name, the fetch, the schema, or a tour of how the paragraph was assembled.
 
@@ -162,34 +128,23 @@ The reader came for a decision or a fact. They did not come for the snapshot nam
 - How-we-got-here (`this is a household pick, not first-pass sort order`; `compared in depth`; `not some earlier table`).
 - Past-version framing (`we used to say`, `previously`, `reweighted`). Present tense only.
 
-**Where that material belongs:** `wiki/log.md`, git, code comments, working `notes/`. Scoring math that *is* the tool (live weights, unknown dropped from the denominator) may stay — say the human rule once, not a recap of the operator schema.
+**Where that material belongs:** git, code comments, working `notes/`. Scoring math that *is* the tool (live weights, unknown dropped from the denominator) may stay — say the human rule once, not a recap of the operator schema.
 
 **Test:** delete any phrase a stranger would have to ask you to explain. If the sentence still decides, keep it. If it only records how the writer worked, cut it.
 
 ---
 
-## Wiki compounding
-
-`wiki/` is the durable layer. Projects are ephemeral relative to it.
-
-- Prefer promoting recurring ideas to `wiki/concepts/` or `wiki/methods/` over leaving them buried in one project's notes.
-- Lessons from mistakes go in `wiki/lessons/` with a link back to the project that taught them.
-- `wiki/index.md` stays thin and current; long synthesis gets its own page.
-- `wiki/log.md` is append-only and date-stamped. Append; do not reflow history in the same change as unrelated edits.
-
----
-
 ## Charts & graphics
 
-### Tufte skill — new or refactored charts
+### Tufte skill — mandatory
 
-When **designing or refactoring** a chart, infographic, schematic, dashboard, or data visualization:
+When designing, refactoring, or critiquing any chart, infographic, schematic, dashboard, or data visualization:
 
-1. Read [`skills/tufte design/SKILL.md`](skills/tufte%20design/SKILL.md).
+1. Read and follow [`skills/tufte design/SKILL.md`](skills/tufte%20design/SKILL.md).
 2. Apply the workflow (clarify the data story → pick the approach → design for data-ink → run the test).
 3. Do not ship the viz until it passes the 7-question Tufte test below.
 
-Do not open the two reference files for tooltip copy, slider captions, or other chart-adjacent chrome. Load `skills/tufte design/references__tufte-principles.md` and `references__analytical-design.md` only when building a **new dense display**.
+Also use `skills/tufte design/references__tufte-principles.md` and `references__analytical-design.md` for denser displays.
 
 ### The 7-question Tufte test (gate)
 
@@ -201,11 +156,9 @@ Do not open the two reference files for tooltip copy, slider captions, or other 
 6. **Density:** Could the chart show more data in the same space? (Condense.)
 7. **Context:** Labels, sources, scales, units present?
 
-### Interactive chart standards (plotted series and live simulators)
+### Interactive chart standards (when building interactive viz)
 
-These apply to plotted series and live simulators. A comparison-table cell does not need a four-field tooltip.
-
-- **Hover tooltips** on plotted data (rich tooltip, not a bare browser `title`), with at least three of: title, key-values, source, contextual note. Invisible hit target ≥ 12 px.
+- **Hover tooltips** on every data element (rich tooltip, not a bare browser `title`), with at least three of: title, key-values, source, contextual note. Invisible hit target ≥ 12 px.
 - **Bound-grounded sliders** on live simulators: each range input states what the lower bound, upper bound, and current value mean physically. Numeric-only sliders are forbidden.
 - **Default to live simulator over static SVG** when the curve comes from an equation — expose parameters. Static charts are the exception.
 
@@ -219,55 +172,46 @@ Solo repo. No co-author merge theater.
 
 ### Branch + PR flow
 
-- Prefer feature branches off `main`. If `main` is protected, never push directly to it.
+- Prefer feature branches off `main`. If `main` is protected, never push directly to `main`.
 - Agent may create branches, commit, and push without asking.
 - Branch naming: `cursor/{short-topic}` for agent-driven work; `tuchel/{short-topic}` for human-driven work. Lowercase only.
 - One PR per logical change. Split sprawling sessions.
-- Run the project's local checks, then one commit and push, then open the PR. Do not open a draft PR before the first local check.
 - Open PRs as draft when the work is not ready to merge; mark ready when it is.
-- Subscribe to CI only if a workflow runs on `pull_request` for the files you touched. Deploy-on-main workflows do not count. If that CI fails on an agent-opened PR, diagnose from the logs and push a fix to the same branch — no human ping required for routine lint/test failures.
+- If CI exists and fails on an agent-opened PR, diagnose from the logs and push a fix to the same branch — no human ping required for routine lint/test failures.
 - Auto-merge on green CI is fine when configured; treat merges as releases of whatever this monorepo publishes.
 
 ### Autonomy ladder
 
-- **Max autonomy:** wiki ingest, summarization, cross-references, index/log updates, lint cleanups, prior-art search + report (file once; skip if the block exists and the job is unchanged), scaffolding empty project folders when no named incumbent already does the core job.
-- **Human-in-loop by default:** new wiki pages that assert load-bearing claims, new lessons (framing matters), anything user-facing that will be shared outside the repo, deletions/renames of existing content, **building a new app/capability when a named external incumbent already does the core job**.
+- **Max autonomy:** summarization into the project that owns the source, prior-art search + report (always file in the project), scaffolding empty project folders when no named incumbent already does the core job.
+- **Human-in-loop by default:** anything user-facing that will be shared outside the repo, deletions/renames of existing content, **building a new app/capability when a named external incumbent already does the core job**, **any edit under `wiki/`**.
 - **Explicit confirmation:** irreversible ops (force-push, deleting remote branches you did not create for this task, publishing/deploying, scheduled cron, secrets handling).
 - When in doubt: take the action as a draft on a branch, surface it for review. Do not block on small decisions.
 
-### Shared narrative files
-
-`wiki/index.md` and `wiki/log.md` are append-heavy:
-
-- Pull/rebase before editing if the remote may have moved.
-- Append; do not reorder existing rows in the same PR as unrelated content.
-- Date-stamp every append.
-- Long-form synthesis gets its own page; keep indexes thin.
+Wiki pages, the catalog, and the log are **ask-only**. Do not create, update, lint, or append them on your own initiative.
 
 ---
 
 ## Privacy & secrets
 
 - Never commit credentials, API keys, tokens, or private personal documents.
-- `projects/*/raw/` may hold sensitive source material — summarize into wiki; do not paste raw private content into shared wiki pages.
-- Distilled, de-identified knowledge may enter `wiki/` freely.
+- `projects/*/raw/` may hold sensitive source material — summarize into that project's `notes/` or `raw/_summaries/`; do not paste raw private content into shared pages.
 - If a project needs a hard secrecy boundary, graduate it to a private dedicated repo rather than stretching this monorepo's assumptions.
 
 ---
 
 ## Session-start ritual
 
-If the task is already stated, skip this ritual and start the work. This file is already in agent context — do not re-read it.
+1. Read this `AGENTS.md`.
+2. `git fetch origin && git status` — surface divergence from `origin/main`.
+3. Await direction — or continue the stated task.
 
-Fetch `origin/<branch>` only when merging, rebasing, or when the task depends on latest `main`. Do not fetch preemptively.
-
-Read `wiki/index.md` / recent `wiki/log.md` only when the task is a wiki query or needs compounding context. Not for copy, polish, bugfix, or a stated code change.
+Do not read `wiki/index.md` or `wiki/log.md` unless the human asked.
 
 ---
 
 ## Coding discipline
 
-Applies to new code under `projects/` and anywhere else code is authored. Does not override max-autonomy wiki maintenance.
+Applies to new code under `projects/` and anywhere else code is authored.
 
 ### 1. Think before coding
 
@@ -285,21 +229,35 @@ Touch only what the task requires. Match existing style. Do not delete unrelated
 
 Define success criteria and loop until verified. Prefer "write the failing check, then make it pass" over vague "make it work."
 
-### 5. Verification cost
+---
 
-Verify what the diff can break. Do not lint, typecheck, or browser-pass the whole monorepo.
+## Efficiency (skip the ceremony)
 
-- **Lint / typecheck:** only the files this change touched, or the project's own test script (`daycare-search` → `npm test`). Never a workspace-wide lint.
-- **Copy / prose:** one desktop render (or `rg` for banned phrases). No mobile pass. No walkthrough video.
-- **Layout / CSS:** desktop plus one mobile viewport.
-- **Interaction / behavior:** exercise the changed flow end to end. Walkthrough video only when the interaction itself changed.
-- Schema-only, wiki-only, and merge-conflict work need no browser pass and no video.
+Most turns already have a stated task. Do not run the full operator loop by default.
+
+**Skip unless the condition is true:**
+
+| Skip | Do it only when |
+| --- | --- |
+| Session-start ritual (fetch, status) | No task is stated, or you must merge/rebase onto latest `main` |
+| Prior-art search (external) | New project or new end-to-end user-facing capability — not a copy/schema/data tweak |
+| Proactive surfacing (internal) | Same gate as prior-art, or the human asked "what do we already have?" |
+| Ingest a source (summary file) | The human asked to ingest, or the claim is load-bearing and has no project summary yet |
+| Tufte reference files | The task designs or critiques a real chart/infographic — not ranking math or copy |
+| Browser / computer-use pass | The diff changes user-visible UI, layout, or client behavior |
+| Subscribe to GitHub CI | A `pull_request` workflow in `.github/workflows/` actually covers the files you changed |
+
+**Hard skips (do not do these unless the human asked):**
+
+- Open, lint, append, or create anything under `wiki/`.
+- Answer a query by reading the wiki catalog first.
+- File a new lesson, concept, or entity page after a task.
+
+A schema-only or copy-only PR does not need a prior-art report, a wiki log line, or a browser pass.
 
 ---
 
 ## Pointers
 
-- Tufte skill (new or refactored charts): [`skills/tufte design/SKILL.md`](skills/tufte%20design/SKILL.md)
-- Wiki catalog: [`wiki/index.md`](wiki/index.md)
-- Wiki log: [`wiki/log.md`](wiki/log.md)
+- Tufte skill (mandatory for charts): [`skills/tufte design/SKILL.md`](skills/tufte%20design/SKILL.md)
 - Projects root: [`projects/`](projects/)
