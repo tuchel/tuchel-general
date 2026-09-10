@@ -36,7 +36,7 @@ Apply Edward Tufte's principles to design clear, honest, high-density data visua
    - Every element must earn its ink
    - Default to grayscale; use color purposefully
 
-4. **Apply the 7-question Tufte test** in `AGENTS.md`. Open `references__tufte-principles.md` and `references__analytical-design.md` only for a new dense display — not for chrome.
+4. **Apply the 7-question Tufte test** (below). Open `references__tufte-principles.md` and `references__analytical-design.md` only for a new dense display — not for chrome.
 
 ### For critiquing visualizations:
 
@@ -61,6 +61,26 @@ Apply Edward Tufte's principles to design clear, honest, high-density data visua
 
 - `references/tufte-principles.md` — core principles from *Visual Display of Quantitative Information*: lie factor, data-ink, chartjunk, small multiples, integrity.
 - `references/analytical-design.md` — extensions from *Envisioning Information*, *Visual Explanations*, and *Beautiful Evidence*: the 6 principles of analytical design, sparklines, layering & separation, micro/macro, range-frames, causality, confections. Load when designing dashboards, dense displays, sparklines, or explanatory graphics.
+
+## 7-question Tufte test (gate)
+
+Do not ship a viz until it passes:
+
+1. **Data-ink:** Can I erase any element without losing data? (Erase it.)
+2. **Integrity:** Does the visual effect match the data effect? (Lie factor ≈ 1.)
+3. **Chartjunk:** Does any element exist for decoration only? (Remove it.)
+4. **Excellence:** Does the chart reveal data at multiple levels? (Macro + micro.)
+5. **Comparison:** Can the reader easily compare elements? ("Compared to what?")
+6. **Density:** Could the chart show more data in the same space? (Condense.)
+7. **Context:** Labels, sources, scales, units present?
+
+## Interactive chart standards
+
+- **Hover tooltips** on every data element (rich tooltip, not a bare browser `title`), with at least three of: title, key-values, source, contextual note. Invisible hit target ≥ 12 px.
+- **Bound-grounded sliders** on live simulators: each range input states what the lower bound, upper bound, and current value mean physically. Numeric-only sliders are forbidden.
+- **Default to live simulator over static SVG** when the curve comes from an equation — expose parameters. Static charts are the exception.
+
+Patterns that usually win: range-frame axes, single-hue sequential ramps (not rainbow for sequential data), dense tables over card grids when the unit of analysis repeats, legends that are data (strips/eyebrows) rather than boxed chrome.
 
 **Quick checklist:**
 - [ ] Lie Factor ≈ 1.0 (no visual distortion)
