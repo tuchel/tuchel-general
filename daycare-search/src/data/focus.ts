@@ -45,6 +45,7 @@ export type FocusSchool = {
   missing: string[]
 }
 
+/** Focus is a household shortlist. No religious schools (church, parish, faith-based ministry). */
 export const FOCUS_AS_OF = '30 Aug 2026'
 
 export const FOCUS_SCHOOLS: FocusSchool[] = [
