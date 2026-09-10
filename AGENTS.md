@@ -248,7 +248,8 @@ Solo repo. No co-author merge theater.
 
 ### Autonomy ladder
 
-- **Max autonomy:** wiki ingest, summarization, cross-references, index/log updates, lint cleanups, prior-art search + report (file once; skip if the block exists and the job is unchanged), scaffolding empty project folders when no named incumbent already does the core job.
+- **Max autonomy:** wiki ingest, summarization, cross-references, index updates, kickoff/ingest log lines, lint cleanups, prior-art search + report (file once; skip if the block exists and the job is unchanged), scaffolding empty project folders when no named incumbent already does the core job, **closing a PR the user asked to scrap**.
+- **Hard stop, not a prompt:** household constraints already on file (Focus: no religious schools). Do not build and then ask.
 - **Human-in-loop by default:** new wiki pages that assert load-bearing claims, new lessons (framing matters), anything user-facing that will be shared outside the repo, deletions/renames of existing content, **building a new app/capability when a named external incumbent already does the core job**.
 - **Explicit confirmation:** irreversible ops (force-push, deleting remote branches you did not create for this task, publishing/deploying, scheduled cron, secrets handling).
 - When in doubt: take the action as a draft on a branch, surface it for review. Do not block on small decisions.
