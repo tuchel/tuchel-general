@@ -133,9 +133,25 @@ for (const s of FOCUS_SCHOOLS) {
   for (const r of s.reviews) {
     assert(r.sourceUrl.startsWith('https://'), `${s.id} review source`)
   }
-  const blob = [...s.whyFinn, ...s.downsides, ...s.missing, ...s.reviews.map((r) => r.summary)].join(' ')
+  const blob = [
+    s.name,
+    s.blunt,
+    s.pedagogy,
+    s.credential,
+    ...s.whyFinn,
+    ...s.downsides,
+    ...s.missing,
+    ...s.reviews.map((r) => r.summary),
+  ].join(' ')
   assert(!/finn is on (the )?wait/i.test(blob), `${s.id} invented a waitlist`)
+  assert(
+    !/\b(episcopal|catholic|christian|jewish|islamic|baptist|lutheran|methodist|presbyterian|church|parish|synagogue|mosque|faith-based|diocese)\b/i.test(
+      blob,
+    ),
+    `${s.id} is religious — Focus excludes religious schools`,
+  )
 }
+assert(!FOCUS_SCHOOLS.some((s) => s.id === 'st-michaels'), 'St. Michael’s stays off Focus')
 
 console.log('first-pass checks ok')
 console.log(

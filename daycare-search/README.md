@@ -14,7 +14,7 @@ npm i
 npm run dev
 ```
 
-`npm test` checks first-pass Ranked order (Sunset Trail #1 sort 59.5, Atelier Preescolar #2 sort 57.0), Fiorella pedagogy 50, WonderWell pedagogy 50 not 100, every school URL https, and the Focus shortlist (Sunset Trail, Mariposa, Primrose West Lake Hills).
+`npm test` checks first-pass Ranked order (Sunset Trail #1 sort 59.5, Atelier Preescolar #2 sort 57.0), Fiorella pedagogy 50, WonderWell pedagogy 50 not 100, every school URL https, and the Focus shortlist (Sunset Trail, Mariposa, Primrose West Lake Hills). Focus excludes religious schools.
 
 ## Ranking
 
@@ -34,6 +34,8 @@ Trays are frozen, not re-derived from sliders:
 3. **Eligible at 3** — age-gated this fall (Casa AMI, Nature’s Way, Tigerlily, Bloom, Parkside, Cedars, …). Parkside and Cedars typical is under 20; Tigerlily typical is 22 and still sits here.
 
 Waitlists, tuition, and credentials appear only when a school published them.
+
+**Focus** is Sunset Trail, Mariposa, and Primrose West Lake Hills. No religious schools (church, parish, or faith-based ministry). Ranked trays may still list a religious campus (Light of Christ is Eligible at 3).
 
 ## Prior art (kickoff, 28 Aug 2026)
 
