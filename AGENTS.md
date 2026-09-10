@@ -225,7 +225,7 @@ Solo repo. No co-author merge theater.
 - One PR per logical change. Split sprawling sessions.
 - Run the project's local checks, then one commit and push, then open the PR. Do not open a draft PR before the first local check.
 - Open PRs as draft when the work is not ready to merge; mark ready when it is.
-- Subscribe to CI only if `.github/workflows` exists for this repo. If CI exists and fails on an agent-opened PR, diagnose from the logs and push a fix to the same branch — no human ping required for routine lint/test failures.
+- Subscribe to CI only if a workflow runs on `pull_request` for the files you touched. Deploy-on-main workflows do not count. If that CI fails on an agent-opened PR, diagnose from the logs and push a fix to the same branch — no human ping required for routine lint/test failures.
 - Auto-merge on green CI is fine when configured; treat merges as releases of whatever this monorepo publishes.
 
 ### Autonomy ladder
