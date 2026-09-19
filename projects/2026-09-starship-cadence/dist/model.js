@@ -1,4 +1,5 @@
 // Pure, deterministic model. Years are decimal calendar years; rates are launches/year.
+export const forecastEndYear = 2032;
 export const defaults = {
   bearish:{name:'Bearish',color:'#e5ab71',growth:1,delay:1.5,ceiling:120,fleet:8,turn:25,uptime:65,start:6},
   baseline:{name:'Baseline',color:'#62dccb',growth:1.65,delay:.75,ceiling:1500,fleet:30,turn:5,uptime:80,start:6},
@@ -19,7 +20,7 @@ export function rate(t,p,h){
 }
 export function forecast(p,h){
  const result=[];let cumulative=0;
- for(let year=2026;year<=2035;year++){
+ for(let year=2026;year<=forecastEndYear;year++){
    const from=Math.max(year,h.cutoff),to=year+1,n=104,dt=(to-from)/n;
    let future=0;for(let i=0;i<n;i++)future+=rate(from+(i+.5)*dt,p,h).value*dt;
    const observed=year===2026?h.starship.filter(f=>f.date.startsWith('2026')).length:0;
@@ -48,7 +49,7 @@ export function jamesRate(t,h){
 }
 export function jamesForecast(h){
  let cumulative=0;
- return Array.from({length:10},(_,i)=>{
+ return Array.from({length:forecastEndYear-2026+1},(_,i)=>{
   const year=2026+i,from=Math.max(year,h.cutoff),r0=jamesRate(from,h),r1=jamesRate(year+1,h);
   // Exact integral of the log-linear rate within each calendar year.
   const future=(year+1-from)*(r1-r0)/Math.log(r1/r0);

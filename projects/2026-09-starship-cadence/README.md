@@ -1,6 +1,6 @@
-# Starship cadence to 2035
+# Starship cadence to 2032
 
-Explore Starship launch cadence from September 19, 2026 through December 31, 2035 using Falcon 9 launch history, empirical turnaround intervals, and editable scenario assumptions.
+Explore Starship launch cadence from September 19, 2026 through December 31, 2032 using Falcon 9 launch history, empirical turnaround intervals, and editable scenario assumptions.
 
 The public site includes annual, weekly, and cumulative forecasts; weekly Falcon cadence and decreasing turnaround S-curves; an interactive flight ledger; and downloadable observations, model outputs, and source links. Data is pinned through September 18, 2026. Forecast edits last for the page session; export CSV to retain inputs and outputs.
 
@@ -23,7 +23,7 @@ The public site includes annual, weekly, and cumulative forecasts; weekly Falcon
 | Turnaround on Jan 1, 2036 | 25 days | 5 days | 1 day |
 | Operating availability | 65% | 80% | 90% |
 | Initial potential rate | 6/year | 6/year | 6/year |
-| Calculated 2035 launches (rounded) | 67 | 1,144 | 8,992 |
+| Calculated 2032 launches (rounded) | 33 | 246 | 1,760 |
 
 Growth uses Falcon’s logistic fit coefficient, approximately 0.681/year. Two initial vehicle equivalents and the 2026 Falcon median interval (41.27 days) initialize a geometric fleet/turnaround transition. Actual rate is availability times the smaller of logistic potential and vehicle capacity. An equivalent is effective flight capacity from production before reuse and from matched booster/ship availability after reuse. The model assumes net fleet growth after replacement losses; it does not independently forecast attrition or successful payload deliveries. Ceilings bundle demand, pad capacity, and permission to launch. They are analyst assumptions, not existing licenses or company guidance.
 
@@ -56,6 +56,8 @@ The first parameters to revisit are timing of routine ship reuse, achievable pad
 
 ## James curve and Falcon overlays
 
-The James curve follows 12/year entering 2027, then year-end flight intervals of 14, 7, 3.5, and 1.5 days for 2027–2030. Cadence doubles annually from 2031 through 2035. Annual totals integrate the accelerating rate; the **Exit rate** view shows annualized year-end cadence. The post-2030 extension is dashed. James's direct cadence targets are independent of the other scenarios' fleet/availability constraints and sit outside the original scenario envelope.
+The James curve follows 12/year entering 2027, then year-end flight intervals of 14, 7, 3.5, and 1.5 days for 2027–2030. Cadence doubles annually from 2031 through 2032. Annual totals integrate the accelerating rate; the **Exit rate** view shows annualized year-end cadence. The post-2030 extension is dashed. James's direct cadence targets are independent of the other scenarios' fleet/availability constraints and sit outside the original scenario envelope.
 
 On the Falcon weekly chart, toggle each Starship curve independently. Compare by calendar year or years since debut year (Falcon 2010; Starship 2023), using a linear or log(1 + rate) scale. Overlays track current scenario inputs. Forecast CSV exports include James, year-end rates, and the extension assumption.
+
+Forecast charts, overlays, summary values, and CSV exports stop at the end of 2032. The original January 1, 2036 fleet/turnaround target dates remain unchanged, preserving the earlier curves over the shorter displayed horizon.

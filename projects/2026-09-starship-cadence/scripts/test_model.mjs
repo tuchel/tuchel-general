@@ -19,7 +19,7 @@ for(const f of h.flights.filter(f=>f.turnaroundDays!==null)){
 assert(h.weekly.every(w=>new Date(w.date).getUTCDay()===1));
 assert.equal(h.weekly.at(-1).date,'2026-09-07');
 for(const p of Object.values(defaults)){
- const f=forecast(p,h);assert.equal(f.length,10);assert(Math.abs(f[0].annual-f[0].future-2)<1e-12);
+ const f=forecast(p,h);assert.equal(f.length,7);assert(Math.abs(f[0].annual-f[0].future-2)<1e-12);
  let cumulative=0;
  f.forEach((d,i)=>{cumulative+=d.future;assert(Math.abs(cumulative-d.cumulative)<1e-8);assert(d.annual>=0);assert(Number.isFinite(d.annual));assert(Math.abs(d.weekly*365.25/7-d.annual)<1e-8);if(i)assert(d.annual>=f[i-1].annual)});
  // Independent fine midpoint integral checks annual totals, including partial 2026.
@@ -27,12 +27,14 @@ for(const p of Object.values(defaults)){
  const lower=forecast({...p,uptime:p.uptime/2},h);assert(Math.abs(lower.at(-1).annual-f.at(-1).annual/2)<1e-6);
  const stopped=forecast({...p,uptime:0},h);assert.equal(stopped[0].annual,2);assert.equal(stopped.at(-1).cumulative,0);
 }
-for(let i=0;i<10;i++){assert(forecast(defaults.bearish,h)[i].annual<forecast(defaults.baseline,h)[i].annual);assert(forecast(defaults.baseline,h)[i].annual<forecast(defaults.bullish,h)[i].annual)}
+for(let i=0;i<7;i++){assert(forecast(defaults.bearish,h)[i].annual<forecast(defaults.baseline,h)[i].annual);assert(forecast(defaults.baseline,h)[i].annual<forecast(defaults.bullish,h)[i].annual)}
 console.log('PASS: launch scope, 602 interval pairs, complete weeks, integration, units, availability, observed/future boundary, scenario ordering.');
 const {jamesMilestones,jamesRate,jamesForecast}=await import('../dist/model.js');
 for(const p of jamesMilestones)assert(Math.abs(jamesRate(p.t,h)-p.annualRate)<1e-9,'Every James milestone must match exactly');
 assert.equal(jamesRate(2036,h),365.25/1.5*32);
 const jf=jamesForecast(h);
+assert.equal(jf.at(-1).year,2032);
+assert.equal(jf.at(-1).exitRate,974);
 assert(jf.find(d=>d.year===2027).annual>12&&jf.find(d=>d.year===2027).annual<365.25/14);
 assert(Math.abs(jf.find(d=>d.year===2027).annual-(365.25/14-12)/Math.log((365.25/14)/12))<1e-9);
 for(let i=0;i<jf.length;i++){
