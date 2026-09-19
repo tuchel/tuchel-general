@@ -6,7 +6,7 @@ Cutoff: September 18, 2026 inclusive, UTC. Acquisition: September 18, 2026 local
 
 Primary compiled catalog: [Jonathan McDowell, GCAT, Falcon family](https://planet4589.org/space/gcat/data/launch/Falcon9.html), catalog updated 2026-09-18 07:30 UTC. The source is an independent observational compilation with row-level citations, not an official SpaceX maintenance database. Raw bytes and SHA-256 are retained.
 
-Parse the catalog’s fixed-width header positions, rather than split on arbitrary whitespace. Select exactly Falcon 9. Exclude launch code OE (Amos-6 prelaunch explosion), include the actual January 19, 2020 in-flight abort liftoff, and include failures. This yields 688 liftoffs. GCAT's F689 identifier includes the Amos-6 scheduled mission and excludes the separate abort test; serial labels are not a count of this site's scope.
+Parse the catalog’s fixed-width header positions, rather than split on arbitrary whitespace. Select exactly Falcon 9. Exclude launch code OE (Amos-6 prelaunch explosion), include the actual January 19, 2020 in-flight abort liftoff, and include failures. This yields 688 liftoffs. GCAT's F689 identifier includes the Amos-6 scheduled mission; subtracting that prelaunch loss leaves 688 actual liftoffs.
 
 Weekly bins are Monday–Sunday UTC and include zero-launch weeks, beginning January 4, 2010. The last complete week begins September 7, 2026. A 13-week trailing mean yields 2.846 flights/week. Fit raw weekly counts to L / (1 + exp(-k*(year-midpoint))) by bounded nonlinear least squares, with L in [0.1,20], k in [0.01,3], midpoint in [2010,2040]. The fitted rate is ~0.681/year; the fit is descriptive and autocorrelation/overdispersion preclude naive inferential interpretation of R².
 
