@@ -53,3 +53,9 @@ Publication uses an isolated project-only checkout to avoid including unrelated 
 ## Open questions
 
 The first parameters to revisit are timing of routine ship reuse, achievable pad throughput, market demand beyond Starlink, and whether the bullish ceiling needs an explicit pad-by-pad rollout. A probabilistic forecast would require agreed distributions and correlations, plus validation that this analogy cannot currently provide.
+
+## James curve and Falcon overlays
+
+The James curve follows 12/year entering 2027, then year-end flight intervals of 14, 7, 3.5, and 1.5 days for 2027–2030. Cadence doubles annually from 2031 through 2035. Annual totals integrate the accelerating rate; the **Exit rate** view shows annualized year-end cadence. The post-2030 extension is dashed. James's direct cadence targets are independent of the other scenarios' fleet/availability constraints and sit outside the original scenario envelope.
+
+On the Falcon weekly chart, toggle each Starship curve independently. Compare by calendar year or years since debut year (Falcon 2010; Starship 2023), using a linear or log(1 + rate) scale. Overlays track current scenario inputs. Forecast CSV exports include James, year-end rates, and the extension assumption.

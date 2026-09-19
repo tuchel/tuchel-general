@@ -41,3 +41,11 @@ The scenario ceilings of 120, 1,500, and 10,000/year require different future in
 Full source formula is in `dist/model.js`. Annual output uses 104 midpoint samples per year; tests compare with independent 10,000-sample integration. Year 2026 adds observed flights only to annual/weekly totals. Cumulative output counts only future flights beginning September 19, 2026. All parameters, including current edits, accompany the downloadable forecast CSV.
 
 The forecast's gray envelope is the min/max across three deterministic cases. It is not a probability interval and cannot support an asserted 80% or 90% coverage. The baseline is a starting scenario, not an empirically identified median outcome.
+
+## James milestones and overlay comparison
+
+User-supplied achieved cadence: 12/year entering 2027; one flight every 14 days at end-2027, 7 days at end-2028, 3.5 days at end-2029, and 1.5 days at end-2030. The user explicitly selected annual doubling for 2031–2035. Interpret “in 2030” as year-end, consistent with the preceding milestones.
+
+Interpolate log-linearly in flight rate between milestones and integrate exactly over each year. Rates in days use 365.25 days/year consistently with the existing model. Year-end 2027 therefore means rate at January 1, 2028, not 26 launches during the whole calendar year. The 2026 bridge is an analyst assumption: it grows from the observed 2026 YTD annualized rate at the data cutoff to 12/year entering 2027. James is a direct operating-cadence hypothesis, so the original model's downtime and fleet constraints are not applied again. Annual totals are approximately 18, 38, 75, 164 for 2027–2030 and 5,621 for 2035; exit-2035 rate is 7,792/year. The dashed post-2030 segment identifies the requested doubling extension. The original three-case envelope excludes James.
+
+Falcon-chart overlays use instantaneous modeled operating rate × 7/365.25, in flights/week, with independent toggles for bearish, baseline, bullish, and James. The age comparison aligns debut calendar years (Falcon 9 2010; full-stack Starship 2023), not first-reuse dates or exact first-flight anniversaries. Calendar alignment preserves actual dates. Optional log(1 + rate) scaling preserves zero-launch weeks. No Falcon fit is extrapolated beyond its observed window. Editing a model scenario refreshes its active overlay.

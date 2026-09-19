@@ -29,3 +29,20 @@ for(const p of Object.values(defaults)){
 }
 for(let i=0;i<10;i++){assert(forecast(defaults.bearish,h)[i].annual<forecast(defaults.baseline,h)[i].annual);assert(forecast(defaults.baseline,h)[i].annual<forecast(defaults.bullish,h)[i].annual)}
 console.log('PASS: launch scope, 602 interval pairs, complete weeks, integration, units, availability, observed/future boundary, scenario ordering.');
+const {jamesMilestones,jamesRate,jamesForecast}=await import('../dist/model.js');
+for(const p of jamesMilestones)assert(Math.abs(jamesRate(p.t,h)-p.annualRate)<1e-9,'Every James milestone must match exactly');
+assert.equal(jamesRate(2036,h),365.25/1.5*32);
+const jf=jamesForecast(h);
+assert(jf.find(d=>d.year===2027).annual>12&&jf.find(d=>d.year===2027).annual<365.25/14);
+assert(Math.abs(jf.find(d=>d.year===2027).annual-(365.25/14-12)/Math.log((365.25/14)/12))<1e-9);
+for(let i=0;i<jf.length;i++){
+ const d=jf[i];assert.equal(d.exitRate,jamesRate(d.year+1,h));
+ const from=Math.max(d.year,h.cutoff),step=(d.year+1-from)/10000;let integral=0;
+ for(let j=0;j<10000;j++)integral+=jamesRate(from+(j+.5)*step,h)*step;
+ assert(Math.abs(integral-d.future)<.001);
+ if(i)assert(Math.abs(d.cumulative-jf[i-1].cumulative-d.future)<1e-8);
+}
+assert(Math.abs(jamesRate(2029,h)*7/365.25-1)<1e-12,'End-2028 overlay is exactly one flight/week');
+assert(Math.abs(jamesRate(2030,h)*7/365.25-2)<1e-12,'End-2029 overlay is exactly two flights/week');
+console.log('PASS: James milestones, year-end conversion, annual doubling, exact integration, cumulative counts and overlay units.');
+console.log('James annual launches:',jf.map(d=>[d.year,Math.round(d.annual)]));

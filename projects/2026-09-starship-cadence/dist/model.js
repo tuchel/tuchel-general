@@ -24,7 +24,36 @@ export function forecast(p,h){
    let future=0;for(let i=0;i<n;i++)future+=rate(from+(i+.5)*dt,p,h).value*dt;
    const observed=year===2026?h.starship.filter(f=>f.date.startsWith('2026')).length:0;
    cumulative+=future;
-   result.push({year,annual:future+observed,future,cumulative,weekly:(future+observed)/(365.25/7),...Object.fromEntries(Object.entries(rate(year+.5,p,h)).filter(([k])=>k!=='value'))});
+   result.push({year,exitRate:rate(year+1,p,h).value,annual:future+observed,future,cumulative,weekly:(future+observed)/(365.25/7),...Object.fromEntries(Object.entries(rate(year+.5,p,h)).filter(([k])=>k!=='value'))});
  }
  return result;
+}
+
+export const james = {name:'James',color:'#72b8ff',post2030Growth:2};
+// Boundary years: 2028 means the end of 2027/start of 2028.
+export const jamesMilestones = [
+ {t:2027,annualRate:12,label:'Going into 2027',cadence:'1 flight / month'},
+ {t:2028,annualRate:365.25/14,label:'End of 2027',cadence:'1 flight / 14 days'},
+ {t:2029,annualRate:365.25/7,label:'End of 2028',cadence:'1 flight / 7 days'},
+ {t:2030,annualRate:365.25/3.5,label:'End of 2029',cadence:'1 flight / 3.5 days'},
+ {t:2031,annualRate:365.25/1.5,label:'End of 2030',cadence:'1 flight / 1.5 days'}
+];
+export function jamesRate(t,h){
+ const observed=h.starship.filter(f=>f.date.startsWith('2026')).length;
+ const anchors=[{t:h.cutoff,annualRate:observed/(h.cutoff-2026)},...jamesMilestones];
+ if(t>=2031)return jamesMilestones.at(-1).annualRate*james.post2030Growth**(t-2031);
+ if(t<=h.cutoff)return anchors[0].annualRate;
+ const i=anchors.findIndex(p=>p.t>=t),a=anchors[i-1],b=anchors[i];
+ return a.annualRate*(b.annualRate/a.annualRate)**((t-a.t)/(b.t-a.t));
+}
+export function jamesForecast(h){
+ let cumulative=0;
+ return Array.from({length:10},(_,i)=>{
+  const year=2026+i,from=Math.max(year,h.cutoff),r0=jamesRate(from,h),r1=jamesRate(year+1,h);
+  // Exact integral of the log-linear rate within each calendar year.
+  const future=(year+1-from)*(r1-r0)/Math.log(r1/r0);
+  const observed=year===2026?h.starship.filter(f=>f.date.startsWith('2026')).length:0;
+  cumulative+=future;
+  return {year,annual:future+observed,future,cumulative,weekly:(future+observed)/(365.25/7),exitRate:r1};
+ });
 }
