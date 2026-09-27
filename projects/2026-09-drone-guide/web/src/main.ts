@@ -4,7 +4,7 @@ import '@fontsource-variable/inter'
 import '@fontsource-variable/space-grotesk'
 import '@fontsource-variable/jetbrains-mono'
 import './style.css'
-import { Drone, MOTORS, PROP_Y, type PartKey, type Spin } from './drone'
+import { Drone, MOTORS, PROP_Y, PROP_R, spinColor, type PartKey, type Spin } from './drone'
 import { ARM_TOP, ESC_Y, FC_Y } from './hardware'
 import { Sim, zeroInputs, type Inputs } from './sim'
 import { BUILD_STEPS } from './steps'
@@ -287,6 +287,98 @@ const frustum = (() => {
 const fpvCam = new THREE.PerspectiveCamera(78, 4 / 3, 0.02, 200)
 let fpvOn = false
 
+// ================================================================ thrust arrows
+const thrustArrows = MOTORS.map((m) => {
+  const g = new THREE.Group()
+  const mat = new THREE.MeshBasicMaterial({ color: spinColor(m.spin), transparent: true, opacity: 0.9 })
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1, 12).translate(0, 0.5, 0), mat)
+  const head = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.12, 16).translate(0, 0.06, 0), mat)
+  g.add(shaft, head)
+  g.position.set(m.x, PROP_Y + 0.14, m.z)
+  g.visible = false
+  drone.root.add(g)
+  return { g, shaft, head }
+})
+function updateThrustArrows() {
+  thrustArrows.forEach(({ g, shaft, head }, i) => {
+    const len = Math.max(0.001, sim.u[i] * sim.lift * 0.9)
+    shaft.scale.y = len
+    head.position.y = len
+    head.visible = len > 0.02
+    g.visible = thrustOn
+  })
+}
+let thrustOn = false
+
+// ================================================================ 5×4: the screw spiral
+function textSprite(text: string, w = 0.7) {
+  const c = document.createElement('canvas')
+  c.width = 512
+  c.height = 128
+  const g = c.getContext('2d')!
+  g.fillStyle = 'rgba(15,23,42,0.78)'
+  g.beginPath()
+  g.roundRect(4, 14, 504, 100, 50)
+  g.fill()
+  g.fillStyle = '#ffffff'
+  g.font = '600 54px "Space Grotesk Variable", sans-serif'
+  g.textAlign = 'center'
+  g.textBaseline = 'middle'
+  g.fillText(text, 256, 66)
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true }))
+  sp.scale.set(w, w / 4, 1)
+  sp.renderOrder = 20
+  return sp
+}
+const PITCH = 1.016 // 4 in, at 100 mm per scene unit
+const helix = (() => {
+  const m = MOTORS[3]
+  const g = new THREE.Group()
+  g.position.set(m.x, PROP_Y + 0.07, m.z)
+  const r = PROP_R * 0.75
+  // A clockwise prop screws upward as it turns clockwise (seen from above).
+  const at = (u: number) => new THREE.Vector3(r * Math.cos(-u * Math.PI * 2), u * PITCH, r * Math.sin(-u * Math.PI * 2))
+  const pts = Array.from({ length: 121 }, (_, i) => at(i / 120))
+  const orange = new THREE.MeshBasicMaterial({ color: 0xff6a2b })
+  g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 160, 0.012, 8), orange))
+  const white = new THREE.MeshBasicMaterial({ color: 0xffffff })
+  // 5 in across
+  const dia = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, PROP_R * 2, 8), white)
+  dia.rotation.z = Math.PI / 2
+  dia.position.y = -0.1
+  g.add(dia)
+  for (const s of [-1, 1]) {
+    const tick = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.08, 8), white)
+    tick.position.set(s * PROP_R, -0.1, 0)
+    g.add(tick)
+  }
+  const across = textSprite('5 in across')
+  across.position.set(0, -0.24, 0)
+  g.add(across)
+  // 4 in per turn
+  const bx = r
+  const bracket = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, PITCH, 8), white)
+  bracket.position.set(bx + 0.14, PITCH / 2, 0)
+  g.add(bracket)
+  for (const y of [0, PITCH]) {
+    const tick = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.12, 8), white)
+    tick.rotation.z = Math.PI / 2
+    tick.position.set(bx + 0.14, y, 0)
+    g.add(tick)
+  }
+  const perTurn = textSprite('4 in per turn', 0.78)
+  perTurn.position.set(bx + 0.14 + 0.48, PITCH / 2, 0)
+  g.add(perTurn)
+  // a bead that rides the spiral, one turn at a time
+  const bead = new THREE.Mesh(new THREE.SphereGeometry(0.035, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffc53d }))
+  g.add(bead)
+  g.visible = false
+  drone.root.add(g)
+  return { g, at, bead }
+})()
+
 // ================================================================ ring course
 const HOOPS = [new THREE.Vector3(0, 1.5, -3.5), new THREE.Vector3(3, 2.5, -6.5), new THREE.Vector3(-2.5, 1.5, -9)]
 const HOOP_COLORS = [0xff6a2b, 0xf5a524, 0x2a9df4]
@@ -555,19 +647,7 @@ const MODES: Record<Mode, ModeCfg> = {
       setThrottle(0)
     },
   },
-  prop: {
-    cam: [2.6, 1.0, 3.3],
-    target: [0, 0.8, 0],
-    map: true,
-    air: true,
-    enter: () => {
-      flying(0)
-      sim.altHold = false
-      sim.ceiling = 1.8
-      throttleSlider = 0.75
-      setPitch(bladePitch)
-    },
-  },
+  prop: { cam: [2.4, 0.75, 3.0], target: [0, 0.55, 0], map: true, air: true },
   spin: {
     cam: [0.01, 4.8, 2.8],
     follow: true,
@@ -665,6 +745,10 @@ function setMode(m: Mode) {
   drone.setHighlight(null)
   drone.setBuildStep(99, false)
   hoopMeshes.forEach((h) => (h.visible = m === 'fly'))
+  helix.g.visible = false
+  thrustOn = false
+  drone.setBladePitch(18)
+  sim.lift = 1
   Object.assign(padIn, zeroInputs())
   Object.assign(stickIn, zeroInputs())
   keys.clear()
@@ -673,7 +757,8 @@ function setMode(m: Mode) {
 
 /** Point the camera at a target from an offset, with an eased move. */
 function shoot(cam: [number, number, number], target: THREE.Vector3, follow: boolean, auto: boolean) {
-  camOffset.set(...cam)
+  measure()
+  camOffset.set(...cam).multiplyScalar(fit)
   fixedTarget.copy(target)
   camFollow = follow
   camFrom.copy(camera.position)
@@ -733,6 +818,26 @@ function enterBeat(b: Beat) {
       throttleSlider = Number(throttleEl.value) / 100
     }
   }
+  const shot = el.dataset.shot
+  if (b.mode === 'prop') {
+    helix.g.visible = shot === 'prop-close'
+    if (shot) {
+      // hold the drone still, one prop turning slowly
+      still(0.9, shot === 'prop-slow' ? 0.75 : 0.3)
+      spinVis = 0.1
+      drone.setBladePitch(18)
+      sim.lift = 0.72
+    } else {
+      staticPose = null
+      spinVis = 1
+      flying(0)
+      sim.altHold = false
+      sim.ceiling = 0.9
+      throttleSlider = 0.75
+      setPitch(bladePitch)
+    }
+  }
+  thrustOn = b.mode === 'lift' || (b.mode === 'prop' && !shot)
   if (b.mode === 'power') setFlow(Number(el.dataset.flow ?? 0))
   if (b.mode === 'build') showStep(Number(el.dataset.step ?? 0))
   if (hook === 'test') newTest()
@@ -745,8 +850,10 @@ function enterBeat(b: Beat) {
     const at = fs.at ? drone.root.localToWorld(fs.at()) : drone.centerWorld(focus!, new THREE.Vector3())
     const off = new THREE.Vector3(...fs.dir).normalize().multiplyScalar(fs.dist)
     shoot([off.x, off.y, off.z], at, false, true)
-  } else if (el.dataset.shot === 'prop-close') {
-    shoot([0.9, 0.35, 1.05], new THREE.Vector3(MOTORS[3].x, PROP_Y + 0.05, MOTORS[3].z), false, false)
+  } else if (shot === 'prop-slow') {
+    shoot([0.8, 0.28, 1.0], new THREE.Vector3(MOTORS[3].x, 0.9 + PROP_Y, MOTORS[3].z), false, false)
+  } else if (shot === 'prop-close') {
+    shoot([1.9, 0.45, 2.3], new THREE.Vector3(MOTORS[3].x + 0.25, 0.9 + PROP_Y + 0.42, MOTORS[3].z), false, false)
   } else if (b.mode === 'parts' && hook === 'explode') {
     shoot([3.6, 1.8, 4.6], new THREE.Vector3(0, 1.6, 0), false, true)
   } else {
@@ -878,7 +985,71 @@ function liftStatus() {
   return sim.pos.y >= sim.ceiling - 0.01 ? 'Thrust beats gravity. Slide back to 50% to hover.' : 'Thrust beats gravity. It climbs!'
 }
 
-// ================================================================ prop pitch
+// ================================================================ prop pitch: side view of one blade
+const SVGNS = 'http://www.w3.org/2000/svg'
+const AF = { cx: 160, cy: 86 }
+const streamYs = [26, 44, 62, 110, 128, 146]
+const streams = streamYs.map(() => {
+  const p = document.createElementNS(SVGNS, 'path')
+  p.setAttribute('class', 'af-stream')
+  $('#af-streams').appendChild(p)
+  return p
+})
+const downArrows = [236, 262, 288].map(() => {
+  const l = document.createElementNS(SVGNS, 'line')
+  l.setAttribute('class', 'af-down')
+  l.setAttribute('marker-end', 'url(#af-down)')
+  $('#af-down-arrows').appendChild(l)
+  return l
+})
+function drawAirfoil(deg: number) {
+  const k = deg / 25
+  const smooth = (x: number) => {
+    const t = THREE.MathUtils.clamp(x, 0, 1)
+    return t * t * (3 - 2 * t)
+  }
+  // Air flows past the blade (left to right, since the blade moves left) and leaves bent down.
+  streams.forEach((p, i) => {
+    const y0 = streamYs[i]
+    const close = Math.max(0, 1 - Math.abs(y0 - AF.cy) / 72)
+    const side = y0 < AF.cy ? -1 : 1
+    let d = ''
+    for (let x = -10; x <= 330; x += 8) {
+      const near = Math.exp(-(((x - AF.cx) / 55) ** 2))
+      const y = y0 + side * 9 * close * near + deg * 1.9 * (0.35 + 0.65 * close) * smooth((x - 110) / 150)
+      d += `${d ? 'L' : 'M'}${x} ${y.toFixed(1)}`
+    }
+    p.setAttribute('d', d)
+    p.style.opacity = String(0.35 + 0.55 * close)
+  })
+  $('#af-blade-g').setAttribute('transform', `translate(${AF.cx} ${AF.cy}) rotate(${deg})`)
+  // tilt angle, measured at the front (left) edge
+  const r = 64
+  const a = THREE.MathUtils.degToRad(deg)
+  $('#af-arc').setAttribute('d', deg > 0 ? `M${AF.cx - r} ${AF.cy} A${r} ${r} 0 0 1 ${(AF.cx - r * Math.cos(a)).toFixed(1)} ${(AF.cy - r * Math.sin(a)).toFixed(1)}` : '')
+  const degEl = $('#af-deg')
+  degEl.textContent = `${deg}°`
+  degEl.setAttribute('x', String(AF.cx - r - 8))
+  degEl.setAttribute('y', String(AF.cy - 4 - deg * 0.6))
+  // push up, and air thrown down
+  const lift = $('#af-lift')
+  lift.setAttribute('y2', String(AF.cy - 8 - k * 52))
+  lift.style.opacity = deg > 0 ? '1' : '0'
+  const lbl = $('#af-lift-label')
+  lbl.setAttribute('y', String(AF.cy - 14 - k * 52))
+  lbl.style.opacity = deg > 0 ? '1' : '0'
+  downArrows.forEach((l, i) => {
+    const x = 236 + i * 26
+    l.setAttribute('x1', String(x))
+    l.setAttribute('y1', String(AF.cy + 12 + deg * 0.9))
+    l.setAttribute('x2', String(x + 4 + k * 8))
+    l.setAttribute('y2', String(AF.cy + 18 + deg * 0.9 + k * 34))
+    l.style.opacity = deg > 1 ? String(0.4 + 0.6 * k) : '0'
+  })
+  $('#af-air-label').textContent = deg === 0 ? 'air slides straight past' : 'air thrown down'
+  $('#af-air-label').style.opacity = '1'
+}
+
 const pitchEl = $<HTMLInputElement>('#pitch')
 function setPitch(deg: number) {
   bladePitch = deg
@@ -887,11 +1058,7 @@ function setPitch(deg: number) {
   $('#pitch-out').textContent = `${deg}°`
   drone.setBladePitch(deg)
   sim.lift = deg / 25
-  $('#blade-section').setAttribute('transform', `rotate(${deg})`)
-  const air = $('#air-arrows')
-  air.style.opacity = String(Math.min(1, deg / 12))
-  air.setAttribute('transform', `translate(0 66) scale(1 ${0.25 + (deg / 25) * 0.75}) translate(0 -66)`)
-  $('#air-label').textContent = deg === 0 ? 'no air pushed' : 'air pushed down'
+  drawAirfoil(deg)
   put(
     $('#prop-status'),
     deg === 0
@@ -1121,6 +1288,8 @@ function updateMotorMap() {
 
 // ================================================================ layout: keep the drone in the open part of the screen
 const free = { left: 0, right: 0, top: 0, bottom: 0 }
+/** How far to pull the camera back so shots fit the open part of the screen. */
+let fit = 1
 function measure() {
   const W = innerWidth
   const H = innerHeight
@@ -1136,7 +1305,13 @@ function measure() {
   root.setProperty('--free-bottom', `${H - free.bottom}px`)
   renderer.setSize(W, H, false)
   camera.aspect = W / H
-  camera.fov = W / H < 0.8 ? 52 : 40
+  camera.fov = W / H < 0.8 ? 50 : 40
+  // Shots are framed for a laptop, where the open area is about 0.67 × 0.82 of a
+  // unit-distance view. Back the camera off when the open area is smaller than that.
+  const t = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))
+  const visH = (t * (free.bottom - free.top)) / H
+  const visW = (visH * (free.right - free.left)) / Math.max(1, free.bottom - free.top)
+  fit = THREE.MathUtils.clamp(Math.max(0.67 / visH, 0.82 / visW), 1, 2.4)
   // shift the picture so its centre sits in the middle of the open area
   viewGoal.x = W / 2 - (free.left + free.right) / 2
   viewGoal.y = H / 2 - (free.top + free.bottom) / 2
@@ -1248,6 +1423,8 @@ function frame() {
   callouts.classList.toggle('on', showLabels)
   if (showLabels) updateLabels()
   updateMotorMap()
+  updateThrustArrows()
+  if (helix.g.visible) helix.bead.position.copy(helix.at((t / 3) % 1))
 
   if (mode === 'lift') put($('#lift-status'), liftStatus())
   if (mode === 'prop' && sim.lift * 1.5 >= 1 && !sim.grounded) put($('#prop-status'), 'Enough air pushed down. The drone lifts off!')
