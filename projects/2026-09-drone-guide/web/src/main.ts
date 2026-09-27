@@ -1243,7 +1243,7 @@ function frame() {
   updateParticles(dt, (!!MODES[mode].air || focus === 'props') && !sim.crashed)
   updateFlow(t)
   if (mode === 'power') updateCoils(t)
-  const showLabels = labelsOn && explodeNow > 0.6
+  const showLabels = labelsOn && explodeNow > 0.35
   $('#labels').classList.toggle('on', showLabels)
   callouts.classList.toggle('on', showLabels)
   if (showLabels) updateLabels()
