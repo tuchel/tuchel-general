@@ -2,36 +2,32 @@
 
 An interactive 3D guide to quadcopters for a 10-year-old who likes robots. Part 1 explains how a drone flies. Part 2 walks through building one.
 
-**Status:** built; Pages path `/drone/` after merge — https://tuchel.github.io/tuchel-general/drone/
+**Status:** live at https://tuchel.github.io/tuchel-general/drone/
 
 ## What is on the page
 
-A 3D drone in a sunny low-poly park (Three.js) changes for each chapter as you scroll. Each chapter pairs one idea with one control:
+The 3D park fills the whole screen. Text floats on top in a frosted-glass panel: on the left on wide screens, and as a bottom sheet on phones held upright. Each chapter is a few short steps, one idea per screen; Next, Back, the arrow keys, or a sideways swipe on the panel move between them. The camera frames the drone in whatever part of the screen the panel leaves open.
 
-| Chapter | Idea | Control |
-| --- | --- | --- |
-| Meet the quadcopter | Eight parts, one job each | Exploded model; tap a part |
-| Push air down, go up | Thrust vs. gravity; hover at 50% | Power slider |
-| The propeller's secret | Tilted blades throw air down | Blade-tilt slider |
-| The twist problem | Opposite-spinning pairs cancel twist | Make all four spin the same way |
-| Steering | Pitch, roll, yaw from motor speed alone | Hold-to-fly buttons, keyboard |
-| The brain | Feel → compare → fix, 4,000 times a second | Gust button; brain on/off |
-| Follow the power | Energy vs. messages; how a motor spins | Step-through flow; coil animation |
-| Fly it yourself | Mode 2 sticks | Virtual sticks |
-| Three levels | Simulator → kit → custom build | — |
-| What you need | Parts, tools, LiPo and soldering safety | Labeled exploded model |
-| Build it | Eight assembly steps, props last | Stepper; parts drop into place |
-| Test before you fly | Bind, arm, failsafe, motor direction | Find the backwards motor |
-| Your first flight | Checklist and drills | Fly through three rings |
-| Rules of the sky | FAA recreational rules, glossary | — |
+| Chapter | Steps |
+| --- | --- |
+| Meet the quadcopter | One part per step, each doing its job with the rest faded to glass: the frame's lights, the motor's copper coils firing inside a see-through bell, props pushing air, energy leaving the battery, the speed controllers feeding each motor, the flight controller's sensor arrows as the drone rocks, radio waves reaching the receiver, and the camera's live view. Then all eight parts with callout labels. |
+| Going up | Newton's third law; a power slider with thrust vs. gravity; a hover at 50% |
+| The propeller's secret | Hand out a car window; a blade-tilt slider; reading a 5×4 prop |
+| The twist problem | The swivel-chair test; all props the same way; the tail rotor |
+| Steering | Pitch, roll, yaw; hold-to-fly buttons; tip the push |
+| The brain | The broom; feel, compare, fix; gusts with the brain on and off |
+| Follow the power | Battery, speed controllers, motors, receiver, flight controller, one per step |
+| Take the controls | Mode 2 thumb sticks on the 3D view |
+| Where to start | Three levels, one per step |
+| What you need | Parts and tools; safety |
+| Assembly | Eight steps; each part drops into place |
+| Setup | The setup app; three settings; find the backwards motor |
+| Takeoff | A ring course with the drone's camera view inset; checklist; drills |
+| The rules | FAA rules; drone words; the end |
 
-## Layout
+## The drone model
 
-- **Desktop and tablets held sideways:** story on the left, 3D view on the right.
-- **Phones and tablets held upright:** 3D view pinned to the top, story scrolling below it. Vertical swipes on the 3D view scroll the page; sideways swipes turn the view.
-- **Phones held sideways:** side by side, like desktop.
-- The **Chapters** button opens a menu of all 14 chapters; on phones it slides up from the bottom.
-- The flying chapters put two thumb sticks right on the 3D view.
+Modelled in code (`web/src/hardware.ts`, textures in `web/src/textures.ts`) on a typical 5-inch freestyle build, about 100 mm to a scene unit: a carbon-fiber X-frame with plates, hex standoffs and camera side plates; 2207-size brushless motors with a stator, twelve copper windings on three phases, fourteen magnets and a windowed bell; twisted, swept tri-blade props; a 4-in-1 ESC with MOSFETs, a capacitor and an XT60 lead; a flight controller with its processor, gyro, USB-C port and connectors; a receiver in heat-shrink with a dipole antenna; an FPV camera with a coated lens; a LiPo pack with strap, balance lead and plug; and copper motor leads in sleeves. Reflections come from the park's own sky.
 
 The motor-power map in the corner of the 3D panel reads straight from the toy physics model (`web/src/sim.ts`). Every motion comes from the four motor powers through the same mixer real flight controllers use. Its numbers are tuned to look right, not to match a specific aircraft.
 

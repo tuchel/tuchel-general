@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { WORKSHOP } from './pilot'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 /** A sunny park: sky, rolling lawn, trees, a pond, a path, and a launch pad. */
@@ -89,32 +90,54 @@ function place(geo: THREE.BufferGeometry, x: number, y: number, z: number, s = 1
   return geo.clone().scale(s, sy, s).translate(x, y, z)
 }
 
+function skyMaterial(sunDir: THREE.Vector3) {
+  return new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    fog: false,
+    uniforms: {
+      top: { value: new THREE.Color(SKY_TOP) },
+      horizon: { value: new THREE.Color(HORIZON) },
+      sunDir: { value: sunDir.clone() },
+    },
+    vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position);
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform vec3 top; uniform vec3 horizon; uniform vec3 sunDir; varying vec3 vDir;
+      void main(){ float h = clamp(vDir.y, 0.0, 1.0);
+        vec3 c = mix(horizon, top, pow(h, 0.55));
+        float s = max(dot(vDir, sunDir), 0.0);
+        c += vec3(1.0, 0.93, 0.75) * (pow(s, 12.0) * 0.35 + pow(s, 400.0) * 1.2);
+        gl_FragColor = vec4(c, 1.0); }`,
+  })
+}
+
+/** Reflections for shiny parts: the same sky over a green lawn, with a bright sun. */
+export function skyEnvironment(renderer: THREE.WebGLRenderer, sunDir: THREE.Vector3) {
+  const env = new THREE.Scene()
+  env.add(new THREE.Mesh(new THREE.SphereGeometry(10, 32, 16), skyMaterial(sunDir)))
+  const lawn = new THREE.Mesh(new THREE.CircleGeometry(9.5, 32), new THREE.MeshBasicMaterial({ color: 0x5f9e48 }))
+  lawn.rotation.x = -Math.PI / 2
+  lawn.position.y = -0.6
+  env.add(lawn)
+  const sun = new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 5.6, 4.8) }))
+  sun.position.copy(sunDir).multiplyScalar(8)
+  env.add(sun)
+  const soft = new THREE.Mesh(new THREE.PlaneGeometry(6, 3), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 2.2, 2.4), side: THREE.DoubleSide }))
+  soft.position.set(-6, 4, -3)
+  soft.lookAt(0, 0, 0)
+  env.add(soft)
+  const pmrem = new THREE.PMREMGenerator(renderer)
+  const tex = pmrem.fromScene(env, 0.03).texture
+  pmrem.dispose()
+  return tex
+}
+
 export function buildWorld(scene: THREE.Scene, sunDir: THREE.Vector3) {
   const world = new THREE.Group()
   scene.add(world)
 
   // ---------------------------------------------------------- sky
-  const sky = new THREE.Mesh(
-    new THREE.SphereGeometry(180, 32, 16),
-    new THREE.ShaderMaterial({
-      side: THREE.BackSide,
-      depthWrite: false,
-      fog: false,
-      uniforms: {
-        top: { value: new THREE.Color(SKY_TOP) },
-        horizon: { value: new THREE.Color(HORIZON) },
-        sunDir: { value: sunDir.clone() },
-      },
-      vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-      fragmentShader: `uniform vec3 top; uniform vec3 horizon; uniform vec3 sunDir; varying vec3 vDir;
-        void main(){ float h = clamp(vDir.y, 0.0, 1.0);
-          vec3 c = mix(horizon, top, pow(h, 0.55));
-          float s = max(dot(vDir, sunDir), 0.0);
-          c += vec3(1.0, 0.93, 0.75) * (pow(s, 12.0) * 0.35 + pow(s, 400.0) * 1.2);
-          gl_FragColor = vec4(c, 1.0); }`,
-    }),
-  )
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(180, 32, 16), skyMaterial(sunDir))
   world.add(sky)
 
   // ---------------------------------------------------------- clouds
@@ -213,12 +236,20 @@ export function buildWorld(scene: THREE.Scene, sunDir: THREE.Vector3) {
       c.beginPath()
       c.arc(s / 2, s / 2, s / 2 - 30, 0, Math.PI * 2)
       c.stroke()
-      c.strokeStyle = 'rgba(255,255,255,0.55)'
-      c.setLineDash([14, 18])
-      c.lineWidth = 5
-      c.beginPath()
-      c.arc(s / 2, s / 2, s / 2 - 66, 0, Math.PI * 2)
-      c.stroke()
+      // the workshop's name, printed around the rim
+      const ring = `${WORKSHOP.toUpperCase()}   ·   `.repeat(2)
+      c.fillStyle = 'rgba(255,255,255,0.85)'
+      c.font = '600 21px "JetBrains Mono Variable", monospace'
+      c.textAlign = 'center'
+      c.textBaseline = 'middle'
+      for (let i = 0; i < ring.length; i++) {
+        const a = (i / ring.length) * Math.PI * 2
+        c.save()
+        c.translate(s / 2 + Math.cos(a) * (s / 2 - 64), s / 2 + Math.sin(a) * (s / 2 - 64))
+        c.rotate(a + Math.PI / 2)
+        c.fillText(ring[i], 0, 0)
+        c.restore()
+      }
       c.fillStyle = '#ffffff'
       const bar = 46
       c.beginPath()
