@@ -2,26 +2,39 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="An interactive 3D guide to how a quadcopter drone flies, and how to build one yourself." />
-    <meta name="theme-color" content="#0c1424" />
+    <meta name="theme-color" content="#fffaf0" />
     <title>How a Drone Flies</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Nunito:wght@400;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap"
       rel="stylesheet"
     />
   </head>
   <body>
     <header class="topbar">
-      <a class="brand" href="#c-hero"><span class="brand-mark" aria-hidden="true">✚</span> How a Drone Flies</a>
+      <a class="brand" href="#c-hero"><span class="brand-mark" aria-hidden="true"></span>How a Drone Flies</a>
+      <button class="toc-btn" id="toc-btn" aria-haspopup="dialog" aria-controls="toc">
+        <span class="toc-ico" aria-hidden="true"><i></i><i></i><i></i></span><span id="toc-current">Chapters</span>
+      </button>
       <nav class="parts-nav" aria-label="Parts">
         <a href="#c-parts" data-part-link="1"><b>1</b> How it works</a>
         <a href="#c-ladder" data-part-link="2"><b>2</b> Build one</a>
       </nav>
       <div class="progress" aria-hidden="true"><span id="progress-fill"></span></div>
     </header>
+
+    <div class="toc" id="toc" role="dialog" aria-modal="true" aria-label="Chapters" hidden>
+      <div class="toc-sheet">
+        <div class="toc-head">
+          <b>Chapters</b>
+          <button class="toc-close" id="toc-close" aria-label="Close">✕</button>
+        </div>
+        <div id="toc-list"></div>
+      </div>
+    </div>
 
     <div class="layout">
       <div class="stage" id="stage">
@@ -39,12 +52,16 @@
           <g class="mm-motor" data-i="3" transform="translate(90 100)"><circle r="20" class="mm-bg" /><circle r="6" class="mm-fill cw" /><text y="4">0</text></g>
           <text x="60" y="130" class="mm-cap">motor power %</text>
         </svg>
+        <div class="stage-sticks" id="stage-sticks" aria-label="Flight sticks">
+          <div class="stick" data-stick="left"><i></i><span>climb · turn</span></div>
+          <div class="stick" data-stick="right"><i></i><span>move</span></div>
+        </div>
         <div id="toast" class="toast" role="status" aria-live="polite"></div>
       </div>
 
       <main class="story">
         <!-- ============ HERO ============ -->
-        <section class="chapter hero" id="c-hero" data-mode="hero" data-title="Drag to look around">
+        <section class="chapter hero" id="c-hero" data-mode="hero" data-title="Drag to look around" data-title-touch="Swipe sideways to look around">
           <div class="card">
             <p class="kicker">An interactive guide</p>
             <h1>How a drone flies <span>and how to build your own</span></h1>
@@ -57,7 +74,7 @@
               <a class="big-link p1" href="#c-parts"><small>Part 1</small>How it works</a>
               <a class="big-link p2" href="#c-ladder"><small>Part 2</small>Build one</a>
             </div>
-            <p class="hint">Drag the drone to spin it around. Scroll down to start.</p>
+            <p class="hint"><span class="mouse-only">Drag the drone to spin it around.</span><span class="touch-only">Swipe sideways on the drone to spin it around.</span> Scroll down to start.</p>
           </div>
         </section>
 
@@ -326,10 +343,7 @@
             </ul>
             <div class="try">
               <h3>Try it</h3>
-              <div class="sticks" data-sticks="radio">
-                <div class="stick" data-stick="left"><i></i><span>climb · turn</span></div>
-                <div class="stick" data-stick="right"><i></i><span>move</span></div>
-              </div>
+              <p class="stick-hint">Use the two sticks on the 3D view<span class="stacked-only"> above</span>. Drag a stick and let go: it springs back to the middle, just like a real one.</p>
               <p class="kbd-hint">Keyboard: W S A D for the left stick, arrow keys for the right.</p>
               <button class="ghost" data-reset>Reset drone</button>
             </div>
@@ -469,10 +483,7 @@
             <p>Practice here first: crashes on screen are free. Then work through the checklist before a real flight.</p>
             <div class="try">
               <h3>Fly through the rings</h3>
-              <div class="sticks" data-sticks="fly">
-                <div class="stick" data-stick="left"><i></i><span>climb · turn</span></div>
-                <div class="stick" data-stick="right"><i></i><span>move</span></div>
-              </div>
+              <p class="stick-hint">Use the sticks on the 3D view<span class="stacked-only"> above</span>. Climb a little with the left stick, then push the right stick forward.</p>
               <p class="status" id="ring-status">Ring 1 of 3</p>
               <button class="ghost" data-reset>Start over</button>
             </div>

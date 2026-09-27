@@ -6,7 +6,7 @@ An interactive 3D guide to quadcopters for a 10-year-old who likes robots. Part 
 
 ## What is on the page
 
-A sticky 3D drone (Three.js) changes for each chapter as you scroll. Each chapter pairs one idea with one control:
+A 3D drone in a sunny low-poly park (Three.js) changes for each chapter as you scroll. Each chapter pairs one idea with one control:
 
 | Chapter | Idea | Control |
 | --- | --- | --- |
@@ -24,6 +24,14 @@ A sticky 3D drone (Three.js) changes for each chapter as you scroll. Each chapte
 | Test before you fly | Bind, arm, failsafe, motor direction | Find the backwards motor |
 | Your first flight | Checklist and drills | Fly through three rings |
 | Rules of the sky | FAA recreational rules, glossary | — |
+
+## Layout
+
+- **Desktop and tablets held sideways:** story on the left, 3D view on the right.
+- **Phones and tablets held upright:** 3D view pinned to the top, story scrolling below it. Vertical swipes on the 3D view scroll the page; sideways swipes turn the view.
+- **Phones held sideways:** side by side, like desktop.
+- The **Chapters** button opens a menu of all 14 chapters; on phones it slides up from the bottom.
+- The flying chapters put two thumb sticks right on the 3D view.
 
 The motor-power map in the corner of the 3D panel reads straight from the toy physics model (`web/src/sim.ts`). Every motion comes from the four motor powers through the same mixer real flight controllers use. Its numbers are tuned to look right, not to match a specific aircraft.
 

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 
 export type PartKey =
   | 'frame'
@@ -23,8 +24,8 @@ export const MOTORS: { key: string; name: string; x: number; z: number; spin: Sp
   { key: 'br', name: 'Back-right', x: ARM, z: ARM, spin: 1 },
 ]
 
-export const CW_COLOR = 0xff8a3d
-export const CCW_COLOR = 0x3ad6ff
+export const CW_COLOR = 0xff7a45
+export const CCW_COLOR = 0x2fb3ff
 export const spinColor = (s: Spin) => (s === 1 ? CW_COLOR : CCW_COLOR)
 
 const PROP_R = 0.55
@@ -56,6 +57,30 @@ function mesh(geo: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0)
 function tube(points: THREE.Vector3[], r: number, color: number) {
   const curve = new THREE.CatmullRomCurve3(points)
   return mesh(new THREE.TubeGeometry(curve, 24, r, 6, false), mat(color, 0.5))
+}
+
+function batteryLabel() {
+  const c = document.createElement('canvas')
+  c.width = 128
+  c.height = 232
+  const g = c.getContext('2d')!
+  g.fillStyle = '#34448a'
+  g.beginPath()
+  g.roundRect(6, 6, 116, 220, 22)
+  g.fill()
+  g.fillStyle = '#ffc53d'
+  g.beginPath()
+  g.moveTo(74, 30)
+  g.lineTo(34, 124)
+  g.lineTo(62, 124)
+  g.lineTo(50, 200)
+  g.lineTo(96, 96)
+  g.lineTo(68, 96)
+  g.closePath()
+  g.fill()
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  return t
 }
 
 function bladeGeometry() {
@@ -108,43 +133,45 @@ export class Drone {
   }
 
   private build() {
-    // Frame: the skeleton
+    // Frame: the skeleton. Rounded shapes in a deep friendly blue.
     const frame = this.addPart('frame', 1, [0, 0, 0], [0.62, 0.14, 0.62])
-    const carbon = () => mat(0x262b36, 0.45, 0.2)
-    frame.add(mesh(new THREE.BoxGeometry(0.46, 0.04, 0.7), carbon(), 0, 0.13, 0))
+    const shell = () => mat(0x34448a, 0.45, 0.1)
+    frame.add(mesh(new RoundedBoxGeometry(0.5, 0.05, 0.74, 3, 0.022), shell(), 0, 0.13, 0))
     for (const m of MOTORS) {
       const len = Math.hypot(m.x, m.z)
-      const arm = mesh(new THREE.BoxGeometry(0.13, 0.045, len + 0.06), carbon(), m.x / 2, 0.125, m.z / 2)
+      const arm = mesh(new THREE.CapsuleGeometry(0.062, len, 6, 16), shell(), m.x / 2, 0.125, m.z / 2)
+      arm.rotation.set(Math.PI / 2, 0, 0)
+      arm.rotation.order = 'YXZ'
       arm.rotation.y = Math.atan2(m.x, m.z)
+      arm.scale.set(1, 1, 0.7)
       frame.add(arm)
-      const pad = mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.1, 12), mat(0x3a4152, 0.9), m.x * 0.82, 0.05, m.z * 0.82)
-      frame.add(pad)
+      frame.add(mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.03, 28), shell(), m.x, 0.135, m.z))
+      const foot = mesh(new THREE.CapsuleGeometry(0.035, 0.06, 4, 12), mat(0xffc53d, 0.5), m.x * 0.8, 0.065, m.z * 0.8)
+      frame.add(foot)
       const front = m.z < 0
       const led = mesh(
-        new THREE.SphereGeometry(0.035, 12, 8),
-        mat(front ? 0x5dff8a : 0xff4d5e, 0.3, 0, { emissive: front ? 0x5dff8a : 0xff4d5e, emissiveIntensity: 1.6 }),
-        m.x * 0.72,
-        0.095,
-        m.z * 0.72,
+        new THREE.SphereGeometry(0.036, 14, 10),
+        mat(front ? 0x5dff8a : 0xff4d5e, 0.3, 0, { emissive: front ? 0x5dff8a : 0xff4d5e, emissiveIntensity: 2 }),
+        m.x * 0.66,
+        0.09,
+        m.z * 0.66,
       )
       led.castShadow = false
       frame.add(led)
     }
 
-    // Motors
+    // Motors: the bell colour shows the spin direction.
     const motors = this.addPart('motors', 2, [0, 0.55, 0], [ARM + 0.25, 0.36, -ARM - 0.25])
     MOTORS.forEach((m, i) => {
       const g = new THREE.Group()
       g.position.set(m.x, 0.15, m.z)
-      g.add(mesh(new THREE.CylinderGeometry(0.1, 0.11, 0.05, 20), mat(0x1c1f27, 0.5, 0.4), 0, 0.025, 0))
+      g.add(mesh(new THREE.CylinderGeometry(0.1, 0.112, 0.05, 24), mat(0x2b3350, 0.5, 0.3), 0, 0.025, 0))
       const bell = new THREE.Group()
       bell.position.y = 0.05
-      bell.add(mesh(new THREE.CylinderGeometry(0.115, 0.115, 0.1, 24), mat(0xb9c2cf, 0.25, 0.85), 0, 0.05, 0))
-      const ring = mesh(new THREE.TorusGeometry(0.117, 0.012, 8, 32), mat(spinColor(m.spin), 0.4, 0.2, { emissive: spinColor(m.spin), emissiveIntensity: 0.35 }), 0, 0.075, 0)
-      ring.rotation.x = Math.PI / 2
-      bell.add(ring)
-      bell.add(mesh(new THREE.BoxGeometry(0.03, 0.07, 0.02), mat(0xffffff, 0.4), 0, 0.045, 0.115))
-      bell.add(mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.06, 8), mat(0xdfe5ec, 0.2, 0.9), 0, 0.13, 0))
+      bell.add(mesh(new THREE.CylinderGeometry(0.108, 0.118, 0.1, 28), mat(spinColor(m.spin), 0.35, 0.25), 0, 0.05, 0))
+      bell.add(mesh(new THREE.CylinderGeometry(0.085, 0.108, 0.02, 28), mat(0xe9eef5, 0.3, 0.6), 0, 0.11, 0))
+      bell.add(mesh(new RoundedBoxGeometry(0.035, 0.075, 0.02, 2, 0.008), mat(0xffffff, 0.4), 0, 0.05, 0.117))
+      bell.add(mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.06, 8), mat(0xdfe5ec, 0.2, 0.9), 0, 0.14, 0))
       g.add(bell)
       this.bells[i] = bell
       motors.add(g)
@@ -152,16 +179,16 @@ export class Drone {
 
     // ESC board (speed controllers) with standoffs
     const esc = this.addPart('esc', 3, [0, 0.38, 0], [-0.32, 0.2, -0.12])
-    esc.add(mesh(new THREE.BoxGeometry(0.4, 0.022, 0.4), mat(0x2463d6, 0.55, 0.1), 0, 0.19, 0))
+    esc.add(mesh(new RoundedBoxGeometry(0.4, 0.024, 0.4, 2, 0.01), mat(0x2f7bff, 0.5), 0, 0.19, 0))
     for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-      esc.add(mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.16, 8), mat(0xc9a55a, 0.35, 0.7), x * 0.16, 0.23, z * 0.16))
-      esc.add(mesh(new THREE.BoxGeometry(0.07, 0.02, 0.07), mat(0x111418, 0.6), x * 0.09, 0.205, z * 0.09))
+      esc.add(mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.16, 10), mat(0xf2b441, 0.35, 0.6), x * 0.16, 0.23, z * 0.16))
+      esc.add(mesh(new RoundedBoxGeometry(0.07, 0.02, 0.07, 2, 0.006), mat(0x1d2440, 0.6), x * 0.09, 0.205, z * 0.09))
     }
 
     // Motor wires
     const wires = this.addPart('wires', 4, [0, 0.38, 0], [0.4, 0.2, 0.4])
     for (const m of MOTORS) {
-      for (const [k, c] of [[-1, 0x1b1b1b], [0, 0xe03b3b], [1, 0x2c5dd8]] as const) {
+      for (const [k, c] of [[-1, 0x2b2b2b], [0, 0xff5a5a], [1, 0x3d8bff]] as const) {
         const nx = -m.z / Math.hypot(m.x, m.z)
         const nz = m.x / Math.hypot(m.x, m.z)
         const off = k * 0.018
@@ -169,8 +196,8 @@ export class Drone {
           tube(
             [
               new THREE.Vector3(m.x * 0.2 + nx * off, 0.2, m.z * 0.2 + nz * off),
-              new THREE.Vector3(m.x * 0.45 + nx * off, 0.16, m.z * 0.45 + nz * off),
-              new THREE.Vector3(m.x * 0.82 + nx * off, 0.16, m.z * 0.82 + nz * off),
+              new THREE.Vector3(m.x * 0.45 + nx * off, 0.172, m.z * 0.45 + nz * off),
+              new THREE.Vector3(m.x * 0.82 + nx * off, 0.172, m.z * 0.82 + nz * off),
             ],
             0.009,
             c,
@@ -181,9 +208,9 @@ export class Drone {
 
     // Flight controller (the brain)
     const fc = this.addPart('fc', 4, [0, 0.8, 0], [0.34, 0.3, 0.18])
-    fc.add(mesh(new THREE.BoxGeometry(0.36, 0.02, 0.36), mat(0x1e8f4e, 0.55, 0.1), 0, 0.3, 0))
-    fc.add(mesh(new THREE.BoxGeometry(0.1, 0.02, 0.1), mat(0x0d0f12, 0.4, 0.3), 0.02, 0.318, 0.04))
-    fc.add(mesh(new THREE.BoxGeometry(0.05, 0.018, 0.05), mat(0x2b2f36, 0.4, 0.3), -0.09, 0.316, 0.08))
+    fc.add(mesh(new RoundedBoxGeometry(0.36, 0.022, 0.36, 2, 0.01), mat(0x1fb46e, 0.5), 0, 0.3, 0))
+    fc.add(mesh(new RoundedBoxGeometry(0.1, 0.022, 0.1, 2, 0.006), mat(0x1d2440, 0.4, 0.2), 0.02, 0.318, 0.04))
+    fc.add(mesh(new RoundedBoxGeometry(0.05, 0.018, 0.05, 2, 0.005), mat(0x39406a, 0.4, 0.2), -0.09, 0.316, 0.08))
     const arrow = new THREE.Shape()
     arrow.moveTo(0, -0.1)
     arrow.lineTo(0.035, -0.04)
@@ -194,43 +221,48 @@ export class Drone {
     arrow.lineTo(-0.035, -0.04)
     const arrowGeo = new THREE.ShapeGeometry(arrow)
     arrowGeo.rotateX(Math.PI / 2)
-    const arrowMesh = mesh(arrowGeo, mat(0xffffff, 0.5, 0, { side: THREE.DoubleSide }), -0.1, 0.312, -0.03)
-    fc.add(arrowMesh)
+    fc.add(mesh(arrowGeo, mat(0xffffff, 0.5, 0, { side: THREE.DoubleSide }), -0.1, 0.313, -0.03))
 
     // Receiver + antenna
     const rx = this.addPart('receiver', 5, [0, 0.45, 0.95], [0, 0.3, 0.3])
-    rx.add(mesh(new THREE.BoxGeometry(0.12, 0.03, 0.1), mat(0x7a3fd1, 0.5), 0, 0.17, 0.28))
+    rx.add(mesh(new RoundedBoxGeometry(0.13, 0.035, 0.1, 2, 0.012), mat(0x9b6bff, 0.45), 0, 0.17, 0.28))
     for (const s of [-1, 1]) {
-      const ant = mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.38, 6), mat(0x16181d, 0.6), s * 0.1, 0.32, 0.46)
+      const ant = mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.38, 8), mat(0x2b3350, 0.6), s * 0.1, 0.32, 0.46)
       ant.rotation.set(-0.9, 0, s * 0.5)
       rx.add(ant)
-      const tip = mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.06, 8), mat(0xffffff, 0.5), s * 0.175, 0.43, 0.58)
+      const tip = mesh(new THREE.CapsuleGeometry(0.016, 0.05, 4, 10), mat(0xffffff, 0.5), s * 0.175, 0.43, 0.58)
       tip.rotation.copy(ant.rotation)
       rx.add(tip)
     }
 
-    // Camera
+    // Camera: a friendly coral box with a big glassy eye
     const cam = this.addPart('camera', 6, [0, 0.35, -1.0], [0, 0.42, -0.34])
     const camG = new THREE.Group()
-    camG.position.set(0, 0.24, -0.34)
+    camG.position.set(0, 0.25, -0.34)
     camG.rotation.x = 0.3
-    camG.add(mesh(new THREE.BoxGeometry(0.15, 0.14, 0.13), mat(0x14161b, 0.5)))
-    const lens = mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.07, 20), mat(0x0a0b0e, 0.2, 0.5), 0, 0, -0.09)
+    camG.add(mesh(new RoundedBoxGeometry(0.17, 0.15, 0.14, 3, 0.035), mat(0xff5d73, 0.45)))
+    const lens = mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.07, 24), mat(0x1d2440, 0.3, 0.3), 0, 0, -0.09)
     lens.rotation.x = Math.PI / 2
     camG.add(lens)
-    const glass = mesh(new THREE.CircleGeometry(0.035, 20), mat(0x3a7bff, 0.05, 0.6, { emissive: 0x1b3d99, emissiveIntensity: 0.5 }), 0, 0, -0.126)
+    const glass = mesh(new THREE.CircleGeometry(0.042, 24), mat(0x2d8cff, 0.05, 0.4, { emissive: 0x1e63d6, emissiveIntensity: 0.6 }), 0, 0, -0.1255)
     glass.rotation.y = Math.PI
     camG.add(glass)
+    const shine = mesh(new THREE.CircleGeometry(0.012, 12), mat(0xffffff, 0.2, 0, { emissive: 0xffffff, emissiveIntensity: 0.8 }), 0.015, 0.015, -0.127)
+    shine.rotation.y = Math.PI
+    camG.add(shine)
     cam.add(camG)
 
-    // Battery with strap and lead
+    // Battery: sunny yellow pack with a lightning label, strap and lead
     const bat = this.addPart('battery', 7, [0, 1.1, 0], [0, 0.55, 0.1])
-    bat.add(mesh(new THREE.BoxGeometry(0.3, 0.14, 0.56), mat(0x2f3440, 0.55), 0, 0.41, 0.03))
-    bat.add(mesh(new THREE.BoxGeometry(0.302, 0.06, 0.3), mat(0xffc93d, 0.5), 0, 0.42, 0.08))
-    bat.add(mesh(new THREE.BoxGeometry(0.34, 0.012, 0.06), mat(0xe8442f, 0.8), 0, 0.486, 0.03))
-    for (const s of [-1, 1]) bat.add(mesh(new THREE.BoxGeometry(0.012, 0.2, 0.06), mat(0xe8442f, 0.8), s * 0.17, 0.39, 0.03))
-    bat.add(tube([new THREE.Vector3(0.05, 0.4, -0.25), new THREE.Vector3(0.1, 0.36, -0.33), new THREE.Vector3(0.14, 0.25, -0.2), new THREE.Vector3(0.12, 0.2, -0.12)], 0.012, 0xd83a3a))
-    bat.add(tube([new THREE.Vector3(-0.05, 0.4, -0.25), new THREE.Vector3(-0.1, 0.36, -0.33), new THREE.Vector3(-0.14, 0.25, -0.2), new THREE.Vector3(-0.12, 0.2, -0.12)], 0.012, 0x1b1b1b))
+    bat.add(mesh(new RoundedBoxGeometry(0.3, 0.15, 0.56, 3, 0.035), mat(0xffc53d, 0.45), 0, 0.41, 0.03))
+    const labelTex = batteryLabel()
+    const label = mesh(new THREE.PlaneGeometry(0.22, 0.4), new THREE.MeshStandardMaterial({ map: labelTex, transparent: true, roughness: 0.5 }), 0, 0.486, 0.05)
+    label.rotation.x = -Math.PI / 2
+    bat.add(label)
+    bat.add(mesh(new RoundedBoxGeometry(0.34, 0.014, 0.06, 2, 0.006), mat(0xff5d73, 0.7), 0, 0.49, -0.19))
+    for (const s of [-1, 1]) bat.add(mesh(new RoundedBoxGeometry(0.014, 0.2, 0.06, 2, 0.006), mat(0xff5d73, 0.7), s * 0.17, 0.39, -0.19))
+    bat.add(tube([new THREE.Vector3(0.05, 0.4, -0.25), new THREE.Vector3(0.1, 0.36, -0.33), new THREE.Vector3(0.14, 0.25, -0.2), new THREE.Vector3(0.12, 0.2, -0.12)], 0.013, 0xff4d4d))
+    bat.add(tube([new THREE.Vector3(-0.05, 0.4, -0.25), new THREE.Vector3(-0.1, 0.36, -0.33), new THREE.Vector3(-0.14, 0.25, -0.2), new THREE.Vector3(-0.12, 0.2, -0.12)], 0.013, 0x2b2b2b))
 
     // Propellers
     const props = this.addPart('props', 8, [0, 1.45, 0], [-ARM - 0.45, 0.42, -ARM - 0.45])
@@ -240,7 +272,7 @@ export class Drone {
       spinner.position.set(m.x, PROP_Y, m.z)
       const bm = mat(spinColor(m.spin), 0.45, 0.05, { transparent: true, opacity: 0.95 })
       this.bladeMats[i] = bm
-      spinner.add(mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.05, 16), mat(spinColor(m.spin), 0.4)))
+      spinner.add(mesh(new THREE.SphereGeometry(0.045, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(0xffffff, 0.35)))
       for (const a of [0, Math.PI]) {
         const holder = new THREE.Group()
         holder.rotation.y = a

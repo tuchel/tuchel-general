@@ -4,6 +4,7 @@ import './style.css'
 import { Drone, MOTORS, type PartKey, type Spin } from './drone'
 import { Sim, zeroInputs, type Inputs } from './sim'
 import { BUILD_STEPS } from './steps'
+import { buildWorld, HORIZON } from './world'
 
 type Mode =
   | 'hero'
@@ -34,14 +35,14 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 renderer.outputColorSpace = THREE.SRGBColorSpace
-renderer.toneMapping = THREE.ACESFilmicToneMapping
-renderer.toneMappingExposure = 1.1
+renderer.toneMapping = THREE.NeutralToneMapping
+renderer.toneMappingExposure = 1.05
 
 const scene = new THREE.Scene()
-scene.background = new THREE.Color(0x0e1a2e)
-scene.fog = new THREE.Fog(0x0e1a2e, 12, 34)
+scene.background = new THREE.Color(HORIZON)
+scene.fog = new THREE.Fog(HORIZON, 40, 150)
 
-const camera = new THREE.PerspectiveCamera(42, 1, 0.05, 100)
+const camera = new THREE.PerspectiveCamera(42, 1, 0.05, 400)
 camera.position.set(4, 3, 6)
 const controls = new OrbitControls(camera, canvas)
 controls.enableDamping = true
@@ -50,81 +51,27 @@ controls.minDistance = 2
 controls.maxDistance = 14
 controls.maxPolarAngle = Math.PI * 0.49
 controls.autoRotateSpeed = 0.7
+// On touch screens, vertical swipes scroll the page and sideways swipes turn the view.
+const touch = matchMedia('(hover: none), (pointer: coarse)').matches
+if (touch) canvas.style.touchAction = 'pan-y'
 
-scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x1a2233, 1.3))
-const sun = new THREE.DirectionalLight(0xffffff, 2.2)
-sun.position.set(4, 8, 3)
+scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x8cc76a, 1.25))
+const SUN_DIR = new THREE.Vector3(0.4, 0.55, 0.73).normalize()
+const sun = new THREE.DirectionalLight(0xfff1d6, 2.6)
 sun.castShadow = true
 sun.shadow.mapSize.set(1024, 1024)
 sun.shadow.camera.left = sun.shadow.camera.bottom = -5
 sun.shadow.camera.right = sun.shadow.camera.top = 5
 sun.shadow.camera.near = 1
-sun.shadow.camera.far = 20
+sun.shadow.camera.far = 30
 sun.shadow.bias = -0.0005
+sun.shadow.normalBias = 0.02
 scene.add(sun, sun.target)
-const rim = new THREE.DirectionalLight(0x6fb6ff, 0.9)
-rim.position.set(-5, 3, -4)
-scene.add(rim)
+const fill = new THREE.DirectionalLight(0xbfdcff, 0.6)
+fill.position.set(-5, 3, -4)
+scene.add(fill)
 
-function canvasTexture(size: number, draw: (c: CanvasRenderingContext2D, s: number) => void) {
-  const c = document.createElement('canvas')
-  c.width = c.height = size
-  draw(c.getContext('2d')!, size)
-  const t = new THREE.CanvasTexture(c)
-  t.colorSpace = THREE.SRGBColorSpace
-  t.anisotropy = 4
-  return t
-}
-
-const gridTex = canvasTexture(256, (c, s) => {
-  c.fillStyle = '#12213a'
-  c.fillRect(0, 0, s, s)
-  c.strokeStyle = 'rgba(90,170,255,0.22)'
-  c.lineWidth = 2
-  c.strokeRect(0, 0, s, s)
-  c.strokeStyle = 'rgba(90,170,255,0.08)'
-  c.lineWidth = 1
-  for (let i = 1; i < 4; i++) {
-    c.beginPath()
-    c.moveTo((i * s) / 4, 0)
-    c.lineTo((i * s) / 4, s)
-    c.moveTo(0, (i * s) / 4)
-    c.lineTo(s, (i * s) / 4)
-    c.stroke()
-  }
-})
-gridTex.wrapS = gridTex.wrapT = THREE.RepeatWrapping
-gridTex.repeat.set(30, 30)
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ map: gridTex, roughness: 0.95 }))
-ground.rotation.x = -Math.PI / 2
-ground.receiveShadow = true
-scene.add(ground)
-
-const padTex = canvasTexture(512, (c, s) => {
-  c.clearRect(0, 0, s, s)
-  c.fillStyle = '#1b2d4d'
-  c.beginPath()
-  c.arc(s / 2, s / 2, s / 2 - 4, 0, Math.PI * 2)
-  c.fill()
-  c.strokeStyle = '#ffd23f'
-  c.lineWidth = 14
-  c.beginPath()
-  c.arc(s / 2, s / 2, s / 2 - 20, 0, Math.PI * 2)
-  c.stroke()
-  c.fillStyle = '#ffd23f'
-  c.font = 'bold 230px sans-serif'
-  c.textAlign = 'center'
-  c.textBaseline = 'middle'
-  c.fillText('H', s / 2, s / 2 + 12)
-})
-const pad = new THREE.Mesh(
-  new THREE.CircleGeometry(1.5, 48),
-  new THREE.MeshStandardMaterial({ map: padTex, transparent: true, roughness: 0.8 }),
-)
-pad.rotation.x = -Math.PI / 2
-pad.position.y = 0.005
-pad.receiveShadow = true
-scene.add(pad)
+const world = buildWorld(scene, SUN_DIR)
 
 // ---------------------------------------------------------------- drone + sim
 const drone = new Drone()
@@ -145,11 +92,10 @@ const particles = new THREE.Points(
   new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    uniforms: { color: { value: new THREE.Color(0x9fe6ff) } },
+    uniforms: { color: { value: new THREE.Color(0xffffff) } },
     vertexShader: `attribute float alpha; varying float vA;
       void main(){ vA = alpha; vec4 mv = modelViewMatrix * vec4(position,1.0);
-      gl_PointSize = 34.0 / -mv.z; gl_Position = projectionMatrix * mv; }`,
+      gl_PointSize = 46.0 / -mv.z; gl_Position = projectionMatrix * mv; }`,
     fragmentShader: `uniform vec3 color; varying float vA;
       void main(){ float d = length(gl_PointCoord - 0.5); if (d > 0.5) discard;
       gl_FragColor = vec4(color, vA * (1.0 - d * 2.0)); }`,
@@ -274,12 +220,24 @@ flowGroup.visible = false
 
 // ---------------------------------------------------------------- hoops
 const HOOPS = [new THREE.Vector3(0, 1.5, -3.5), new THREE.Vector3(3, 2.5, -6.5), new THREE.Vector3(-2.5, 1.5, -9)]
-const hoopMeshes = HOOPS.map((p) => {
+const HOOP_COLORS = [0xff7a45, 0xffc53d, 0x2fb3ff]
+const hoopMeshes = HOOPS.map((p, i) => {
+  const geo = new THREE.TorusGeometry(0.75, 0.07, 14, 72)
+  const pos = geo.attributes.position
+  const cols = new Float32Array(pos.count * 3)
+  const c = new THREE.Color()
+  for (let k = 0; k < pos.count; k++) {
+    const a = Math.atan2(pos.getY(k), pos.getX(k)) + Math.PI
+    c.setHex(Math.floor(a / (Math.PI / 8)) % 2 ? 0xffffff : HOOP_COLORS[i])
+    cols.set([c.r, c.g, c.b], k * 3)
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(cols, 3))
   const m = new THREE.Mesh(
-    new THREE.TorusGeometry(0.75, 0.06, 12, 48),
-    new THREE.MeshStandardMaterial({ color: 0xb6f24a, emissive: 0xb6f24a, emissiveIntensity: 0.6, transparent: true }),
+    geo,
+    new THREE.MeshStandardMaterial({ vertexColors: true, emissive: HOOP_COLORS[i], emissiveIntensity: 0.3, roughness: 0.5, transparent: true }),
   )
   m.position.copy(p)
+  m.castShadow = true
   m.visible = false
   scene.add(m)
   return m
@@ -364,14 +322,14 @@ const MODES: Record<Mode, ModeCfg> = {
     },
   },
   lift: {
-    cam: [4.2, 1.2, 5.2],
-    target: [0, 1.5, 0],
+    cam: [4.4, 1.0, 5.4],
+    target: [0, 1.45, 0],
     map: true,
     air: true,
     enter: () => {
       flying(0)
       sim.altHold = false
-      sim.ceiling = 3.2
+      sim.ceiling = 2.6
       setThrottle(0)
     },
   },
@@ -435,8 +393,8 @@ const MODES: Record<Mode, ModeCfg> = {
     },
   },
   build: {
-    cam: [2.8, 2.2, 3.4],
-    target: [0, 0.3, 0],
+    cam: [3.0, 1.5, 3.8],
+    target: [0, 0.4, 0],
     enter: () => {
       still(0)
       showStep(buildIdx)
@@ -510,8 +468,12 @@ function setMode(m: Mode, instant = false) {
   controls.autoRotate = !!cfg.auto && !reduceMotion
   $('#motormap').classList.toggle('on', !!cfg.map)
   $('#labels').classList.toggle('on', m === 'parts' || m === 'kit')
-  const section = $(`[data-mode="${m}"]`)
-  $('#stage-chip').textContent = section?.dataset.title ?? ''
+  const section = $(`.chapter[data-mode="${m}"]`)
+  $('#stage-chip').textContent = (touch && section?.dataset.titleTouch) || section?.dataset.title || ''
+  stage.classList.toggle('sticks-on', m === 'radio' || m === 'fly')
+  $('#toc-current').textContent = m === 'hero' ? 'Chapters' : chapterName(m)
+  $$('#toc-list a').forEach((a) => a.classList.toggle('on', a.dataset.mode === m))
+  if (m === 'fly') paintHoops()
   const idx = order.indexOf(m)
   $$('[data-part-link]').forEach((a) =>
     a.classList.toggle('active', a.dataset.partLink === (idx >= order.indexOf('ladder') ? '2' : idx >= order.indexOf('parts') ? '1' : '')),
@@ -523,9 +485,10 @@ function setMode(m: Mode, instant = false) {
 const sections = $$<HTMLElement>('.chapter')
 const order = sections.map((s) => s.dataset.mode as Mode)
 function pickChapter() {
-  const mobile = innerWidth < 860
-  const stageH = mobile ? stage.getBoundingClientRect().height : 0
-  const line = mobile ? stageH + (innerHeight - stageH) * 0.35 : innerHeight * 0.5
+  // Stacked layout (phones, tablets upright): the 3D view sits on top, so read from below it.
+  const stacked = getComputedStyle($('.layout')).display === 'block'
+  const stageBottom = stacked ? stage.getBoundingClientRect().bottom : 0
+  const line = stacked ? stageBottom + (innerHeight - stageBottom) * 0.3 : innerHeight * 0.5
   let best: Mode = order[0]
   for (const s of sections) {
     const r = s.getBoundingClientRect()
@@ -548,6 +511,44 @@ addEventListener(
   },
   { passive: true },
 )
+
+// ---------------------------------------------------------------- chapter menu
+function chapterName(m: Mode) {
+  const kicker = $(`[data-mode="${m}"] .kicker`)?.textContent ?? ''
+  return kicker.replace(/^\d+\s*·\s*/, '')
+}
+{
+  const list = $('#toc-list')
+  let html = ''
+  let part = ''
+  for (const sec of sections) {
+    const m = sec.dataset.mode as Mode
+    const idx = order.indexOf(m)
+    const p = idx >= order.indexOf('ladder') ? 'Part 2 · Build one' : idx >= order.indexOf('parts') ? 'Part 1 · How it works' : ''
+    if (p !== part) {
+      part = p
+      html += `<h4 class="${idx >= order.indexOf('ladder') ? 'p2' : ''}">${p}</h4>`
+    }
+    const num = sec.querySelector('.kicker')?.textContent?.match(/^\d+/)?.[0] ?? '★'
+    const title = sec.querySelector('h1, h2')?.firstChild?.textContent?.trim() ?? ''
+    html += `<a href="#${sec.id}" data-mode="${m}"><b>${num}</b><span>${title}</span></a>`
+  }
+  list.innerHTML = html
+}
+const toc = $('#toc')
+const tocBtn = $('#toc-btn')
+function openToc(open: boolean) {
+  toc.hidden = !open
+  document.body.classList.toggle('toc-open', open)
+  tocBtn.setAttribute('aria-expanded', String(open))
+  if (open) ($('#toc-list a.on') ?? $('#toc-list a'))?.focus({ preventScroll: true })
+}
+tocBtn.addEventListener('click', () => openToc(toc.hidden))
+$('#toc-close').addEventListener('click', () => openToc(false))
+toc.addEventListener('click', (e) => {
+  if (e.target === toc || (e.target as HTMLElement).closest('a')) openToc(false)
+})
+addEventListener('keydown', (e) => e.key === 'Escape' && !toc.hidden && openToc(false))
 
 // ---------------------------------------------------------------- toast
 let toastTimer = 0
@@ -836,7 +837,7 @@ function bindSticks(root: HTMLElement) {
     el.addEventListener('pointercancel', up)
   })
 }
-$$('[data-sticks]').forEach(bindSticks)
+bindSticks($('#stage-sticks'))
 $$('[data-reset]').forEach((b) =>
   b.addEventListener('click', () => {
     if (mode === 'fly') resetHoops()
@@ -921,9 +922,10 @@ function paintHoops() {
   hoopMeshes.forEach((h, i) => {
     const m = h.material as THREE.MeshStandardMaterial
     m.opacity = i < hoopIdx ? 0.15 : i === hoopIdx ? 1 : 0.4
-    m.emissiveIntensity = i === hoopIdx ? 0.9 : 0.15
+    m.emissiveIntensity = i === hoopIdx ? 0.45 : 0
   })
-  $('#ring-status').textContent = hoopIdx >= HOOPS.length ? 'All three rings! Nice flying. Press Start over to go again.' : `Ring ${hoopIdx + 1} of ${HOOPS.length}: climb with the left stick, then push the right stick forward.`
+  if (mode === 'fly') $('#stage-chip').textContent = `Rings: ${Math.min(hoopIdx, HOOPS.length)} of ${HOOPS.length}`
+  $('#ring-status').textContent = hoopIdx >= HOOPS.length ? 'All three rings! Nice flying. Press Start over to go again.' : `Next: ring ${hoopIdx + 1} of ${HOOPS.length}.`
 }
 
 // ---------------------------------------------------------------- HUD
@@ -1006,9 +1008,10 @@ function frame() {
     camera.position.add(d)
   }
   controls.update()
-  sun.position.copy(drone.root.position).add(tmpV.set(4, 8, 3))
+  sun.position.copy(drone.root.position).addScaledVector(SUN_DIR, 14)
   sun.target.position.copy(drone.root.position)
 
+  world.update(t)
   updateParticles(dt, !!cfg.air && !sim.crashed)
   if (flowGroup.visible) updateFlow(t)
   if (mode === 'power') updateCoils(t)
