@@ -1898,8 +1898,8 @@ input[type='range']::-moz-range-thumb {
     padding: 12px 14px 14px;
   }
 
-  .airfoil {
-    max-height: 30svh;
+  .wide-only {
+    display: none;
   }
 }
 

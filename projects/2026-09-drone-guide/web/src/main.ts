@@ -301,7 +301,7 @@ const thrustArrows = MOTORS.map((m) => {
 })
 function updateThrustArrows() {
   thrustArrows.forEach(({ g, shaft, head }, i) => {
-    const len = Math.max(0.001, sim.u[i] * sim.lift * 0.9)
+    const len = Math.max(0.001, sim.u[i] * sim.lift * 0.7)
     shaft.scale.y = len
     head.position.y = len
     head.visible = len > 0.02
@@ -354,7 +354,7 @@ const helix = (() => {
     tick.position.set(s * PROP_R, -0.1, 0)
     g.add(tick)
   }
-  const across = textSprite('5 in across')
+  const across = textSprite('5 in across', 0.55)
   across.position.set(0, -0.24, 0)
   g.add(across)
   // 4 in per turn
@@ -368,8 +368,8 @@ const helix = (() => {
     tick.position.set(bx + 0.14, y, 0)
     g.add(tick)
   }
-  const perTurn = textSprite('4 in per turn', 0.78)
-  perTurn.position.set(bx + 0.14 + 0.48, PITCH / 2, 0)
+  const perTurn = textSprite('4 in per turn', 0.6)
+  perTurn.position.set(bx + 0.14 + 0.38, PITCH / 2, 0)
   g.add(perTurn)
   // a bead that rides the spiral, one turn at a time
   const bead = new THREE.Mesh(new THREE.SphereGeometry(0.035, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffc53d }))
