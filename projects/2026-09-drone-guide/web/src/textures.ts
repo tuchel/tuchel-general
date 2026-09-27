@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { PILOT } from './pilot'
 
 /** Procedural textures, drawn on canvases so the page ships no image files. */
 
@@ -135,7 +136,7 @@ export function pcb(kind: BoardKind) {
       c.font = 'bold 22px "JetBrains Mono Variable", monospace'
       c.fillText('FRONT', 256, 180)
       c.font = 'bold 28px "JetBrains Mono Variable", monospace'
-      c.fillText('F7 FLIGHT CTRL', 256, 470)
+      c.fillText(`${PILOT.toUpperCase()}-1 · F7`, 256, 470)
       // pad rows
       c.fillStyle = '#d6ad55'
       for (let i = 0; i < 6; i++) c.fillRect(120 + i * 48, 430, 26, 14)

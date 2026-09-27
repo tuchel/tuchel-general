@@ -9,6 +9,7 @@ import { ARM_TOP, ESC_Y, FC_Y } from './hardware'
 import { Sim, zeroInputs, type Inputs } from './sim'
 import { BUILD_STEPS } from './steps'
 import { buildWorld, skyEnvironment, HORIZON } from './world'
+import { PILOT, WORKSHOP } from './pilot'
 
 type Mode =
   | 'hero'
@@ -31,6 +32,26 @@ const $ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = docu
 const $$ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document) => Array.from(root.querySelectorAll(sel)) as T[]
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
 const touch = matchMedia('(hover: none), (pointer: coarse)').matches
+
+// ================================================================ personal touch
+// Copy says {pilot} and {workshop}; fill them in before anything reads the page.
+{
+  const fill = (s: string) => s.replaceAll('{pilot}', PILOT).replaceAll('{workshop}', WORKSHOP)
+  const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+  for (let n = walk.nextNode(); n; n = walk.nextNode()) if (n.nodeValue?.includes('{')) n.nodeValue = fill(n.nodeValue)
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>('[data-title], [data-title-touch], [aria-label]')))
+    for (const a of ['data-title', 'data-title-touch', 'aria-label']) {
+      const v = el.getAttribute(a)
+      if (v?.includes('{')) el.setAttribute(a, fill(v))
+    }
+  document.title = WORKSHOP
+}
+
+// Labels drawn onto the 3D parts use the page fonts; give them a moment to load.
+await Promise.race([
+  Promise.all(['600 21px "JetBrains Mono Variable"', '700 60px "Space Grotesk Variable"'].map((f) => document.fonts.load(f))),
+  new Promise((r) => setTimeout(r, 1500)),
+])
 
 // ================================================================ scene
 const canvas = $<HTMLCanvasElement>('#scene')
@@ -161,7 +182,7 @@ function updateParticles(dt: number, on: boolean) {
 // ================================================================ energy and message pulses
 const flowGroup = new THREE.Group()
 drone.body.add(flowGroup)
-const pulseGeo = new THREE.SphereGeometry(0.017, 12, 8)
+const pulseGeo = new THREE.SphereGeometry(0.012, 12, 8)
 interface Route {
   pts: [PartKey, number, number, number][]
   kind: 'energy' | 'msg'
@@ -457,7 +478,7 @@ $('#panel-grip').addEventListener('click', () => panel.classList.toggle('folded'
       part = p
       html += `<h4 class="${ch.dataset.part === '2' ? 'p2' : ''}">${p}</h4>`
     }
-    html += `<a href="#${ch.dataset.chapter}" data-chapter="${ch.dataset.chapter}"><b>${ch.dataset.num ?? '★'}</b><span>${ch.dataset.num ? ch.dataset.name : 'How a drone flies'}</span></a>`
+    html += `<a href="#${ch.dataset.chapter}" data-chapter="${ch.dataset.chapter}"><b>${ch.dataset.num ?? '★'}</b><span>${ch.dataset.num ? ch.dataset.name : 'Welcome'}</span></a>`
   }
   $('#toc-list').innerHTML = html
 }
@@ -1117,9 +1138,19 @@ function measure() {
   camera.aspect = W / H
   camera.fov = W / H < 0.8 ? 52 : 40
   // shift the picture so its centre sits in the middle of the open area
-  const cx = (free.left + free.right) / 2
-  const cy = (free.top + free.bottom) / 2
-  camera.setViewOffset(W, H, W / 2 - cx, H / 2 - cy, W, H)
+  viewGoal.x = W / 2 - (free.left + free.right) / 2
+  viewGoal.y = H / 2 - (free.top + free.bottom) / 2
+  if (!viewReady) {
+    view.copy(viewGoal)
+    viewReady = true
+  }
+  applyView()
+}
+const view = new THREE.Vector2()
+const viewGoal = new THREE.Vector2()
+let viewReady = false
+function applyView() {
+  camera.setViewOffset(innerWidth, innerHeight, view.x, view.y, innerWidth, innerHeight)
   camera.updateProjectionMatrix()
 }
 new ResizeObserver(measure).observe(panel)
@@ -1198,6 +1229,10 @@ function frame() {
     const d = tmpV.copy(followTarget).sub(controls.target).multiplyScalar(Math.min(1, dt * 4))
     controls.target.add(d)
     camera.position.add(d)
+  }
+  if (view.distanceTo(viewGoal) > 0.5) {
+    view.lerp(viewGoal, Math.min(1, dt * 6))
+    applyView()
   }
   controls.minDistance = focus ? 0.5 : 1.6
   controls.update()

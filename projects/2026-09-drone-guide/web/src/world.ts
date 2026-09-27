@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { WORKSHOP } from './pilot'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 /** A sunny park: sky, rolling lawn, trees, a pond, a path, and a launch pad. */
@@ -235,12 +236,20 @@ export function buildWorld(scene: THREE.Scene, sunDir: THREE.Vector3) {
       c.beginPath()
       c.arc(s / 2, s / 2, s / 2 - 30, 0, Math.PI * 2)
       c.stroke()
-      c.strokeStyle = 'rgba(255,255,255,0.55)'
-      c.setLineDash([14, 18])
-      c.lineWidth = 5
-      c.beginPath()
-      c.arc(s / 2, s / 2, s / 2 - 66, 0, Math.PI * 2)
-      c.stroke()
+      // the workshop's name, printed around the rim
+      const ring = `${WORKSHOP.toUpperCase()}   ·   `.repeat(2)
+      c.fillStyle = 'rgba(255,255,255,0.85)'
+      c.font = '600 21px "JetBrains Mono Variable", monospace'
+      c.textAlign = 'center'
+      c.textBaseline = 'middle'
+      for (let i = 0; i < ring.length; i++) {
+        const a = (i / ring.length) * Math.PI * 2
+        c.save()
+        c.translate(s / 2 + Math.cos(a) * (s / 2 - 64), s / 2 + Math.sin(a) * (s / 2 - 64))
+        c.rotate(a + Math.PI / 2)
+        c.fillText(ring[i], 0, 0)
+        c.restore()
+      }
       c.fillStyle = '#ffffff'
       const bar = 46
       c.beginPath()

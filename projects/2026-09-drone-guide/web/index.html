@@ -3,9 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="description" content="An interactive 3D guide to how a quadcopter drone flies, and how to build one yourself." />
+    <meta name="description" content="Hunter's Drone Workshop: an interactive 3D guide to how a quadcopter drone flies, and how to build one yourself." />
     <meta name="theme-color" content="#cfe6f7" />
-    <title>How a Drone Flies</title>
+    <title>Hunter's Drone Workshop</title>
   </head>
   <body>
     <canvas id="scene" aria-label="3D model of a quadcopter drone in a park"></canvas>
@@ -37,7 +37,7 @@
     <header class="topbar">
       <a class="brand" href="#intro" data-go="intro">
         <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M9 9l14 14M23 9L9 23" stroke="#0f172a" stroke-width="3.2" stroke-linecap="round"/><rect x="12.5" y="12.5" width="7" height="7" rx="2" fill="#0f172a"/><circle cx="7" cy="7" r="4.6" fill="#ff6a2b"/><circle cx="25" cy="25" r="4.6" fill="#ff6a2b"/><circle cx="25" cy="7" r="4.6" fill="#1d8cf8"/><circle cx="7" cy="25" r="4.6" fill="#1d8cf8"/></svg>
-        <span>How a Drone Flies</span>
+        <span>{workshop}</span>
       </a>
       <button class="toc-btn" id="toc-btn" aria-haspopup="dialog" aria-controls="toc">
         <span class="toc-ico" aria-hidden="true"><i></i><i></i><i></i></span><span class="toc-num" id="toc-num"></span><span id="toc-current">Chapters</span>
@@ -65,8 +65,9 @@
         <!-- ======================= INTRO ======================= -->
         <section class="chapter" data-chapter="intro" data-name="Start" data-part="0">
           <div class="beat intro" data-mode="hero" data-title="Drag to look around" data-title-touch="Swipe to look around">
-            <p class="eyebrow">An interactive guide</p>
-            <h1>How a drone flies <span>and how to build your own</span></h1>
+            <p class="eyebrow">{workshop}</p>
+            <h1>How a drone flies <span>and how you'll build your own</span></h1>
+            <p>Welcome to the workshop, {pilot}.</p>
             <p>
               A quadcopter has no wings and no steering wheel. It has four spinning propellers, a tiny computer for a brain,
               and one trick: it changes how fast each propeller spins.
@@ -83,7 +84,7 @@
           <div class="beat" data-mode="parts" data-title="Eight parts">
             <h2>Eight parts, one flying robot</h2>
             <p><b>Quad</b> means four. <b>Copter</b> comes from helicopter. So a quadcopter is a helicopter with four rotors.</p>
-            <p>Let's meet its parts, one at a time.</p>
+            <p>Let's meet its parts one at a time, {pilot}.</p>
           </div>
           <div class="beat" data-mode="parts" data-focus="frame" data-title="The frame">
             <h2>The frame</h2>
@@ -273,7 +274,7 @@
             <p>Many drone brains run this loop <b>4,000 times every second</b>.</p>
           </div>
           <div class="beat" data-mode="brain" data-title="Send a gust">
-            <h2>Try to knock it over</h2>
+            <h2>Try to knock it over, {pilot}</h2>
             <div class="try">
               <h3>Try it</h3>
               <div class="row">
@@ -319,7 +320,7 @@
 
         <section class="chapter" data-chapter="radio" data-num="08" data-name="Take the controls" data-part="1">
           <div class="beat" data-mode="radio" data-sticks data-title="Mode 2 sticks">
-            <h2>Fly it yourself</h2>
+            <h2>Your turn, {pilot}</h2>
             <p><b>Left stick:</b> up and down to climb or sink, sideways to turn. <b>Right stick:</b> push the way you want to go.</p>
             <p class="kbd-hint">Keyboard: W S A D, and the arrow keys.</p>
             <button class="ghost small" data-reset>Reset drone</button>
@@ -335,7 +336,7 @@
           <div class="beat" data-mode="ladder" data-title="Level 1">
             <p class="lvl">Level 1</p>
             <h2>Learn to fly</h2>
-            <p>Practice on a drone simulator on a computer, then fly a small toy drone with prop guards. Crashes cost nothing, and every skill carries over.</p>
+            <p>Every pilot starts here, {pilot} included. Practice on a drone simulator on a computer, then fly a small toy drone with prop guards. Crashes cost nothing, and every skill carries over.</p>
           </div>
           <div class="beat" data-mode="ladder" data-title="Level 2">
             <p class="lvl">Level 2</p>
@@ -408,7 +409,7 @@
         <section class="chapter" data-chapter="fly" data-num="13" data-name="Takeoff" data-part="2">
           <div class="beat" data-mode="fly" data-sticks data-title="Rings: 0 of 3">
             <h2>Fly through the rings</h2>
-            <p>Practice here first: crashes on screen are free. Climb a little, then push the right stick forward.</p>
+            <p>Practice here first, {pilot}: crashes on screen are free. Climb a little, then push the right stick forward.</p>
             <p class="status" id="ring-status">Next: ring 1 of 3.</p>
             <button class="ghost small" data-reset>Start over</button>
           </div>
@@ -472,7 +473,7 @@
             </dl>
           </div>
           <div class="beat" data-mode="rules" data-title="The end">
-            <h2>Now go build one.</h2>
+            <h2>Now go build one, {pilot}.</h2>
             <p>You know how a drone lifts, steers, balances and gets its power, and how to put one together safely.</p>
             <button class="primary" data-go="intro">Back to the start</button>
           </div>
