@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="An interactive 3D guide to how a quadcopter drone flies, and how to build one yourself." />
+    <meta name="theme-color" content="#f6f7f9" />
+    <title>How a Drone Flies</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#c-hero"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M9 9l14 14M23 9L9 23" stroke="#0f172a" stroke-width="3.2" stroke-linecap="round"/><rect x="12.5" y="12.5" width="7" height="7" rx="2" fill="#0f172a"/><circle cx="7" cy="7" r="4.6" fill="#ff6a2b"/><circle cx="25" cy="25" r="4.6" fill="#ff6a2b"/><circle cx="25" cy="7" r="4.6" fill="#1d8cf8"/><circle cx="7" cy="25" r="4.6" fill="#1d8cf8"/></svg>How a Drone Flies</a>
+      <button class="toc-btn" id="toc-btn" aria-haspopup="dialog" aria-controls="toc">
+        <span class="toc-ico" aria-hidden="true"><i></i><i></i><i></i></span><span class="toc-num" id="toc-num"></span><span id="toc-current">Chapters</span>
+      </button>
+      <nav class="parts-nav" aria-label="Parts">
+        <a href="#c-parts" data-part-link="1"><b>1</b> How it works</a>
+        <a href="#c-ladder" data-part-link="2"><b>2</b> Build one</a>
+      </nav>
+      <div class="progress" aria-hidden="true"><span id="progress-fill"></span></div>
+    </header>
+
+    <div class="toc" id="toc" role="dialog" aria-modal="true" aria-label="Chapters" hidden>
+      <div class="toc-sheet">
+        <div class="toc-head">
+          <b>Chapters</b>
+          <button class="toc-close" id="toc-close" aria-label="Close">✕</button>
+        </div>
+        <div id="toc-list"></div>
+      </div>
+    </div>
+
+    <div class="layout">
+      <div class="stage" id="stage">
+        <canvas id="scene" aria-label="3D model of a quadcopter drone"></canvas>
+        <div id="labels" class="labels"></div>
+        <div class="chip" id="stage-chip">Drag to look around</div>
+        <svg id="motormap" class="motormap" viewBox="0 0 120 132" aria-label="Motor power map">
+          <text x="60" y="10" class="mm-front">FRONT</text>
+          <line x1="36" y1="46" x2="84" y2="94" class="mm-arm" />
+          <line x1="84" y1="46" x2="36" y2="94" class="mm-arm" />
+          <rect x="50" y="60" width="20" height="20" rx="4" class="mm-body" />
+          <g class="mm-motor" data-i="0" transform="translate(30 40)"><circle r="20" class="mm-bg" /><circle r="6" class="mm-fill cw" /><text y="4">0</text></g>
+          <g class="mm-motor" data-i="1" transform="translate(90 40)"><circle r="20" class="mm-bg" /><circle r="6" class="mm-fill ccw" /><text y="4">0</text></g>
+          <g class="mm-motor" data-i="2" transform="translate(30 100)"><circle r="20" class="mm-bg" /><circle r="6" class="mm-fill ccw" /><text y="4">0</text></g>
+          <g class="mm-motor" data-i="3" transform="translate(90 100)"><circle r="20" class="mm-bg" /><circle r="6" class="mm-fill cw" /><text y="4">0</text></g>
+          <text x="60" y="130" class="mm-cap">motor power %</text>
+        </svg>
+        <div class="stage-sticks" id="stage-sticks" aria-label="Flight sticks">
+          <div class="stick" data-stick="left"><i></i><span>climb · turn</span></div>
+          <div class="stick" data-stick="right"><i></i><span>move</span></div>
+        </div>
+        <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      </div>
+
+      <main class="story">
+        <!-- ============ HERO ============ -->
+        <section class="chapter hero" id="c-hero" data-mode="hero" data-title="Drag to look around" data-title-touch="Swipe sideways to look around">
+          <div class="card">
+            <p class="kicker">An interactive guide</p>
+            <h1>How a drone flies <span>and how to build your own</span></h1>
+            <p class="lede">
+              A quadcopter has no wings and no steering wheel. It has four spinning propellers, a tiny computer for a brain,
+              and one trick: it changes how fast each propeller spins. This guide shows you exactly how that trick works, and
+              then how to build a drone that does it.
+            </p>
+            <div class="hero-links">
+              <a class="big-link p1" href="#c-parts"><small>Part 1</small>How it works<i aria-hidden="true">→</i></a>
+              <a class="big-link p2" href="#c-ladder"><small>Part 2</small>Build one<i aria-hidden="true">→</i></a>
+            </div>
+            <p class="hint"><span class="mouse-only">Drag the drone to spin it around.</span><span class="touch-only">Swipe sideways on the drone to spin it around.</span> Scroll down to start.</p>
+          </div>
+        </section>
+
+        <div class="part-banner" id="part-1">
+          <span>Part 01</span>
+          <h2>How it works</h2>
+          <p>Eight chapters, from why it lifts to how you steer it.</p>
+        </div>
+
+        <!-- ============ PARTS ============ -->
+        <section class="chapter" id="c-parts" data-mode="parts" data-title="Tap a part">
+          <div class="card">
+            <p class="kicker">01 · Meet the quadcopter</p>
+            <h2>Eight parts, one flying robot</h2>
+            <p>
+              <b>Quad</b> means four. <b>Copter</b> comes from helicopter. So a quadcopter is a helicopter with four
+              rotors. Here it is, pulled apart so you can see inside. Tap any part.
+            </p>
+            <div class="part-buttons" id="part-buttons">
+              <button data-part="frame">Frame</button>
+              <button data-part="motors">Motors</button>
+              <button data-part="props">Propellers</button>
+              <button data-part="battery">Battery</button>
+              <button data-part="esc">Speed controllers</button>
+              <button data-part="fc">Flight controller</button>
+              <button data-part="receiver">Receiver</button>
+              <button data-part="camera">Camera</button>
+            </div>
+            <div class="info-box" id="part-info">
+              <h3>Tap a part to learn what it does</h3>
+              <p>Each part has one job. Together they make a machine that can hang in the air.</p>
+            </div>
+            <button class="ghost" id="explode-toggle">Put it back together</button>
+          </div>
+        </section>
+
+        <!-- ============ LIFT ============ -->
+        <section class="chapter" id="c-lift" data-mode="lift" data-title="Slide the power">
+          <div class="card">
+            <p class="kicker">02 · Going up</p>
+            <h2>Push air down, go up</h2>
+            <p>
+              Blow up a balloon and let it go. Air rushes out one way, and the balloon zooms the other way. Every push
+              makes an equal push back. Scientists call this <b>Newton's third law</b>.
+            </p>
+            <p>
+              A drone uses the same idea. Its propellers shove air <b>down</b>, so the air shoves the drone
+              <b>up</b>. That upward push is called <span class="t-thrust">thrust</span>. At the same time,
+              <span class="t-gravity">gravity</span> pulls the drone down. Whichever is stronger wins.
+            </p>
+            <div class="try">
+              <h3>Try it</h3>
+              <label class="slider-row">
+                <span>Motor power</span>
+                <input type="range" id="throttle" min="0" max="100" value="0" />
+                <output id="throttle-out">0%</output>
+              </label>
+              <div class="bars">
+                <div class="bar-row"><span>Thrust ↑</span><div class="bar"><i id="bar-thrust" class="thrust"></i></div></div>
+                <div class="bar-row"><span>Gravity ↓</span><div class="bar"><i class="gravity" style="width: 50%"></i></div></div>
+              </div>
+              <p class="status" id="lift-status">Gravity wins. The drone sits on the ground.</p>
+            </div>
+            <ol class="steps">
+              <li>At <b>0%</b>, gravity wins. The drone sits.</li>
+              <li>At <b>50%</b>, thrust equals gravity. The drone hangs in the air. That's a <b>hover</b>.</li>
+              <li>Above <b>50%</b>, thrust wins. It climbs.</li>
+            </ol>
+            <aside class="big-idea">
+              <b>Big idea:</b> At full power this drone pushes twice its own weight. Builders aim for at least that, so
+              there is always spare power for steering and fighting wind.
+            </aside>
+          </div>
+        </section>
+
+        <!-- ============ PROP ============ -->
+        <section class="chapter" id="c-prop" data-mode="prop" data-title="Tilt the blades">
+          <div class="card">
+            <p class="kicker">03 · The propeller's secret</p>
+            <h2>Why a spinning blade pushes air</h2>
+            <p>
+              Riding in a car with a grown-up, hold your flat hand out the window. Now tip the front edge up a little. The
+              wind lifts your hand. That tilt is the whole secret of a propeller.
+            </p>
+            <p>
+              Each blade is a small tilted wing. As it spins, its front edge slices in and its tilted face throws air
+              downward. A flat blade just slices through the air and pushes nothing.
+            </p>
+            <div class="try">
+              <h3>Try it</h3>
+              <svg class="blade-diagram" viewBox="0 0 300 120" aria-label="Side view of one blade">
+                <defs>
+                  <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M0,0 L10,5 L0,10 z" fill="currentColor" />
+                  </marker>
+                </defs>
+                <text x="8" y="16" class="d-label">Side view of one blade</text>
+                <g id="blade-move" class="d-move"><line x1="215" y1="52" x2="265" y2="52" marker-start="url(#ah)" /><text x="210" y="42">blade moves this way</text></g>
+                <g transform="translate(150 55)"><rect id="blade-section" x="-50" y="-5" width="100" height="10" rx="5" class="d-blade" /></g>
+                <g id="air-arrows" class="d-air">
+                  <line x1="115" y1="72" x2="115" y2="100" marker-end="url(#ah)" />
+                  <line x1="150" y1="72" x2="150" y2="104" marker-end="url(#ah)" />
+                  <line x1="185" y1="72" x2="185" y2="100" marker-end="url(#ah)" />
+                </g>
+                <text x="150" y="117" class="d-label d-air-label" id="air-label">air pushed down</text>
+              </svg>
+              <label class="slider-row">
+                <span>Blade tilt</span>
+                <input type="range" id="pitch" min="0" max="25" value="18" />
+                <output id="pitch-out">18°</output>
+              </label>
+              <p class="status" id="prop-status">The drone lifts off.</p>
+            </div>
+            <aside class="big-idea">
+              <b>Big idea:</b> Propellers are named by size and tilt. A <b>5×4</b> prop is 5 inches across. The 4 means that
+              if it were a screw turning into wood, one full turn would move it 4 inches forward. More tilt pushes more air
+              per turn but needs a stronger motor.
+            </aside>
+          </div>
+        </section>
+
+        <!-- ============ SPIN ============ -->
+        <section class="chapter" id="c-spin" data-mode="spin" data-title="Watch the twist">
+          <div class="card">
+            <p class="kicker">04 · The twist problem</p>
+            <h2>Why two spin one way and two the other</h2>
+            <p>
+              Here's a puzzle. When a motor spins its propeller one way, the propeller twists the motor, and the whole drone,
+              the <b>other</b> way.
+            </p>
+            <div class="home-test">
+              <b>Test it at home:</b> Sit on a swivel chair with your feet off the floor. Swing both arms hard to the left.
+              The chair turns you to the right.
+            </div>
+            <p>
+              So drones use two <span class="t-cw">clockwise</span> propellers and two
+              <span class="t-ccw">counter-clockwise</span> propellers, set on opposite corners. Their twists cancel out, and
+              the drone keeps pointing the same way.
+            </p>
+            <div class="try">
+              <h3>Try it</h3>
+              <label class="switch"><input type="checkbox" id="same-dir" /><span></span>Make all four spin clockwise</label>
+              <p class="status" id="spin-status">Two twist one way, two twist the other. They cancel. The drone holds still.</p>
+            </div>
+            <aside class="big-idea">
+              <b>Big idea:</b> Helicopters have the same problem. That's what the little tail rotor is for: it pushes sideways
+              so the body doesn't spin.
+            </aside>
+          </div>
+        </section>
+
+        <!-- ============ MOVE ============ -->
+        <section class="chapter" id="c-move" data-mode="move" data-title="Hold a button">
+          <div class="card">
+            <p class="kicker">05 · Steering</p>
+            <h2>Steering with nothing but speed</h2>
+            <p>
+              A drone has no steering wheel and no flaps. It moves only by spinning some motors faster than others. Hold a
+              button and watch the motor map in the corner.
+            </p>
+            <div class="moves">
+              <div><b>Pitch</b> nod your head "yes": tip forward or back.</div>
+              <div><b>Roll</b> tip your head to a shoulder: lean left or right.</div>
+              <div><b>Yaw</b> shake your head "no": turn in place.</div>
+            </div>
+            <div class="try">
+              <h3>Try it</h3>
+              <div class="pad" id="move-pad">
+                <button data-in="climb:1">Up</button>
+                <button data-in="pitch:1">Forward</button>
+                <button data-in="climb:-1">Down</button>
+                <button data-in="roll:-1">Left</button>
+                <button data-in="pitch:-1">Back</button>
+                <button data-in="roll:1">Right</button>
+                <button data-in="yaw:-1">Turn left</button>
+                <button data-in="yaw:1">Turn right</button>
+              </div>
+              <p class="status" id="move-status">Hold a button.</p>
+            </div>
+            <aside class="big-idea">
+              <b>Big idea:</b> A drone always pushes straight out of its top. To go somewhere, it tips its top that way, and
+              part of the push now points where it wants to go.
+            </aside>
+          </div>
+        </section>
+
+        <!-- ============ BRAIN ============ -->
+        <section class="chapter" id="c-brain" data-mode="brain" data-title="Send a gust">
+          <div class="card">
+            <p class="kicker">06 · The brain</p>
+            <h2>The brain that keeps it level</h2>
+            <p>
+              Balance a broom upright on your hand. A tiny bump and it starts to tip, and nothing pulls it back. A drone is
+              just as wobbly. So how does it hover so still?
+            </p>
+            <p>The <b>flight controller</b> catches every wobble, the same way you catch the broom:</p>
+            <ol class="loop">
+              <li><b>Feel.</b> A tiny sensor called a <b>gyroscope</b> feels which way the drone is tipping, and how fast.</li>
+              <li><b>Compare.</b> The brain compares that with how it should be: level.</li>
+              <li><b>Fix.</b> It speeds up the motors on the low side to push that side back up.</li>
+            </ol>
+            <p>Then it does it again. Many drone brains run this loop <b>4,000 times every second</b>.</p>
+            <div class="try">
+              <h3>Try it</h3>
+              <div class="row">
+                <button class="primary" id="gust">Send a gust of wind</button>
+                <label class="switch"><input type="checkbox" id="brain-on" checked /><span></span>Brain on</label>
+              </div>
+              <div class="readouts">
+                <div class="level" aria-label="Tilt sensor"><i id="bubble"></i></div>
+                <div>
+                  <small>Tilt</small><b id="tilt-out">0°</b>
+                  <small>Brain checks so far</small><b id="loop-count">0</b>
+                </div>
+              </div>
+              <p class="status" id="brain-status">Send a gust, then watch which motors jump on the motor map.</p>
+            </div>
+            <aside class="big-idea">
+              <b>Big idea:</b> Turn the brain off and send a gust. With no one catching it, the tip keeps going, and the drone
+              falls.
+            </aside>
+          </div>
+        </section>
+
+        <!-- ============ POWER ============ -->
+        <section class="chapter" id="c-power" data-mode="power" data-title="Follow the flow">
+          <div class="card">
+            <p class="kicker">07 · Inside the wires</p>
+            <h2>Follow the power</h2>
+            <p>
+              Two things flow through a drone: <span class="t-energy">energy</span> that spins the motors, and
+              <span class="t-msg">messages</span> that say how fast. Step through to follow them.
+            </p>
+            <div class="flow" id="flow">
+              <ol class="flow-steps" id="flow-steps">
+                <li data-part="battery"><b>Battery.</b> Energy starts here, stored as chemicals waiting to push electricity out.</li>
+                <li data-part="esc"><b>Speed controllers.</b> They take the battery's energy and chop it into very fast pulses for each motor. More pulses, faster spin.</li>
+                <li data-part="motors"><b>Motors.</b> Inside each motor, a ring of wire coils surrounds a ring of magnets. The spinner below shows the trick.</li>
+                <li data-part="receiver"><b>Receiver.</b> Messages start at your controller. The receiver catches them by radio.</li>
+                <li data-part="fc"><b>Flight controller.</b> The brain mixes your commands with what its sensor feels, then sends each speed controller one number: how fast.</li>
+              </ol>
+              <div class="row">
+                <button class="ghost" id="flow-prev">Back</button>
+                <button class="primary" id="flow-next">Next</button>
+              </div>
+            </div>
+            <div class="motor-demo">
+              <svg viewBox="0 0 200 200" id="coils" aria-label="Inside a brushless motor"></svg>
+              <p>
+                <b>How an electric motor spins.</b> The speed controller switches the coils on one after another around the
+                circle. Each lit coil becomes a magnet for a moment and pulls the spinning part toward it. Round and round,
+                like a stadium wave the spinner keeps chasing.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ RADIO ============ -->
+        <section class="chapter" id="c-radio" data-mode="radio" data-title="You're the pilot">
+          <div class="card">
+            <p class="kicker">08 · Take the controls</p>
+            <h2>Fly it yourself</h2>
+            <p>A drone controller has two sticks. This is the most common layout, called <b>Mode 2</b>:</p>
+            <ul class="tight">
+              <li><b>Left stick:</b> up and down to climb or sink, left and right to turn.</li>
+              <li><b>Right stick:</b> pushes the drone the way you point it: forward, back, left, right.</li>
+            </ul>
+            <div class="try">
+              <h3>Try it</h3>
+              <p class="stick-hint">Use the two sticks on the 3D view<span class="stacked-only"> above</span>. Drag a stick and let go: it springs back to the middle, just like a real one.</p>
+              <p class="kbd-hint">Keyboard: W S A D for the left stick, arrow keys for the right.</p>
+              <button class="ghost" data-reset>Reset drone</button>
+            </div>
+            <aside class="big-idea">
+              <b>Pilot tip:</b> Keep the red lights (the back) facing you. If the drone turns around, its left becomes your
+              right, and even experienced pilots get mixed up.
+            </aside>
+          </div>
+        </section>
+
+        <div class="part-banner p2" id="part-2">
+          <span>Part 02</span>
+          <h2>Build your own</h2>
+          <p>From your first practice flight to a drone you put together yourself.</p>
+        </div>
+
+        <!-- ============ LADDER ============ -->
+        <section class="chapter" id="c-ladder" data-mode="ladder" data-title="Three levels">
+          <div class="card">
+            <p class="kicker">09 · Where to start</p>
+            <h2>Three levels of drone builder</h2>
+            <div class="levels">
+              <div class="level-card">
+                <span class="lvl">Level 1</span>
+                <h3>Learn to fly</h3>
+                <p>
+                  Practice on a drone simulator on a computer, then fly a small toy drone with prop guards. Crashes cost
+                  nothing, and every skill carries over.
+                </p>
+              </div>
+              <div class="level-card">
+                <span class="lvl">Level 2</span>
+                <h3>Build a kit</h3>
+                <p>
+                  A kit with plug-in parts. You put together the frame, motors, board, and propellers, then set it up on a
+                  computer. Little or no soldering.
+                </p>
+              </div>
+              <div class="level-card">
+                <span class="lvl">Level 3</span>
+                <h3>Design your own</h3>
+                <p>
+                  Choose every part yourself, solder the wires with a grown-up, and tune it with free software. Racing and
+                  camera drones are built this way.
+                </p>
+              </div>
+            </div>
+            <aside class="big-idea">
+              <b>Tip:</b> Start at Level 1, even if you can't wait to build. Learning to fly on a drone you built means crashing
+              a drone you built.
+            </aside>
+          </div>
+        </section>
+
+        <!-- ============ KIT ============ -->
+        <section class="chapter" id="c-kit" data-mode="kit" data-title="Everything in the box">
+          <div class="card">
+            <p class="kicker">10 · Parts and tools</p>
+            <h2>What you need</h2>
+            <p>Every quadcopter, from a toy to a racer, is made of the same eight parts you met in Part 1. Plus a few tools:</p>
+            <ul class="tools">
+              <li>Small hex screwdrivers</li>
+              <li>Zip ties and double-sided foam tape</li>
+              <li>A radio controller</li>
+              <li>A battery charger made for LiPo batteries</li>
+              <li>A computer for setup</li>
+              <li>A soldering iron <em class="badge">grown-up</em></li>
+            </ul>
+            <div class="safety">
+              <h3>Safety rules</h3>
+              <ul>
+                <li><b>Props off</b> whenever you work on the drone. Spinning blades cut.</li>
+                <li>
+                  <b>LiPo batteries</b> hold a lot of energy. Charge only with a grown-up nearby, on a fireproof surface. A
+                  puffy, swollen battery is finished: stop using it.
+                </li>
+                <li><b>Soldering irons</b> are hotter than any oven. Grown-ups solder; everyone wears safety glasses.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ BUILD ============ -->
+        <section class="chapter" id="c-build" data-mode="build" data-title="Build it">
+          <div class="card">
+            <p class="kicker">11 · Assembly</p>
+            <h2>Build it, step by step</h2>
+            <div class="stepper">
+              <div class="step-dots" id="step-dots"></div>
+              <div class="step-body" id="step-body"></div>
+              <div class="row">
+                <button class="ghost" id="step-prev">Back</button>
+                <button class="primary" id="step-next">Next step</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ TEST ============ -->
+        <section class="chapter" id="c-test" data-mode="test" data-title="Props off!">
+          <div class="card">
+            <p class="kicker">12 · Setup</p>
+            <h2>Test before you fly</h2>
+            <p>
+              Before the props go on, plug the drone into a computer and open the free setup app. The most common one is
+              called <b>Betaflight</b>. Tilt the drone in your hands and you'll see the model on screen tilt too: that's
+              the gyroscope working.
+            </p>
+            <ul class="tight">
+              <li><b>Bind:</b> pair your controller with the receiver so they only listen to each other.</li>
+              <li><b>Arm switch:</b> pick a switch that turns the motors on. Motors off is called <b>disarmed</b>: safe.</li>
+              <li><b>Failsafe:</b> if the radio signal is lost, the motors should stop, so the drone can't fly away.</li>
+              <li><b>Motor check:</b> spin each motor one at a time and make sure it turns the right way.</li>
+            </ul>
+            <div class="try">
+              <h3>Find the backwards motor</h3>
+              <p>
+                The props are off. Watch the white stripe on each motor and compare it with the arrows. One motor spins the
+                wrong way. Tap it.
+              </p>
+              <div class="motor-pick" id="motor-pick">
+                <button data-m="0">Front-left</button>
+                <button data-m="1">Front-right</button>
+                <button data-m="2">Back-left</button>
+                <button data-m="3">Back-right</button>
+              </div>
+              <p class="status" id="test-status">Which one is backwards?</p>
+              <button class="ghost" id="test-again">Try another</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ FLY ============ -->
+        <section class="chapter" id="c-fly" data-mode="fly" data-title="Fly through the rings">
+          <div class="card">
+            <p class="kicker">13 · Takeoff</p>
+            <h2>Your first flight</h2>
+            <p>Practice here first: crashes on screen are free. Then work through the checklist before a real flight.</p>
+            <div class="try">
+              <h3>Fly through the rings</h3>
+              <p class="stick-hint">Use the sticks on the 3D view<span class="stacked-only"> above</span>. Climb a little with the left stick, then push the right stick forward.</p>
+              <p class="status" id="ring-status">Ring 1 of 3</p>
+              <button class="ghost" data-reset>Start over</button>
+            </div>
+            <div class="checklist" id="checklist">
+              <h3>Preflight checklist</h3>
+              <label><input type="checkbox" />A grown-up is with me</label>
+              <label><input type="checkbox" />Open space: no people, pets, or trees close by</label>
+              <label><input type="checkbox" />Battery charged and strapped tight</label>
+              <label><input type="checkbox" />Props on tight, the right way round</label>
+              <label><input type="checkbox" />Controller on first, then plug in the battery</label>
+              <label><input type="checkbox" />Standing behind the drone, red lights facing me</label>
+              <p class="status" id="check-status">0 of 6 checked</p>
+            </div>
+            <h3>Practice drills</h3>
+            <ol class="steps">
+              <li>Hover at knee height for 10 seconds, then land gently.</li>
+              <li>Fly a slow square.</li>
+              <li>Fly a figure 8.</li>
+            </ol>
+            <p>After any crash, disarm right away. When you're done: battery out first, then controller off.</p>
+          </div>
+        </section>
+
+        <!-- ============ RULES ============ -->
+        <section class="chapter" id="c-rules" data-mode="rules" data-title="Fly safe">
+          <div class="card">
+            <p class="kicker">14 · Flying outside</p>
+            <h2>The rules of the sky</h2>
+            <p>In the United States, the FAA (Federal Aviation Administration) sets the rules for flying for fun:</p>
+            <ul class="rules">
+              <li><b>Take the free safety test</b> called TRUST before you fly outside. Kids can take it; there's no minimum age.</li>
+              <li><b>Keep it in sight.</b> You must always be able to see your drone with your own eyes.</li>
+              <li><b>Stay low:</b> at or below 400 feet.</li>
+              <li><b>Big drones get registered.</b> A drone of 250 grams or more needs an FAA number. You must be 13 to register, so a grown-up registers it for you.</li>
+            </ul>
+            <p>
+              Tiny drones flown indoors are the easiest place to start. Before flying somewhere new outside, a grown-up can
+              check the FAA's B4UFLY app to see where drones are allowed.
+            </p>
+            <details class="grownups">
+              <summary>For grown-ups: sources</summary>
+              <ul>
+                <li><a href="https://www.faa.gov/uas/recreational_flyers">FAA: Recreational flyers</a></li>
+                <li><a href="https://www.faa.gov/faq/what-minimum-age-individuals-required-take-trust">FAA: TRUST has no minimum age</a></li>
+                <li><a href="https://www.faa.gov/uas/getting_started/register_drone">FAA: How to register (13+)</a></li>
+                <li><a href="https://oscarliang.com/best-looptime-flight-controller/">Oscar Liang: flight controller loop rates</a></li>
+                <li><a href="https://betaflight.com/">Betaflight</a></li>
+              </ul>
+            </details>
+
+            <h3 class="gloss-h">Drone words</h3>
+            <dl class="glossary">
+              <div><dt>Thrust</dt><dd>The push from the propellers.</dd></div>
+              <div><dt>Hover</dt><dd>Thrust equals gravity, so the drone hangs still.</dd></div>
+              <div><dt>Throttle</dt><dd>How much power goes to all four motors.</dd></div>
+              <div><dt>Pitch</dt><dd>Tipping nose down or up.</dd></div>
+              <div><dt>Roll</dt><dd>Tipping to the left or right.</dd></div>
+              <div><dt>Yaw</dt><dd>Turning in place.</dd></div>
+              <div><dt>Gyroscope</dt><dd>The sensor that feels tipping and turning.</dd></div>
+              <div><dt>ESC</dt><dd>Electronic speed controller: feeds power to one motor.</dd></div>
+              <div><dt>LiPo</dt><dd>Lithium polymer: the light, powerful battery drones use.</dd></div>
+              <div><dt>FPV</dt><dd>First-person view: seeing through the drone's camera.</dd></div>
+              <div><dt>Arm</dt><dd>Switch the motors on. Disarm to switch them off.</dd></div>
+              <div><dt>Failsafe</dt><dd>What the drone does if it loses the radio signal.</dd></div>
+            </dl>
+            <p class="end">Now you know how it works. Go build one.</p>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
