@@ -1755,6 +1755,10 @@ input[type='range']::-moz-range-thumb {
     width: auto;
   }
 
+  .intro-links {
+    display: none;
+  }
+
   .panel-grip {
     display: grid;
     place-items: center;
