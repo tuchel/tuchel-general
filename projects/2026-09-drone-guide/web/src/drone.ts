@@ -24,8 +24,8 @@ export const MOTORS: { key: string; name: string; x: number; z: number; spin: Sp
   { key: 'br', name: 'Back-right', x: ARM, z: ARM, spin: 1 },
 ]
 
-export const CW_COLOR = 0xff7a45
-export const CCW_COLOR = 0x2fb3ff
+export const CW_COLOR = 0xff6a2b
+export const CCW_COLOR = 0x2a9df4
 export const spinColor = (s: Spin) => (s === 1 ? CW_COLOR : CCW_COLOR)
 
 const PROP_R = 0.55
@@ -135,7 +135,7 @@ export class Drone {
   private build() {
     // Frame: the skeleton. Rounded shapes in a deep friendly blue.
     const frame = this.addPart('frame', 1, [0, 0, 0], [0.62, 0.14, 0.62])
-    const shell = () => mat(0x34448a, 0.45, 0.1)
+    const shell = () => mat(0x2c3a63, 0.42, 0.15)
     frame.add(mesh(new RoundedBoxGeometry(0.5, 0.05, 0.74, 3, 0.022), shell(), 0, 0.13, 0))
     for (const m of MOTORS) {
       const len = Math.hypot(m.x, m.z)
@@ -146,7 +146,7 @@ export class Drone {
       arm.scale.set(1, 1, 0.7)
       frame.add(arm)
       frame.add(mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.03, 28), shell(), m.x, 0.135, m.z))
-      const foot = mesh(new THREE.CapsuleGeometry(0.035, 0.06, 4, 12), mat(0xffc53d, 0.5), m.x * 0.8, 0.065, m.z * 0.8)
+      const foot = mesh(new THREE.CapsuleGeometry(0.035, 0.06, 4, 12), mat(0x3a4256, 0.8), m.x * 0.8, 0.065, m.z * 0.8)
       frame.add(foot)
       const front = m.z < 0
       const led = mesh(
@@ -240,7 +240,10 @@ export class Drone {
     const camG = new THREE.Group()
     camG.position.set(0, 0.25, -0.34)
     camG.rotation.x = 0.3
-    camG.add(mesh(new RoundedBoxGeometry(0.17, 0.15, 0.14, 3, 0.035), mat(0xff5d73, 0.45)))
+    camG.add(mesh(new RoundedBoxGeometry(0.17, 0.15, 0.14, 3, 0.035), mat(0x2b3345, 0.4, 0.2)))
+    const lensRing = mesh(new THREE.TorusGeometry(0.058, 0.01, 8, 28), mat(0xff6a2b, 0.4))
+    lensRing.position.z = -0.071
+    camG.add(lensRing)
     const lens = mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.07, 24), mat(0x1d2440, 0.3, 0.3), 0, 0, -0.09)
     lens.rotation.x = Math.PI / 2
     camG.add(lens)

@@ -145,8 +145,8 @@ export function buildWorld(scene: THREE.Scene, sunDir: THREE.Vector3) {
   gGeo.rotateX(-Math.PI / 2)
   const pos = gGeo.attributes.position as THREE.BufferAttribute
   const colors = new Float32Array(pos.count * 3)
-  const cA = new THREE.Color(0x86cf5c)
-  const cB = new THREE.Color(0x6bbd4e)
+  const cA = new THREE.Color(0x8acb62)
+  const cB = new THREE.Color(0x70b957)
   const cHill = new THREE.Color(0x9fd46a)
   const cDry = new THREE.Color(0xb9d971)
   const tmp = new THREE.Color()
@@ -204,19 +204,20 @@ export function buildWorld(scene: THREE.Scene, sunDir: THREE.Vector3) {
   {
     const padTex = canvasTexture(512, 512, (c) => {
       const s = 512
-      c.fillStyle = '#26b7a8'
+      c.fillStyle = '#273246'
       c.beginPath()
       c.arc(s / 2, s / 2, s / 2, 0, Math.PI * 2)
       c.fill()
-      c.strokeStyle = '#ffffff'
-      c.lineWidth = 16
+      c.strokeStyle = '#ff6a2b'
+      c.lineWidth = 14
       c.beginPath()
-      c.arc(s / 2, s / 2, s / 2 - 34, 0, Math.PI * 2)
+      c.arc(s / 2, s / 2, s / 2 - 30, 0, Math.PI * 2)
       c.stroke()
-      c.setLineDash([22, 22])
-      c.lineWidth = 6
+      c.strokeStyle = 'rgba(255,255,255,0.55)'
+      c.setLineDash([14, 18])
+      c.lineWidth = 5
       c.beginPath()
-      c.arc(s / 2, s / 2, s / 2 - 70, 0, Math.PI * 2)
+      c.arc(s / 2, s / 2, s / 2 - 66, 0, Math.PI * 2)
       c.stroke()
       c.fillStyle = '#ffffff'
       const bar = 46
@@ -226,7 +227,7 @@ export function buildWorld(scene: THREE.Scene, sunDir: THREE.Vector3) {
       c.roundRect(s / 2 - 95, s / 2 - bar / 2, 190, bar, 12)
       c.fill()
     })
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(1.55, 1.62, 0.06, 64), std(0x1a8f84, { roughness: 0.7 }))
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(1.55, 1.62, 0.06, 64), std(0x1b2433, { roughness: 0.6 }))
     base.position.y = 0.03
     base.receiveShadow = true
     const top = new THREE.Mesh(new THREE.CircleGeometry(1.55, 64), new THREE.MeshStandardMaterial({ map: padTex, roughness: 0.75 }))
@@ -323,8 +324,8 @@ export function buildWorld(scene: THREE.Scene, sunDir: THREE.Vector3) {
     color: number
   }
   const spots: TreeSpot[] = []
-  const roundColors = [0x5cbf4a, 0x4aa84a, 0x7ccf52, 0x46a35a, 0x69c24f]
-  const accentColors = [0xffa8c8, 0xff92b8, 0xffc445, 0xffb03a]
+  const roundColors = [0x62b85a, 0x55a852, 0x78c566, 0x4c9c58, 0x6cbb5c]
+  const accentColors = [0xf7b0c6, 0xf5c451, 0xf2a34a]
   let tries = 0
   while (spots.length < 95 && tries++ < 4000) {
     const a = rand() * Math.PI * 2
@@ -334,7 +335,7 @@ export function buildWorld(scene: THREE.Scene, sunDir: THREE.Vector3) {
     if (inFlyZone(x, z) || inPond(x, z, 1.6) || nearPath(x, z, 2.2)) continue
     if (spots.some((s) => Math.hypot(s.x - x, s.z - z) < 2.8)) continue
     const pine = rand() < 0.3
-    const accent = !pine && rand() < 0.16
+    const accent = !pine && rand() < 0.12
     spots.push({
       x,
       z,

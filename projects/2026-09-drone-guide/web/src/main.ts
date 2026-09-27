@@ -1,5 +1,8 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import '@fontsource-variable/inter'
+import '@fontsource-variable/space-grotesk'
+import '@fontsource-variable/jetbrains-mono'
 import './style.css'
 import { Drone, MOTORS, type PartKey, type Spin } from './drone'
 import { Sim, zeroInputs, type Inputs } from './sim'
@@ -220,7 +223,7 @@ flowGroup.visible = false
 
 // ---------------------------------------------------------------- hoops
 const HOOPS = [new THREE.Vector3(0, 1.5, -3.5), new THREE.Vector3(3, 2.5, -6.5), new THREE.Vector3(-2.5, 1.5, -9)]
-const HOOP_COLORS = [0xff7a45, 0xffc53d, 0x2fb3ff]
+const HOOP_COLORS = [0xff6a2b, 0xf5a524, 0x2a9df4]
 const hoopMeshes = HOOPS.map((p, i) => {
   const geo = new THREE.TorusGeometry(0.75, 0.07, 14, 72)
   const pos = geo.attributes.position
@@ -472,6 +475,8 @@ function setMode(m: Mode, instant = false) {
   $('#stage-chip').textContent = (touch && section?.dataset.titleTouch) || section?.dataset.title || ''
   stage.classList.toggle('sticks-on', m === 'radio' || m === 'fly')
   $('#toc-current').textContent = m === 'hero' ? 'Chapters' : chapterName(m)
+  const num = section?.querySelector('.kicker')?.textContent?.match(/^\d+/)?.[0]
+  $('#toc-num').textContent = num ? `${num}/${sections.length - 1}` : ''
   $$('#toc-list a').forEach((a) => a.classList.toggle('on', a.dataset.mode === m))
   if (m === 'fly') paintHoops()
   const idx = order.indexOf(m)
@@ -511,6 +516,37 @@ addEventListener(
   },
   { passive: true },
 )
+
+// ---------------------------------------------------------------- motion
+/** Only write text that changed, so the fade-in below plays once per change. */
+function put(el: HTMLElement, text: string) {
+  if (el.textContent !== text) el.textContent = text
+}
+// Status lines and info panels fade in whenever their words change.
+const flash = new MutationObserver((list) => {
+  for (const m of list) {
+    const el = (m.target.nodeType === 1 ? m.target : m.target.parentElement) as HTMLElement
+    const box = el.closest('.status, .info-box, #step-body, .chip') as HTMLElement | null
+    if (!box || reduceMotion) continue
+    box.classList.remove('flash')
+    void box.offsetWidth
+    box.classList.add('flash')
+  }
+})
+$$('.status, .info-box, #step-body, #stage-chip').forEach((el) => flash.observe(el, { childList: true, characterData: true, subtree: true }))
+// Cards reveal their contents, one line after another, the first time they scroll into view.
+$$('.chapter .card').forEach((card) => Array.from(card.children).forEach((c, i) => (c as HTMLElement).style.setProperty('--i', String(Math.min(i, 10)))))
+const reveal = new IntersectionObserver(
+  (entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue
+      e.target.classList.add('seen')
+      reveal.unobserve(e.target)
+    }
+  },
+  { threshold: 0.12 },
+)
+$$('.chapter, .part-banner').forEach((el) => reveal.observe(el))
 
 // ---------------------------------------------------------------- chapter menu
 function chapterName(m: Mode) {
@@ -645,9 +681,13 @@ canvas.addEventListener('pointerup', (e) => {
 
 // ---------------------------------------------------------------- 2. lift
 const throttleEl = $<HTMLInputElement>('#throttle')
+function fillRange(el: HTMLInputElement) {
+  el.style.setProperty('--fill', `${((Number(el.value) - Number(el.min)) / (Number(el.max) - Number(el.min))) * 100}%`)
+}
 function setThrottle(v: number) {
   throttleSlider = v / 100
   throttleEl.value = String(v)
+  fillRange(throttleEl)
   $('#throttle-out').textContent = `${v}%`
   $('#bar-thrust').style.width = `${v}%`
 }
@@ -665,6 +705,7 @@ const pitchEl = $<HTMLInputElement>('#pitch')
 function setPitch(deg: number) {
   bladePitch = deg
   pitchEl.value = String(deg)
+  fillRange(pitchEl)
   $('#pitch-out').textContent = `${deg}°`
   drone.setBladePitch(deg)
   sim.lift = deg / 25
@@ -1018,8 +1059,8 @@ function frame() {
   if (mode === 'parts' || mode === 'kit') updateLabels()
   if (cfg.map) updateMotorMap()
 
-  if (mode === 'lift') $('#lift-status').textContent = liftStatus()
-  if (mode === 'prop' && sim.lift * 1.5 >= 1 && !sim.grounded) $('#prop-status').textContent = 'Enough air pushed down. The drone lifts off!'
+  if (mode === 'lift') put($('#lift-status'), liftStatus())
+  if (mode === 'prop' && sim.lift * 1.5 >= 1 && !sim.grounded) put($('#prop-status'), 'Enough air pushed down. The drone lifts off!')
   if (mode === 'brain') {
     const tiltDeg = Math.round(THREE.MathUtils.radToDeg(sim.tilt))
     $('#tilt-out').textContent = `${sim.crashed ? '—' : tiltDeg}°`
@@ -1028,7 +1069,7 @@ function frame() {
     $('#bubble').style.transform = `translate(${bx}px, ${by}px)`
     if (sim.brain && !sim.crashed) loopCount += 4000 * dt
     $('#loop-count').textContent = Math.floor(loopCount).toLocaleString('en-US')
-    if (sim.brain && t - gustAt > 2.5 && t - gustAt < 2.6 && !sim.crashed) $('#brain-status').textContent = 'Level again. Send another gust, or try turning the brain off.'
+    if (sim.brain && t - gustAt > 2.5 && t - gustAt < 2.6 && !sim.crashed) put($('#brain-status'), 'Level again. Send another gust, or try turning the brain off.')
   }
   if (mode === 'fly' && hoopIdx < HOOPS.length) {
     tmpV.copy(drone.root.position).y += 0.25
