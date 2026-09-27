@@ -1064,48 +1064,99 @@ input[type='range']::-moz-range-thumb {
   background: #fff5f5;
 }
 
-/* blade diagram */
-.blade-diagram {
+/* blade diagram: air flowing past one blade */
+.airfoil {
   width: 100%;
-  max-width: 320px;
   display: block;
-  margin: 0 auto 4px;
-  color: var(--muted);
+  margin: 0 0 8px;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
-.d-label {
-  fill: var(--muted);
+.af-stream {
+  fill: none;
+  stroke: #4aa3f0;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-dasharray: 11 9;
+  animation: af-flow 0.8s linear infinite;
+  transition: opacity 0.3s;
+}
+
+@keyframes af-flow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+.af-blade {
+  fill: url(#af-blade);
+  stroke: #c24a1c;
+  stroke-width: 1.2;
+}
+
+#af-blade-g {
+  transition: transform 0.15s var(--ease);
+}
+
+.af-level {
+  stroke: rgba(15, 23, 42, 0.28);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.af-arc {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.4;
+}
+
+.af-deg {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--ink);
+  text-anchor: end;
 }
 
-.d-air-label {
-  text-anchor: middle;
-  fill: var(--ccw-ink);
+.af-lift {
+  stroke: #ff6a2b;
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: opacity 0.3s;
 }
 
-.d-blade {
-  fill: var(--cw);
+.af-down {
+  stroke: #1d8cf8;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: opacity 0.3s;
 }
 
-.d-move line {
-  stroke: var(--muted);
+.af-lbl {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  transition: opacity 0.3s;
+}
+
+.af-lbl-up {
+  fill: #d9480f;
+}
+
+.af-lbl-down {
+  fill: #0b6bcb;
+}
+
+.af-move line {
+  stroke: #64748b;
   stroke-width: 1.5;
 }
 
-.d-move text {
-  fill: var(--muted);
+.af-move text {
   font-family: var(--mono);
-  font-size: 9px;
-}
-
-.d-air {
-  color: var(--ccw);
-}
-
-.d-air line {
-  stroke: var(--ccw);
-  stroke-width: 2.5;
+  font-size: 9.5px;
+  fill: #64748b;
 }
 
 /* moves */
@@ -1747,7 +1798,7 @@ input[type='range']::-moz-range-thumb {
     top: auto;
     bottom: calc(8px + var(--safe-b));
     width: auto;
-    max-height: 54svh;
+    max-height: 58svh;
     border-radius: 22px;
   }
 
@@ -1845,6 +1896,10 @@ input[type='range']::-moz-range-thumb {
 
   .try {
     padding: 12px 14px 14px;
+  }
+
+  .wide-only {
+    display: none;
   }
 }
 
