@@ -18,7 +18,7 @@ for(let bits=0;bits<64;bits++){
  const state=Object.fromEntries(ids.map((id,i)=>[id,!!(bits&(1<<i))]));model.setRenovations(state);
  for(const level of ['exterior','ground','upper','basement']){
   model.setLevel(level);
-  for(const id of ids){const group=model.root.getObjectByName('renovation-'+id);assert(group);assert.equal(visible(group),state[id]&&(id==='front'?level!=='basement':['exterior','ground'].includes(level)),`${bits}/${level}/${id}`);}
+  for(const id of ids){const group=model.root.getObjectByName('renovation-'+id);assert(group);assert.equal(visible(group),state[id]&&(id==='front'?level!=='basement':['exterior','ground','upper'].includes(level)),`${bits}/${level}/${id}`);}
   assert.equal(visible(model.root.getObjectByName('renovation-solar-roofs')),state.solar&&level==='exterior');
   assert.equal(visible(model.root.getObjectByName('renovation-kitchen-roof')),state.kitchen&&level==='exterior');
   model.root.traverse(o=>{if(o.userData.replacedBy)assert.equal(o.visible,!state[o.userData.replacedBy]);});
