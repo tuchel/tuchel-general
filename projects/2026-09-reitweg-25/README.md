@@ -2,7 +2,7 @@
 
 A renovation planning portal and interactive Three.js model of the house and grounds in Bernried am Starnberger See.
 
-[Open the live studio](https://reitweg-25-design-studio.tuchel.chatgpt.site/?view=model&quality=realism)
+[Open the public portal](https://tuchel.github.io/tuchel-general/reitweg-25/?view=model&quality=realism) · [Owner studio](https://reitweg-25-design-studio.tuchel.chatgpt.site/?view=model&quality=realism)
 
 The portal includes renovation briefs, reference photographs, concept renders, floor plans, solar sizing scenarios, and a furnished 3D model with stackable renovation options. The sun study uses the property coordinates and local German clock time, with date-dependent sunrise, peak-sun and sunset markers.
 
@@ -19,9 +19,9 @@ The local preview runs at http://localhost:5173. `npm run build` creates the Clo
 
 ## Status and data
 
-This is the current portal source and bundled public assets. Production remains hosted through Sites; pushing this directory to GitHub does not deploy it. The existing Sites project identifier is retained for the owner's publishing workflow. Owner editing requires the server-only `STUDIO_OWNER_EMAIL` configuration described in `.env.example`.
+This is the current portal source and bundled public assets. The public viewer deploys to GitHub Pages through the repository’s shared Pages workflow after merge to main. `npm run build:pages` creates `dist-pages`; `npm run preview:pages` previews that build under `/tuchel-general/reitweg-25/`. This build uses the same React and Three.js components without the server. Private editing and uploads remain hosted through Sites and the Owner sign in link opens that studio. The existing Sites project identifier is retained for the owner's publishing workflow. Owner editing requires the server-only `STUDIO_OWNER_EMAIL` configuration described in `.env.example`.
 
-Original PDFs (exposé, operating costs and footprint review), local credentials, database contents and private uploads are excluded from this repository. The corresponding document links require local copies in `public/assets/` when developing; those files remain ignored. The live site's existing document access is unchanged. Publicly bundled photographs, plan extracts, render prompts and calculation summaries are included.
+Original PDFs (exposé, operating costs and footprint review), local credentials, database contents and private uploads are excluded from this repository. The Pages build links the three PDFs to their existing public Sites URLs. The server build requires local copies in `public/assets/` when developing; those files remain ignored. The live site's existing document access is unchanged. Publicly bundled photographs, plan extracts, render prompts and calculation summaries are included.
 
 ## Model limits and open questions
 
