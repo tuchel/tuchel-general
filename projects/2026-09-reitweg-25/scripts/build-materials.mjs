@@ -218,6 +218,8 @@ function leafShape(kind, x, y) {
 }
 async function writeLeaves(size) {
   const n = size * size, albedo = new Float32Array(n * 3), alpha = new Float32Array(n), height = new Float32Array(n).fill(0), rough = new Float32Array(n).fill(0.62), cavity = new Float32Array(n).fill(1);
+  // Normals follow each leaf's own curvature; stacking depth and silhouettes stay flat so edges do not catch the sky.
+  const owner = new Int32Array(n), bulge = new Float32Array(n);
   const cell = size / 2;
   const cells = [
     {kind: 'ovate', ox: 0, oy: 0, count: 26, len: [0.2, 0.3], width: 0.46, greens: ['#5d7a2e', '#6f8f35', '#4e6b28', '#80983c', '#5a7330'], seed: 1},
@@ -247,7 +249,7 @@ async function writeLeaves(size) {
         if (x < c.ox * cell || x >= (c.ox + 1) * cell || y < c.oy * cell || y >= (c.oy + 1) * cell) continue;
         const d = rad - Math.hypot(x + 0.5 - cx, y + 0.5 - cy), i = y * size + x;
         if (d <= -0.5 || height[i] > 0.3) continue;
-        alpha[i] = Math.max(alpha[i], clamp(d + 0.5)); height[i] = 0.3; rough[i] = 0.9;
+        alpha[i] = Math.max(alpha[i], clamp(d + 0.5)); height[i] = 0.3; rough[i] = 0.9; owner[i] = -1; bulge[i] = 0;
         albedo.set(lin('#4a3b2c'), i * 3);
       }
     };
@@ -269,7 +271,7 @@ async function writeLeaves(size) {
         if (h < height[i]) continue;
         const cov = clamp(inside + 0.6);
         const vein = c.kind === 'palm' ? 0 : Math.exp(-ly * ly * 900) * 0.18, edge = 1 - clamp(inside / 3);
-        alpha[i] = Math.max(alpha[i] * (1 - cov), cov); height[i] = h; rough[i] = 0.55 + 0.1 * edge;
+        alpha[i] = Math.max(alpha[i] * (1 - cov), cov); height[i] = h; rough[i] = 0.55 + 0.1 * edge; owner[i] = c.seed * 10000 + k + 1; bulge[i] = h - z;
         for (let ch = 0; ch < 3; ch++) albedo[i * 3 + ch] = col[ch] * light * (1 + vein) * (1 - 0.18 * edge);
       }
     }
@@ -279,12 +281,12 @@ async function writeLeaves(size) {
     const x = i % size, y = (i / size) | 0;
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const j = mod(y + dy, size) * size + mod(x + dx, size); if (alpha[j] >= 0.5 || albedo[j * 3 + 1] > 0) { if (albedo[i * 3 + 1] === 0) albedo.set(albedo.subarray(j * 3, j * 3 + 3), i * 3); } }
   }
-  const color = Buffer.alloc(n * 4), normal = Buffer.alloc(n * 4), at = (x, y) => height[clamp(y, 0, size - 1) * size + clamp(x, 0, size - 1)];
+  const color = Buffer.alloc(n * 4), normal = Buffer.alloc(n * 4);
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-    const i = y * size + x;
+    const i = y * size + x, at = (ax, ay) => { const j = clamp(ay, 0, size - 1) * size + clamp(ax, 0, size - 1); return owner[j] === owner[i] ? bulge[j] : bulge[i]; };
     for (let c = 0; c < 3; c++) color[i * 4 + c] = Math.round(clamp(srgb(albedo[i * 3 + c])) * 255);
     color[i * 4 + 3] = Math.round(clamp(alpha[i]) * 255);
-    const dx = (at(x + 1, y) - at(x - 1, y)) * 1.5, dy = (at(x, y + 1) - at(x, y - 1)) * 1.5, l = Math.hypot(dx, dy, 1);
+    const dx = (at(x + 1, y) - at(x - 1, y)) * 12, dy = (at(x, y + 1) - at(x, y - 1)) * 12, l = Math.hypot(dx, dy, 1);
     normal[i * 4] = Math.round((-dx / l * 0.5 + 0.5) * 255); normal[i * 4 + 1] = Math.round((dy / l * 0.5 + 0.5) * 255);
     normal[i * 4 + 2] = 255; normal[i * 4 + 3] = Math.round(clamp(rough[i]) * 255);
   }
