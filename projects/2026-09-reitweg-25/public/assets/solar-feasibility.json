@@ -1,0 +1,501 @@
+{
+  "fullRoof": {
+    "panels": 117,
+    "kwp": 52.65,
+    "area": 228.47151599999998,
+    "annualPV": 40030.276967787686,
+    "batteries": [
+      {
+        "units": 0,
+        "nominalKwh": 0.0,
+        "dispatchKwh": 0.0,
+        "annualImport": 9151.085096490977,
+        "annualExport": 33569.93349285802,
+        "selfSufficiency": 0.41382141585441823,
+        "annualBatteryLoss": 0.0,
+        "endingSocKwh": 0.0
+      },
+      {
+        "units": 1,
+        "nominalKwh": 13.5,
+        "dispatchKwh": 12.15,
+        "annualImport": 4984.1750069070185,
+        "annualExport": 28846.563498785923,
+        "selfSufficiency": 0.6825180014780261,
+        "annualBatteryLoss": 468.8093781678164,
+        "endingSocKwh": 0.0
+      },
+      {
+        "units": 2,
+        "nominalKwh": 27.0,
+        "dispatchKwh": 24.3,
+        "annualImport": 2139.8185416471574,
+        "annualExport": 25592.694324515596,
+        "selfSufficiency": 0.8644546025298576,
+        "annualBatteryLoss": 790.6715608647929,
+        "endingSocKwh": 0.0
+      },
+      {
+        "units": 4,
+        "nominalKwh": 54.0,
+        "dispatchKwh": 48.6,
+        "annualImport": 1273.8844245948562,
+        "annualExport": 24443.591164494934,
+        "selfSufficiency": 0.9201928344584079,
+        "annualBatteryLoss": 898.5395512014685,
+        "endingSocKwh": 0.0
+      },
+      {
+        "units": 7,
+        "nominalKwh": 94.5,
+        "dispatchKwh": 85.05,
+        "annualImport": 1112.324191516598,
+        "annualExport": 23983.626825681873,
+        "selfSufficiency": 0.9314437344836002,
+        "annualBatteryLoss": 933.9920779888809,
+        "endingSocKwh": 0.0
+      }
+    ],
+    "independenceLowerBound": {
+      "scale": 1,
+      "panels": 117,
+      "kwp": 52.65,
+      "moduleArea": 228.47151599999998,
+      "dispatchKwh": 1288.0218824477342,
+      "nominalKwh": 1431.1354249419269,
+      "powerwallCapacityEquivalent": 107
+    }
+  },
+  "prepared": "2026-09-26",
+  "heating": "Gas retained; no new electric heating or cooling loads",
+  "location": {
+    "latitude": 47.8606705,
+    "longitude": 11.2919095,
+    "elevation": 626.0
+  },
+  "period": "2005\u20132023",
+  "hours": 166536,
+  "array": {
+    "panels": 50,
+    "kwp": 22.5,
+    "area": 97.63739999999999
+  },
+  "faces": [
+    {
+      "id": "main-east",
+      "panels": 26,
+      "kwp": 11.700000000000001,
+      "moduleArea": 50.771448,
+      "roofPitch": 35.429963510532296,
+      "azimuthNorth": 97.5,
+      "pvgisInputs": {
+        "slope": {
+          "value": 35,
+          "optimal": false
+        },
+        "azimuth": {
+          "value": -82,
+          "optimal": false
+        },
+        "type": "free-standing"
+      },
+      "pvgisYield": 893.9254631578973,
+      "grossRoofArea": 162.3784761721824
+    },
+    {
+      "id": "main-west",
+      "panels": 24,
+      "kwp": 10.8,
+      "moduleArea": 46.86595199999999,
+      "roofPitch": 35.429963510532296,
+      "azimuthNorth": 277.5,
+      "pvgisInputs": {
+        "slope": {
+          "value": 35,
+          "optimal": false
+        },
+        "azimuth": {
+          "value": 98,
+          "optimal": false
+        },
+        "type": "free-standing"
+      },
+      "pvgisYield": 826.8490147368276,
+      "grossRoofArea": 162.3784761721824
+    },
+    {
+      "id": "guest-east",
+      "panels": 0,
+      "kwp": 0.0,
+      "moduleArea": 0.0,
+      "roofPitch": 36.12238325928873,
+      "azimuthNorth": 102.8,
+      "pvgisInputs": {
+        "slope": {
+          "value": 36,
+          "optimal": false
+        },
+        "azimuth": {
+          "value": -77,
+          "optimal": false
+        },
+        "type": "free-standing"
+      },
+      "pvgisYield": 915.5320057894756,
+      "grossRoofArea": 122.76301202436034
+    },
+    {
+      "id": "guest-west",
+      "panels": 0,
+      "kwp": 0.0,
+      "moduleArea": 0.0,
+      "roofPitch": 36.12238325928873,
+      "azimuthNorth": 282.8,
+      "pvgisInputs": {
+        "slope": {
+          "value": 36,
+          "optimal": false
+        },
+        "azimuth": {
+          "value": 103,
+          "optimal": false
+        },
+        "type": "free-standing"
+      },
+      "pvgisYield": 798.6373421052672,
+      "grossRoofArea": 122.76301202436034
+    }
+  ],
+  "annualPV": 17357.660111190646,
+  "specificYield": 771.451560497362,
+  "annualMin": 15882.333718050017,
+  "annualMax": 18621.53086679998,
+  "annuals": [
+    {
+      "year": 2005,
+      "generation": 16775.41484781001,
+      "demand": 15602.429333163207
+    },
+    {
+      "year": 2006,
+      "generation": 17781.98749785,
+      "demand": 15602.429333163207
+    },
+    {
+      "year": 2007,
+      "generation": 18034.630219395036,
+      "demand": 15602.429333163207
+    },
+    {
+      "year": 2008,
+      "generation": 16869.32104032004,
+      "demand": 15645.1757148979
+    },
+    {
+      "year": 2009,
+      "generation": 16784.700550919977,
+      "demand": 15602.429333163207
+    },
+    {
+      "year": 2010,
+      "generation": 15942.125355210055,
+      "demand": 15602.429333163207
+    },
+    {
+      "year": 2011,
+      "generation": 18141.056747954965,
+      "demand": 15602.429333163207
+    },
+    {
+      "year": 2012,
+      "generation": 17469.224622180023,
+      "demand": 15645.1757148979
+    },
+    {
+      "year": 2013,
+      "generation": 15882.333718050017,
+      "demand": 15602.429333163207
+    },
+    {
+      "year": 2014,
+      "generation": 16799.078152979942,
+      "demand": 15602.429333163207
+    },
+    {
+      "year": 2015,
+      "generation": 17719.105504545027,
+      "demand": 15602.429333163207
+    },
+    {
+      "year": 2016,
+      "generation": 16487.437250430004,
+      "demand": 15645.1757148979
+    },
+    {
+      "year": 2017,
+      "generation": 17161.809543494925,
+      "demand": 15602.429333163207
+    },
+    {
+      "year": 2018,
+      "generation": 18616.559765579983,
+      "demand": 15602.429333163207
+    },
+    {
+      "year": 2019,
+      "generation": 17388.682160804965,
+      "demand": 15602.429333163207
+    },
+    {
+      "year": 2020,
+      "generation": 18260.152736805037,
+      "demand": 15645.1757148979
+    },
+    {
+      "year": 2021,
+      "generation": 17704.028777310014,
+      "demand": 15602.429333163207
+    },
+    {
+      "year": 2022,
+      "generation": 18621.53086679998,
+      "demand": 15602.429333163207
+    },
+    {
+      "year": 2023,
+      "generation": 17356.36275418496,
+      "demand": 15602.429333163207
+    }
+  ],
+  "monthly": [
+    {
+      "month": 1,
+      "generation": 514.2502541699993,
+      "demand": 1325.1378337754313,
+      "temperature": -1.3366383701188456
+    },
+    {
+      "month": 2,
+      "generation": 817.788446055,
+      "demand": 1205.8979268313044,
+      "temperature": -0.3119698383084577
+    },
+    {
+      "month": 3,
+      "generation": 1453.426326473691,
+      "demand": 1325.1378337754313,
+      "temperature": 3.298506649688738
+    },
+    {
+      "month": 4,
+      "generation": 1963.1381931473654,
+      "demand": 1282.3914520407443,
+      "temperature": 8.214443713450292
+    },
+    {
+      "month": 5,
+      "generation": 2155.7911923947504,
+      "demand": 1325.1378337754313,
+      "temperature": 12.21011389360498
+    },
+    {
+      "month": 6,
+      "generation": 2355.663673468415,
+      "demand": 1282.3914520407443,
+      "temperature": 16.403541666666666
+    },
+    {
+      "month": 7,
+      "generation": 2382.115312278943,
+      "demand": 1325.1378337754313,
+      "temperature": 18.1368194680249
+    },
+    {
+      "month": 8,
+      "generation": 2076.4156482473663,
+      "demand": 1325.1378337754313,
+      "temperature": 17.362120826259197
+    },
+    {
+      "month": 9,
+      "generation": 1571.103700721052,
+      "demand": 1282.3914520407443,
+      "temperature": 13.724983187134503
+    },
+    {
+      "month": 10,
+      "generation": 1063.3310077263118,
+      "demand": 1325.1378337754313,
+      "temperature": 9.470501556310131
+    },
+    {
+      "month": 11,
+      "generation": 582.0737137578935,
+      "demand": 1282.3914520407443,
+      "temperature": 4.067592105263158
+    },
+    {
+      "month": 12,
+      "generation": 422.5626427500008,
+      "demand": 1325.1378337754313,
+      "temperature": -0.07166383701188456
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "Lower demand",
+      "tariffs": {
+        "electricity": 0.4,
+        "electricityStanding": 240
+      },
+      "existingElectricityKwh": 11760.0,
+      "components": {
+        "existingElectricity": 11760.0,
+        "cars": 2000
+      },
+      "annualDemand": 13760.000000011776
+    },
+    {
+      "name": "Working case",
+      "tariffs": {
+        "electricity": 0.35,
+        "electricityStanding": 180
+      },
+      "existingElectricityKwh": 13611.428571428572,
+      "components": {
+        "existingElectricity": 13611.428571428572,
+        "cars": 2000
+      },
+      "annualDemand": 15611.428571430439
+    },
+    {
+      "name": "Higher demand",
+      "tariffs": {
+        "electricity": 0.3,
+        "electricityStanding": 120
+      },
+      "existingElectricityKwh": 16080.0,
+      "components": {
+        "existingElectricity": 16080.0,
+        "cars": 2000
+      },
+      "annualDemand": 18079.99999999602
+    }
+  ],
+  "batteries": [
+    {
+      "units": 0,
+      "nominalKwh": 0.0,
+      "dispatchKwh": 0.0,
+      "annualImport": 9893.715707571533,
+      "annualExport": 11639.947247341046,
+      "selfSufficiency": 0.36625173908315845,
+      "annualBatteryLoss": 0.0,
+      "endingSocKwh": 0.0
+    },
+    {
+      "units": 1,
+      "nominalKwh": 13.5,
+      "dispatchKwh": 12.15,
+      "annualImport": 6521.558713527338,
+      "annualExport": 7798.897979655344,
+      "selfSufficiency": 0.5845897282940897,
+      "annualBatteryLoss": 381.2417473208969,
+      "endingSocKwh": 0.0
+    },
+    {
+      "units": 2,
+      "nominalKwh": 27.0,
+      "dispatchKwh": 24.3,
+      "annualImport": 4568.036128465628,
+      "annualExport": 5534.1030941164145,
+      "selfSufficiency": 0.710640757316635,
+      "annualBatteryLoss": 604.8635214845052,
+      "endingSocKwh": 0.0
+    },
+    {
+      "units": 4,
+      "nominalKwh": 54.0,
+      "dispatchKwh": 48.6,
+      "annualImport": 3984.9634450044027,
+      "annualExport": 4697.7953698054525,
+      "selfSufficiency": 0.7503473382730113,
+      "annualBatteryLoss": 682.7975097028306,
+      "endingSocKwh": 0.0
+    },
+    {
+      "units": 7,
+      "nominalKwh": 94.5,
+      "dispatchKwh": 85.05,
+      "annualImport": 3832.5970722519232,
+      "annualExport": 4245.772192950947,
+      "selfSufficiency": 0.76378420562405,
+      "annualBatteryLoss": 719.5027348576031,
+      "endingSocKwh": 0.0
+    }
+  ],
+  "annualBalance": {
+    "panels": 45,
+    "kwp": 20.25,
+    "area": 87.87365999999999,
+    "extraPanels": -5
+  },
+  "independenceLowerBounds": [
+    {
+      "scale": 1,
+      "panels": 50,
+      "kwp": 22.5,
+      "moduleArea": 97.63739999999999,
+      "dispatchKwh": 4181.99353084645,
+      "nominalKwh": 4646.659478718278,
+      "powerwallCapacityEquivalent": 345
+    },
+    {
+      "scale": 2,
+      "panels": 100,
+      "kwp": 45.0,
+      "moduleArea": 195.27479999999997,
+      "dispatchKwh": 1580.21233335149,
+      "nominalKwh": 1755.7914815016557,
+      "powerwallCapacityEquivalent": 131
+    },
+    {
+      "scale": 3,
+      "panels": 150,
+      "kwp": 67.5,
+      "moduleArea": 292.9122,
+      "dispatchKwh": 764.3761237505823,
+      "nominalKwh": 849.3068041673137,
+      "powerwallCapacityEquivalent": 63
+    },
+    {
+      "scale": 4,
+      "panels": 200,
+      "kwp": 90.0,
+      "moduleArea": 390.54959999999994,
+      "dispatchKwh": 284.7184537939029,
+      "nominalKwh": 316.353837548781,
+      "powerwallCapacityEquivalent": 24
+    }
+  ],
+  "winterDailyLoad": 42.74638173469194,
+  "tenDarkDaysNominalKwh": 474.9597970521326,
+  "tenDarkDaysPowerwallEquivalent": 36,
+  "pitchSensitivity": {
+    "east-30": 918.92,
+    "east-40": 893.54,
+    "west-30": 857.64,
+    "west-40": 819.69
+  },
+  "assumptions": {
+    "localShadeLoss": 0.1,
+    "winterSnowLoss": 0.05,
+    "pvgisSystemLoss": 0.14,
+    "batteryRoundTrip": 0.9,
+    "reserve": 0.1,
+    "batteryStandbyKwPerUnit": 0.01,
+    "evCount": 2,
+    "evKmEach": 5000,
+    "evKwhPer100KmAtSocket": 20
+  }
+}

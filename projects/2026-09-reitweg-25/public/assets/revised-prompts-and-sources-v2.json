@@ -1,0 +1,106 @@
+[
+  {
+    "slug": "family-room-fireplace-glazing-v2",
+    "sources": [
+      "IMG_1462.jpg"
+    ],
+    "prompt": "Use case: precise-object-edit. Edit target IMG_1462.jpg. Revise only exterior glazing in this exact living/family room photograph. Replace the left east garden door wall and adjacent south pool-facing waist-height window with generous nearly continuous floor-to-ceiling clear glass, very slim dark bronze frames, retained warm timber trim and a slender supporting corner post. Glass should reach existing floor and ceiling line, opening continuous garden and pool sightlines. CRITICAL: retain the complete original fireplace/chimney breast, original stone hearth and firebox, sunburst mirror and adjacent solid mass exactly; new glazing stops at fireplace mass. Preserve furniture placement, both cream sofas, glass coffee table, floor, ceiling, dimensions and original camera framing. Remove person at left for clean architectural concept. Keep exterior tree, existing single pool and meadow exactly where source shows, without new mountains. Modern warm photorealistic architectural photograph, sensitive to the original 1970 Franz Ruf timber house. Preserve source architectural identity, room scale and real landscape. No text, labels, watermark or UI. This is an unmeasured conceptual visualization, not verified structural, dimensional or approved design.",
+    "referenced_image_paths": [
+      "/Users/jamestuchel/Documents/Codex/Reitweg 25/public/assets/IMG_1462.jpg"
+    ],
+    "path": "/Users/jamestuchel/.codex/generated_images/reitweg-25-revised-concepts-v2/family-room-fireplace-glazing-v2.png",
+    "generatedSource": "/Users/jamestuchel/.codex/generated_images/01a09e0a-9291-7bc2-a0eb-b48fe65eb39e/exec-c0db083d-32d0-4ec1-a20f-3543806b0631.png",
+    "method": "built-in imagegen",
+    "geometryStatus": "Unmeasured conceptual study; not exact geometric photomontage, construction details and dimensions unverified."
+  },
+  {
+    "slug": "bedroom-garden-glazing-v2",
+    "sources": [
+      "IMG_1451.jpg"
+    ],
+    "prompt": "Use case: precise-object-edit. Edit target IMG_1451.jpg. Create a source-faithful bedroom looking out to garden through a more expansive floor-to-ceiling glass wall. Widen the existing bedroom garden aperture across most of its existing exterior wall and raise its glazed head to just below existing ceiling, with extremely slender dark bronze mullions, large clear sliding panels and subtle warm timber edge trim. Existing window is already tall; make the change clear through wider uninterrupted glazing and slimmer framing. Retain pulled-back linen curtains at outer edges. Preserve four-poster timber bed EXACTLY, furnishings, bed position, brass lights, linen, rug, oak floor, room dimensions, doorway to bathroom and bath seen beyond, original camera view. Keep original garden terrace, hedge, tree and meadow in exact positions; no pool or invented distant mountains. Modern warm photorealistic architectural photograph, sensitive to the original 1970 Franz Ruf timber house. Preserve source architectural identity, room scale and real landscape. No text, labels, watermark or UI. This is an unmeasured conceptual visualization, not verified structural, dimensional or approved design.",
+    "referenced_image_paths": [
+      "/Users/jamestuchel/Documents/Codex/Reitweg 25/public/assets/IMG_1451.jpg"
+    ],
+    "path": "/Users/jamestuchel/.codex/generated_images/reitweg-25-revised-concepts-v2/bedroom-garden-glazing-v2.png",
+    "generatedSource": "/Users/jamestuchel/.codex/generated_images/01a09e0a-9291-7bc2-a0eb-b48fe65eb39e/exec-e8531580-6066-4aa5-b411-758f02bc0fd4.png",
+    "method": "built-in imagegen",
+    "geometryStatus": "Unmeasured conceptual study; not exact geometric photomontage, construction details and dimensions unverified."
+  },
+  {
+    "slug": "bathroom-private-garden-glazing-v2",
+    "sources": [
+      "IMG_1454.jpg"
+    ],
+    "prompt": "Use case: precise-object-edit. Edit target IMG_1454.jpg. Show this same bathroom looking out through a refined expansive floor-to-ceiling garden glass opening with slim dark bronze framing instead of heavy timber/insect-screen framing. Widen clear glazed opening modestly within same exterior wall, retaining warm timber edge trim, and bring its head to just below ceiling. Keep the exact original white freestanding bath, brass taps, bath position, oak floor, curtains and camera. For discreet privacy, include softly translucent lower glazing to about bathtub-rim height with a gentle straight frosted band, upper panes fully clear to existing garden; outer-edge linen curtains retained for closure. Preserve all garden grasses, hedges, lawn, tree and sky positions; no invented landscape, people, pool or mountains. The glazing must still read as complete full-height glazing behind privacy treatment. Modern warm photorealistic architectural photograph, sensitive to the original 1970 Franz Ruf timber house. Preserve source architectural identity, room scale and real landscape. No text, labels, watermark or UI. This is an unmeasured conceptual visualization, not verified structural, dimensional or approved design.",
+    "referenced_image_paths": [
+      "/Users/jamestuchel/Documents/Codex/Reitweg 25/public/assets/IMG_1454.jpg"
+    ],
+    "path": "/Users/jamestuchel/.codex/generated_images/reitweg-25-revised-concepts-v2/bathroom-private-garden-glazing-v2.png",
+    "generatedSource": "/Users/jamestuchel/.codex/generated_images/01a09e0a-9291-7bc2-a0eb-b48fe65eb39e/exec-aba28aa5-276e-4f2e-9c54-48482e5b115d.png",
+    "method": "built-in imagegen",
+    "geometryStatus": "Unmeasured conceptual study; not exact geometric photomontage, construction details and dimensions unverified."
+  },
+  {
+    "slug": "courtyard-fireplace-lounge-longtable-v2",
+    "sources": [
+      "FDE39D63-B192-4A7E-A16B-886A2F38F0A6_1_105_c.jpg",
+      "207644AC-3AC6-42D5-86F7-98FFC7A242DC_1_105_c.jpg"
+    ],
+    "prompt": "Use case: precise-object-edit. Input 1 FDE39D63 is the primary edit target; input 2 207644AC is additional same-courtyard geometry reference. Redesign furniture and fittings throughout BOTH perpendicular covered arms of the full L-shaped courtyard, not only a single sofa bay. Match the primary photograph's wide garden-side viewpoint but slightly widen only as needed so both existing covered arms read together. Preserve existing house volumes, pitched roof/eaves, every structural timber post and beam, doors/windows, lawn footprint, large central tree and other planting exactly. The small pale existing outdoor fireplace is in the BACK covered arm, just left of the large tree trunk in the primary photo; keep its exact location and geometry, clearly visible, with no new hearth elsewhere. Keep stone paving footprint, open lawn centre and paths. Furniture fits around posts without moving/thinning them and leaves doors and fireplace clear. Remove photographed people. Do not glaze courtyard or introduce any new roof, volume, walls, pool, mountains or garden geometry. Original soft daylight with discreet warm architectural lighting. Palette of natural teak/oak, pale stone and warm oatmeal textiles. Modern warm photorealistic architectural photograph, sensitive to the original 1970 Franz Ruf timber house. Preserve source architectural identity, room scale and real landscape. No text, labels, watermark or UI. This is an unmeasured conceptual visualization, not verified structural, dimensional or approved design. LAYOUT A: dedicate BACK FIREPLACE ARM to a comfortable intimate lounge. Arrange two low sofas/chairs facing existing outdoor fireplace with pale stone coffee table and clear hearth access. Dedicate PERPENDICULAR RIGHT ARM, where old long sofa is, to one long slender teak family dining table with eight light chairs. Show BOTH zones at once: fireplace lounge BACK/LEFT, dining table RIGHT. Remove old right-wall sofa to make dining layout. Zones are distinct, no second dining table. Keep central lawn and tree unoccupied.",
+    "referenced_image_paths": [
+      "/Users/jamestuchel/Documents/Codex/Reitweg 25/public/assets/FDE39D63-B192-4A7E-A16B-886A2F38F0A6_1_105_c.jpg",
+      "/Users/jamestuchel/Documents/Codex/Reitweg 25/public/assets/207644AC-3AC6-42D5-86F7-98FFC7A242DC_1_105_c.jpg"
+    ],
+    "path": "/Users/jamestuchel/.codex/generated_images/reitweg-25-revised-concepts-v2/courtyard-fireplace-lounge-longtable-v2.png",
+    "generatedSource": "/Users/jamestuchel/.codex/generated_images/01a09e0a-9291-7bc2-a0eb-b48fe65eb39e/exec-bc85bf29-1230-428f-aa78-569ea9da1aa4.png",
+    "method": "built-in imagegen",
+    "geometryStatus": "Unmeasured conceptual study; not exact geometric photomontage, construction details and dimensions unverified."
+  },
+  {
+    "slug": "courtyard-fireplace-dining-poolsofa-v2",
+    "sources": [
+      "FDE39D63-B192-4A7E-A16B-886A2F38F0A6_1_105_c.jpg",
+      "207644AC-3AC6-42D5-86F7-98FFC7A242DC_1_105_c.jpg"
+    ],
+    "prompt": "Use case: precise-object-edit. Input 1 FDE39D63 is the primary edit target; input 2 207644AC is additional same-courtyard geometry reference. Redesign furniture and fittings throughout BOTH perpendicular covered arms of the full L-shaped courtyard, not only a single sofa bay. Match the primary photograph's wide garden-side viewpoint but slightly widen only as needed so both existing covered arms read together. Preserve existing house volumes, pitched roof/eaves, every structural timber post and beam, doors/windows, lawn footprint, large central tree and other planting exactly. The small pale existing outdoor fireplace is in the BACK covered arm, just left of the large tree trunk in the primary photo; keep its exact location and geometry, clearly visible, with no new hearth elsewhere. Keep stone paving footprint, open lawn centre and paths. Furniture fits around posts without moving/thinning them and leaves doors and fireplace clear. Remove photographed people. Do not glaze courtyard or introduce any new roof, volume, walls, pool, mountains or garden geometry. Original soft daylight with discreet warm architectural lighting. Palette of natural teak/oak, pale stone and warm oatmeal textiles. Modern warm photorealistic architectural photograph, sensitive to the original 1970 Franz Ruf timber house. Preserve source architectural identity, room scale and real landscape. No text, labels, watermark or UI. This is an unmeasured conceptual visualization, not verified structural, dimensional or approved design. LAYOUT B genuinely different from A: place one beautiful teak dining table with eight chairs in BACK FIREPLACE ARM, near original outdoor fireplace with generous hearth clearance, plus short freestanding serving console against existing wall. Place a FREESTANDING LOW CREAM SOFA in PERPENDICULAR RIGHT ARM, away from wall and facing outward toward pool-side foreground/lawn, with a slim low table and one movable lounge chair. Remove original long built-in wall sofa. Show dining BACK/LEFT and outward-facing floating sofa RIGHT simultaneously. Keep full courtyard composition and distinct zoning; do not simply rearrange cushions.",
+    "referenced_image_paths": [
+      "/Users/jamestuchel/Documents/Codex/Reitweg 25/public/assets/FDE39D63-B192-4A7E-A16B-886A2F38F0A6_1_105_c.jpg",
+      "/Users/jamestuchel/Documents/Codex/Reitweg 25/public/assets/207644AC-3AC6-42D5-86F7-98FFC7A242DC_1_105_c.jpg"
+    ],
+    "path": "/Users/jamestuchel/.codex/generated_images/reitweg-25-revised-concepts-v2/courtyard-fireplace-dining-poolsofa-v2.png",
+    "generatedSource": "/Users/jamestuchel/.codex/generated_images/01a09e0a-9291-7bc2-a0eb-b48fe65eb39e/exec-b9da1af5-f3d5-45c5-988d-af55591c6ce5.png",
+    "method": "built-in imagegen",
+    "geometryStatus": "Unmeasured conceptual study; not exact geometric photomontage, construction details and dimensions unverified."
+  },
+  {
+    "slug": "courtyard-garden-salon-daybed-v2",
+    "sources": [
+      "FDE39D63-B192-4A7E-A16B-886A2F38F0A6_1_105_c.jpg",
+      "207644AC-3AC6-42D5-86F7-98FFC7A242DC_1_105_c.jpg"
+    ],
+    "prompt": "Use case: precise-object-edit. Input 1 FDE39D63 is the primary edit target; input 2 207644AC is additional same-courtyard geometry reference. Redesign furniture and fittings throughout BOTH perpendicular covered arms of the full L-shaped courtyard, not only a single sofa bay. Match the primary photograph's wide garden-side viewpoint but slightly widen only as needed so both existing covered arms read together. Preserve existing house volumes, pitched roof/eaves, every structural timber post and beam, doors/windows, lawn footprint, large central tree and other planting exactly. The small pale existing outdoor fireplace is in the BACK covered arm, just left of the large tree trunk in the primary photo; keep its exact location and geometry, clearly visible, with no new hearth elsewhere. Keep stone paving footprint, open lawn centre and paths. Furniture fits around posts without moving/thinning them and leaves doors and fireplace clear. Remove photographed people. Do not glaze courtyard or introduce any new roof, volume, walls, pool, mountains or garden geometry. Original soft daylight with discreet warm architectural lighting. Palette of natural teak/oak, pale stone and warm oatmeal textiles. Modern warm photorealistic architectural photograph, sensitive to the original 1970 Franz Ruf timber house. Preserve source architectural identity, room scale and real landscape. No text, labels, watermark or UI. This is an unmeasured conceptual visualization, not verified structural, dimensional or approved design. LAYOUT C genuinely different: garden salon with NO DINING TABLE anywhere. Use two separate small conversation groups spread across BACK ARM: pair of light timber lounge chairs by existing fireplace with tiny low round stone table; another pair of woven chairs near left glazed doors with a small side table. In PERPENDICULAR RIGHT ARM create a relaxed reading/daybed zone with one generous slim natural-teak daybed and oatmeal mattress, a reading chair and side table, all low and airy. Remove original long sofa and old furniture. No long table, no dining chairs, no dining zone, no large continuous sofa. Preserve open space and circulation, no furniture on central lawn.",
+    "referenced_image_paths": [
+      "/Users/jamestuchel/Documents/Codex/Reitweg 25/public/assets/FDE39D63-B192-4A7E-A16B-886A2F38F0A6_1_105_c.jpg",
+      "/Users/jamestuchel/Documents/Codex/Reitweg 25/public/assets/207644AC-3AC6-42D5-86F7-98FFC7A242DC_1_105_c.jpg"
+    ],
+    "path": "/Users/jamestuchel/.codex/generated_images/reitweg-25-revised-concepts-v2/courtyard-garden-salon-daybed-v2.png",
+    "generatedSource": "/Users/jamestuchel/.codex/generated_images/01a09e0a-9291-7bc2-a0eb-b48fe65eb39e/exec-3aa18e58-3adc-4983-b32b-cc0ae36577f3.png",
+    "method": "built-in imagegen",
+    "geometryStatus": "Unmeasured conceptual study; not exact geometric photomontage, construction details and dimensions unverified."
+  },
+  {
+    "slug": "front-boundary-horizontal-timber-v2",
+    "sources": [
+      "IMG_1627.jpg"
+    ],
+    "prompt": "Use case: precise-object-edit. Edit target IMG_1627.jpg. Redesign ONLY the freestanding front boundary as a taller continuous wall approximately 1.8m conceptually, ENTIRELY faced with closely spaced NARROW HORIZONTAL TIMBER STRIPS in the same deep warm weathered dark brown timber colour and texture as house siding. ALL visible wall faces, piers, pedestrian gate, integrated utility doors and driveway gate must be timber-clad with continuous horizontal strip alignment. Absolutely no exposed mineral render, stucco, masonry panels or pale wall piers. The direction must be HORIZONTAL left-to-right, not vertical. Integrate FLUSH timber gates in existing opening positions with discreet dark reveals, a slim dark metal coping and minimally visible hardware. Preserve original house timber facade and roof with skylights exactly, original house height, silhouette, all trees/foliage, driveway/street/cobble geometry, camera framing and daylight. Preserve parked car where naturally visible, occlusion by taller gate acceptable. Boundary stays freestanding, no house structural changes, no new planting. Proportionate modest height increase, not fortress scale. Modern warm photorealistic architectural photograph, sensitive to the original 1970 Franz Ruf timber house. Preserve source architectural identity, room scale and real landscape. No text, labels, watermark or UI. This is an unmeasured conceptual visualization, not verified structural, dimensional or approved design.",
+    "referenced_image_paths": [
+      "/Users/jamestuchel/Documents/Codex/Reitweg 25/public/assets/IMG_1627.jpg"
+    ],
+    "path": "/Users/jamestuchel/.codex/generated_images/reitweg-25-revised-concepts-v2/front-boundary-horizontal-timber-v2.png",
+    "generatedSource": "/Users/jamestuchel/.codex/generated_images/01a09e0a-9291-7bc2-a0eb-b48fe65eb39e/exec-4e82fdb3-9a17-4dd3-808e-31e3e800aa7c.png",
+    "method": "built-in imagegen",
+    "geometryStatus": "Unmeasured conceptual study; not exact geometric photomontage, construction details and dimensions unverified."
+  }
+]

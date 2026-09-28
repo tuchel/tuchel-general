@@ -1,0 +1,252 @@
+{
+  "source": "Exposé PDF p19; source crop x60/y70/w750/h880 at 216dpi",
+  "geometry": "Shared A+B+C envelope; openings are proposals, not structural approval",
+  "envelope": [
+    [
+      104,
+      126
+    ],
+    [
+      626,
+      126
+    ],
+    [
+      626,
+      275
+    ],
+    [
+      639,
+      275
+    ],
+    [
+      639,
+      809
+    ],
+    [
+      334,
+      809
+    ],
+    [
+      334,
+      716
+    ],
+    [
+      104,
+      716
+    ]
+  ],
+  "removed": [
+    {
+      "x": 343,
+      "y": 275,
+      "w": 91,
+      "d": 42
+    },
+    {
+      "x": 516,
+      "y": 275,
+      "w": 84,
+      "d": 42
+    },
+    {
+      "x": 334,
+      "y": 332,
+      "w": 43,
+      "d": 131
+    }
+  ],
+  "layouts": [
+    {
+      "slug": "kitchen-garden-breakfast-v4",
+      "title": "The garden kitchen",
+      "zones": [
+        "A · garden dining, table runs north–south",
+        "B · breakfast stools at the new L return",
+        "C · wider cooking aisle, island seating and storage"
+      ],
+      "change": "Keep the cooker east; add a low north return with a second oven.",
+      "objects": [
+        {
+          "x": 566,
+          "y": 432,
+          "w": 54,
+          "d": 70,
+          "h": 57,
+          "color": "#b6bba6",
+          "kind": "counter"
+        },
+        {
+          "x": 566,
+          "y": 518,
+          "w": 54,
+          "d": 99,
+          "h": 57,
+          "color": "#5e665d",
+          "kind": "cooker"
+        },
+        {
+          "x": 566,
+          "y": 632,
+          "w": 54,
+          "d": 32,
+          "h": 57,
+          "color": "#b6bba6",
+          "kind": "counter"
+        },
+        {
+          "x": 566,
+          "y": 333,
+          "w": 54,
+          "d": 99,
+          "h": 158,
+          "color": "#bba685",
+          "kind": "pantry"
+        },
+        {
+          "x": 426,
+          "y": 333,
+          "w": 140,
+          "d": 49,
+          "h": 57,
+          "color": "#b6bba6",
+          "kind": "counter"
+        },
+        {
+          "x": 490,
+          "y": 333,
+          "w": 45,
+          "d": 49,
+          "h": 57,
+          "color": "#687268",
+          "kind": "second oven"
+        },
+        {
+          "x": 375,
+          "y": 467,
+          "w": 82,
+          "d": 190,
+          "h": 57,
+          "color": "#cbb48f",
+          "kind": "island"
+        },
+        {
+          "x": 381,
+          "y": 683,
+          "w": 29,
+          "d": 29,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 423,
+          "y": 683,
+          "w": 29,
+          "d": 29,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 156,
+          "y": 328,
+          "w": 70,
+          "d": 220,
+          "h": 47,
+          "color": "#b99c76",
+          "kind": "table"
+        },
+        {
+          "x": 117,
+          "y": 340,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 240,
+          "y": 340,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 117,
+          "y": 417,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 240,
+          "y": 417,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 117,
+          "y": 494,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 240,
+          "y": 494,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 178,
+          "y": 288,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 178,
+          "y": 561,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 440,
+          "y": 287,
+          "w": 30,
+          "d": 30,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 505,
+          "y": 287,
+          "w": 30,
+          "d": 30,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        }
+      ]
+    }
+  ]
+}

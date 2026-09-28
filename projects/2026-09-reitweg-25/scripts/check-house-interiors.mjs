@@ -1,0 +1,61 @@
+import assert from 'node:assert/strict';
+import * as T from 'three';
+import {build} from 'esbuild';
+await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/site-data.ts'],outdir:'tmp/interior-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external'});
+const {buildHouseModel}=await import('../tmp/interior-check/build-model.mjs');
+const {planPoint:p,UPPER_PLAN_X_OFFSET}=await import('../tmp/interior-check/site-data.mjs');
+const model=buildHouseModel(process.argv.includes('--realism'));model.setLevel('ground');model.root.updateMatrixWorld(true);
+const ray=new T.Raycaster();
+function crosses(a,b,objects){const start=new T.Vector3(...a),end=new T.Vector3(...b);ray.set(start,end.clone().sub(start).normalize());ray.far=start.distanceTo(end);return ray.intersectObjects(objects,true).filter(h=>{let o=h.object;while(o){if(!o.visible)return false;o=o.parent;}return true;});}
+const point=(x,z,y=.7)=>{const q=p(x,z);return [q[0],y,q[1]];};
+const ground=model.root.getObjectByName('ground-floor');
+assert(ground,'ground floor exists');
+assert.equal(crosses(point(1135,653),point(1135,699),[ground]).length,0,'dining to sitting room passage is open');
+assert.equal(crosses(point(214,923),point(214,964),[ground]).length,0,'yoga to wellness passage is open');
+assert.equal(crosses(point(786,305,1.2),point(802,305,1.2),[ground]).length,0,'kitchen sliding door has an open half');
+const storage=model.root.getObjectByName('entry-storage-clear-of-courtyard-door');assert(storage);assert.equal(crosses(point(755,630),point(755,685),[storage]).length,0,'storage clears courtyard door');
+assert(model.root.getObjectByName('front-door-walkway'),'front door walkway present');assert(model.root.getObjectByName('kitchen-terrace-table'),'outdoor table present');
+assert.equal(crosses(point(777,630),point(920,630),[ground]).length,0,'connector to main atrium is open through both wall planes');
+assert.equal(crosses(point(850,625),point(850,580),[ground]).length,0,'hall WC south doorway is accessible');
+assert(model.root.getObjectByName('hall-wc-toilet'),'hall WC toilet exists');assert(model.root.getObjectByName('hall-wc-basin'),'hall WC basin exists');
+assert(crosses(point(170,851),point(245,851),[ground]).length>0,'yoga partition is present');
+assert.equal(crosses(point(171,910),point(231,910),[ground]).length,0,'yoga doorway remains clear');
+assert.equal(crosses(point(455,602),point(498,602),[ground]).length,0,'garage corridor door is open');
+const cars=model.root.getObjectByName('two-model-y-garage-cars');assert.equal(cars.children.length,2,'two garage cars');
+assert(model.root.getObjectByName('guest-corner-sauna'),'corner sauna present');
+model.setLevel('upper');model.root.updateMatrixWorld(true);const slab=model.root.getObjectByName('guest-floor-with-atrium');assert(slab);const [ax,az]=p(231,860);const [bx,bz]=p(310,866);
+assert.equal(crosses([ax+UPPER_PLAN_X_OFFSET,5,az],[ax+UPPER_PLAN_X_OFFSET,2,az],[slab]).length,0,'guest atrium is a hole, not a floor patch');
+assert(crosses([bx+UPPER_PLAN_X_OFFSET,5,bz],[bx+UPPER_PLAN_X_OFFSET,2,bz],[slab]).length>0,'guest gallery floor remains beside hole');
+const mainSlab=model.root.getObjectByName('main-floor-with-atrium');assert(mainSlab);
+for(const [x,z] of [[1035,540],[1035,630],[978,530]]){const [px,pz]=p(x,z);assert.equal(crosses([px+UPPER_PLAN_X_OFFSET,5,pz],[px+UPPER_PLAN_X_OFFSET,2,pz],[mainSlab]).length,0,'full main atrium is an open slab cutout');}
+for(const [x,z] of [[930,550],[1140,550],[1050,440]]){const [px,pz]=p(x,z);assert(crosses([px+UPPER_PLAN_X_OFFSET,5,pz],[px+UPPER_PLAN_X_OFFSET,2,pz],[mainSlab]).length>0,'main gallery remains around atrium');}
+const upper=model.root.getObjectByName('north-shared-bathroom').parent;
+const upstairs=(x,z,y=3.65)=>{const q=p(x,z);return [q[0]+UPPER_PLAN_X_OFFSET,y,q[1]];};
+assert.equal(crosses(upstairs(984,363),upstairs(1030,363),[upper]).length,0,'west bedroom bathroom entrance clear');
+assert.equal(crosses(upstairs(1144,363),upstairs(1096,363),[upper]).length,0,'east bedroom bathroom entrance clear');
+assert.equal(crosses(upstairs(1032,313),upstairs(1096,313),[upper]).length,0,'shower remains one connected zone');
+assert(crosses(upstairs(1032,362),upstairs(1096,362),[upper]).length>0,'partition separates vanity areas');
+for(const x of [1032,1096])assert(model.root.getObjectByName('north-bath-vanity-'+x),'both vanity units present');
+assert.equal(crosses(upstairs(1026,842),upstairs(1061,842),[upper]).length,0,'wider south bedroom bathroom doorway clear');
+assert.equal(crosses(upstairs(953,739),upstairs(953,710),[upper]).length,0,'south toilet room doorway clear');
+assert.equal(crosses(upstairs(994,740),upstairs(994,699),[upper]).length,0,'south shower walk-in access clear');
+assert.equal(crosses(upstairs(1144,437),upstairs(1180,437),[upper]).length,0,'gallery bathroom entrance clear');
+for(const name of ['upper-south-wc','upper-south-shower','upper-gallery-wc','upper-gallery-basin'])assert(model.root.getObjectByName(name),name+' present');
+assert(crosses(upstairs(930,395),upstairs(930,422),[upper]).length>0,'northwest bedroom south wall restored');
+assert.equal(crosses(upstairs(982,395),upstairs(982,422),[upper]).length,0,'northwest gallery doorway remains open');
+const nwBed=model.root.getObjectByName('northwest-bed-against-divider');assert(nwBed);
+const bedBounds=new T.Box3().setFromObject(nwBed);const dividerFace=p(1064,225)[0]+UPPER_PLAN_X_OFFSET-.09;assert(Math.abs(bedBounds.max.x-dividerFace)<.03,'northwest headboard touches divider');
+assert.equal(crosses(upstairs(245,819),upstairs(290,819),[upper]).length,0,'mezzanine railing has a landing opening');
+assert.equal(crosses(upstairs(283,996),upstairs(244,996),[upper]).length,0,'guest bathroom door remains open');
+for(const name of ['guest-upper-bath-toilet','guest-upper-bath-shower','guest-bedroom-corner-vanity','guest-study-daybed-against-wall'])assert(model.root.getObjectByName(name),name+' present');
+const lowerStair=model.root.getObjectByName('guest-ground-turning-stair'),upperStair=model.root.getObjectByName('guest-upper-turning-stair');assert(lowerStair&&upperStair);assert.equal(lowerStair.children.length,upperStair.children.length,'same stairs on both floors');
+const lo=new T.Box3().setFromObject(lowerStair),hi=new T.Box3().setFromObject(upperStair);assert(lo.min.distanceTo(hi.min)<1e-8&&lo.max.distanceTo(hi.max)<1e-8,'stair geometry aligns exactly between floors');
+model.root.traverse(o=>{if(o instanceof T.Mesh){for(const n of o.matrixWorld.elements)assert(Number.isFinite(n),'finite transform');}});
+if(model.detail){
+ model.setLevel('exterior');model.root.updateMatrixWorld(true);
+ const ceilings=model.detail.ceilings;model.root.getObjectByName('upper-interior-behind-roof').traverse(o=>{if(!o.userData.enclosedSourceUuid)return;const original=model.root.getObjectByProperty('uuid',o.userData.enclosedSourceUuid);assert(original);assert(new T.Box3().setFromObject(o).min.distanceTo(new T.Box3().setFromObject(original).min)<1e-6,'roofs-on furniture matches the registered upper-floor layout');});
+ for(const [x,z] of [[1035,540],[1035,630],[978,530]]){const [px,pz]=p(x,z);assert.equal(crosses([px+UPPER_PLAN_X_OFFSET,4,pz],[px+UPPER_PLAN_X_OFFSET,2,pz],[ceilings]).length,0,'ceiling preserves full main atrium');}
+ const [cx,cz]=p(231,860);assert.equal(crosses([cx+UPPER_PLAN_X_OFFSET,4,cz],[cx+UPPER_PLAN_X_OFFSET,2,cz],[ceilings]).length,0,'ceiling preserves guest stairwell');
+ assert.equal(ceilings.visible,true);model.setLevel('ground');assert.equal(ceilings.visible,false,'ceilings hide for a cutaway');
+}
+model.dispose();console.log('Passed: dining circulation, yoga doorway, sliding door, corridor clearance, walkway, outdoor table, guest atrium and finite model transforms.');

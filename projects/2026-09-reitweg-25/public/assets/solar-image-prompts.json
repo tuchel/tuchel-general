@@ -1,0 +1,17 @@
+{
+  "tool": "built-in image_gen.imagegen",
+  "assets": [
+    {
+      "key": "main_east",
+      "input_path": "/Users/jamestuchel/Documents/Codex/Reitweg 25/public/assets/IMG_1403.jpg",
+      "prompt": "Use case: precise-object-edit. Asset type: photorealistic solar roof appearance study for Reitweg 25 renovation portal. Input image 1 is the exact edit target. Add only slim, flush-mounted all-black photovoltaic modules to the visible MAIN EAST roof slope. Aim for 26 modules, each landscape orientation with proportions approximately 1.722m wide x 1.134m tall, in restrained coherent rows on usable roof areas around ALL existing roof windows. Preserve every roof window and opening at its exact original position, size and open angle; leave generous clear borders and maintenance gaps around them and around roof edges and chimney. Panels should look naturally integrated, with fine black frames, subtle cell texture and physically plausible daylight reflections, consistent perspective and scale. Preserve camera framing and viewpoint, the entire house geometry, dark roof surface, chimney, wood facade, ground floor windows, sky, sunlight, every tree and branch, garden and lawn exactly as in the original photo. Foreground trees must remain in front of panels. Do not renovate anything else, do not replace or close windows, do not add windows. No labels, no text, no watermark. The panels are an appearance illustration rather than a dimensioned technical plan.",
+      "output_path": "/Users/jamestuchel/.codex/generated_images/01a0db76-4205-76f0-9e3f-dd7a4e8cbab2/exec-3d9e1701-fc72-4f0c-9ffe-9fa824491a3e.png"
+    },
+    {
+      "key": "guest_west",
+      "input_path": "/Users/jamestuchel/Documents/Codex/Reitweg 25/public/assets/DC2E6390-D8F3-4212-A5DB-8EB9AE083A93_1_105_c.jpg",
+      "prompt": "Use case: precise-object-edit. Asset type: photorealistic solar roof appearance study for Reitweg 25 renovation portal. Input image 1 is the exact edit target: partial guesthouse WEST roof viewed from driveway. Add only understated slim, flush-mounted all-black photovoltaic modules over the usable visible roof surface. Each panel is landscape orientation, approximately 1.722m wide x 1.134m tall in real-world proportions, arranged in coherent landscape rows. Whole slope design has 32 panels, but this photo only shows part of it: show only the plausible visible subset, do not force 32 into this partial view. Preserve all existing skylights at precisely their original positions and sizes, including ones clipped at the edge; maintain generous clear borders and maintenance gaps around roof windows, roof edges and vents. Fine black frames, subtle cells and diffuse sky reflections matched to overcast original lighting. Preserve camera framing and perspective, house geometry, tiled roof, wood facade, garage doors, sky, all trees and branches, plants, person on left, driveway and background exactly. Trees must occlude panels naturally. No other renovations or window changes. No labels, text or watermark. Appearance illustration, not a dimensioned technical plan.",
+      "output_path": "/Users/jamestuchel/.codex/generated_images/01a0db76-4205-76f0-9e3f-dd7a4e8cbab2/exec-17b4060a-3188-4d88-8122-d24524826e2b.png"
+    }
+  ]
+}
