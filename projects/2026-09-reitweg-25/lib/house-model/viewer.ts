@@ -151,7 +151,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
 
  // Eye-level look-around and pinch; overview input is OrbitControls'.
  const pointers=new Map<number,[number,number]>();let pinch=0,press:[number,number]=[0,0];
- const down=(e:PointerEvent)=>{press=[e.clientX,e.clientY];if(!rig.eyeLevel)return;captures?.stop();pointers.set(e.pointerId,[e.clientX,e.clientY]);canvas.setPointerCapture(e.pointerId);if(pointers.size===2){const [a,b]=[...pointers.values()];pinch=Math.hypot(a[0]-b[0],a[1]-b[1]);}};
+ const down=(e:PointerEvent)=>{press=[e.clientX,e.clientY];if(film)captures?.stop();if(!rig.eyeLevel)return;captures?.stop();pointers.set(e.pointerId,[e.clientX,e.clientY]);canvas.setPointerCapture(e.pointerId);if(pointers.size===2){const [a,b]=[...pointers.values()];pinch=Math.hypot(a[0]-b[0],a[1]-b[1]);}};
  const move=(e:PointerEvent)=>{
   if(!rig.eyeLevel||!pointers.has(e.pointerId))return;
   const last=pointers.get(e.pointerId)!;pointers.set(e.pointerId,[e.clientX,e.clientY]);
@@ -192,6 +192,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   const delta=Math.min((now-previous)/1000,.05);previous=now;
   if(captures?.tick(now))return;
   if(captures?.breezing)waterTime.value=captures.waterSeconds;
+  // A finished or cancelled film hands the camera back.
+  if(film&&!captures?.recording){film=undefined;controls.enabled=!rig.eyeLevel;}
   let moving=rig.update(now);
   if(controls.enabled&&controls.update(delta))moving=true;
   if(moving)changed();

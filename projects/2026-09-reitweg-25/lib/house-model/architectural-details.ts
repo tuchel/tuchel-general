@@ -28,7 +28,7 @@ export function architecturalDetails(ground:T.Group,upper:T.Group){
  const bark=new T.MeshStandardMaterial({color:'#66533c',roughness:1});
  for(let i=0;i<8;i++){const log=new T.Mesh(new T.CylinderGeometry(.065,.074,.4,9),bark);log.rotation.z=Math.PI/2;log.position.set(fx+.99+(i%2)*.12,.23+Math.floor(i/2)*.115,fz-.3);group.add(log);}
  // The photographed small black cylinders, with warm, recessed luminous apertures.
- const lamps:T.Mesh[]=[];const emit=new T.MeshStandardMaterial({color:'#ffdb9b',emissive:'#ffc77d',emissiveIntensity:0});
+ const lamps:T.Mesh[]=[];const emit=new T.MeshStandardMaterial({color:'#ffdb9b',emissive:'#ffc77d',emissiveIntensity:0});emit.userData.lamp=true;
  for(const [x,z] of [[-2.2,5.0],[2.3,5.0],[-2.2,8.3],[2.3,8.3]]){
   const fixture=new T.Mesh(new T.CylinderGeometry(.07,.07,.15,16),dark);fixture.position.set(x,2.77,z);ceilings.add(fixture);
   const disc=new T.Mesh(new T.CircleGeometry(.058,16),emit);disc.rotation.x=Math.PI/2;disc.position.set(x,2.691,z);ceilings.add(disc);lamps.push(disc);

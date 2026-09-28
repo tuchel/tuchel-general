@@ -1,5 +1,6 @@
 import * as T from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
+import {addShaderFeature} from './shader-features';
 
 /** Trees as instanced archetypes: a bark skeleton plus leaf-cluster cards cut from the
  * generated leaf atlas. Near trees use many small cards, distant woodland a few large
@@ -15,6 +16,11 @@ export function foliageMaterials(){
  // Leaves are darker and less glossy than the lawn beneath them; the tint deepens the atlas greens.
  const leaves=new T.MeshStandardMaterial({color:'#c9d8b6',roughness:.82,envMapIntensity:.75,side:T.DoubleSide,alphaTest:.42,alphaToCoverage:true,vertexColors:true});
  leaves.userData.foliage='leaves';
+ // Backlit leaves glow: sunlight passing through toward the viewer adds a warm green transmission.
+ addShaderFeature(leaves,{key:'leaf-translucency',compile:shader=>{
+  const lights=T.ShaderChunk.lights_fragment_begin.replace(/RE_Direct\( directLight,/g,'reflectedLight.directDiffuse+=directLight.color*material.diffuseColor*vec3(.75,.95,.45)*(.42*pow(saturate(dot(-geometryViewDir,directLight.direction)),2.0)+.12*saturate(-dot(geometryNormal,directLight.direction)));\nRE_Direct( directLight,');
+  shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_begin>',lights);
+ }});
  const depth=new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking,alphaTest:.42,side:T.DoubleSide});
  const bark=new T.MeshStandardMaterial({color:'#ffffff',roughness:.95});bark.userData.foliage='bark';
  return {leaves,depth,bark};

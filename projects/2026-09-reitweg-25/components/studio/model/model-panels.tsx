@@ -39,7 +39,12 @@ export function LightPanel({day,minutes,onChange}:{day:number;minutes:number;onC
  const events=useMemo(()=>sunDayEvents(day),[day]),reading=sunStudyReading({enabled:true,day,minutes});
  const date=studyDate(day).toLocaleDateString('en-GB',{timeZone:'UTC',day:'numeric',month:'long'});
  const direction=['north','northeast','east','southeast','south','southwest','west','northwest'][Math.round(reading.azimuth/45)%8];
- const now=()=>{const d=new Date(),start=Date.UTC(SUN_SITE.year,0,1),local=new Intl.DateTimeFormat('en-GB',{timeZone:SUN_SITE.timeZone,hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(d).split(':').map(Number);const dayOfYear=Math.min(365,Math.floor((Date.UTC(SUN_SITE.year,d.getUTCMonth(),d.getUTCDate())-start)/864e5)+1);onChange(dayOfYear,local[0]*60+local[1]);};
+ // "Now" at the house: the date and clock time in Bernried, whatever the viewer's time zone.
+ const now=()=>{
+  const parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:SUN_SITE.timeZone,month:'numeric',day:'numeric',hour:'numeric',minute:'numeric',hourCycle:'h23'}).formatToParts(new Date()).map(p=>[p.type,p.value]));
+  const dayOfYear=Math.min(365,Math.round((Date.UTC(SUN_SITE.year,+parts.month-1,+parts.day)-Date.UTC(SUN_SITE.year,0,1))/864e5)+1);
+  onChange(dayOfYear,+parts.hour*60+ +parts.minute);
+ };
  return <div className="model-panel-body model-light">
   <div className="model-light-heading"><strong>{clockLabel(reading.minutes)} <small>{reading.zone}</small></strong><span>{date}</span><button className="model-link" onClick={now}>Now</button></div>
   <div className="model-light-slider" style={{'--sunrise':`${events.sunrise.minutes/1435*100}%`,'--sunset':`${events.sunset.minutes/1435*100}%`} as React.CSSProperties}>
