@@ -9,6 +9,8 @@ export const planPoint = (x:number,z:number):Point => [(x-1012)*PLAN_SCALE,(z-52
 // The upper spread is shifted 52 trace pixels east of the ground spread.
 // Main stair and chimney axes provide the registration anchors.
 export const UPPER_PLAN_X_OFFSET = -52 * PLAN_SCALE;
+// The basement sheet is drawn 20 px east of the ground sheet (stair, light wells and footprint agree).
+export const BASEMENT_PLAN_X_OFFSET = -20 * PLAN_SCALE;
 // Guest roof eaves on the upper spread, registered to the ground plan.
 // Includes the roof over the courtyard-side loggia.
 export const guestRoofCorners:Point[] = [[160,535],[525,570],[466,1247],[92,1213]].map(([x,z])=>planPoint(x-52,z));

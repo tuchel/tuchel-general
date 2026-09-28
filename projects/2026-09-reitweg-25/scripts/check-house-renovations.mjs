@@ -28,7 +28,7 @@ model.setLevel('exterior');model.setRenovations(renovationState());assert.deepEq
 assert.equal(solarPanels.length,50);let count=0;model.root.traverse(o=>{if(o.name.startsWith('solar-module-'))count++;});assert.equal(count,50);
 for(const roof of solarRoofs){const span=Math.hypot(roof.width/2,roof.ridge-roof.eave),panels=solarPanels.filter(p=>p.roof===roof.id);
  for(const panel of panels){assert(panel.u-solarModule.width/2>=.45-1e-8);assert(panel.u+solarModule.width/2<=span-.45+1e-8);assert(Math.abs(panel.z)+solarModule.length/2<=roof.length/2-.45+1e-8);
-  for(const w of roofSkylights(roof.id).filter(w=>w.side===panel.side))assert(Math.abs(panel.u-w.fraction*span)>=(solarModule.width+1.15)/2+.25||Math.abs(panel.z-w.z)>=(solarModule.length+1.4)/2+.25,'panel clears skylight');
+  for(const w of roofSkylights(roof.id).filter(w=>w.side===panel.side))assert(Math.abs(panel.u-w.fraction*span)>=(solarModule.width+1.4)/2+.25||Math.abs(panel.z-w.z)>=(solarModule.length+.78)/2+.25,'panel clears skylight');
  }
  for(let i=0;i<panels.length;i++)for(let j=i+1;j<panels.length;j++){const a=panels[i],b=panels[j];if(a.side===b.side)assert(Math.abs(a.u-b.u)>=solarModule.width+.024||Math.abs(a.z-b.z)>=solarModule.length+.024,'panels do not overlap');}
 }

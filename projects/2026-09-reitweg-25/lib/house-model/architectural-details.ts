@@ -15,12 +15,12 @@ export function architecturalDetails(ground:T.Group,upper:T.Group){
  box(ceilings,-5.28,2.86,0,1.44,.07,19.2,plaster);box(ceilings,5.3,2.86,0,1.4,.07,19.2,plaster);
  // Pleated curtains occupy the existing living-room window reveals (IMG_1462).
  const curtains=new T.Group();curtains.name='living-room-linen-curtains';group.add(curtains);
- for(const z of [5.1,8.7]){
+ for(const z of [5.02,7.67]){
   const geometry=new T.PlaneGeometry(.46,2.56,32,14);const pos=geometry.attributes.position;
   for(let i=0;i<pos.count;i++){const x=pos.getX(i),y=pos.getY(i);pos.setZ(i,.055*Math.sin(x*65)+.016*Math.cos(y*3+x*4));}geometry.computeVertexNormals();
-  const c=new T.Mesh(geometry,linen);c.rotation.y=-Math.PI/2;c.position.set(5.78,1.48,z);c.castShadow=true;curtains.add(c);
+  const c=new T.Mesh(geometry,linen);c.rotation.y=-Math.PI/2;c.position.set(5.57,1.48,z);c.castShadow=true;curtains.add(c);
  }
- box(curtains,5.8,2.78,6.9,.025,.025,4.15,dark);
+ box(curtains,5.6,2.78,6.35,.025,.025,3.2,dark);
  // Stone hearth, reveal and a modest stack of logs beside the retained fireplace.
  const [fx,fz]=p(1010,877);box(group,fx,.135,fz-.35,1.8,.07,1.15,stone);
  for(const x of [-.69,.69])box(group,fx+x,.21,fz-.48,.23,1.02,.15,stone);

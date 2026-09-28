@@ -14,7 +14,8 @@ import {furnishHouse} from './interiors';
 import {roofSkylights} from './solar-layout';
 import {buildRenovations} from './renovations';
 import {renovationState,type RenovationId,type RenovationState} from './renovation-data';
-import {planPoint as p,sitePoint as s,plotOutline,treePositions,guestRoofFrame,UPPER_PLAN_X_OFFSET,type Level,type Region} from './site-data';
+import {planPoint as p,sitePoint as s,plotOutline,treePositions,guestRoofFrame,UPPER_PLAN_X_OFFSET,BASEMENT_PLAN_X_OFFSET,type Level,type Region} from './site-data';
+import {basementStairWell,buildBasementStair,buildLightWells,BASEMENT_WINDOWS} from './site-openings';
 
 export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:ReturnType<typeof foliageMaterials>){
  const root=new T.Group(),ground=new T.Group(),upper=new T.Group(),basement=new T.Group(),roofs=new T.Group(),site=new T.Group(),trees=new T.Group();
@@ -22,7 +23,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  ground.name='ground-floor';upper.name='upper-floor';basement.name='basement';
  const originals:Partial<Record<RenovationId,T.Object3D[]>>={};
  const capture=(id:RenovationId,parent:T.Group,build:()=>void)=>{const start=parent.children.length;build();const objects=parent.children.slice(start);const group=new T.Group();group.name='original-'+id;parent.add(group);for(const o of objects)group.add(o);(originals[id]??=[]).push(group);};
- upper.position.x=UPPER_PLAN_X_OFFSET;
+ upper.position.x=UPPER_PLAN_X_OFFSET;basement.position.x=BASEMENT_PLAN_X_OFFSET;
  const garden=buildGarden(realistic);site.add(garden.group);
  const pickables:T.Object3D[]=[];const materials:T.MeshStandardMaterial[]=[];const edges:T.LineSegments[]=[];const cutWalls:T.Mesh[]=[];
  const material=(model:string,timber=model,roughness=.8)=>{const m=new T.MeshStandardMaterial({color:model,roughness});m.userData={model,timber};materials.push(m);return m;};
@@ -34,7 +35,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const add=(geo:T.BufferGeometry,mat:T.Material,parent:T.Group,region?:Region)=>{const mesh=new T.Mesh(geo,mat);mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);if(region){mesh.userData.region=region;pickables.push(mesh)}return mesh;};
  const box=(parent:T.Group,x:number,y:number,z:number,w:number,h:number,d:number,mat:T.Material,region?:Region)=>{const mesh=add(boxGeo,mat,parent,region);mesh.position.set(x,y+h/2,z);mesh.scale.set(w,h,d);return mesh;};
  const segment=(parent:T.Group,a:number[],b:number[],width:number,mat:T.Material,region?:Region)=>{const start=new T.Vector3(...a),end=new T.Vector3(...b),len=start.distanceTo(end);const mesh=box(parent,0,0,0,width,len,width,mat,region);mesh.position.copy(start.add(end).multiplyScalar(.5));mesh.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),end.sub(new T.Vector3(...a)).normalize());return mesh;};
- const poly=(points:[number,number][],height:number,y:number,mat:T.Material,parent:T.Group,region?:Region)=>{const shape=new T.Shape(points.map(([x,z])=>new T.Vector2(x,-z)));if(mat===m.soil||mat===m.lawn)shape.holes.push(poolHole());const geo=new T.ExtrudeGeometry(shape,{depth:height,bevelEnabled:false});geo.rotateX(-Math.PI/2);const mesh=add(geo,mat,parent,region);mesh.position.y=y;return mesh;};
+ const poly=(points:[number,number][],height:number,y:number,mat:T.Material,parent:T.Group,region?:Region)=>{const shape=new T.Shape(points.map(([x,z])=>new T.Vector2(x,-z)));if(mat===m.soil||mat===m.lawn)shape.holes.push(poolHole(),new T.Path(basementStairWell().map(([x,z])=>new T.Vector2(x,-z))));const geo=new T.ExtrudeGeometry(shape,{depth:height,bevelEnabled:false});geo.rotateX(-Math.PI/2);const mesh=add(geo,mat,parent,region);mesh.position.y=y;return mesh;};
  const outline=(mesh:T.Mesh)=>{const edge=new T.LineSegments(new T.EdgesGeometry(mesh.geometry,24),lineMat);mesh.add(edge);edges.push(edge);};
  const planBox=(parent:T.Group,x1:number,z1:number,x2:number,z2:number,h:number,y:number,mat:T.Material,region?:Region)=>{const a=p(x1,z1),b=p(x2,z2);return box(parent,(a[0]+b[0])/2,y,(a[1]+b[1])/2,b[0]-a[0],h,b[1]-a[1],mat,region)};
  const wall=(parent:T.Group,x1:number,z1:number,x2:number,z2:number,height=2.67,y=.12,mat:T.Material=m.plaster)=>{const a=p(x1,z1),b=p(x2,z2);const w=segment(parent,[a[0],y,a[1]],[b[0],y,b[1]],.18,mat);const len=Math.hypot(b[0]-a[0],b[1]-a[1]);w.scale.set(len,height,.18);w.rotation.set(0,-Math.atan2(b[1]-a[1],b[0]-a[0]),0);w.position.set((a[0]+b[0])/2,y+height/2,(a[1]+b[1])/2);w.userData.base=y;w.userData.height=height;cutWalls.push(w);return w;};
@@ -48,7 +49,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
    const sx=x+side*(width/2-.04);
    segment(g,[sx,base+.09,z+depth/2],[sx,base+rise-.06,z-depth/2],.075,m.dark);
    segment(g,[sx,base+1.04,z+depth/2],[sx,base+rise+.97,z-depth/2],.032,m.dark);
-   for(let i=0;i<=count;i++)box(g,sx,base+i*rise/count,z+depth/2-i*depth/count,.022,1.01,.022,m.dark);
+   // The west side runs along the wall: a wall handrail only; balusters on the open east side.
+   if(side>0)for(let i=0;i<=count;i++)box(g,sx,base+i*rise/count,z+depth/2-i*depth/count,.022,1.01,.022,m.dark);
   }
   return g;
  };
@@ -68,8 +70,21 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // Narrow cobbled walk, shallow threshold step and planted borders from owner photos.
  site.add(buildEntranceGarden(realistic));
  traceSite([[746,398],[782,398],[782,548],[746,548]],.055,m.paving,'kitchen');
+ // Cobbled strip along the guest wing's west wall, from the entrance toward the well.
+ traceSite([[455,719],[478,719],[478,803],[455,803]],.045,m.paving);
+ // Grey timber decks outside the bedroom and the dining and sitting rooms (Terrasse 2 and 3 on the grounds plan).
+ const deck=material('#aaa69c','#8c867b');deck.userData.photo='deck';
+ planBox(site,1233,240,1301,345,.05,0,deck);capture('terrace',site,()=>planBox(site,1233,533,1301,877,.05,0,deck));
+ // Basement light-well grates and the guest basement's external stair.
+ site.add(buildLightWells(m.dark,m.edge,BASEMENT_PLAN_X_OFFSET),buildBasementStair(m.stone,m.dark,m.dark));
  capture('front',site,()=>site.add(buildFrontWall(material)));
- const fountain=s(340,765);const basin=add(new T.CylinderGeometry(1.3,1.3,.25,36),m.stone,site);basin.position.set(fountain[0],.15,fountain[1]);const fwater=add(new T.CylinderGeometry(1.07,1.07,.035,36),m.water,site);fwater.position.set(fountain[0],.29,fountain[1]);box(site,fountain[0],.3,fountain[1],.22,.55,.22,m.stone);
+ // Round granite well trough with a gooseneck tap, on a brick circle ringed by segmented raised timber beds (202CD83B, C9253C3B).
+ {const [fx,fz]=s(340,765),well=new T.Group();well.position.set(fx,0,fz);well.name='granite-well-and-raised-beds';site.add(well);
+  const brick=material('#c9a896','#9c6650');add(new T.CylinderGeometry(2.6,2.6,.04,48),brick,well).position.y=.02;
+  add(new T.CylinderGeometry(.65,.6,.8,32),m.stone,well,'grounds').position.y=.4;add(new T.CylinderGeometry(.55,.55,.02,32),m.water,well).position.y=.74;
+  segment(well,[.52,.78,0],[.52,1.22,0],.045,m.dark);segment(well,[.52,1.22,0],[.3,1.22,0],.04,m.dark);segment(well,[.3,1.22,0],[.27,1.1,0],.035,m.dark);
+  const sector=(outer:number,inner:number,start:number,end:number,depth:number)=>{const shape=new T.Shape();shape.absarc(0,0,outer,start,end,false);shape.absarc(0,0,inner,end,start,true);const geo=new T.ExtrudeGeometry(shape,{depth,bevelEnabled:false,curveSegments:10});geo.rotateX(-Math.PI/2);return geo;};
+  for(let k=0;k<5;k++){const start=k*Math.PI*2/5+.2,end=start+Math.PI*2/5-.4;add(sector(2.6,1.9,start,end,.6),m.wood,well);add(sector(2.54,1.96,start+.02,end-.02,.02),m.soil,well).position.y=.6;}}
  // Photo-confirmed flush timber surround, recessed water and pale narrow rim.
  const pool=buildPool();site.add(pool);pool.traverse(o=>{if(o instanceof T.Mesh)pickables.push(o);});
  // Main ground floor, ~12 x 19.3 m.
@@ -77,20 +92,31 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  for(const bounds of [[795,182,970,464],[814,464,1050,669],[1037,388,1229,669]])planBox(ground,...bounds as [number,number,number,number],.02,.122,m.stone);
  function facade(parent:T.Group,a:[number,number],b:[number,number],openings:{from:number;to:number;sill:number;head:number;kind?:'garage'|'sliding'|'passage'}[],region:Region){
   const len=Math.hypot(b[0]-a[0],b[1]-a[1]),dx=(b[0]-a[0])/len,dz=(b[1]-a[1])/len;
-  const part=(lo:number,hi:number,y:number,h:number,mat:T.Material)=>{if(hi<=lo||h<=0)return;const x=a[0]+dx*(lo+hi)/2,z=a[1]+dz*(lo+hi)/2;const obj=box(parent,x,y,z,hi-lo,h,.21,mat,region);obj.rotation.y=-Math.atan2(dz,dx);if(realistic&&mat===m.wall){const center=region==='guest'?p(230,870):region==='courtyard'?p(625,620):[0,0];const interior=(-dz)*(center[0]-x)+dx*(center[1]-z);const faces:T.Material[]=Array(6).fill(m.wall);faces[interior>0?4:5]=m.plaster;(obj as T.Mesh).material=faces;}if(mat===glass)obj.scale.z=.028;if(mat===m.wall||mat===m.garage){obj.userData.base=y;obj.userData.height=h;cutWalls.push(obj)}return obj;};
+  // External walls are about 0.45 m thick on the plans: the cladding face stays 0.105 m outside the traced outline and the wall grows inward.
+  const center=region==='guest'?p(230,870):region==='courtyard'?p(625,620):[0,0],side=(-dz)*(center[0]-(a[0]+b[0])/2)+dx*(center[1]-(a[1]+b[1])/2)>0?1:-1;
+  const part=(lo:number,hi:number,y:number,h:number,mat:T.Material)=>{if(hi<=lo||h<=0)return;const x=a[0]+dx*(lo+hi)/2-dz*side*.12,z=a[1]+dz*(lo+hi)/2+dx*side*.12;const obj=box(parent,x,y,z,hi-lo,h,mat===glass?.028:mat===m.dark?.09:mat===m.wall||mat===m.garage?.45:.47,mat,region);obj.rotation.y=-Math.atan2(dz,dx);if(realistic&&mat===m.wall){const faces:T.Material[]=Array(6).fill(m.wall);faces[side>0?4:5]=m.plaster;(obj as T.Mesh).material=faces;}if(mat===m.wall||mat===m.garage){obj.userData.base=y;obj.userData.height=h;cutWalls.push(obj)}return obj;};
   let cursor=0;for(const o of openings){part(cursor,o.from,.12,2.67,m.wall);part(o.from,o.to,.12,o.sill,m.wall);part(o.from,o.to,.12+o.head,2.67-o.head,m.wall);if(o.kind!=='sliding'&&o.kind!=='passage')part(o.from,o.to,.12+o.sill,o.head-o.sill,o.kind==='garage'?m.garage:glass);if(o.kind==='garage'){for(let t=o.from+.12;t<o.to;t+=.15)part(t,t+.014,.12,2.2,m.edge);}for(const t of [o.from,o.to])part(t-.035,t+.035,.12+o.sill,o.head-o.sill,m.dark);for(const y of [o.sill,o.head])part(o.from,o.to,.12+y,.045,m.dark);if(o.kind==='sliding'){const middle=(o.from+o.to)/2;const pane=part(middle,o.to,.12+o.sill,o.head-o.sill,glass);if(pane)pane.name='kitchen-fixed-glass';const moving=part(middle-.22,o.to-.22,.12+o.sill,o.head-o.sill,glass);if(moving){moving.position.x+=dz*.07;moving.position.z-=dx*.07;moving.name='kitchen-sliding-leaf';}for(const t of [middle-.22,o.to-.22])part(t-.026,t+.026,.12,2.3,m.dark);part(o.from,o.to,.125,.025,m.edge);part(middle-.18,middle-.14,.96,.28,m.dark);}if(!o.kind&&o.to-o.from>2)part((o.from+o.to)/2-.025,(o.from+o.to)/2+.025,.12+o.sill,o.head-o.sill,m.dark);if(realistic&&o.kind!=='garage'&&o.kind!=='passage'){for(const t of [o.from-.067,o.to+.067])part(t-.025,t+.025,.12+o.sill,o.head-o.sill,m.wood);part(o.from,o.to,.12+o.sill-.035,.035,m.stone);part(o.to-.13,o.to-.11,1.07,.16,m.edge);}cursor=o.to;}part(cursor,len,.12,2.67,m.wall);
  }
  const N=-9.61,S=9.61,W=-6,E=6;
- capture('east',ground,()=>facade(ground,[E,N],[E,S],[{from:1.9,to:4.6,sill:.1,head:2.2},{from:5.8,to:8.15,sill:1,head:2.2},{from:10.3,to:12.9,sill:.1,head:2.2},{from:14.6,to:18.4,sill:.1,head:2.25}],'main'));
+ capture('east',ground,()=>facade(ground,[E,N],[E,S],[{from:1.9,to:4.6,sill:.1,head:2.2},{from:5.8,to:8.15,sill:0,head:2.2},{from:10.3,to:11.15,sill:.45,head:2.2},{from:12,to:13,sill:0,head:2.2},{from:14.86,to:17.05,sill:.1,head:2.25}],'main'));
  const kitchenSouth=p(795,464)[1],kitchenEast=p(970,182)[0],westSplit=kitchenSouth-N,northSplit=kitchenEast-W;
- capture('kitchen',ground,()=>facade(ground,[W,N],[W,kitchenSouth],[{from:2.5,to:6.4,sill:0,head:2.3,kind:'sliding'}],'kitchen'));
- facade(ground,[W,kitchenSouth],[W,S],[{from:8.95-westSplit,to:9.95-westSplit,sill:.8,head:2.1},{from:11.86-westSplit,to:12.96-westSplit,sill:0,head:2.3,kind:'passage'},{from:14.5-westSplit,to:16.5-westSplit,sill:0,head:2.3}],'main');
+ capture('kitchen',ground,()=>facade(ground,[W,N],[W,kitchenSouth],[{from:2.75,to:5.74,sill:0,head:2.3,kind:'sliding'}],'kitchen'));
+ facade(ground,[W,kitchenSouth],[W,S],[{from:8.95-westSplit,to:9.95-westSplit,sill:.8,head:2.1},{from:11.86-westSplit,to:12.96-westSplit,sill:0,head:2.3,kind:'passage'},{from:14.86-westSplit,to:15.94-westSplit,sill:0,head:2.2}],'main');
  capture('kitchen',ground,()=>facade(ground,[W,N],[kitchenEast,N],[{from:1.8,to:3,sill:.7,head:2.15}],'kitchen'));
  facade(ground,[kitchenEast,N],[E,N],[{from:5.5-northSplit,to:6.7-northSplit,sill:0,head:2.2},{from:8.2-northSplit,to:9.4-northSplit,sill:.7,head:2.15}],'main');
- capture('east',ground,()=>facade(ground,[W,S],[E,S],[{from:1.6,to:4.2,sill:.9,head:2.2},{from:7.2,to:10.1,sill:.9,head:2.2}],'main'));
- for(const [a,b,c,d] of [[970,194,970,382],[970,402,970,458],[814,464,850,464],[877,464,970,464],[1043,388,1126,388],[1050,388,1050,454],[1126,388,1126,454],[1050,454,1126,454],[1050,470,1050,613],[1050,524,1215,524],[1037,669,1066,669],[814,669,959,669],[893,464,893,609],[893,652,893,669],[829,507,893,507],[869,559,893,559],[869,559,869,598],[869,598,893,598],[829,598,833,598]])wall(ground,a,b,c,d);
- // The dining alcove opens into the sitting room between the retained pier and east return.
- wall(ground,1202,669,1215,669);
+ capture('east',ground,()=>facade(ground,[W,S],[E,S],[{from:1.6,to:4.2,sill:.9,head:2.2},{from:7.83,to:10.26,sill:.9,head:2.2}],'main'));
+ for(const [a,b,c,d] of [[965,194,965,382],[964,386,1003,386],[1030,388,1043,388],[988,389,988,464],[814,464,850,464],[877,464,952,464],[980,464,1001,464],[1029,464,1043,464],[1043,388,1126,388],[1175,388,1218,388],[1050,388,1050,462],[1114,428,1114,462],[1050,462,1114,462],[1050,470,1050,613],[1050,524,1215,524],[1037,669,1078,669],[814,669,959,669],[893,464,893,609],[893,652,893,669],[829,507,893,507],[869,559,893,559],[869,559,869,598],[869,598,893,598],[829,598,833,598]])wall(ground,a,b,c,d);
+ // The dining alcove opens into the sitting room between two piers, as drawn on the plan.
+ wall(ground,1166,669,1215,669);
+ // Door leaves: thin panels cut with the walls in floor views. Steel-framed glazed leaves follow the photographs.
+ const panel=(x1:number,z1:number,x2:number,z2:number,y:number,h:number,t:number,mat:T.Material)=>{const o=wall(ground,x1,z1,x2,z2,h,y,mat);o.scale.z=t;return o;};
+ const glazedLeaf=(x1:number,z1:number,x2:number,z2:number,height=2.1)=>{const at=(t:number):[number,number]=>[x1+(x2-x1)*t,z1+(z2-z1)*t];panel(x1,z1,x2,z2,.14,height,.02,glass);for(const [a,b] of [[0,.07],[.93,1]])panel(...at(a),...at(b),.14,height,.05,m.dark);for(const [y,h] of [[.14,.14],[1.02,.04],[.14+height-.06,.06]])panel(x1,z1,x2,z2,y,h,.05,m.dark);};
+ // Kitchen to hall: black steel glazed door, open against the Flur wall (CA9A8382).
+ glazedLeaf(978,464,978,437);panel(1001,464,1001,437,.14,2.08,.045,m.wood);
+ // Bedroom to bath: glazed steel double doors, both leaves open into the bath (IMG_1451).
+ glazedLeaf(1128,391,1128,414);glazedLeaf(1174,391,1174,414);
+ // Hall to sitting room: steel-framed glazed double doors between fixed side panels (IMG_1461).
+ {const screen=[[959,669,978,669],[978,669,998,669],[998,669,1018,669],[1018,669,1037,669]];for(const [x1,z1,x2,z2] of screen)glazedLeaf(x1,z1,x2,z2,2.3);panel(959,669,1037,669,2.44,.35,.18,m.plaster);}
  const at=(x:number,z:number)=>p(x,z);let q:[number,number];
  mainStair(ground);
  // Hall WC: the south doorway opens from the Diele; the east partition ends before the hall passage.
@@ -107,17 +133,22 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  facade(ground,p(49,1208),p(316,1228),[],'guest');
  facade(ground,p(116,535),p(475,573),[{from:5,to:5.85,sill:1.05,head:2.1},{from:6.15,to:7,sill:1.05,head:2.1},{from:7.3,to:8.15,sill:1.05,head:2.1}],'guest');
  facade(ground,p(475,573),p(466,647),[{from:.15,to:1.2,sill:0,head:2.2,kind:'passage'}],'guest');
+ // Garage south wall toward the loggia, cladding outside and plaster inside.
+ facade(ground,p(367,671),p(464,667),[],'courtyard');
  q=at(472,580);const garageDoor=box(ground,q[0]-.5,.16,q[1],1,1.05,.05,m.wood);garageDoor.name='garage-corridor-door';garageDoor.rotation.y=-.1;
  // Two opaque boarded garage doors on the west façade.
  facade(ground,p(116,535),p(93,766),[{from:.35,to:2.95,sill:0,head:2.2,kind:'garage'},{from:3.4,to:6,sill:0,head:2.2,kind:'garage'}],'guest');
- for(const a of [[106,766,350,790],[210,781,198,893],[92,929,193,940],[236,945,338,956],[80,987,183,997],[183,997,166,1198]])wall(ground,...a as [number,number,number,number]);
- // Open timber door between the yoga room and wellness area.
- q=at(194,940);const yogaDoor=box(ground,q[0],.16,q[1]+.5,.07,2.12,1.04,m.wood);yogaDoor.name='yoga-wellness-door';yogaDoor.rotation.y=-.09;
+ for(const a of [[106,766,350,790],[210,781,198,893],[92,929,193,940],[236,945,338,956],[80,987,183,997],[189,981,188,1000],[145,1000,143,1052],[80,1078,145,1082]])wall(ground,...a as [number,number,number,number]);
+ // Guest WC door on its east wall, open against the WC's north wall.
+ panel(188,949,160,951,.16,2.05,.045,m.wood).name='guest-wc-door';
+ // The sauna's glass front opens onto the wellness room beside a black steel column (10064ED8).
+ {q=at(183,1083);const column=add(cylinderGeo,m.dark,ground);column.scale.set(.07,2.67,.07);column.position.set(q[0],.12+1.335,q[1]);column.name='wellness-steel-column';column.userData.base=.12;column.userData.height=2.67;cutWalls.push(column);}
  ground.add(guestStair(m.wood,m.dark));
  // Loggia slabs, existing posts and fireplace; roof remains part of the connection.
  const terrace=[[393,676],[810,676],[810,846],[446,846],[408,1235],[318,1224]].map(([x,z])=>p(x,z));poly(terrace,.09,.045,m.paving,ground,'courtyard');
- for(const [x,z] of [[447,761],[574,761],[690,761],[435,873],[422,987],[413,1102]]){q=at(x,z);box(ground,q[0],.13,q[1],.14,2.67,.14,m.wood,'courtyard');}
- q=at(393,771);box(ground,q[0],.13,q[1],.55,1.1,1.9,m.stone,'courtyard');box(ground,q[0]+.3,.4,q[1]-.4,.04,.6,.7,m.dark);
+ for(const [x,z] of [[447,761],[574,761],[690,761],[435,873],[422,987],[413,1102]]){q=at(x,z);box(ground,q[0],.13,q[1],.14,2.67,.14,m.wall,'courtyard');}
+ // Cream mantel-style fireplace at the guest and link corner (FDE39D63).
+ q=at(380,772);box(ground,q[0],.13,q[1],.55,1.15,1.1,m.plaster,'courtyard');box(ground,q[0]+.04,1.28,q[1],.66,.07,1.28,m.plaster);box(ground,q[0]+.28,.33,q[1],.02,.55,.62,m.dark);
  // Upper-floor cutaway: layout under the roof, at an inferred 2.95 m floor level.
  // Open stairwell in the slab, rather than an opaque dark patch.
  const slabShape=new T.Shape([[900,183],[1227,183],[1227,875],[900,875]].map(([x,z])=>{const a=p(x,z);return new T.Vector2(a[0],-a[1])}));
@@ -143,7 +174,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  poly([[116,535],[475,573],[461,668],[367,671],[338,956],[80,929]].map(([x,z])=>p(x+52,z)),.1,.035,m.floor,upper);
  wall(upper,207,780,371,798,2.83,.12);
  upper.add(guestStair(m.wood,m.dark,true));
- const guestLanding=poly([[227,794],[267,802],[263,839],[223,833]].map(([x,z])=>p(x,z)),.15,2.95,m.floor,upper);guestLanding.name='guest-stair-turning-landing';
+ const guestLanding=poly([[246,797],[267,802],[263,839],[242,836]].map(([x,z])=>p(x,z)),.15,2.95,m.floor,upper);guestLanding.name='guest-stair-turning-landing';
  for(const [a,b] of [[p(263,839),guestAtrium[2]],[guestAtrium[2],guestAtrium[3]]] as [number[],number[]][]){
   for(const y of [3.28,3.52,3.76,4.02])segment(upper,[a[0],y,a[1]],[b[0],y,b[1]],.025,m.dark);
   for(let t=0;t<=1.01;t+=.25)box(upper,a[0]+(b[0]-a[0])*t,3.1,a[1]+(b[1]-a[1])*t,.045,.96,.045,m.dark);
@@ -152,12 +183,22 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
 
  // Basement is displayed as its own cutaway; surrounding land hides it in exterior views.
  rectFloor(basement,835,189,1227,868,-2.45,m.stone);
- for(const a of [[841,195,1220,195],[841,195,841,861],[1220,195,1220,861],[841,861,1220,861],[983,199,983,287],[1065,199,1065,322],[841,344,984,344],[984,344,984,456],[1065,352,1065,669],[1065,387,1220,387],[841,460,995,460],[914,463,914,664],[841,669,1220,669]])wall(basement,...a as [number,number,number,number],1.3,-2.3);
+  // Outer walls carry the light-well windows as a glazed band at the top of the cutaway.
+ for(const [side,x1,z1,x2,z2] of [['north',841,195,1220,195],['south',841,861,1220,861],['west',841,195,841,861],['east',1220,195,1220,861]] as const){
+  const along=z1===z2,windows=BASEMENT_WINDOWS.filter(w=>w.wall===side).sort((a,b)=>a.from-b.from);let from:number=along?x1:z1;
+  const piece=(a:number,b:number,h:number,y:number,mat:T.Material=m.plaster)=>along?wall(basement,a,z1,b,z2,h,y,mat):wall(basement,x1,a,x2,b,h,y,mat);
+  for(const w of windows){piece(from,w.from,1.3,-2.3);piece(w.from,w.to,1,-2.3);piece(w.from,w.to,.3,-1.3,glass).scale.z=.03;from=w.to;}
+  piece(from,along?x2:z2,1.3,-2.3);
+ }
+ // Doors from the Diele into Abstell, HWR, wine room and hobby room; Abstell and HWR are separate rooms.
+ for(const a of [[983,199,983,287],[1065,199,1065,322],[841,344,984,344],[984,344,984,456],[1065,352,1065,407],[1065,439,1065,497],[1065,524,1065,669],[1065,387,1220,387],[1065,462,1220,462],[841,460,995,460],[914,463,914,630],[841,669,1011,669],[1051,669,1220,669]])wall(basement,...a as [number,number,number,number],1.3,-2.3);
  q=at(946,538);stairs(basement,q[0],q[1],1.1,3.8,-2.3,2.43);
- poly([[110,930],[353,955],[326,1226],[79,1205]].map(([x,z])=>p(x,z)),.15,-2.45,m.stone,basement,'guest');
+ const guestBasement=[[110,930],[353,955],[326,1226],[79,1205]];poly(guestBasement.map(([x,z])=>p(x,z)),.15,-2.45,m.stone,basement,'guest');
+ guestBasement.forEach((a,i)=>{const b=guestBasement[(i+1)%4];wall(basement,a[0],a[1],b[0],b[1],1.3,-2.3);});
+ {q=at(262,1074);const column=add(cylinderGeo,m.plaster,basement);column.scale.set(.15,1.3,.15);column.position.set(q[0],-2.3+.65,q[1]);column.userData.base=-2.3;column.userData.height=1.3;cutWalls.push(column);}
  furnishHouse(ground,upper,basement,material);
  ground.add(garageCars(material));
- // Pitched roofs from the photographs. Heights are explicit model assumptions.
+ // Pitched roofs: the main pitch follows the upper plan's height lines; other heights are model assumptions.
  function pitchedRoof(cx:number,cz:number,width:number,length:number,eave:number,ridge:number,rotation=0,kind:'main'|'guest'|'link'='main',footprint?:[number,number][]){
   const g=new T.Group();g.position.set(cx,0,cz);g.rotation.y=rotation;roofs.add(g);const rise=ridge-eave,half=width/2,slope=Math.atan2(rise,half),span=Math.hypot(half,rise);
   const windows=kind==='link'?[]:roofSkylights(kind);
@@ -173,7 +214,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
    const profile=[new T.Vector2(0,2.74),new T.Vector2(len,2.74),new T.Vector2(len,underside(b[0]))];
    const cross=-a[0]/dx;if(Number.isFinite(cross)&&cross>0&&cross<1)profile.push(new T.Vector2(cross*len,ridge-.045));
    profile.push(new T.Vector2(0,underside(a[0])));const shape=new T.Shape(profile);
-   const windows=kind==='main'&&index===2?[[-2.6,3.15,1.05,2.1],[2.6,3.15,1.05,2.1]]:kind==='main'&&index===0?[[-2.2,3.1,1.05,1.4],[2.4,3.1,1.05,1.4]]:kind==='guest'&&index===0?[[0,3.15,2.3,1.8]]:kind==='guest'&&index===4?[[0,3.05,2.4,2.25]]:[];
+   const windows=kind==='main'&&index===2?[[-2.6,3.15,1.05,2.1],[2.6,3.15,1.05,2.1]]:kind==='main'&&index===0?[[-2.27,3.1,1.1,2.1],[1,3.1,1.1,2.1]]:kind==='guest'&&index===0?[[0,3.15,2.3,1.8]]:kind==='guest'&&index===4?[[0,3.05,2.4,2.25]]:[];
    const face=new T.Group();face.position.set(a[0],0,a[1]);face.rotation.y=-Math.atan2(dz,dx);g.add(face);
    for(const [x,y,w,h] of windows){const u=(x-a[0])/dx*len;const hole=new T.Path();hole.moveTo(u-w/2,y);hole.lineTo(u-w/2,y+h);hole.lineTo(u+w/2,y+h);hole.lineTo(u+w/2,y);hole.closePath();shape.holes.push(hole);box(face,u,y,0,w,h,.05,glass);for(const offset of [-w/2,w/2])box(face,u+offset,y,0,.05,h,.25,m.dark);for(const dy of [0,h])box(face,u,y+dy,0,w,.05,.25,m.dark);}
    const wallGeometry=new T.ExtrudeGeometry(shape,{depth:.21,bevelEnabled:false});wallGeometry.translate(0,0,-.105);const mesh=add(wallGeometry,m.wall,face,kind==='guest'?'guest':'main');mesh.name=kind+'-roof-wall-'+index;
@@ -187,15 +228,29 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
   }
   // The east roof has three groups and one high window; the photos rule out an even row.
   const skylights=kind==='link'?[]:roofSkylights(kind);
-  for(const {side,z,fraction} of skylights){const x=side*half*fraction,y=ridge-rise*fraction+.12;if(realistic){const frame=new T.Group();frame.position.set(x,y,z);frame.rotation.z=-side*slope;frame.name='open-roof-window';g.add(frame);for(const a of [-.54,.54])box(frame,a,0,0,.09,.12,1.4,m.dark);for(const a of [-.66,.66])box(frame,0,0,a,1.15,.12,.09,m.dark);box(frame,0,.035,0,1.02,.028,1.23,glass);}else{const win=box(g,x,y,z,1.15,.11,1.4,m.dark);win.rotation.z=-side*slope;const pane=box(g,x,y+.06,z,1.01,.04,1.22,glass);pane.rotation.z=-side*slope;}}
+  for(const {side,z,fraction} of skylights){const x=side*half*fraction,y=ridge-rise*fraction+.12;if(realistic){const frame=new T.Group();frame.position.set(x,y,z);frame.rotation.z=-side*slope;frame.name='open-roof-window';g.add(frame);for(const a of [-.655,.655])box(frame,a,0,0,.09,.12,.78,m.dark);for(const a of [-.345,.345])box(frame,0,0,a,1.4,.12,.09,m.dark);box(frame,0,.035,0,1.32,.028,.7,glass);}else{const win=box(g,x,y,z,1.4,.11,.78,m.dark);win.rotation.z=-side*slope;const pane=box(g,x,y+.06,z,1.3,.04,.7,glass);pane.rotation.z=-side*slope;}}
 
   box(g,0,ridge-.01,0,.15,.12,length,m.edge);
+  // Exposed timber: rafters under both slopes, a ridge beam, collar-tie trusses over the main atrium (IMG_1558)
+  // and posts with braces in the guest wing (A58F5DA7).
+  if(realistic&&kind!=='link'){
+   const under=(x:number)=>ridge-rise*Math.abs(x)/half-.045;
+   box(g,0,under(0)-.22,0,.14,.2,length-.3,m.wood);
+   for(let z=-length/2+.45;z<length/2-.3;z+=.9)for(const side of [-1,1])segment(g,[side*.1,under(.1)-.07,z],[side*(half-.35),under(half-.35)-.07,z],.09,m.wood);
+   if(kind==='main')for(const z of [-1.4,.5,2.4]){const y=6.3,reach=(ridge-.045-y)*half/rise;box(g,0,y-.1,z,reach*2,.2,.12,m.wood);box(g,0,y,z,.14,under(0)-.2-y,.14,m.wood);for(const side of [-1,1])segment(g,[0,y+.05,z],[side*reach*.6,under(reach*.6)-.1,z],.08,m.wood);}
+   if(kind==='guest'){const posts=[[260,650],[247,786],[240,1040]].map(([x,z])=>{const [px,pz]=p(x,z),dx=px+UPPER_PLAN_X_OFFSET-cx,dz=pz-cz;return dx*Math.sin(rotation)+dz*Math.cos(rotation);});for(const z of posts){box(g,0,3.1,z,.14,under(0)-.2-3.1,.14,m.wood);for(const d of [-1,1])segment(g,[0,under(0)-1.1,z],[0,under(0)-.22,z+d*.9],.08,m.wood);}}
+  }
+  return (x:number,z:number)=>{const dx=x-cx,dz=z-cz;return ridge-rise*Math.abs(dx*Math.cos(rotation)-dz*Math.sin(rotation))/half-.045;};
  }
- pitchedRoof(0,0,13.1,20.2,2.94,7.6);
- const guest=guestRoofFrame;pitchedRoof(guest.center[0],guest.center[1],guest.width+.18,guest.length+.18,2.94,6.75,guest.rotation,'guest',guestOutline);
+ const mainUnder=pitchedRoof(0,0,13.1,20.2,2.64,8);
+ const guest=guestRoofFrame;const guestUnder=pitchedRoof(guest.center[0],guest.center[1],guest.width+.18,guest.length+.18,2.94,6.75,guest.rotation,'guest',guestOutline);
+ // Knee walls close the low edge of the upper rooms, as drawn on the upper plan.
+ const knee=(under:(x:number,z:number)=>number,floor:number,x1:number,z1:number,x2:number,z2:number)=>{const height=Math.max(.2,Math.min(...[[x1,z1],[x2,z2]].map(([x,z])=>{const [px,pz]=p(x,z);return under(px+UPPER_PLAN_X_OFFSET,pz);}))-floor-.05);const w=wall(upper,x1,z1,x2,z2,height,floor);w.userData.alsoExterior=true;};
+ knee(mainUnder,3.07,904,185,904,873);knee(mainUnder,3.07,1224,185,1224,873);
+ knee(guestUnder,3.1,222,546,200,794);knee(guestUnder,3.1,188,936,163,1207);knee(guestUnder,3.1,395,565,334,1219);
  // The entrance roof runs east–west and covers the north courtyard loggia.
  const connector=p(625,663);pitchedRoof(connector[0],connector[1],5.6,12.5,2.85,4.75,Math.PI/2,'link',linkOutline);
- q=at(1010,885);box(roofs,q[0],.15,q[1],.8,7.65,.75,m.plaster,'main');
+ q=at(1010,885);box(roofs,q[0],.15,q[1],.8,9.15,.75,m.plaster,'main');
  // Fine cladding rhythm, deliberately restrained in the pale model finish.
  const slats=new T.Group();ground.add(slats);for(let z=N;z<S;z+=.23){for(const x of [W-.025,E+.025]){const bar=box(slats,x,2.4,z,.035,.38,.025,m.wood);bar.castShadow=false;if(x>0)(originals.east??=[]).push(bar);else if(z<kitchenSouth)(originals.kitchen??=[]).push(bar);}}
  // Low-poly crowns, open trunks and gentle variation, fixed to the source planting plan.

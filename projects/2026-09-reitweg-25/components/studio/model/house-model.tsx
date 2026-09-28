@@ -6,7 +6,7 @@ import RenovationControls from './renovation-controls';
 import {ViewsPanel,FloorPanel,LightPanel,MorePanel,floors,type ViewKey} from './model-panels';
 import {renovations,renovationState,type RenovationState,type RenovationId} from '@/lib/house-model/renovation-data';
 import {places,initialCapture,type Place,type CaptureState} from '@/lib/house-model/experience-data';
-import {viewpoints,regions,sourceNotes,photoChecks,planPoint,UPPER_PLAN_X_OFFSET,type Level,type Region,type Viewpoint} from '@/lib/house-model/site-data';
+import {viewpoints,regions,sourceNotes,photoChecks,planPoint,UPPER_PLAN_X_OFFSET,BASEMENT_PLAN_X_OFFSET,type Level,type Region,type Viewpoint} from '@/lib/house-model/site-data';
 import {interiorRooms} from '@/lib/house-model/interior-data';
 import {clockLabel,sunStudyReading} from '@/lib/house-model/sun-position';
 import {detectQuality,qualityFromParam,tiers,type Quality} from '@/lib/house-model/device-tier';
@@ -35,7 +35,7 @@ export default function HouseModel({onNavigate}:{onNavigate:(id:string)=>void}){
   const viewer=api.current;if(!viewer)return;
   if(v.startsWith('room:')){
    const r=interiorRooms.find(room=>`room:${room.id}`===v);if(!r)return;
-   const [x,z]=planPoint(...r.center);viewer.focus(x+(r.level==='upper'?UPPER_PLAN_X_OFFSET:0),z,r.level==='upper'?3.4:r.level==='basement'?-2:.4,r.span);return;
+   const [x,z]=planPoint(...r.center);viewer.focus(x+(r.level==='upper'?UPPER_PLAN_X_OFFSET:r.level==='basement'?BASEMENT_PLAN_X_OFFSET:0),z,r.level==='upper'?3.4:r.level==='basement'?-2:.4,r.span);return;
   }
   viewer.view(v as Viewpoint|Place,instant);
  };
