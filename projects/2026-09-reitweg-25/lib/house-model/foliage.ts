@@ -9,6 +9,11 @@ export type TreeKind='broadleaf'|'maple'|'pine';
 export type TreeSpec={x:number;z:number;r:number;height:number;seed:number;kind:TreeKind;far?:boolean;base?:number};
 const cells:Record<TreeKind|'hedge',[number,number]>={broadleaf:[0,1],maple:[1,1],pine:[0,0],hedge:[1,0]};
 const REF_H=10,REF_R=3.5;
+/** Crown style: leaf cards (cards), a solid shaded core under a leaf-card shell (hybrid),
+ * modelled leaves shared per archetype (leaves), or the original per-tree leaves (legacy). */
+export type TreeStyle='cards'|'hybrid'|'leaves'|'legacy';
+let treeStyle:TreeStyle='cards';
+export function setTreeStyle(style:string|null|undefined){if(style==='cards'||style==='hybrid'||style==='leaves'||style==='legacy')treeStyle=style;}
 function random(seed:number){let s=seed>>>0;return()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};}
 
 /** Materials start untextured so model code stays loadable in Node; textures arrive in finishFoliage. */
@@ -17,13 +22,17 @@ export function foliageMaterials(){
  const leaves=new T.MeshStandardMaterial({color:'#c9d8b6',roughness:.82,envMapIntensity:.75,side:T.DoubleSide,alphaTest:.42,alphaToCoverage:true,vertexColors:true});
  leaves.userData.foliage='leaves';
  // Backlit leaves glow: sunlight passing through toward the viewer adds a warm green transmission.
- addShaderFeature(leaves,{key:'leaf-translucency',compile:shader=>{
+ const translucency={key:'leaf-translucency',compile:(shader:T.WebGLProgramParametersWithUniforms)=>{
   const lights=T.ShaderChunk.lights_fragment_begin.replace(/RE_Direct\( directLight,/g,'reflectedLight.directDiffuse+=directLight.color*material.diffuseColor*vec3(.75,.95,.45)*(.42*pow(saturate(dot(-geometryViewDir,directLight.direction)),2.0)+.12*saturate(-dot(geometryNormal,directLight.direction)));\nRE_Direct( directLight,');
   shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_begin>',lights);
- }});
+ }};
+ addShaderFeature(leaves,translucency);
  const depth=new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking,alphaTest:.42,side:T.DoubleSide});
  const bark=new T.MeshStandardMaterial({color:'#ffffff',roughness:.95});bark.userData.foliage='bark';
- return {leaves,depth,bark};
+ // Solid crown core (hybrid) and modelled leaves: colour lives in the vertices.
+ const core=new T.MeshStandardMaterial({color:'#ffffff',roughness:.95,vertexColors:true});core.userData.photo='foliage';
+ const solid=new T.MeshStandardMaterial({color:'#ffffff',roughness:.78,envMapIntensity:.8,side:T.DoubleSide,vertexColors:true});solid.userData.photo='foliage';addShaderFeature(solid,translucency);
+ return {leaves,depth,bark,core,solid};
 }
 type FoliageMaterials=ReturnType<typeof foliageMaterials>;
 
@@ -49,7 +58,7 @@ function limb(a:T.Vector3,b:T.Vector3,r0:number,r1:number,segments:number){
  return g;
 }
 /** One archetype at reference size (10 m tall, 3.5 m crown radius); instances scale it. */
-function archetype(kind:TreeKind,far:boolean,seed:number){
+function archetype(kind:TreeKind,far:boolean,seed:number,context=false){
  const r=random(seed),H=REF_H,R=REF_R,crown=new T.Vector3(0,H-R*.95,0);
  const flat=kind==='pine'?.55:1,clusters:T.Vector3[]=[],wood:T.BufferGeometry[]=[];
  const trunkTop=new T.Vector3((r()-.5)*.3,H*.45,(r()-.5)*.3);
@@ -63,7 +72,10 @@ function archetype(kind:TreeKind,far:boolean,seed:number){
   clusters.push(tip,mid.clone().lerp(tip,.4));
  }
  for(let i=0;i<(far?8:26);i++){const th=r()*Math.PI*2,y=r()*1.8-.9,rad=Math.sqrt(1-y*y)*(.45+r()*.5);clusters.push(new T.Vector3(Math.cos(th)*rad*R,crown.y+y*R*.85*flat,Math.sin(th)*rad*R));}
- const out={p:[] as number[],n:[] as number[],uv:[] as number[],c:[] as number[]},count=far?110:kind==='pine'?900:1100,cell=cells[kind];
+ const out={p:[] as number[],n:[] as number[],uv:[] as number[],c:[] as number[]},count=treeStyle==='cards'?(far?110:kind==='pine'?900:1100):0,cell=cells[kind];
+ let core:T.BufferGeometry|undefined,solid:T.BufferGeometry|undefined;
+ if(treeStyle==='hybrid'||(treeStyle==='leaves'&&far))core=hybridCrown(kind,far,r,clusters,crown,flat,cell,out);
+ else if(treeStyle==='leaves')solid=modelledLeaves(kind,context,r,clusters,crown,flat);
  for(let i=0;i<count;i++){
   const c=clusters[i%clusters.length],spread=R*(far?.42:.34);
   const th=r()*Math.PI*2,y=r()*2-1,rad=Math.sqrt(1-y*y)*Math.cbrt(r());
@@ -76,35 +88,125 @@ function archetype(kind:TreeKind,far:boolean,seed:number){
   // Near cards span about 0.6 m, so drawn leaves read at a natural 6–10 cm.
   card(center,normal,(far?2.2:.62)*(.8+r()*.45),r()*Math.PI*2,cell,r()<.5,crown,tint,out);
  }
- const leaves=new T.BufferGeometry();
- leaves.setAttribute('position',new T.Float32BufferAttribute(out.p,3));leaves.setAttribute('normal',new T.Float32BufferAttribute(out.n,3));
- leaves.setAttribute('uv',new T.Float32BufferAttribute(out.uv,2));leaves.setAttribute('color',new T.Float32BufferAttribute(out.c,3));
+ let leaves:T.BufferGeometry|undefined;
+ if(out.p.length){leaves=new T.BufferGeometry();
+  leaves.setAttribute('position',new T.Float32BufferAttribute(out.p,3));leaves.setAttribute('normal',new T.Float32BufferAttribute(out.n,3));
+  leaves.setAttribute('uv',new T.Float32BufferAttribute(out.uv,2));leaves.setAttribute('color',new T.Float32BufferAttribute(out.c,3));}
  const bark=mergeGeometries(wood.map(g=>g.toNonIndexed()));wood.forEach(g=>g.dispose());
- return {leaves,bark:bark!};
+ return {leaves,bark:bark!,core,solid};
+}
+const clamp01=(v:number)=>T.MathUtils.clamp(v,0,1);
+/** Hybrid crown: overlapping lumpy blobs, shaded darker toward the underside and centre, carry the
+ * crown's mass; leaf cards cover only their exposed outer surface for a leafy silhouette. */
+function hybridCrown(kind:TreeKind,far:boolean,r:()=>number,clusters:T.Vector3[],crown:T.Vector3,flat:number,cell:[number,number],out:{p:number[];n:number[];uv:number[];c:number[]}){
+ const R=REF_R,blobs=clusters.map(c=>({c,rad:R*(far?.42:.31)*(.8+r()*.4)})),parts:T.BufferGeometry[]=[];
+ const green=new T.Color(kind==='pine'?'#2c4122':kind==='maple'?'#44582a':'#3d5625');
+ const shadeAt=(v:T.Vector3)=>(.3+.7*clamp01((v.y-(crown.y-R*.9*flat))/(R*1.8*flat)))*(.55+.45*clamp01(v.distanceTo(crown)/R));
+ for(const b of blobs){
+  const g=new T.IcosahedronGeometry(1,far?1:2),p=g.attributes.position,n=g.attributes.normal,colors:number[]=[],v=new T.Vector3(),u=new T.Vector3();
+  for(let i=0;i<p.count;i++){
+   u.fromBufferAttribute(p,i);const bump=1+.13*Math.sin(u.x*5+b.c.y*2)*Math.sin(u.y*4+b.c.x*2)*Math.sin(u.z*6+b.c.z*2);
+   v.copy(u).multiplyScalar(b.rad*bump);v.y*=flat;v.add(b.c);p.setXYZ(i,v.x,v.y,v.z);
+   const radial=v.clone().sub(crown).normalize(),normal=u.clone().multiplyScalar(.45).addScaledVector(radial,.55).normalize();n.setXYZ(i,normal.x,normal.y,normal.z);
+   const c=green.clone().multiplyScalar(shadeAt(v));colors.push(c.r,c.g,c.b);
+  }
+  g.setAttribute('color',new T.Float32BufferAttribute(colors,3));g.deleteAttribute('uv');parts.push(g);
+ }
+ const count=far?190:kind==='pine'?1300:1700;
+ for(let placed=0,guard=0;placed<count&&guard<count*30;guard++){
+  const b=blobs[Math.floor(r()*blobs.length)],dir=new T.Vector3(r()*2-1,r()*2-1,r()*2-1);if(dir.lengthSq()<.02||dir.lengthSq()>1)continue;dir.normalize();
+  const center=b.c.clone().addScaledVector(dir,b.rad*(.88+r()*.28));center.y=b.c.y+(center.y-b.c.y)*flat;
+  // Cards buried inside a neighbouring blob would never be seen.
+  if(blobs.some(o=>o!==b&&o.c.distanceTo(center)<o.rad*.82))continue;
+  const outward=center.clone().sub(crown).normalize(),normal=dir.clone().multiplyScalar(.5).addScaledVector(outward,.25).add(new T.Vector3(r()-.5,r()-.5,r()-.5).multiplyScalar(.7)).normalize();
+  const shade=(.62+r()*.38)*(.45+.55*shadeAt(center)),tint=new T.Color(shade,shade*(.96+r()*.08),shade*(.84+r()*.12));
+  card(center,normal,(far?1.7:.55)*(.8+r()*.45),r()*Math.PI*2,cell,r()<.5,crown,tint,out);placed++;
+ }
+ const merged=mergeGeometries(parts)!;parts.forEach(g=>g.dispose());return merged;
+}
+/** Modelled leaves: a folded four-triangle blade repeated around branch-tip clusters, one geometry per archetype. */
+function modelledLeaves(kind:TreeKind,context:boolean,r:()=>number,clusters:T.Vector3[],crown:T.Vector3,flat:number){
+ const R=REF_R,blade=[[0,0,0],[-.34,.05,.42],[0,.1,.5],[0,0,1],[.34,.05,.42]],tris=[0,1,2,1,3,2,0,2,4,2,3,4];
+ const count=context?(kind==='pine'?6000:5200):(kind==='pine'?16000:14000),scale=context?2.1:1;
+ const pos=new Float32Array(count*36),nor=new Float32Array(count*36),col=new Float32Array(count*36);
+ const green=new T.Color(kind==='pine'?'#435a3d':kind==='maple'?'#7a8742':'#718144');
+ const m=new T.Matrix4(),q=new T.Quaternion(),v=new T.Vector3(),up=new T.Vector3(0,1,0),spin=new T.Quaternion();
+ for(let i=0;i<count;i++){
+  const c=clusters[i%clusters.length],spread=R*.34,th=r()*Math.PI*2,y=r()*2-1,rad=Math.sqrt(1-y*y)*Math.cbrt(r());
+  const center=new T.Vector3(c.x+Math.cos(th)*rad*spread,c.y+y*spread*.9*flat,c.z+Math.sin(th)*rad*spread);
+  const outward=center.clone().sub(crown).normalize(),normal=outward.clone().multiplyScalar(.6).add(new T.Vector3(r()-.5,r()-.5,r()-.5).multiplyScalar(.9)).normalize();
+  q.setFromUnitVectors(up,normal);spin.setFromAxisAngle(normal,r()*Math.PI*2);q.premultiply(spin);
+  const size=(.1+r()*.1)*scale;m.compose(center,q,kind==='pine'?new T.Vector3(size*.3,size,size*1.7):new T.Vector3(size,size,size));
+  const shade=(.62+r()*.5)*(.35+.65*clamp01((center.y-(crown.y-R*.9*flat))/(R*1.8*flat)))*(.6+.4*clamp01(center.distanceTo(crown)/R));
+  const tint=green.clone().multiplyScalar(shade);tint.g*=.97+r()*.08;tint.b*=.8+r()*.2;
+  const shading=normal.clone().multiplyScalar(.5).addScaledVector(outward,.5).normalize();
+  tris.forEach((k,j)=>{v.fromArray(blade[k]).applyMatrix4(m);const o=i*36+j*3;pos[o]=v.x;pos[o+1]=v.y;pos[o+2]=v.z;nor[o]=shading.x;nor[o+1]=shading.y;nor[o+2]=shading.z;col[o]=tint.r;col[o+1]=tint.g;col[o+2]=tint.b;});
+ }
+ const g=new T.BufferGeometry();g.setAttribute('position',new T.BufferAttribute(pos,3));g.setAttribute('normal',new T.BufferAttribute(nor,3));g.setAttribute('color',new T.BufferAttribute(col,3));return g;
 }
 
 /** Instances trees by archetype. Returns a group with one leaf and one bark draw per archetype. */
 export function buildTrees(specs:TreeSpec[],materials:FoliageMaterials,name:string){
  const group=new T.Group();group.name=name;
+ if(treeStyle==='legacy'){for(const s of specs)legacyTree(group,s,materials,name);return group;}
+ const context=name!=='garden-trees';
  const byKey=new Map<string,TreeSpec[]>();
  for(const s of specs){const key=`${s.kind}-${s.far?'far':'near'}-${s.seed%3}`;(byKey.get(key)??byKey.set(key,[]).get(key)!).push(s);}
  const m=new T.Matrix4(),q=new T.Quaternion(),color=new T.Color();
  for(const [key,list] of byKey){
   const [kind,detail,variant]=key.split('-') as [TreeKind,string,string];
-  const arch=archetype(kind,detail==='far',9173+Number(variant)*7919+kind.length*31);
-  const leaves=new T.InstancedMesh(arch.leaves,materials.leaves,list.length),bark=new T.InstancedMesh(arch.bark,materials.bark,list.length);
-  leaves.name='tree-leaf-cards';bark.name='tree-bark';leaves.userData.sway='leaf';
-  leaves.customDepthMaterial=materials.depth;
+  const arch=archetype(kind,detail==='far',9173+Number(variant)*7919+kind.length*31,context);
+  const bark=new T.InstancedMesh(arch.bark,materials.bark,list.length);bark.name='tree-bark';
+  const crowns:T.InstancedMesh[]=[];
+  if(arch.leaves){const leaves=new T.InstancedMesh(arch.leaves,materials.leaves,list.length);leaves.name='tree-leaf-cards';leaves.customDepthMaterial=materials.depth;crowns.push(leaves);}
+  if(arch.core){const core=new T.InstancedMesh(arch.core,materials.core,list.length);core.name='tree-crown-core';crowns.push(core);}
+  if(arch.solid){const solid=new T.InstancedMesh(arch.solid,materials.solid,list.length);solid.name='tree-leaves';crowns.push(solid);}
+  for(const c of crowns)c.userData.sway='leaf';
   list.forEach((s,i)=>{
    const r=random(s.seed);
    q.setFromAxisAngle(new T.Vector3(0,1,0),r()*Math.PI*2);
    m.compose(new T.Vector3(s.x,s.base??0,s.z),q,new T.Vector3(s.r/REF_R,s.height/REF_H,s.r/REF_R));
-   leaves.setMatrixAt(i,m);bark.setMatrixAt(i,m);
-   const hue=kind==='pine'?.9:.85+r()*.3;leaves.setColorAt(i,color.setRGB(hue,hue*(.97+r()*.06),hue*(.85+r()*.2)));
+   bark.setMatrixAt(i,m);
+   const hue=kind==='pine'?.9:.85+r()*.3;color.setRGB(hue,hue*(.97+r()*.06),hue*(.85+r()*.2));
+   for(const c of crowns){c.setMatrixAt(i,m);c.setColorAt(i,color);}
   });
-  for(const mesh of [leaves,bark]){mesh.castShadow=true;mesh.receiveShadow=true;mesh.computeBoundingSphere();group.add(mesh);}
+  for(const mesh of [...crowns,bark]){mesh.castShadow=true;mesh.receiveShadow=true;mesh.computeBoundingSphere();group.add(mesh);}
  }
  return group;
+}
+
+/** The original per-tree crowns: a trunk, a branch network and individually modelled folded leaves. */
+function legacyTree(parent:T.Group,s:TreeSpec,materials:FoliageMaterials,name:string){
+ const g=new T.Group();g.position.y=s.base??0;parent.add(g);
+ const detail=s.far?{count:1500,scale:2.5}:name==='avenue-trees'?{count:4200,scale:2.3}:undefined;
+ const trunk=new T.Mesh(new T.CylinderGeometry(.1*Math.max(1,s.r/3),.13*Math.max(1,s.r/3),s.height*.68,8),materials.bark);trunk.position.set(s.x,s.height*.34,s.z);trunk.castShadow=true;g.add(trunk);
+ let state=s.seed;const random=()=>{state=(state*1664525+1013904223)>>>0;return state/4294967296;};
+ const {x,z,r,height}=s,pine=s.kind==='pine';
+ const vertices:number[]=[],uv:number[]=[];
+ const shape=[[0,0,0],[-.3,.04,.2],[-.46,.075,.48],[-.3,.055,.78],[0,0,1],[.3,.055,.78],[.46,.075,.48],[.3,.04,.2]];
+ for(let i=0;i<8;i++){for(const point of [[0,.11,.5],shape[i],shape[(i+1)%8]]){vertices.push(...point);uv.push(point[0]+.5,point[2]);}}
+ const leafGeo=new T.BufferGeometry();leafGeo.setAttribute('position',new T.Float32BufferAttribute(vertices,3));leafGeo.setAttribute('uv',new T.Float32BufferAttribute(uv,2));leafGeo.computeVertexNormals();
+ const leafMat=new T.MeshStandardMaterial({color:pine?'#435a3d':'#718144',roughness:.83,side:T.DoubleSide});leafMat.userData.photo='foliage';
+ const count=detail?.count??Math.round(4500*r),leaves=new T.InstancedMesh(leafGeo,leafMat,count),dummy=new T.Object3D();
+ leaves.name='individual-tree-leaves';leaves.castShadow=true;leaves.receiveShadow=true;leaves.userData.sway='leaf';
+ const branches=new T.InstancedMesh(new T.CylinderGeometry(1,1.6,1,7),new T.MeshStandardMaterial({color:'#655b48',roughness:1}),80);
+ branches.castShadow=true;branches.receiveShadow=true;branches.name='tree-branch-network';
+ const clusters:T.Vector3[]=[];
+ for(let i=0;i<40;i++){
+  const theta=random()*Math.PI*2,v=random()*1.8-1,radial=Math.sqrt(1-v*v)*(.45+random()*.45);
+  const tip=new T.Vector3(x+Math.cos(theta)*radial*r,height-r*.28+v*r*(pine?.22:.65),z+Math.sin(theta)*radial*r*.9);
+  const start=new T.Vector3(x,height*.48,z),fork=start.clone().lerp(tip,.66);clusters.push(tip);
+  for(const [j,a,b] of [[i*2,start,fork],[i*2+1,fork,tip]] as [number,T.Vector3,T.Vector3][]){
+   dummy.position.copy(a).add(b).multiplyScalar(.5);dummy.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),b.clone().sub(a).normalize());dummy.scale.set(j%2?.015:.029,a.distanceTo(b),j%2?.015:.029);dummy.updateMatrix();branches.setMatrixAt(j,dummy.matrix);
+  }
+ }
+ for(let i=0;i<count;i++){
+  const center=clusters[i%clusters.length],a=random()*Math.PI*2,v=random()*2-1,radial=Math.sqrt(1-v*v)*Math.cbrt(random()),spread=r*.34;
+  dummy.position.set(center.x+Math.cos(a)*radial*spread,center.y+v*spread*.9,center.z+Math.sin(a)*radial*spread);
+  const size=(.09+random()*.09)*(detail?.scale??1);dummy.scale.set(pine?size*.35:size,size,pine?size*1.8:size);dummy.rotation.set(random()*Math.PI,random()*Math.PI*2,random()*Math.PI);dummy.updateMatrix();leaves.setMatrixAt(i,dummy.matrix);
+  const shade=.65+random()*.55;leaves.setColorAt(i,new T.Color().setRGB(shade,shade*(.97+random()*.1),shade*(.75+random()*.15)));
+ }
+ g.add(branches,leaves);
 }
 
 /** A clipped garden hedge: a solid, gently lumpy body, with leaf cards in the detailed model. */

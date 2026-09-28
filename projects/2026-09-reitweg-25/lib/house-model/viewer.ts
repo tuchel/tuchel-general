@@ -12,7 +12,7 @@ import {createPost} from './post';
 import {createCameraRig,type Framing} from './camera-rig';
 import {createCaptures} from './experience';
 import {places,type Place,type CaptureState} from './experience-data';
-import {foliageMaterials,finishFoliage} from './foliage';
+import {foliageMaterials,finishFoliage,setTreeStyle} from './foliage';
 import {loadSurfaceTextures,finishSurfaces} from './surface-materials';
 import {bakeSkyVisibility} from './sky-visibility';
 import {eyeLevelGrass} from './grass';
@@ -51,6 +51,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const rig=createCameraRig(camera,controls,reduced);
 
  // Scene: house, setting and ground.
+ setTreeStyle(new URLSearchParams(location.search).get('trees'));
  const foliage=realistic?foliageMaterials():undefined;
  const setting=realistic?landscapeContext({foliage,density:tier.farWoodland}):undefined;
  const model=buildHouseModel(realistic,setting?.group,foliage);scene.add(model.root);
