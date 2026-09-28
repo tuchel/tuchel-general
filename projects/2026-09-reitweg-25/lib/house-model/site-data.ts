@@ -9,6 +9,8 @@ export const planPoint = (x:number,z:number):Point => [(x-1012)*PLAN_SCALE,(z-52
 // The upper spread is shifted 52 trace pixels east of the ground spread.
 // Main stair and chimney axes provide the registration anchors.
 export const UPPER_PLAN_X_OFFSET = -52 * PLAN_SCALE;
+// The basement sheet is drawn 20 px east of the ground sheet (stair, light wells and footprint agree).
+export const BASEMENT_PLAN_X_OFFSET = -20 * PLAN_SCALE;
 // Guest roof eaves on the upper spread, registered to the ground plan.
 // Includes the roof over the courtyard-side loggia.
 export const guestRoofCorners:Point[] = [[160,535],[525,570],[466,1247],[92,1213]].map(([x,z])=>planPoint(x-52,z));
@@ -59,7 +61,7 @@ export const sourceNotes = [
  'Owner-confirmed corrections: mirrored north bedrooms, kitchen sliding door and terrace table, open dining/sitting-room connection, clear entrance walkway, shorter corridor storage, guest stair atrium and yoga-to-wellness door.',
  'Roof heights and joinery are approximate. The guest roof footprint follows the registered eave outline, including the covered loggia.',
  'Meadow islands, mown routes, sparse wildflowers and ornamental grass drifts are photo-led interpretations. Plant species and exact bed edges have not been surveyed.',
- 'Detailed realism uses the same geometry, with individually modeled tiles, leaves and branches. Photo-derived surface colour is combined with inferred relief and lighting; it is not a measured or scanned reconstruction.',
+ 'The detailed view uses the same geometry. Cladding, roof slates, oak, limestone, lawn, linen and plaster are generated tileable textures matched to the average colour of the owner’s photographs; trees are leaf-card crowns. It is not a measured or scanned reconstruction.',
  'Terrain is shown level. Trees are simplified, with indicative heights and canopies. The boundary is a plan tracing, not a cadastral survey.',
  'Renovations are independently switchable spatial concepts, using the selected portal briefs. The kitchen follows the confirmed A+B+C outline with one uniform plan registration. New roof form, supports, terrace extent and boundary height are illustrative and need an architect’s measured design. Cutaway walls are lowered to make rooms readable.'
 ];

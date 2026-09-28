@@ -15,15 +15,15 @@ export function buildGarden(realistic=false){
  const tuftGeo=new T.BufferGeometry();tuftGeo.setAttribute('position',new T.Float32BufferAttribute(vertices,3));tuftGeo.computeVertexNormals();
  let bedId=0;const bedBases:T.Mesh[]=[];
  const positions:{x:number;z:number;h:number;flower:boolean;bed:number}[]=[];
- function bed(cx:number,cz:number,rx:number,rz:number,density:number,height:number,flowers:boolean){
-  const currentBed=bedId++;const points:number[][]=[];for(let i=0;i<64;i++){const a=i/64*Math.PI*2,r=1+.04*Math.sin(a*3+.8)+.035*Math.cos(a*5);points.push([cx+Math.cos(a)*rx*r,cz+Math.sin(a)*rz*r]);}
+ function bed(cx:number,cz:number,rx:number,rz:number,density:number,height:number,flowers:boolean,rectangular=false){
+  const currentBed=bedId++;const points:number[][]=[];if(rectangular)points.push([cx-rx,cz-rz],[cx+rx,cz-rz],[cx+rx,cz+rz],[cx-rx,cz+rz]);else for(let i=0;i<64;i++){const a=i/64*Math.PI*2,r=1+.04*Math.sin(a*3+.8)+.035*Math.cos(a*5);points.push([cx+Math.cos(a)*rx*r,cz+Math.sin(a)*rz*r]);}
   const shape=new T.Shape(points.map(([x,z])=>new T.Vector2(x,-z)));const mesh=new T.Mesh(new T.ShapeGeometry(shape),baseMat);mesh.rotation.x=-Math.PI/2;mesh.position.y=.035;mesh.receiveShadow=true;group.add(mesh);bedBases.push(mesh);
   for(let i=0;i<rx*rz*Math.PI*density*(realistic?1.7:1);i++){const x=cx+(rand()*2-1)*rx*1.08,z=cz+(rand()*2-1)*rz*1.08;if(inside(x,z,points)&&inside(x,z,plotOutline)&&!(x>-18.5&&x<-12&&z>-.7&&z<1.6))positions.push({x,z,h:height*(.65+rand()*.7),flower:flowers&&rand()<.16,bed:currentBed});}
  }
  // Tall meadow beyond the close-cut eastern lawn; a mown route separates islands.
  bed(32,1.1,17,9.8,20,.56,true);bed(32,21,13.8,5.3,20,.6,true);
- // Softer ornamental grass drifts beside the east terrace and arrival path.
- bed(8.2,-2.7,1.3,3.8,35,.43,false);bed(8.5,6.7,1.6,1.7,35,.4,true);
+ // The rectangular planting bed between the east decks (grounds plan), a drift beyond the terrace, and the arrival path.
+ bed(7.08,-2.55,.9,2.5,35,.43,false,true);bed(9.75,6.7,1.6,1.7,35,.4,true);
  bed(-10,-5.8,1.7,3.4,35,.48,false);
  // Entrance grasses are modeled separately around the narrow cobbled path.
  const tufts=new T.InstancedMesh(tuftGeo,grassMat,positions.length);tufts.name='meadow-grass';const dummy=new T.Object3D();

@@ -1,62 +1,158 @@
-import {sunLighting} from './sun-lighting';
-import {sunStudyReading,type SunStudy} from './sun-position';
 import * as T from 'three';
-import type {OrbitControls} from 'three/addons/controls/OrbitControls.js';
-import {atmosphere} from './atmosphere';
-import {places,initialExperience,type ExperienceState,type Presence,type Mood} from './experience-data';
 import type {WebGLPathTracer} from 'three-gpu-pathtracer';
+import {atmosphere} from './atmosphere';
+import {initialCapture,type CaptureState} from './experience-data';
 import {photoSize} from './photo-size';
+import type {Lighting} from './lighting';
 
-export function createExperience(scene:T.Scene,camera:T.Camera,renderer:T.WebGLRenderer,controls:OrbitControls,sun:T.DirectionalLight,hemisphere:T.HemisphereLight,root:T.Group,invalidate:()=>void,reset:()=>void,onState:(s:ExperienceState)=>void,onEnter:()=>void){
- let state={...initialExperience},disposed=false,abort:AbortController|undefined,tracer:WebGLPathTracer|undefined,baked:{dispose:()=>void}|undefined,worker:{dispose:()=>void}|undefined,renderSize:T.Vector2|undefined,renderRatio=1,renderExposure=.82,lastReport=0;
- const air=atmosphere(root,scene,sun,hemisphere,renderer),canvas=renderer.domElement,waterTime={value:0};
- const sunlight=sunLighting(root,scene,sun,hemisphere,renderer);
- const motionPreference=window.matchMedia('(prefers-reduced-motion: reduce)');
- state.breeze=!motionPreference.matches;air.breeze(state.breeze);
- let motionFrame=false,lastMotion=0,motionSeconds=0;
- const send=(s:Partial<ExperienceState>)=>{state={...state,...s};if(!disposed)onState(state);invalidate();};
- const preferenceChanged=()=>{air.breeze(!motionPreference.matches);send({breeze:!motionPreference.matches});};
- motionPreference.addEventListener('change',preferenceChanged);
+/** Photographs, panoramas, films and model export, plus optional breeze and sound. */
+export function createCaptures(options:{
+ scene:T.Scene;camera:T.PerspectiveCamera;renderer:T.WebGLRenderer;root:T.Object3D;lighting:Lighting;
+ invalidate:()=>void;onState:(s:CaptureState)=>void;
+ /** Path tracing and export are offered only where memory allows. */
+ heavy:boolean;
+ eyeLevel:()=>boolean;
+ /** Orbits the camera for a film; returns false when the camera is at eye level. */
+ orbit:(angle:number)=>void;
+ beginOrbit:()=>boolean;
+}){
+ const {scene,camera,renderer,root,lighting}=options,canvas=renderer.domElement,air=atmosphere(root);
+ let state={...initialCapture},disposed=false,abort:AbortController|undefined,tracer:WebGLPathTracer|undefined;
+ let baked:{dispose:()=>void}|undefined,worker:{dispose:()=>void}|undefined,environment:T.Texture|undefined,renderSize:T.Vector2|undefined,renderRatio=1,lastReport=0,motionSeconds=0,lastMotion=0;
+ const send=(s:Partial<CaptureState>)=>{state={...state,...s};if(!disposed)options.onState(state);options.invalidate();};
+ const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
+ const preferenceChanged=()=>{if(reduced.matches&&state.breeze){air.breeze(false);send({breeze:false});}};
+ reduced.addEventListener('change',preferenceChanged);
  const download=(blob:Blob,name:string)=>{const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);};
- const stop=()=>{abort?.abort();abort=undefined;tracer?.dispose();tracer=undefined;worker?.dispose();worker=undefined;baked?.dispose();baked=undefined;if(renderSize){renderer.toneMappingExposure=renderExposure;renderer.setPixelRatio(renderRatio);renderer.setSize(renderSize.x,renderSize.y,false);renderSize=undefined;}send({render:'idle',busy:false,samples:0,message:''});};
- const presence=(id:Presence)=>{onEnter();stop();controls.autoRotate=false;send({presence:id});canvas.setAttribute('aria-label',id==='overview'?'Interactive house model. Drag to orbit; pinch to zoom.':'Eye-level house view. Drag or use arrow keys to look around. Pinch to zoom. Escape returns to the overview.');if(id==='overview'){controls.enabled=true;reset();return;}if(!(camera instanceof T.PerspectiveCamera))return;controls.enabled=false;const place=places[id];camera.position.fromArray(place.position);camera.zoom=1;camera.fov=65;camera.lookAt(new T.Vector3(...place.target));camera.updateProjectionMatrix();invalidate();};
- let pointer:number|undefined,px=0,py=0;const touches=new Map<number,[number,number]>();let pinch=0;
- const down=(event:PointerEvent)=>{if(state.presence==='overview')return;stop();touches.set(event.pointerId,[event.clientX,event.clientY]);if(touches.size===2){const [a,b]=[...touches.values()];pinch=Math.hypot(a[0]-b[0],a[1]-b[1]);}pointer=event.pointerId;px=event.clientX;py=event.clientY;canvas.setPointerCapture(pointer);};
- const move=(event:PointerEvent)=>{if(touches.has(event.pointerId))touches.set(event.pointerId,[event.clientX,event.clientY]);if(touches.size===2){const [a,b]=[...touches.values()],distance=Math.hypot(a[0]-b[0],a[1]-b[1]);if(camera instanceof T.PerspectiveCamera&&pinch>0){camera.zoom=T.MathUtils.clamp(camera.zoom*distance/pinch,.7,3);camera.updateProjectionMatrix();invalidate();}pinch=distance;return;}if(pointer!==event.pointerId)return;const euler=new T.Euler().setFromQuaternion(camera.quaternion,'YXZ');euler.y-=(event.clientX-px)*.004;euler.x=T.MathUtils.clamp(euler.x-(event.clientY-py)*.004,-1.35,1.35);camera.quaternion.setFromEuler(euler);px=event.clientX;py=event.clientY;invalidate();};
- const up=(event:PointerEvent)=>{touches.delete(event.pointerId);pointer=undefined;pinch=0;};
- const key=(event:KeyboardEvent)=>{if(state.presence==='overview')return;if(event.key==='Escape'){presence('overview');return;}if(!event.key.startsWith('Arrow'))return;event.preventDefault();const e=new T.Euler().setFromQuaternion(camera.quaternion,'YXZ');e.y+=event.key==='ArrowLeft'?.1:event.key==='ArrowRight'?-.1:0;e.x=T.MathUtils.clamp(e.x+(event.key==='ArrowUp'?.08:event.key==='ArrowDown'?-.08:0),-1.35,1.35);camera.quaternion.setFromEuler(e);stop();};
- canvas.addEventListener('pointerdown',down);canvas.addEventListener('pointermove',move);canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',up);canvas.addEventListener('keydown',key);
+ let recorder:MediaRecorder|undefined,recordTimer:ReturnType<typeof setTimeout>|undefined,tourStart=0;
+ const endFilm=()=>{if(recorder?.state==='recording')recorder.stop();tourStart=0;};
+ const stop=()=>{
+  abort?.abort();abort=undefined;
+  tracer?.dispose();tracer=undefined;worker?.dispose();worker=undefined;baked?.dispose();baked=undefined;environment?.dispose();environment=undefined;
+  if(renderSize){renderer.setPixelRatio(renderRatio);renderer.setSize(renderSize.x,renderSize.y,false);renderSize=undefined;}
+  // Any interaction ends a film: the camera belongs to the viewer again.
+  endFilm();
+  if(state.busy||state.render!=='idle'||state.samples||state.message)send({render:'idle',busy:false,samples:0,message:''});
+ };
  const photograph=async(panorama=false)=>{
-  stop();if(panorama&&state.presence==='overview'){send({message:'Choose an eye-level place before making a panorama.'});return;}
-  controls.autoRotate=false;const controller=new AbortController();abort=controller;send({busy:true,render:'preparing',message:'Preparing photographic materials…'});
-  let local:{scene:T.Scene;dispose:()=>void}|undefined,pt:WebGLPathTracer|undefined,bvh:{dispose:()=>void}|undefined;
+  stop();
+  if(!options.heavy){send({message:'Photographic rendering needs a computer; this device keeps the live view.'});return;}
+  if(panorama&&!options.eyeLevel()){send({message:'Choose an eye-level view before making a panorama.'});return;}
+  const controller=new AbortController();abort=controller;
+  send({busy:true,render:'preparing',message:'Preparing photographic materials…'});
+  let local:{scene:T.Scene;dispose:()=>void}|undefined,pt:WebGLPathTracer|undefined,bvh:{dispose:()=>void}|undefined,env:T.Texture|undefined;
   try{
    const [{photographicScene},{WebGLPathTracer,EquirectCamera},{GenerateMeshBVHWorker}]=await Promise.all([import('./photographic-scene'),import('three-gpu-pathtracer'),import('three-mesh-bvh/src/workers/GenerateMeshBVHWorker.js')]);
-   local=await photographicScene(scene,camera,state.sun.enabled&&sunStudyReading(state.sun).elevation<10?'evening':state.mood,controller.signal,text=>send({message:text}));if(controller.signal.aborted){local.dispose();return;}
-   send({message:'Building the light transport model…'});pt=new WebGLPathTracer(renderer);pt.bounces=8;pt.transmissiveBounces=12;pt.tiles.set(3,3);pt.renderDelay=0;pt.minSamples=1;pt.fadeDuration=400;pt.filterGlossyFactor=.4;pt.textureSize.set(512,512);pt.rasterizeScene=false;
+   // The same sky that lights the live view, so the photograph matches it.
+   env=lighting.equirect();
+   local=await photographicScene(scene,env,controller.signal,text=>send({message:text}),{maxDistance:90,origin:camera.position.clone()});
+   if(controller.signal.aborted){local.dispose();env.dispose();return;}
+   send({message:'Building the light transport model…'});
+   pt=new WebGLPathTracer(renderer);
+   Object.assign(pt,{bounces:7,transmissiveBounces:10,renderDelay:0,minSamples:1,fadeDuration:400,filterGlossyFactor:.4,rasterizeScene:false});
+   pt.tiles.set(3,3);pt.textureSize.set(1024,1024);
    const generator=new GenerateMeshBVHWorker();bvh=generator;pt.setBVHWorker(generator);
    let renderCamera:T.Camera=camera;
    if(panorama){renderCamera=new EquirectCamera();renderCamera.position.copy(camera.position);renderCamera.quaternion.copy(camera.quaternion);renderCamera.updateMatrixWorld();}
-   await pt.setSceneAsync(local.scene,renderCamera);if(controller.signal.aborted){pt.dispose();generator.dispose();local.dispose();return;}
-   renderExposure=renderer.toneMappingExposure;renderer.toneMappingExposure=state.presence==='overview'?1.1:2.2;renderSize=renderer.getSize(new T.Vector2());renderRatio=renderer.getPixelRatio();renderer.setPixelRatio(1);const {width,height}=photoSize(renderSize.x,renderSize.y,renderRatio,state.maximum,panorama);renderer.setSize(width,height,false);
-   tracer=pt;baked=local;worker=generator;send({busy:false,render:panorama?'panorama':'refining',message:'Light is settling. Keep the camera still.'});
-  }catch(error){pt?.dispose();bvh?.dispose();local?.dispose();if(!controller.signal.aborted)send({busy:false,render:'idle',message:'Photographic rendering is unavailable on this device. The interactive view and 4K capture still work.'});console.warn('Photographic render',error);}
+   await pt.setSceneAsync(local.scene,renderCamera);
+   if(controller.signal.aborted){pt.dispose();generator.dispose();local.dispose();env.dispose();return;}
+   renderSize=renderer.getSize(new T.Vector2());renderRatio=renderer.getPixelRatio();renderer.setPixelRatio(1);
+   const {width,height}=photoSize(renderSize.x,renderSize.y,renderRatio,state.maximum,panorama);
+   renderer.setSize(width,height,false);
+   tracer=pt;baked=local;worker=generator;environment=env;
+   send({busy:false,render:panorama?'panorama':'refining',message:'Light is settling. Keep the camera still.'});
+  }catch(error){
+   pt?.dispose();bvh?.dispose();local?.dispose();env?.dispose();
+   if(!controller.signal.aborted)send({busy:false,render:'idle',message:'Photographic rendering is unavailable on this device. The live view and still images still work.'});
+   console.warn('Photographic render',error);
+  }
  };
- let recorder:MediaRecorder|undefined,recordTimer:ReturnType<typeof setTimeout>|undefined,tourStart=0,tourPose:T.Vector3|undefined,tourTarget:T.Vector3|undefined;
  const film=()=>{
-  if(recorder?.state==='recording'){recorder.stop();return;}stop();if(state.presence!=='overview')presence('overview');
+  if(recorder?.state==='recording'){recorder.stop();return;}
+  stop();
   if(!canvas.captureStream||typeof MediaRecorder==='undefined'){send({message:'Video capture is not supported by this browser. Save a still image instead.'});return;}
-  const mime=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/mp4'].find(t=>MediaRecorder.isTypeSupported(t));if(!mime){send({message:'This browser has no supported video encoder.'});return;}
-  try{const stream=canvas.captureStream(30),chunks:Blob[]=[];recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:10000000});recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};recorder.onstop=()=>{if(recordTimer)clearTimeout(recordTimer);stream.getTracks().forEach(t=>t.stop());tourStart=0;send({recording:false,message:'Film saved · 20-second silent orbit'});if(!disposed)download(new Blob(chunks,{type:mime}),'reitweg-25-film.'+(mime.includes('mp4')?'mp4':'webm'));};tourStart=performance.now();tourPose=camera.position.clone();tourTarget=controls.target.clone();controls.autoRotate=false;recorder.start();recordTimer=setTimeout(()=>recorder?.state==='recording'&&recorder.stop(),20000);send({recording:true,message:'Recording a gentle 20-second orbit…'});}catch{send({message:'Video recording could not start on this device.'});}
+  const mime=['video/mp4;codecs=avc1','video/webm;codecs=vp9','video/webm;codecs=vp8','video/mp4'].find(t=>MediaRecorder.isTypeSupported(t));
+  if(!mime){send({message:'This browser has no supported video encoder.'});return;}
+  if(!options.beginOrbit()){send({message:'Films orbit the whole house; return to an overview first.'});return;}
+  try{
+   const stream=canvas.captureStream(30),chunks:Blob[]=[];
+   recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:12000000});
+   recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
+   recorder.onstop=()=>{if(recordTimer)clearTimeout(recordTimer);stream.getTracks().forEach(t=>t.stop());tourStart=0;send({recording:false,message:'Film saved · 20-second orbit'});if(!disposed)download(new Blob(chunks,{type:mime}),'reitweg-25-film.'+(mime.includes('mp4')?'mp4':'webm'));};
+   tourStart=performance.now();recorder.start();
+   recordTimer=setTimeout(()=>recorder?.state==='recording'&&recorder.stop(),20000);
+   send({recording:true,message:'Recording a 20-second orbit…'});
+  }catch{send({message:'Video recording could not start on this device.'});}
  };
- const exportModel=async()=>{stop();const controller=new AbortController();abort=controller;send({busy:true,message:'Preparing the textured model for export…'});let model:{scene:T.Scene;dispose:()=>void}|undefined;try{const [{photographicScene},{GLTFExporter}]=await Promise.all([import('./photographic-scene'),import('three/addons/exporters/GLTFExporter.js')]);model=await photographicScene(scene,camera,state.mood,controller.signal,text=>send({message:text}));if(controller.signal.aborted)return;const textures=new Map<T.Texture,T.CanvasTexture>();
- model.scene.traverse(o=>{if(o instanceof T.Mesh){for(const mat of Array.isArray(o.material)?o.material:[o.material]){if(!(mat instanceof T.MeshStandardMaterial))continue;for(const key of ['map','roughnessMap','normalMap'] as const){const original=mat[key];if(!(original instanceof T.DataTexture))continue;if(!textures.has(original)){const canvas=document.createElement('canvas');canvas.width=original.image.width;canvas.height=original.image.height;canvas.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(original.image.data as Uint8Array),canvas.width,canvas.height),0,0);const converted=new T.CanvasTexture(canvas);converted.colorSpace=original.colorSpace;converted.flipY=false;converted.repeat.copy(original.repeat);converted.offset.copy(original.offset);converted.rotation=original.rotation;converted.wrapS=original.wrapS;converted.wrapT=original.wrapT;textures.set(original,converted);}mat[key]=textures.get(original)!;}}}else if(o instanceof T.DirectionalLight||o instanceof T.SpotLight){o.lookAt(o.target.position);o.target.position.set(0,0,-1);o.add(o.target);}});
- let data:ArrayBuffer|object;try{data=await new GLTFExporter().parseAsync(model.scene,{binary:true,onlyVisible:true});}finally{textures.forEach(t=>t.dispose());}if(controller.signal.aborted)return;download(new Blob([data as ArrayBuffer],{type:'model/gltf-binary'}),'reitweg-25-textured-model.glb');send({busy:false,message:'Textured model saved for Blender or another renderer.'});}catch(error){console.warn('Model export',error);if(!controller.signal.aborted)send({busy:false,message:'Model export did not complete. Try hiding trees to reduce its size.'});}finally{model?.dispose();}};
- return {waterTime,maximum:(on:boolean)=>{stop();send({maximum:on});},presence,photograph,stop,film,exportModel,sun:(change:Partial<SunStudy>)=>{stop();const study={...state.sun,...change};sunlight.apply(study);if(!study.enabled)air.mood(state.mood);send({sun:study});},mood:(m:Mood)=>{stop();const study={...state.sun,enabled:false};sunlight.apply(study);air.mood(m);send({mood:m,sun:study});},breeze:(on:boolean)=>{air.breeze(on);send({breeze:on});},sound:async(on:boolean)=>{try{await air.sound(on);send({sound:on});}catch{send({sound:false,message:'Audio could not start in this browser.'});}},savePhoto:()=>{if(!tracer||state.samples<1)return;tracer.renderSample();const name='reitweg-25-'+(state.render==='panorama'?'360-panorama':'photograph')+'.png';canvas.toBlob(blob=>{if(blob)download(blob,name);});},tick:(now:number,allowMotion=true,motionInterval=1000/30)=>{
-  motionFrame=false;
-  if(!allowMotion||!state.breeze||tracer||state.busy){lastMotion=now;}
-  else if(now-lastMotion>=motionInterval){motionSeconds+=Math.min(.1,(now-lastMotion)/1000);lastMotion=now;air.tick(motionSeconds);waterTime.value=motionSeconds;motionFrame=true;}
-  if(tourStart&&tourPose&&tourTarget){const angle=Math.min(1,(now-tourStart)/20000)*.42;camera.position.copy(tourPose).sub(tourTarget).applyAxisAngle(new T.Vector3(0,1,0),angle).add(tourTarget);camera.lookAt(tourTarget);invalidate();}
-  if(tracer){if(tracer.samples<(state.maximum?1024:256))tracer.renderSample();if(now-lastReport>700){lastReport=now;send({samples:Math.floor(tracer.samples),message:tracer.samples>=(state.maximum?1024:256)?'Photograph ready. Save it or return to exploring.':'Refining reflections, shadows and bounced light…'});}return true;}return false;
- },get motionFrame(){return motionFrame;},get active(){return !!tracer||state.busy;},get presenceId(){return state.presence;},dispose:()=>{disposed=true;motionPreference.removeEventListener('change',preferenceChanged);stop();if(recordTimer)clearTimeout(recordTimer);if(recorder?.state==='recording')recorder.stop();sunlight.dispose();air.dispose();canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('keydown',key);}};
+ const exportModel=async()=>{
+  stop();
+  if(!options.heavy){send({message:'Model export needs a computer.'});return;}
+  const controller=new AbortController();abort=controller;
+  send({busy:true,message:'Preparing the textured model for export…'});
+  let model:{scene:T.Scene;dispose:()=>void}|undefined,env:T.Texture|undefined;
+  try{
+   const [{photographicScene},{GLTFExporter}]=await Promise.all([import('./photographic-scene'),import('three/addons/exporters/GLTFExporter.js')]);
+   env=new T.DataTexture(new Float32Array(4),1,1,T.RGBAFormat,T.FloatType);
+   model=await photographicScene(scene,env,controller.signal,text=>send({message:text}),{maxDistance:120,origin:new T.Vector3(-5,0,8)});
+   model.scene.environment=null;model.scene.background=null;
+   if(controller.signal.aborted)return;
+   // Data textures become canvases so GLTFExporter can embed them as images.
+   const textures=new Map<T.Texture,T.CanvasTexture>();
+   model.scene.traverse(o=>{
+    if(!(o instanceof T.Mesh))return;
+    for(const mat of Array.isArray(o.material)?o.material:[o.material]){
+     if(!(mat instanceof T.MeshStandardMaterial))continue;
+     for(const key of ['map','roughnessMap','normalMap'] as const){
+      const original=mat[key];if(!(original instanceof T.DataTexture))continue;
+      if(!textures.has(original)){
+       const c=document.createElement('canvas');c.width=original.image.width;c.height=original.image.height;
+       c.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(original.image.data as Uint8Array),c.width,c.height),0,0);
+       const converted=new T.CanvasTexture(c);converted.colorSpace=original.colorSpace;converted.flipY=original.flipY;converted.wrapS=original.wrapS;converted.wrapT=original.wrapT;textures.set(original,converted);
+      }
+      mat[key]=textures.get(original)!;
+     }
+    }
+   });
+   let data:ArrayBuffer|object;
+   try{data=await new GLTFExporter().parseAsync(model.scene,{binary:true,onlyVisible:true});}finally{textures.forEach(t=>t.dispose());}
+   if(controller.signal.aborted)return;
+   download(new Blob([data as ArrayBuffer],{type:'model/gltf-binary'}),'reitweg-25-textured-model.glb');
+   send({busy:false,message:'Textured model saved for Blender or another renderer.'});
+  }catch(error){
+   console.warn('Model export',error);
+   if(!controller.signal.aborted)send({busy:false,message:'Model export did not complete.'});
+  }finally{model?.dispose();env?.dispose();}
+ };
+ return {
+  photograph,film,exportModel,stop,
+  maximum:(on:boolean)=>{stop();send({maximum:on});},
+  breeze:(on:boolean)=>{air.breeze(on);send({breeze:on});},
+  sound:async(on:boolean)=>{try{await air.sound(on);send({sound:on});}catch{send({sound:false,message:'Audio could not start in this browser.'});}},
+  savePhoto:()=>{
+   if(!tracer||state.samples<1)return;
+   tracer.renderSample();
+   const name='reitweg-25-'+(state.render==='panorama'?'360-panorama':'photograph')+'.png';
+   canvas.toBlob(blob=>{if(blob)download(blob,name);});
+  },
+  get recording(){return recorder?.state==='recording';},
+  get tracing(){return !!tracer;},
+  get active(){return !!tracer||state.busy;},
+  get breezing(){return air.breezing;},
+  /** Advances wind, film orbit and path tracing. Returns true when the tracer owns the canvas. */
+  tick:(now:number)=>{
+   if(air.breezing&&!tracer){motionSeconds+=Math.min(.1,(now-(lastMotion||now))/1000);air.tick(motionSeconds);}
+   lastMotion=now;
+   if(tourStart)options.orbit(Math.min(1,(now-tourStart)/20000)*.9);
+   if(tracer){
+    const target=state.maximum?1024:256;
+    if(tracer.samples<target)tracer.renderSample();
+    if(now-lastReport>700){lastReport=now;send({samples:Math.floor(tracer.samples),message:tracer.samples>=target?'Photograph ready. Save it or return to exploring.':'Refining reflections, shadows and bounced light…'});}
+    return true;
+   }
+   return false;
+  },
+  get waterSeconds(){return motionSeconds;},
+  dispose:()=>{disposed=true;reduced.removeEventListener('change',preferenceChanged);stop();if(recordTimer)clearTimeout(recordTimer);air.dispose();},
+ };
 }
+export type Captures=ReturnType<typeof createCaptures>;

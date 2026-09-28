@@ -2,9 +2,9 @@
 
 A renovation planning portal and interactive Three.js model of the house and grounds in Bernried am Starnberger See.
 
-[Open the public portal](https://tuchel.github.io/tuchel-general/reitweg-25/?view=model&quality=realism) · [Owner studio](https://reitweg-25-design-studio.tuchel.chatgpt.site/?view=model&quality=realism)
+[Open the public portal](https://tuchel.github.io/tuchel-general/reitweg-25/?view=model) · [Owner studio](https://reitweg-25-design-studio.tuchel.chatgpt.site/?view=model)
 
-The portal includes renovation briefs, reference photographs, concept renders, floor plans, solar sizing scenarios, and a furnished 3D model with stackable renovation options. The sun study uses the property coordinates and local German clock time, with date-dependent sunrise, peak-sun and sunset markers.
+The portal includes renovation briefs, reference photographs, concept renders, floor plans, solar sizing scenarios, and a furnished 3D model with stackable renovation options. The model's light follows the calculated sun for the address in local German clock time, with sunrise, midday, golden-hour and dusk presets. The model picks a detail preset for the device: Detailed on computers, Balanced on phones and Model on weak or software graphics; `?quality=detailed|balanced|model` overrides it.
 
 ## Run locally
 
@@ -15,7 +15,7 @@ npm run install:ci
 npm run dev
 ```
 
-The local preview runs at http://localhost:5173. `npm run build` creates the Cloudflare Worker and client assets. `npx tsc --noEmit` checks types. `mkdir -p tmp && node scripts/check-house-sun.mjs` checks solar geometry and daily events.
+The local preview runs at http://localhost:5173. `npm run build` creates the Cloudflare Worker and client assets. `npx tsc --noEmit` checks types. `mkdir -p tmp`, then `node scripts/check-house-<name>.mjs` runs a model check: `sun` (solar geometry, daily events, lighting), `batching` (merged draws match the source scene in every floor and renovation state), `camera`, `materials`, `motion`, `setting`, `renovations` (add `--realism` for the detailed scene), `interiors`, `pool` and `entrance`. `node scripts/build-materials.mjs` regenerates the surface textures in `public/assets/materials/`.
 
 ## Status and data
 

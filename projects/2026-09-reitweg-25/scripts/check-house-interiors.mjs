@@ -53,9 +53,32 @@ const lo=new T.Box3().setFromObject(lowerStair),hi=new T.Box3().setFromObject(up
 model.root.traverse(o=>{if(o instanceof T.Mesh){for(const n of o.matrixWorld.elements)assert(Number.isFinite(n),'finite transform');}});
 if(model.detail){
  model.setLevel('exterior');model.root.updateMatrixWorld(true);
- const ceilings=model.detail.ceilings;model.root.getObjectByName('upper-interior-behind-roof').traverse(o=>{if(!o.userData.enclosedSourceUuid)return;const original=model.root.getObjectByProperty('uuid',o.userData.enclosedSourceUuid);assert(original);assert(new T.Box3().setFromObject(o).min.distanceTo(new T.Box3().setFromObject(original).min)<1e-6,'roofs-on furniture matches the registered upper-floor layout');});
+ const ceilings=model.detail.ceilings;let enclosed=0;model.upper.traverse(o=>{if(!o.userData.alsoExterior)return;enclosed++;assert(model.rendered(o),'roofs-on view keeps upper-floor rooms in place');for(let a=o;a&&a!==model.upper;a=a.parent)assert(!a.name.includes('stair'),'cutaway stairs stay out of the roofs-on view');assert(new T.Box3().setFromObject(o).min.y>=2.85);});assert(enclosed>100,'upper-floor furnishings shown behind the roof');
  for(const [x,z] of [[1035,540],[1035,630],[978,530]]){const [px,pz]=p(x,z);assert.equal(crosses([px+UPPER_PLAN_X_OFFSET,4,pz],[px+UPPER_PLAN_X_OFFSET,2,pz],[ceilings]).length,0,'ceiling preserves full main atrium');}
  const [cx,cz]=p(231,860);assert.equal(crosses([cx+UPPER_PLAN_X_OFFSET,4,cz],[cx+UPPER_PLAN_X_OFFSET,2,cz],[ceilings]).length,0,'ceiling preserves guest stairwell');
  assert.equal(ceilings.visible,true);model.setLevel('ground');assert.equal(ceilings.visible,false,'ceilings hide for a cutaway');
 }
-model.dispose();console.log('Passed: dining circulation, yoga doorway, sliding door, corridor clearance, walkway, outdoor table, guest atrium and finite model transforms.');
+// Plan corrections: doorways and walls from the exposé ground and basement plans.
+model.setLevel('ground');model.root.updateMatrixWorld(true);
+assert.equal(crosses(point(955,430),point(980,430),[ground]).length,0,'kitchen runs to the Flur wall; the dashed overhead line is not a wall');
+assert.equal(crosses(point(966,480),point(966,445),[ground]).length,0,'kitchen to hall doorway open');
+assert.equal(crosses(point(1015,480),point(1015,445),[ground]).length,0,'Flur to hall doorway open');
+assert.equal(crosses(point(1016,370),point(1016,405),[ground]).length,0,'bedroom to Flur doorway open');
+assert(crosses(point(1037,370),point(1037,405),[ground]).length>0,'bedroom closed to the Flur beside its doorway');
+assert.equal(crosses(point(864,480),point(864,440),[ground]).length,0,'pantry door clear of the tall units');
+assert.equal(crosses(point(1151,375),point(1151,420),[ground]).length,0,'bath reached through the glazed double doors');
+assert(crosses(point(1195,375),point(1195,405),[ground]).length>0,'pier between the bath doors and the east wall');
+assert.equal(crosses(point(1121,400),point(1121,420),[ground]).length,0,'shower entered from the bath');
+assert.equal(crosses(point(205,1066),point(150,1066),[ground]).length,0,'wellness room open to the sauna front and shower');
+assert(model.root.getObjectByName('guest-wc-toilet')&&model.root.getObjectByName('wellness-fireplace'),'guest WC toilet and wellness fireplace present');
+assert.equal(crosses(point(90,893,.5),point(128,893,.5),[lowerStair]).length,0,'guest stair ends before the entrance door swing');
+assert(crosses(point(415,650),point(415,690),[ground]).length>0,'garage closed toward the loggia');
+model.setLevel('basement');model.root.updateMatrixWorld(true);
+const basement=model.root.getObjectByName('basement'),below=(x,z,y=-1.8)=>{const q=p(x,z);return [q[0]+basement.position.x,y,q[1]];};
+for(const [a,b,label] of [[[1050,423],[1080,423],'Abstell'],[[1050,510],[1080,510],'HWR'],[[900,645],[930,645],'wine room'],[[1031,655],[1031,685],'hobby room']])assert.equal(crosses(below(...a),below(...b),[basement]).length,0,label+' door open');
+assert(crosses(below(1142,440),below(1142,480),[basement]).length>0,'Abstell and HWR are separate rooms');
+const mainStair=model.root.getObjectByName('main-open-timber-stair');
+assert(Math.abs(below(946,538)[0]-new T.Box3().setFromObject(mainStair).getCenter(new T.Vector3()).x)<.15,'basement stair (basement sheet x 946) sits under the main stair');
+model.setLevel('exterior');model.root.updateMatrixWorld(true);
+assert(Math.abs(new T.Box3().setFromObject(model.root.getObjectByName('main-roof-slope-1')).max.y-8)<.2,'main ridge near 8 m (4.90 m room height)');
+model.dispose();console.log('Passed: dining circulation, yoga doorway, sliding door, corridor clearance, walkway, outdoor table, guest atrium, plan doorways, guest stair, basement doors and registration, roof height and finite model transforms.');
