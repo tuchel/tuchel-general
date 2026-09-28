@@ -5,7 +5,7 @@ import * as T from 'three';
 import {build} from 'esbuild';
 // Generated surfaces: every set and size exists, tiles are square, and each set's mean
 // colour stays near the photographed surface it stands for (scripts/build-materials.mjs).
-const targets={cladding:'#5f3e29',roof:'#3b3e42',oak:'#b88a58',stone:'#cdc5b7',lawn:'#5e8a33',deck:'#8e8a82',linen:'#e3dac8',plaster:'#ece4d4',bark:'#5b5042'};
+const targets={cladding:'#5f3e29',roof:'#3d3e40',oak:'#b88a58',stone:'#cdc5b7',lawn:'#5e8a33',deck:'#8e8a82',linen:'#e3dac8',plaster:'#ece4d4',bark:'#5b5042'};
 const lin=h=>[1,3,5].map(i=>{const c=parseInt(h.slice(i,i+2),16)/255;return c<=.04045?c/12.92:Math.pow((c+.055)/1.055,2.4);});
 const manifest=JSON.parse(fs.readFileSync('public/assets/materials/manifest.json','utf8'));
 for(const [name,target] of Object.entries(targets)){

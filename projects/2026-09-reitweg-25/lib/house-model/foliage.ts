@@ -63,7 +63,7 @@ function archetype(kind:TreeKind,far:boolean,seed:number){
   clusters.push(tip,mid.clone().lerp(tip,.4));
  }
  for(let i=0;i<(far?8:26);i++){const th=r()*Math.PI*2,y=r()*1.8-.9,rad=Math.sqrt(1-y*y)*(.45+r()*.5);clusters.push(new T.Vector3(Math.cos(th)*rad*R,crown.y+y*R*.85*flat,Math.sin(th)*rad*R));}
- const out={p:[] as number[],n:[] as number[],uv:[] as number[],c:[] as number[]},count=far?110:kind==='pine'?520:620,cell=cells[kind];
+ const out={p:[] as number[],n:[] as number[],uv:[] as number[],c:[] as number[]},count=far?110:kind==='pine'?900:1100,cell=cells[kind];
  for(let i=0;i<count;i++){
   const c=clusters[i%clusters.length],spread=R*(far?.42:.34);
   const th=r()*Math.PI*2,y=r()*2-1,rad=Math.sqrt(1-y*y)*Math.cbrt(r());
@@ -73,7 +73,8 @@ function archetype(kind:TreeKind,far:boolean,seed:number){
   const shade=.7+r()*.36,tint=new T.Color(shade,shade*(.96+r()*.08),shade*(.9+r()*.12));
   // Inner cards sit in shade; a darker tint stands in for self-shadowing within the crown.
   tint.multiplyScalar(.6+.4*T.MathUtils.clamp(center.distanceTo(crown)/R,0,1));
-  card(center,normal,(far?2.2:1.05)*(.8+r()*.45),r()*Math.PI*2,cell,r()<.5,crown,tint,out);
+  // Near cards span about 0.6 m, so drawn leaves read at a natural 6–10 cm.
+  card(center,normal,(far?2.2:.62)*(.8+r()*.45),r()*Math.PI*2,cell,r()<.5,crown,tint,out);
  }
  const leaves=new T.BufferGeometry();
  leaves.setAttribute('position',new T.Float32BufferAttribute(out.p,3));leaves.setAttribute('normal',new T.Float32BufferAttribute(out.n,3));

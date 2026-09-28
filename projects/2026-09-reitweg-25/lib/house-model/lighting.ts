@@ -55,8 +55,16 @@ export type LightReading=ReturnType<typeof sunStudyReading>&{exposure:number;dus
 export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Object3D,options:{shadowSize:number}){
  const sky=new Sky();sky.name='calculated-sun-sky';sky.userData.skipPhotographic=true;sky.scale.setScalar(20000);sky.frustumCulled=false;scene.add(sky);
  const envSky=new Sky();envSky.scale.setScalar(20000);const envScene=new T.Scene();envScene.add(envSky);
+ // Image light: skylight is less saturated than the visible sky, and the ground below the
+ // horizon returns warm, green-tinted bounce light instead of Preetham's dark lower sphere.
+ const ground={value:new T.Color()},saturation={value:.55};
  for(const [s,disc] of [[sky,1],[envSky,0]] as const){
-  s.material.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('gl_FragColor = vec4( texColor, 1.0 );',nightSky+'\ngl_FragColor = vec4( texColor, 1.0 );');};
+  const env=disc===0;
+  s.material.onBeforeCompile=shader=>{
+   if(env){shader.uniforms.uGround=ground;shader.uniforms.uEnvSaturation=saturation;shader.fragmentShader='uniform vec3 uGround;uniform float uEnvSaturation;\n'+shader.fragmentShader;}
+   shader.fragmentShader=shader.fragmentShader.replace('gl_FragColor = vec4( texColor, 1.0 );',nightSky+(env?'\ntexColor=mix(vec3(dot(texColor,vec3(0.2126,0.7152,0.0722))),texColor,uEnvSaturation);texColor=mix(texColor,uGround,smoothstep(0.0,-0.06,direction.y));':'')+'\ngl_FragColor = vec4( texColor, 1.0 );');
+  };
+  s.material.customProgramCacheKey=()=>env?'reitweg-env-sky':'reitweg-sky';
   const u=s.material.uniforms;u.turbidity.value=SKY.turbidity;u.rayleigh.value=SKY.rayleigh;u.mieCoefficient.value=SKY.mie;u.mieDirectionalG.value=SKY.g;u.showSunDisc.value=disc;u.cloudCoverage.value=SKY.clouds;u.cloudDensity.value=.35;}
  const cubeTarget=new T.WebGLCubeRenderTarget(128,{type:T.HalfFloatType}),cubeCamera=new T.CubeCamera(.1,40000,cubeTarget);
  const pmrem=new T.PMREMGenerator(renderer);let envTarget:T.WebGLRenderTarget|null=null,envDirty=true,envAt=0;
@@ -100,6 +108,8 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
   sun.position.copy(sun.target.position).addScaledVector(sunVector,160);
   sun.visible=sun.intensity>0;
   const irradiance=luminance(skyIrradiance(sunVector)),key=irradiance+sun.intensity*Math.max(0,sunVector.y);
+  // Lawn, paving and planting average to a mid-dark, green-leaning albedo.
+  ground.value.setRGB(.12,.16,.08).multiplyScalar(key/Math.PI);
   // Partial adaptation: dusk reads as dusk, night stays legible.
   const exposure=clamp(NOON_EXPOSURE*Math.pow(NOON_KEY/Math.max(key,1e-6),.72),.02,30);
   const daylight=T.MathUtils.smoothstep(r.elevation,-8,10),dusk=1-T.MathUtils.smoothstep(r.elevation,-3,7);

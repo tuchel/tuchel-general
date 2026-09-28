@@ -86,10 +86,10 @@ const sets = {
     const tone = 0.86 + hash2(mod(s, cols), mod(r, rows), 3) * 0.26;
     const joint = lx < 0.012 || lx > 0.988;
     const speck = fbm(u, v, 24, 24, 3, 31), weather = fbm(u, v, 3, 6, 3, 32);
-    const base = lin('#3b3e42');
+    const base = lin('#3d3e40');
     const edgeShadow = smooth(0.0, 0.06, ly); // shadow of the course above, which sits on this one
     const albedo = base.map((c, i) => c * tone * (0.92 + 0.1 * speck + 0.08 * weather) * (i === 2 ? 1.04 : 1) * (joint ? 0.4 : 1));
-    return {albedo, rough: 0.58 + 0.12 * weather - (joint ? 0 : 0.04 * speck), height: joint ? 0.2 : 0.35 + 0.6 * (1 - ly) * 0.9 + 0.04 * speck, cavity: (joint ? 0.5 : 1) * mix(0.55, 1, edgeShadow)};
+    return {albedo, rough: 0.68 + 0.1 * weather - (joint ? 0 : 0.04 * speck), height: joint ? 0.2 : 0.35 + 0.6 * (1 - ly) * 0.9 + 0.04 * speck, cavity: (joint ? 0.5 : 1) * mix(0.55, 1, edgeShadow)};
   }},
   // Wide oiled oak planks, 220 mm, staggered end joints. Reference: IMG_1462.jpg (family room floor).
   oak: {metres: [1.32, 1.32], bump: 1.6, paint(u, v) {

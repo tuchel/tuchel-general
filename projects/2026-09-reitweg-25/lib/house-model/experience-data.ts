@@ -9,7 +9,7 @@ export const places:Record<Place,{label:string;short:string;position:[number,num
  living:{label:'In the family room',short:'Family room',position:at(991,727,1.65),target:at(1190,810,1.4),photo:'IMG_1457.jpg',caption:'Standing height · looking toward the garden',interior:true},
  dining:{label:'A seat at the table',short:'Dining',position:at(1100,611,1.22),target:at(1230,593,1.45),photo:'94D23FDE-62F0-49DF-8A1F-A4C216E61825_1_105_c.jpg',caption:'Seated height · looking east',interior:true},
  kitchen:{label:'Morning in the kitchen',short:'Kitchen',position:at(912,350,1.65),target:at(735,260,1.35),photo:'A3DBBB95-78B2-4B2E-B973-6D22C9FC98CE_4_5005_c.jpg',caption:'Standing height · looking northwest',interior:true},
- upstairs:{label:'The upstairs garden view',short:'Upstairs',position:[4.45,4.62,-1.5],target:[80,4.1,7],photo:'setting-upstairs-horizon.jpg',caption:'By the roof window · meadow and distant Alps',interior:true},
+ upstairs:{label:'The upstairs garden view',short:'Upstairs',position:[5.1,4.5,-1.5],target:[80,4.1,7],photo:'setting-upstairs-horizon.jpg',caption:'Leaning out of the roof window · meadow and distant Alps',interior:true},
 };
 export type CaptureState={
  breeze:boolean;sound:boolean;render:'idle'|'preparing'|'refining'|'panorama';samples:number;

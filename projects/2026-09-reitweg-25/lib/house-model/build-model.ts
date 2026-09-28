@@ -177,6 +177,13 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
    const face=new T.Group();face.position.set(a[0],0,a[1]);face.rotation.y=-Math.atan2(dz,dx);g.add(face);
    for(const [x,y,w,h] of windows){const u=(x-a[0])/dx*len;const hole=new T.Path();hole.moveTo(u-w/2,y);hole.lineTo(u-w/2,y+h);hole.lineTo(u+w/2,y+h);hole.lineTo(u+w/2,y);hole.closePath();shape.holes.push(hole);box(face,u,y,0,w,h,.05,glass);for(const offset of [-w/2,w/2])box(face,u+offset,y,0,.05,h,.25,m.dark);for(const dy of [0,h])box(face,u,y+dy,0,w,.05,.25,m.dark);}
    const wallGeometry=new T.ExtrudeGeometry(shape,{depth:.21,bevelEnabled:false});wallGeometry.translate(0,0,-.105);const mesh=add(wallGeometry,m.wall,face,kind==='guest'?'guest':'main');mesh.name=kind+'-roof-wall-'+index;
+   // Rooms under the roof are plastered: line the inner face so the cladding never shows between wall head and ceiling.
+   // The room side is whichever side of the face's midpoint lies inside the footprint (the guest wing is not convex).
+   const probe=[(a[0]+b[0])/2-dz/len*.3,(a[1]+b[1])/2+dx/len*.3];let inside=false;
+   for(let i=0,j=local.length-1;i<local.length;j=i++){const [xi,zi]=local[i],[xj,zj]=local[j];if((zi>probe[1])!==(zj>probe[1])&&probe[0]<(xj-xi)*(probe[1]-zi)/(zj-zi)+xi)inside=!inside;}
+   const inward=inside?1:-1,lining=new T.ShapeGeometry(shape);
+   if(inward<0){const idx=lining.index!;for(let t=0;t<idx.count;t+=3){const k=idx.getX(t+1);idx.setX(t+1,idx.getX(t+2));idx.setX(t+2,k);}const n=lining.attributes.normal;for(let v=0;v<n.count;v++)n.setZ(v,-1);}
+   lining.translate(0,0,inward*.107);const inner=add(lining,m.plaster,face);inner.castShadow=false;inner.name=kind+'-roof-wall-lining-'+index;
   }
   // The east roof has three groups and one high window; the photos rule out an even row.
   const skylights=kind==='link'?[]:roofSkylights(kind);
