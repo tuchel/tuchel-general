@@ -127,7 +127,7 @@ function hybridCrown(kind:TreeKind,far:boolean,r:()=>number,clusters:T.Vector3[]
 /** Modelled leaves: a folded four-triangle blade repeated around branch-tip clusters, one geometry per archetype. */
 function modelledLeaves(kind:TreeKind,context:boolean,r:()=>number,clusters:T.Vector3[],crown:T.Vector3,flat:number){
  const R=REF_R,blade=[[0,0,0],[-.34,.05,.42],[0,.1,.5],[0,0,1],[.34,.05,.42]],tris=[0,1,2,1,3,2,0,2,4,2,3,4];
- const count=context?(kind==='pine'?6000:5200):(kind==='pine'?16000:14000),scale=context?2.1:1;
+ const count=context?(kind==='pine'?11000:10000):(kind==='pine'?16000:14000),scale=context?1.45:1;
  const pos=new Float32Array(count*36),nor=new Float32Array(count*36),col=new Float32Array(count*36);
  const green=new T.Color(kind==='pine'?'#435a3d':kind==='maple'?'#7a8742':'#718144');
  const m=new T.Matrix4(),q=new T.Quaternion(),v=new T.Vector3(),up=new T.Vector3(0,1,0),spin=new T.Quaternion();
