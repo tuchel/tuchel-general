@@ -99,28 +99,28 @@ const clamp01=(v:number)=>T.MathUtils.clamp(v,0,1);
 /** Hybrid crown: overlapping lumpy blobs, shaded darker toward the underside and centre, carry the
  * crown's mass; leaf cards cover only their exposed outer surface for a leafy silhouette. */
 function hybridCrown(kind:TreeKind,far:boolean,r:()=>number,clusters:T.Vector3[],crown:T.Vector3,flat:number,cell:[number,number],out:{p:number[];n:number[];uv:number[];c:number[]}){
- const R=REF_R,blobs=clusters.map(c=>({c,rad:R*(far?.42:.31)*(.8+r()*.4)})),parts:T.BufferGeometry[]=[];
- const green=new T.Color(kind==='pine'?'#2c4122':kind==='maple'?'#44582a':'#3d5625');
- const shadeAt=(v:T.Vector3)=>(.3+.7*clamp01((v.y-(crown.y-R*.9*flat))/(R*1.8*flat)))*(.55+.45*clamp01(v.distanceTo(crown)/R));
+ const R=REF_R,blobs=clusters.map(c=>({c,rad:R*(far?.36:.26)*(.8+r()*.4)})),parts:T.BufferGeometry[]=[];
+ const green=new T.Color(kind==='pine'?'#34502a':kind==='maple'?'#56703a':'#4a6a2e');
+ const shadeAt=(v:T.Vector3)=>(.5+.5*clamp01((v.y-(crown.y-R*.9*flat))/(R*1.8*flat)))*(.7+.3*clamp01(v.distanceTo(crown)/R));
  for(const b of blobs){
   const g=new T.IcosahedronGeometry(1,far?1:2),p=g.attributes.position,n=g.attributes.normal,colors:number[]=[],v=new T.Vector3(),u=new T.Vector3();
   for(let i=0;i<p.count;i++){
-   u.fromBufferAttribute(p,i);const bump=1+.13*Math.sin(u.x*5+b.c.y*2)*Math.sin(u.y*4+b.c.x*2)*Math.sin(u.z*6+b.c.z*2);
+   u.fromBufferAttribute(p,i);const bump=1+.22*Math.sin(u.x*5+b.c.y*2)*Math.sin(u.y*4+b.c.x*2)*Math.sin(u.z*6+b.c.z*2);
    v.copy(u).multiplyScalar(b.rad*bump);v.y*=flat;v.add(b.c);p.setXYZ(i,v.x,v.y,v.z);
    const radial=v.clone().sub(crown).normalize(),normal=u.clone().multiplyScalar(.45).addScaledVector(radial,.55).normalize();n.setXYZ(i,normal.x,normal.y,normal.z);
    const c=green.clone().multiplyScalar(shadeAt(v));colors.push(c.r,c.g,c.b);
   }
   g.setAttribute('color',new T.Float32BufferAttribute(colors,3));g.deleteAttribute('uv');parts.push(g);
  }
- const count=far?190:kind==='pine'?1300:1700;
+ const count=far?480:kind==='pine'?2600:3200;
  for(let placed=0,guard=0;placed<count&&guard<count*30;guard++){
   const b=blobs[Math.floor(r()*blobs.length)],dir=new T.Vector3(r()*2-1,r()*2-1,r()*2-1);if(dir.lengthSq()<.02||dir.lengthSq()>1)continue;dir.normalize();
-  const center=b.c.clone().addScaledVector(dir,b.rad*(.88+r()*.28));center.y=b.c.y+(center.y-b.c.y)*flat;
+  const center=b.c.clone().addScaledVector(dir,b.rad*(.95+r()*.45));center.y=b.c.y+(center.y-b.c.y)*flat;
   // Cards buried inside a neighbouring blob would never be seen.
   if(blobs.some(o=>o!==b&&o.c.distanceTo(center)<o.rad*.82))continue;
   const outward=center.clone().sub(crown).normalize(),normal=dir.clone().multiplyScalar(.5).addScaledVector(outward,.25).add(new T.Vector3(r()-.5,r()-.5,r()-.5).multiplyScalar(.7)).normalize();
-  const shade=(.62+r()*.38)*(.45+.55*shadeAt(center)),tint=new T.Color(shade,shade*(.96+r()*.08),shade*(.84+r()*.12));
-  card(center,normal,(far?1.7:.55)*(.8+r()*.45),r()*Math.PI*2,cell,r()<.5,crown,tint,out);placed++;
+  const shade=(.7+r()*.35)*(.55+.45*shadeAt(center)),tint=new T.Color(shade,shade*(.96+r()*.08),shade*(.84+r()*.12));
+  card(center,normal,(far?1.9:.6)*(.8+r()*.45),r()*Math.PI*2,cell,r()<.5,crown,tint,out);placed++;
  }
  const merged=mergeGeometries(parts)!;parts.forEach(g=>g.dispose());return merged;
 }
