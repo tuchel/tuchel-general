@@ -11,6 +11,7 @@ on:
       - 'projects/2026-08-apl-storytime/web/**'
       - 'projects/2026-08-austin-luxury-gyms/web/**'
       - 'projects/2026-09-drone-guide/web/**'
+      - 'projects/2026-09-reitweg-25/**'
       - 'daycare-search/**'
       - '.github/workflows/deploy-pages.yml'
       - '.github/workflows/deploy-metro-budget-tax.yml'
@@ -49,6 +50,7 @@ jobs:
             projects/2026-08-apl-storytime/web/package-lock.json
             projects/2026-08-austin-luxury-gyms/web/package-lock.json
             projects/2026-09-drone-guide/web/package-lock.json
+            projects/2026-09-reitweg-25/package-lock.json
             daycare-search/package-lock.json
 
       - name: Install & build Metro Budget Tax
@@ -92,6 +94,15 @@ jobs:
           npm ci
           npm run build
 
+      - name: Install & build Reitweg 25
+        working-directory: projects/2026-09-reitweg-25
+        run: |
+          npm run install:ci
+          npx tsc --noEmit
+          mkdir -p tmp
+          node scripts/check-house-sun.mjs
+          npm run build:pages
+
       - name: Install & build Schools for Finn
         working-directory: daycare-search
         run: |
@@ -101,13 +112,14 @@ jobs:
       - name: Stage Pages artifact
         run: |
           SITE="${{ github.workspace }}/_site"
-          mkdir -p "$SITE/tax" "$SITE/metro-budget-tax" "$SITE/star-mind" "$SITE/whale" "$SITE/storytime" "$SITE/gyms" "$SITE/drone" "$SITE/daycare-search"
+          mkdir -p "$SITE/tax" "$SITE/metro-budget-tax" "$SITE/star-mind" "$SITE/whale" "$SITE/storytime" "$SITE/gyms" "$SITE/drone" "$SITE/reitweg-25" "$SITE/daycare-search"
           cp -a projects/2026-07-metro-budget-tax/web/dist/. "$SITE/tax/"
           cp -a projects/2026-07-star-mind/game/dist/. "$SITE/star-mind/"
           cp -a projects/2026-07-san-juan-whale-map/web/dist/. "$SITE/whale/"
           cp -a projects/2026-08-apl-storytime/web/dist/. "$SITE/storytime/"
           cp -a projects/2026-08-austin-luxury-gyms/web/dist/. "$SITE/gyms/"
           cp -a projects/2026-09-drone-guide/web/dist/. "$SITE/drone/"
+          cp -a projects/2026-09-reitweg-25/dist-pages/. "$SITE/reitweg-25/"
           cp -a daycare-search/dist/. "$SITE/daycare-search/"
 
           # Keep old metro path working as a redirect
@@ -167,6 +179,7 @@ jobs:
                   <li><a href="storytime/">APL Storytime Fall 2026</a> — iCal of Austin Public Library storytimes</li>
                   <li><a href="gyms/">Austin luxury gyms</a> — Equinox-level clubs from West Lake Hills</li>
                   <li><a href="drone/">Hunter&#39;s Drone Workshop</a> — interactive 3D quadcopter guide</li>
+                  <li><a href="reitweg-25/">Reitweg 25 Design Studio</a> — renovation concepts and interactive house model</li>
                   <li><a href="daycare-search/">Schools for Finn</a> — ranked daycare explorer from West Lake Hills</li>
                 </ul>
               </main>

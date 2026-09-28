@@ -1,0 +1,256 @@
+{
+  "title": "Reitweg 25 \u2014 existing house and lot model",
+  "sources": [
+    {
+      "file": "grounds.png",
+      "use": "Lot boundary, house registration, driveway, fountain and tree positions"
+    },
+    {
+      "file": "ground-floor.png",
+      "use": "Ground-floor walls, room relationships, courtyard and pool"
+    },
+    {
+      "file": "upper-floor.png",
+      "use": "Upper-floor room relationships and roof orientation"
+    },
+    {
+      "file": "basement.png",
+      "use": "Basement room relationships"
+    },
+    {
+      "file": "IMG_1403.jpg",
+      "use": "East elevation, roof, openings and timber character"
+    },
+    {
+      "file": "89D8DDBD-9798-4C2A-8D57-97A30CF55B21_1_105_c.jpg",
+      "use": "Entrance roof connection"
+    },
+    {
+      "file": "74063C01-7766-4B3D-A7E2-F5082F368341_1_105_c.jpg",
+      "use": "Chimney gable and pool relationship"
+    },
+    {
+      "file": "DC2E6390-D8F3-4212-A5DB-8EB9AE083A93_1_105_c.jpg",
+      "use": "Two separate vertically boarded garage doors"
+    },
+    {
+      "file": "F92D9025-5B99-4FAF-9BAE-ECC47E3D555A_1_105_c.jpg",
+      "use": "Three lower gable windows, wide upper glazing and entrance glazing"
+    },
+    {
+      "file": "9C75DDCD-4380-4B8B-A1FD-F1CD30EE9836_1_105_c.jpg",
+      "use": "Two lower and two upper windows beside the chimney"
+    },
+    {
+      "file": "D49F9E4C-E7C1-48A1-8F18-B41D1EB45792_1_105_c.jpg",
+      "use": "Mown lawn and tall meadow islands"
+    },
+    {
+      "file": "7DEB0B61-9B56-4D64-87F0-E9750E13ACD8_1_105_c.jpg",
+      "use": "Meadow height and restrained wildflower character"
+    },
+    {
+      "file": "FDE39D63-B192-4A7E-A16B-886A2F38F0A6_1_105_c.jpg",
+      "use": "Glazed courtyard openings and solid fireplace wall"
+    },
+    {
+      "file": "IMG_1627.jpg",
+      "use": "Existing cream roadside wall, dark coping and plinth, pedestrian gate, solid service doors, barred driveway gate"
+    },
+    {
+      "file": "IMG_1625.jpg",
+      "use": "Street-side wall returns and relationship to driveway"
+    }
+  ],
+  "calibration": "Main house labelled approximately 12 x 19.3 metres in the expos\u00e9. Ground plan uses 12/434 metres per pixel in its 1888px-wide presentation. Site overview is registered using the same main-house width.",
+  "pool": "Approximately 16 x 4 metres from the printed plan annotation; site placement follows the overview.",
+  "assumptions": {
+    "mainEaveMetres": 2.94,
+    "mainRidgeMetres": 7.6,
+    "guestRidgeMetres": 6.75,
+    "upperFloorMetres": 2.95,
+    "basementFloorMetres": -2.45,
+    "heights": "Inferred model values, not surveyed measurements.",
+    "terrain": "Level ground; no surveyed contours available.",
+    "trees": "Principal positions traced, crown shapes and heights illustrative.",
+    "rooms": "Photo-led furniture types, colours and arrangement, with approximate dimensions. Cutaway walls lowered for visibility.",
+    "north": "Compass follows the expos\u00e9 approximately; not a geodetic registration.",
+    "planting": "Photo-led meadow islands, mown paths and ornamental grass drifts. Bed boundaries, flower species and densities are illustrative.",
+    "frontWall": "Existing wall about 1.3 m high, visually estimated. Openings and boundary follow photo/plan registration; not surveyed.",
+    "cars": "Two stylized Tesla Model Ys in the garage. Approximate proportions for visualization, not a clearance survey."
+  },
+  "state": "Existing house. Renovations are not presented as existing or approved construction.",
+  "styleReference": "https://x.com/techartist_/status/2102503719762018434?s=20",
+  "upperPlanRegistration": {
+    "xOffsetIn1888pxTrace": -52,
+    "anchors": [
+      "main-house stair axis",
+      "main-house chimney axis"
+    ],
+    "guestRoofOutlineUpperPlan": [
+      [
+        160,
+        535
+      ],
+      [
+        525,
+        570
+      ],
+      [
+        466,
+        1247
+      ],
+      [
+        92,
+        1213
+      ]
+    ],
+    "note": "Roof footprint includes the courtyard-side loggia; center, width, length and bearing derived from registered eave corners."
+  },
+  "interiorReview": {
+    "reviewedSourceLibraryImages": 201,
+    "method": "All source images reviewed, interior images examined in room groups. Existing furnishings are kept distinct from renovation proposals. Room selector links original reference photos.",
+    "recognizedFurniture": [
+      "sage kitchen with timber tops and black range",
+      "north breakfast banquette",
+      "U-shaped dining banquette with white chairs",
+      "two facing cream living-room sofas and glass table",
+      "timber four-poster beds",
+      "freestanding baths and twin-basin consoles",
+      "guest yoga room",
+      "rust wellness lounge and glazed sauna",
+      "guest upper daybed and study",
+      "white kitchenette and red bistro table",
+      "low bed and pink rug",
+      "navy laundry and four appliances",
+      "wine racks and hobby-room worktable"
+    ],
+    "uncertainties": [
+      "Furniture dimensions and exact offsets are visually estimated.",
+      "Tiny decorative objects, exposed services and hidden storage are not comprehensively modeled."
+    ]
+  },
+  "roofEnvelope": "Upper walls are built on the actual ground-floor perimeter, overlap the wall below and meet the underside of each pitched roof; roof ends are independent overhangs.",
+  "ownerConfirmedCorrections": [
+    "Full-height kitchen sliding door and large west-terrace dining table.",
+    "Stone walkway to the main entrance, without grass across the route.",
+    "Open passage between dining banquette and sitting room, with a retained pier.",
+    "Corridor storage ends before the courtyard doorway.",
+    "Guest upper stair atrium is an actual slab opening with black horizontal railing and stairs below.",
+    "Yoga and wellness rooms have a connecting doorway.",
+    "North upper bedrooms mirror each other; northeast bed moved against the dividing wall.",
+    "Main connecting corridor opens into the Diele and atrium; the small hallway WC is behind the main stair on the left.",
+    "Main atrium uses the full Luftraum outline from the upper plan; open timber treads and black steel gallery railings follow IMG_1479, IMG_1559 and the gallery photos.",
+    "North upper bedroom bathroom: a door from each bedroom, two south-wall vanity units, central partition stopping before the combined north-side shower. Corrected from owner colour markup and upper-floor expos\u00e9.",
+    "Upper south bathroom has a separate toilet room and shower beside the atrium, plus a wider bedroom doorway.",
+    "The east gallery has a small enclosed WC and basin.",
+    "Removed both incorrectly inferred pink storage units beside the north bedroom bathroom.",
+    "Northwest upper bedroom: restored south wall from the west side to the gallery doorway; four-poster bed moved against the central dividing wall to mirror the opposite room.",
+    "Guest upper floor: bedroom bed moved toward the far southwest corner, freestanding vanity into the entrance corner, study daybed against the west side.",
+    "Guest upper bathroom enclosed with a wrapping wall and doorway, toilet at the north and shower at the south.",
+    "Guest stair reaches a turning landing with a break in the east railing into the kitchenette mezzanine.",
+    "Guest ground floor: outer-wall stair turns 90 degrees right to the mezzanine, using shared geometry on both floors; the yoga partition and garage-to-corridor door are restored.",
+    "The corner sauna has timber lining, stepped benches, a glazed front and heater."
+  ],
+  "photoTextureMode": {
+    "method": "Real source photos sampled in the material shader using pixel-coordinate quadrilaterals, approximate world scale, mirrored repetition, restrained relief and colour calibration to reduce baked-lighting differences. Original images are unmodified.",
+    "sources": {
+      "cladding": "IMG_1431.jpg",
+      "roof": "IMG_1627.jpg",
+      "oak": "IMG_1462.jpg",
+      "stone": "IMG_1431.jpg",
+      "lawn": "IMG_1403.jpg",
+      "linen": "IMG_1462.jpg",
+      "foliage": "IMG_1388.jpg"
+    },
+    "limitations": "This is a photo-textured model, not a measured photogrammetry scan. Simplified geometry, inherited photo lighting and repeated samples limit realism."
+  },
+  "mainAtrium": {
+    "upperPlanVoid": [
+      [
+        958,
+        458
+      ],
+      [
+        1000,
+        458
+      ],
+      [
+        1000,
+        466
+      ],
+      [
+        1096,
+        466
+      ],
+      [
+        1096,
+        668
+      ],
+      [
+        958,
+        668
+      ]
+    ],
+    "registration": "Upper plan translated -52 px to align with the ground floor.",
+    "bathroom": "WC approximately 3.9 m\u00b2 as labelled on the expos\u00e9; south entrance from the Diele. Fixture finishes illustrative, placement plan-derived."
+  },
+  "immersiveRealism": {
+    "photoInventory": {
+      "originalPhotographs": 201,
+      "portalPhotographs": 201,
+      "checked": "2026-09-28",
+      "note": "The user recalled 203 uploads; 201 photographs are verifiable in both source library and portal. The source photographs inspected for textures are themselves 960\u20131280 pixels, not hidden high-resolution masters."
+    },
+    "architecture": "Plan-derived room layouts and owner corrections retained. Photo-led linen curtains, interior plaster faces, window reveals and hardware, fireplace hearth/logs, roof gutters/downpipes and ceiling slabs with the original registered atrium openings. Small dimensions and finishes remain interpretations. Roof windows now have physical holes through the detailed roof and tile layer. Roofs-on views include the upper gallery and furnishings using the same registered world transforms as the upper cutaway.",
+    "landscape": "Distinct pine-like crowns and leafy trees, existing meadow islands and subtle motion. Distant tree line is an illustrative setting outside the traced lot, not a reconstruction of the horizon. The lot remains level; no measured contours or Alps panorama are claimed.",
+    "lighting": "Daylight, overcast and evening are artistic lighting studies, not date- and location-calibrated sun studies. Interior exposure and warm fixture lights are chosen for visualization. Thin clear glazing uses non-occluding shadow rays in the photographic renderer; this is an architectural-glass approximation, not a physically exact glazing specification.",
+    "photographicRendering": "Pinned three-gpu-pathtracer WebGL renderer; 8 light bounces, 12 transmissive bounces, progressive accumulation. Standard photo textures are rectified in the browser, with inferred roughness and normal maps. Default up to 1920 px / 256 samples; maximum 3840 px / 1024 samples. Panorama 2048\u00d71024 or 4096\u00d72048. Fine tree-leaf geometry is halved for export/rendering memory.",
+    "capture": "PNG images, equirectangular panoramas, a 20-second silent orbit film where MediaRecorder is supported, and textured GLB of the currently visible scene and selected renovations. GLB export is a handoff for an offline renderer; no offline-rendered film or surveyed digital twin is claimed.",
+    "audio": "Optional synthesized quiet garden ambience, not a recording from the property. Off by default.",
+    "limitations": "Existing photos do not constitute a systematic photogrammetric capture. No Gaussian splat, scan-derived geometry, measured terrain or inferred unseen photograph has been presented as authentic."
+  },
+  "entrancePathCorrection": {
+    "source": "Owner-provided four entrance photographs, 28 September 2026; existing site plan supplies the pedestrian gate and entrance door positions.",
+    "geometry": "Broad apron removed north of the guest gable. Separate 1.35 m nominal cobbled walk from pedestrian gate to entrance link, with an approximately 85 mm shallow rise near the door. Width and rise are photo-derived estimates, not measured dimensions.",
+    "landscape": "Wall-side soil and pale gravel drainage strip; deep ornamental grass island on the lawn side; timber bollards. Grass species and exact bed outlines are interpreted.",
+    "views": "Shared geometry across both detail settings, floor views, photography and model export. Be here includes an entrance approach viewpoint.",
+    "driveway": "Owner photo correction: same cobble material and bond on the vehicle apron and pedestrian walk, joining at the guest-wing corner. A tall-grass island separates the two toward the roadside wall; its outline is photo-derived.",
+    "roadsideInset": "Owner-confirmed: cobbles cover the entire recessed forecourt between the road and separation wall, including the wedge-shaped ends. Shared between existing and proposed wall views."
+  },
+  "landscapeSetting": {
+    "sources": [
+      "Owner-supplied avenue photographs, 28 September 2026",
+      "Owner-supplied east-facing upstairs photographs showing meadow, boundary hedge, park trees and Alpine horizon",
+      "Expos\u00e9 lot outline and registered road axis"
+    ],
+    "implemented": [
+      "Three garden-side boundary hedges on the north, east and south traced lot edges, present in both detail settings",
+      "Extended narrow lane, mature broadleaf avenue, dappled shadows, grass verges and curved-neck street lamps",
+      "Layered park-edge woodland with a view opening beyond the eastern garden",
+      "Three subdued Alpine ridge silhouettes and falling context terrain beyond the property",
+      "Eye-level avenue and upstairs roof-window viewpoints with source-photo access"
+    ],
+    "limits": "The off-site terrain, tree positions, street furniture and ridge shapes are photo-led interpretations, not measured or georeferenced reconstruction. Ridge distances are compressed for the renderer. The lake is nearby context described by the owner; no visible water surface has been invented. The house footprint and renovation geometry are unchanged."
+  },
+  "poolSurround": {
+    "source": "Owner photograph supplied 28 September 2026; pool-flush-surround-reference.jpg",
+    "confirmed": "Pool recessed into lawn, weathered grey timber surround with boards perpendicular to each water edge, narrow pale rim.",
+    "modelAssumptions": "16 x 4 m retained from labelled plan. Deck width 0.48 m, rim 0.115 m, water 0.08 m below lawn and basin depth 1.4 m estimated, not measured."
+  },
+  "alpineAtmosphere": {
+    "geometry": "Three shallow terrain ranges with branching relief and baked atmospheric haze replace the vertical silhouette strips. Photo-led impression, not surveyed or georeferenced.",
+    "motion": "GPU vertex breeze with distance falloff; uniform-driven pool ripples. Default on except reduced motion, 30 Hz maximum ambient updates with 20/15 Hz fallback based on render submission cost. Paused offscreen, in floor cutaways, and while preparing/refining photographs. Ambient frames reuse static shadow maps."
+  },
+  "sunStudy": {
+    "location": {
+      "latitude": 47.8606705,
+      "longitude": 11.2919095
+    },
+    "modelPlanNorthBearing": 7.5,
+    "year": 2026,
+    "clock": "Europe/Berlin, CET/CEST via Intl. Spring gap moves forward; autumn duplicate uses first occurrence.",
+    "method": "NOAA/Meeus Julian-century solar declination and equation of time; refraction correction for apparent altitude. Source: https://gml.noaa.gov/grad/solcalc/calcdetails.html",
+    "limits": "North registration is approximate. Model geometry and vegetation are estimates. Distant terrain is decorative and does not cast sun-study shadows. No measured horizon, irradiance, snow, or seasonal canopy model."
+  }
+}

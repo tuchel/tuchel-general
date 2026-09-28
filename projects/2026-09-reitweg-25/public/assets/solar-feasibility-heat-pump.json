@@ -1,0 +1,460 @@
+{
+  "prepared": "2026-09-25",
+  "location": {
+    "latitude": 47.8606705,
+    "longitude": 11.2919095,
+    "elevation": 626.0
+  },
+  "period": "2005\u20132023",
+  "hours": 166536,
+  "array": {
+    "panels": 117,
+    "kwp": 52.65,
+    "area": 228.47151599999995
+  },
+  "faces": [
+    {
+      "id": "main-east",
+      "panels": 26,
+      "kwp": 11.700000000000001,
+      "moduleArea": 50.771448,
+      "roofPitch": 35.429963510532296,
+      "azimuthNorth": 97.5,
+      "pvgisInputs": {
+        "slope": {
+          "value": 35,
+          "optimal": false
+        },
+        "azimuth": {
+          "value": -82,
+          "optimal": false
+        },
+        "type": "free-standing"
+      },
+      "pvgisYield": 893.9254631578973,
+      "grossRoofArea": 162.3784761721824
+    },
+    {
+      "id": "main-west",
+      "panels": 39,
+      "kwp": 17.55,
+      "moduleArea": 76.157172,
+      "roofPitch": 35.429963510532296,
+      "azimuthNorth": 277.5,
+      "pvgisInputs": {
+        "slope": {
+          "value": 35,
+          "optimal": false
+        },
+        "azimuth": {
+          "value": 98,
+          "optimal": false
+        },
+        "type": "free-standing"
+      },
+      "pvgisYield": 826.8490147368276,
+      "grossRoofArea": 162.3784761721824
+    },
+    {
+      "id": "guest-east",
+      "panels": 20,
+      "kwp": 9.0,
+      "moduleArea": 39.05496,
+      "roofPitch": 36.12238325928873,
+      "azimuthNorth": 102.8,
+      "pvgisInputs": {
+        "slope": {
+          "value": 36,
+          "optimal": false
+        },
+        "azimuth": {
+          "value": -77,
+          "optimal": false
+        },
+        "type": "free-standing"
+      },
+      "pvgisYield": 915.5320057894756,
+      "grossRoofArea": 122.76301202436034
+    },
+    {
+      "id": "guest-west",
+      "panels": 32,
+      "kwp": 14.4,
+      "moduleArea": 62.48793599999999,
+      "roofPitch": 36.12238325928873,
+      "azimuthNorth": 282.8,
+      "pvgisInputs": {
+        "slope": {
+          "value": 36,
+          "optimal": false
+        },
+        "azimuth": {
+          "value": 103,
+          "optimal": false
+        },
+        "type": "free-standing"
+      },
+      "pvgisYield": 798.6373421052672,
+      "grossRoofArea": 122.76301202436034
+    }
+  ],
+  "annualPV": 40030.276967787686,
+  "specificYield": 760.3091541840016,
+  "annualMin": 36536.53571333998,
+  "annualMax": 42951.56626235255,
+  "annuals": [
+    {
+      "year": 2005,
+      "generation": 39303.58031055004,
+      "demand": 48855.44220903669
+    },
+    {
+      "year": 2006,
+      "generation": 40957.984387035176,
+      "demand": 47730.96415826208
+    },
+    {
+      "year": 2007,
+      "generation": 41491.26069009769,
+      "demand": 46558.87781556856
+    },
+    {
+      "year": 2008,
+      "generation": 38873.34113903983,
+      "demand": 47286.6698454393
+    },
+    {
+      "year": 2009,
+      "generation": 38733.0071800274,
+      "demand": 47444.196743434826
+    },
+    {
+      "year": 2010,
+      "generation": 36774.00020736,
+      "demand": 49791.75250079503
+    },
+    {
+      "year": 2011,
+      "generation": 41786.43863667748,
+      "demand": 46230.356535698586
+    },
+    {
+      "year": 2012,
+      "generation": 40292.68944908244,
+      "demand": 47457.0822616003
+    },
+    {
+      "year": 2013,
+      "generation": 36536.53571333998,
+      "demand": 48561.145029364685
+    },
+    {
+      "year": 2014,
+      "generation": 38748.09458286001,
+      "demand": 44857.31988297583
+    },
+    {
+      "year": 2015,
+      "generation": 40850.13455867241,
+      "demand": 46232.36509005797
+    },
+    {
+      "year": 2016,
+      "generation": 38140.12639638006,
+      "demand": 46618.008678052676
+    },
+    {
+      "year": 2017,
+      "generation": 39524.9065188751,
+      "demand": 47224.06797887918
+    },
+    {
+      "year": 2018,
+      "generation": 42852.792138727615,
+      "demand": 44901.79270121219
+    },
+    {
+      "year": 2019,
+      "generation": 39953.64120347241,
+      "demand": 46087.53628794697
+    },
+    {
+      "year": 2020,
+      "generation": 42021.79300597503,
+      "demand": 45342.37071373095
+    },
+    {
+      "year": 2021,
+      "generation": 40775.21478134997,
+      "demand": 47561.96096975671
+    },
+    {
+      "year": 2022,
+      "generation": 42951.56626235255,
+      "demand": 44682.02260707761
+    },
+    {
+      "year": 2023,
+      "generation": 40008.155226097595,
+      "demand": 44512.98933653679
+    }
+  ],
+  "monthly": [
+    {
+      "month": 1,
+      "generation": 1165.0401592424982,
+      "demand": 5140.280085969664,
+      "temperature": -1.3366383701188456
+    },
+    {
+      "month": 2,
+      "generation": 1857.1479277949989,
+      "demand": 4516.480201453079,
+      "temperature": -0.3119698383084577
+    },
+    {
+      "month": 3,
+      "generation": 3343.964765944731,
+      "demand": 4337.411023578122,
+      "temperature": 3.298506649688738
+    },
+    {
+      "month": 4,
+      "generation": 4529.581039894726,
+      "demand": 3379.3320007989764,
+      "temperature": 8.214443713450292
+    },
+    {
+      "month": 5,
+      "generation": 4987.191285094754,
+      "demand": 3733.433617671826,
+      "temperature": 12.21011389360498
+    },
+    {
+      "month": 6,
+      "generation": 5462.183742134203,
+      "demand": 3366.655839532899,
+      "temperature": 16.403541666666666
+    },
+    {
+      "month": 7,
+      "generation": 5535.241834736828,
+      "demand": 3270.9372757686797,
+      "temperature": 18.1368194680249
+    },
+    {
+      "month": 8,
+      "generation": 4802.043003205285,
+      "demand": 3353.489079152329,
+      "temperature": 17.362120826259197
+    },
+    {
+      "month": 9,
+      "generation": 3630.7933311315855,
+      "demand": 3370.4079265344276,
+      "temperature": 13.724983187134503
+    },
+    {
+      "month": 10,
+      "generation": 2443.7047116552635,
+      "demand": 3272.3589983931975,
+      "temperature": 9.470501556310131
+    },
+    {
+      "month": 11,
+      "generation": 1324.8098493631605,
+      "demand": 4070.2363366278646,
+      "temperature": 4.067592105263158
+    },
+    {
+      "month": 12,
+      "generation": 948.5753175899999,
+      "demand": 4922.499790593264,
+      "temperature": -0.07166383701188456
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "Lower demand",
+      "tariffs": {
+        "gas": 0.15,
+        "gasStanding": 300,
+        "electricity": 0.4,
+        "electricityStanding": 240
+      },
+      "gasKwh": 97840.0,
+      "existingElectricityKwh": 11760.0,
+      "boilerEfficiency": 0.85,
+      "spaceSPF": 4.8,
+      "dhwCOP": 3.5,
+      "poolCOP": 5.5,
+      "components": {
+        "household": 11760.0,
+        "spaceHeat": 12994.375,
+        "hotWater": 1188.0571428571427,
+        "poolHeat": 3024.1454545454544,
+        "extensionHeat": 625.0,
+        "cars": 6000,
+        "additionalCooling": 1000
+      },
+      "annualDemand": 36591.57759740582
+    },
+    {
+      "name": "Working case",
+      "tariffs": {
+        "gas": 0.12,
+        "gasStanding": 240,
+        "electricity": 0.35,
+        "electricityStanding": 180
+      },
+      "gasKwh": 122800.0,
+      "existingElectricityKwh": 13611.428571428572,
+      "boilerEfficiency": 0.9,
+      "spaceSPF": 4.3,
+      "dhwCOP": 3.2,
+      "poolCOP": 5,
+      "components": {
+        "household": 13611.428571428572,
+        "spaceHeat": 19276.74418604651,
+        "hotWater": 1726.875,
+        "poolHeat": 4420.8,
+        "extensionHeat": 697.6744186046512,
+        "cars": 6000,
+        "additionalCooling": 1000
+      },
+      "annualDemand": 46733.52217608339
+    },
+    {
+      "name": "Higher demand",
+      "tariffs": {
+        "gas": 0.1,
+        "gasStanding": 180,
+        "electricity": 0.3,
+        "electricityStanding": 120
+      },
+      "gasKwh": 147960.0,
+      "existingElectricityKwh": 16080.0,
+      "boilerEfficiency": 0.95,
+      "spaceSPF": 3.6,
+      "dhwCOP": 2.8,
+      "poolCOP": 4,
+      "components": {
+        "household": 16080.0,
+        "spaceHeat": 29283.75,
+        "hotWater": 2510.0357142857147,
+        "poolHeat": 7028.1,
+        "extensionHeat": 833.3333333333333,
+        "cars": 6000,
+        "additionalCooling": 1000
+      },
+      "annualDemand": 62735.219047609644
+    }
+  ],
+  "batteries": [
+    {
+      "units": 0,
+      "nominalKwh": 0.0,
+      "dispatchKwh": 0.0,
+      "annualImport": 31099.221029800352,
+      "annualExport": 24395.9758215148,
+      "selfSufficiency": 0.3345414686994026,
+      "annualBatteryLoss": 0.0,
+      "endingSocKwh": 0.0
+    },
+    {
+      "units": 2,
+      "nominalKwh": 27.0,
+      "dispatchKwh": 24.3,
+      "annualImport": 24841.08818500865,
+      "annualExport": 17253.50552147465,
+      "selfSufficiency": 0.47043889666790184,
+      "annualBatteryLoss": 709.0364026169888,
+      "endingSocKwh": 0.0
+    },
+    {
+      "units": 4,
+      "nominalKwh": 54.0,
+      "dispatchKwh": 48.6,
+      "annualImport": 20930.166073607506,
+      "annualExport": 12719.035602949167,
+      "selfSufficiency": 0.5554729668849449,
+      "annualBatteryLoss": 1157.2831571089475,
+      "endingSocKwh": 0.0
+    },
+    {
+      "units": 7,
+      "nominalKwh": 94.5,
+      "dispatchKwh": 85.05,
+      "annualImport": 18922.629965253487,
+      "annualExport": 10204.920119530587,
+      "selfSufficiency": 0.6003421621836137,
+      "annualBatteryLoss": 1400.9109532260545,
+      "endingSocKwh": 0.0
+    }
+  ],
+  "annualBalance": {
+    "panels": 137,
+    "kwp": 61.65,
+    "area": 267.52647599999995,
+    "extraPanels": 20
+  },
+  "independenceLowerBounds": [
+    null,
+    {
+      "scale": 2,
+      "panels": 234,
+      "kwp": 105.3,
+      "moduleArea": 456.9430319999999,
+      "dispatchKwh": 11310.270836128853,
+      "nominalKwh": 12566.967595698725,
+      "powerwallCapacityEquivalent": 931
+    },
+    {
+      "scale": 3,
+      "panels": 351,
+      "kwp": 157.95,
+      "moduleArea": 685.4145479999999,
+      "dispatchKwh": 7114.903519260115,
+      "nominalKwh": 7905.448354733461,
+      "powerwallCapacityEquivalent": 586
+    },
+    {
+      "scale": 4,
+      "panels": 468,
+      "kwp": 210.6,
+      "moduleArea": 913.8860639999998,
+      "dispatchKwh": 4969.1657808446325,
+      "nominalKwh": 5521.295312049591,
+      "powerwallCapacityEquivalent": 409
+    },
+    {
+      "scale": 6,
+      "panels": 702,
+      "kwp": 315.9,
+      "moduleArea": 1370.8290959999997,
+      "dispatchKwh": 1639.274306281557,
+      "nominalKwh": 1821.4158958683968,
+      "powerwallCapacityEquivalent": 135
+    }
+  ],
+  "winterDailyLoad": 161.61373482047853,
+  "tenDarkDaysNominalKwh": 1795.7081646719835,
+  "tenDarkDaysPowerwallEquivalent": 134,
+  "pitchSensitivity": {
+    "east-30": 918.92,
+    "east-40": 893.54,
+    "west-30": 857.64,
+    "west-40": 819.69
+  },
+  "assumptions": {
+    "localShadeLoss": 0.1,
+    "winterSnowLoss": 0.05,
+    "pvgisSystemLoss": 0.14,
+    "batteryRoundTrip": 0.9,
+    "reserve": 0.1,
+    "batteryStandbyKwPerUnit": 0.01,
+    "evCount": 2,
+    "evKmEach": 15000,
+    "evKwhPer100KmAtSocket": 20
+  }
+}

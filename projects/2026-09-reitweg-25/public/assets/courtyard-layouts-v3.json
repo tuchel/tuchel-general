@@ -1,0 +1,448 @@
+{
+  "source": "ground-floor.png crop x340 y740 width1200 height740; exposé PDF page19",
+  "status": "Source-based unmeasured concept; no compass correction applied to page coordinates",
+  "paving": [
+    [
+      97,
+      58
+    ],
+    [
+      600,
+      58
+    ],
+    [
+      600,
+      248
+    ],
+    [
+      180,
+      248
+    ],
+    [
+      138,
+      680
+    ],
+    [
+      35,
+      669
+    ]
+  ],
+  "covered": [
+    [
+      97,
+      58
+    ],
+    [
+      600,
+      58
+    ],
+    [
+      600,
+      157
+    ],
+    [
+      190,
+      157
+    ],
+    [
+      138,
+      680
+    ],
+    [
+      35,
+      669
+    ]
+  ],
+  "posts": [
+    [
+      181,
+      146
+    ],
+    [
+      329,
+      150
+    ],
+    [
+      464,
+      150
+    ],
+    [
+      167,
+      280
+    ],
+    [
+      153,
+      414
+    ],
+    [
+      140,
+      548
+    ]
+  ],
+  "tree": "Indicative position from photographs, not drawn in the source plan",
+  "layouts": [
+    {
+      "slug": "courtyard-long-table-v3",
+      "title": "The long-table courtyard",
+      "letter": "A",
+      "zones": [
+        "Eight-seat dining at the north terrace",
+        "Two quiet daybeds along the west wing",
+        "A pair of cozy seats beside the fireplace"
+      ],
+      "description": "A long banquette and timber table make dining the heart of the courtyard. Two daybeds sit farther down the west wing; a pair of soft chairs creates a smaller fireside conversation spot. The table reaches the roof edge, so the outer seats are on the uncovered terrace.",
+      "objects": [
+        {
+          "x": 129,
+          "y": 239,
+          "w": 26,
+          "d": 29,
+          "h": 30,
+          "color": "#c6c9b6",
+          "kind": "cozy chair"
+        },
+        {
+          "x": 122,
+          "y": 311,
+          "w": 26,
+          "d": 29,
+          "h": 30,
+          "color": "#c6c9b6",
+          "kind": "cozy chair"
+        },
+        {
+          "x": 124,
+          "y": 280,
+          "w": 24,
+          "d": 18,
+          "h": 16,
+          "color": "#c2ae8a",
+          "kind": "side table"
+        },
+        {
+          "x": 104,
+          "y": 436,
+          "w": 34,
+          "d": 82,
+          "h": 20,
+          "color": "#dad6c5",
+          "kind": "daybed"
+        },
+        {
+          "x": 91,
+          "y": 568,
+          "w": 34,
+          "d": 82,
+          "h": 20,
+          "color": "#dad6c5",
+          "kind": "daybed"
+        },
+        {
+          "x": 294,
+          "y": 63,
+          "w": 143,
+          "d": 28,
+          "h": 30,
+          "color": "#c5c8b5",
+          "kind": "banquette"
+        },
+        {
+          "x": 309,
+          "y": 99,
+          "w": 112,
+          "d": 37,
+          "h": 31,
+          "color": "#b69770",
+          "kind": "dining table"
+        },
+        {
+          "x": 281,
+          "y": 104,
+          "w": 22,
+          "d": 23,
+          "h": 29,
+          "color": "#d4c7ad",
+          "kind": "dining chair"
+        },
+        {
+          "x": 432,
+          "y": 104,
+          "w": 22,
+          "d": 23,
+          "h": 29,
+          "color": "#d4c7ad",
+          "kind": "dining chair"
+        },
+        {
+          "x": 350,
+          "y": 146,
+          "w": 22,
+          "d": 23,
+          "h": 29,
+          "color": "#d4c7ad",
+          "kind": "dining chair"
+        },
+        {
+          "x": 393,
+          "y": 146,
+          "w": 22,
+          "d": 23,
+          "h": 29,
+          "color": "#d4c7ad",
+          "kind": "dining chair"
+        }
+      ]
+    },
+    {
+      "slug": "courtyard-daybed-room-v3",
+      "title": "The daybed garden room",
+      "letter": "B",
+      "zones": [
+        "Two daybeds in the deeper north bay",
+        "A round four-seat table on the open paving",
+        "Cozy fireside chairs in the west wing"
+      ],
+      "description": "Bring the daybeds together beneath the north roof so lounging feels like a garden living room. A round four-seat table sits on the existing open terrace in front, while two chairs make a separate nook near the fireplace. This gives lounging the most shelter; dining is outdoors.",
+      "objects": [
+        {
+          "x": 129,
+          "y": 239,
+          "w": 26,
+          "d": 29,
+          "h": 30,
+          "color": "#c6c9b6",
+          "kind": "cozy chair"
+        },
+        {
+          "x": 122,
+          "y": 311,
+          "w": 26,
+          "d": 29,
+          "h": 30,
+          "color": "#c6c9b6",
+          "kind": "cozy chair"
+        },
+        {
+          "x": 124,
+          "y": 280,
+          "w": 24,
+          "d": 18,
+          "h": 16,
+          "color": "#c2ae8a",
+          "kind": "side table"
+        },
+        {
+          "x": 272,
+          "y": 68,
+          "w": 83,
+          "d": 36,
+          "h": 20,
+          "color": "#dad6c5",
+          "kind": "daybed"
+        },
+        {
+          "x": 390,
+          "y": 68,
+          "w": 83,
+          "d": 36,
+          "h": 20,
+          "color": "#dad6c5",
+          "kind": "daybed"
+        },
+        {
+          "x": 365,
+          "y": 77,
+          "w": 17,
+          "d": 20,
+          "h": 16,
+          "color": "#c2ae8a",
+          "kind": "side table"
+        },
+        {
+          "x": 359,
+          "y": 164,
+          "w": 51,
+          "d": 51,
+          "h": 31,
+          "color": "#b69770",
+          "kind": "round dining table"
+        },
+        {
+          "x": 373,
+          "y": 133,
+          "w": 22,
+          "d": 23,
+          "h": 29,
+          "color": "#d4c7ad",
+          "kind": "dining chair"
+        },
+        {
+          "x": 373,
+          "y": 224,
+          "w": 22,
+          "d": 23,
+          "h": 29,
+          "color": "#d4c7ad",
+          "kind": "dining chair"
+        },
+        {
+          "x": 329,
+          "y": 178,
+          "w": 22,
+          "d": 23,
+          "h": 29,
+          "color": "#d4c7ad",
+          "kind": "dining chair"
+        },
+        {
+          "x": 418,
+          "y": 178,
+          "w": 22,
+          "d": 23,
+          "h": 29,
+          "color": "#d4c7ad",
+          "kind": "dining chair"
+        }
+      ]
+    },
+    {
+      "slug": "courtyard-garden-salon-v3",
+      "title": "Three little outdoor rooms",
+      "letter": "C",
+      "zones": [
+        "Compact six-seat dining in the north corner",
+        "A sheltered sofa and cozy fireside chairs",
+        "Two daybeds toward the pool"
+      ],
+      "description": "A smaller banquette table leaves room for a proper sofa beneath the north roof. Keep two inviting chairs beside the fireplace and place the daybeds farther toward the pool. A more varied arrangement for reading, eating and spending the whole afternoon outside; the dining chairs reach the open terrace.",
+      "objects": [
+        {
+          "x": 129,
+          "y": 239,
+          "w": 26,
+          "d": 29,
+          "h": 30,
+          "color": "#c6c9b6",
+          "kind": "cozy chair"
+        },
+        {
+          "x": 122,
+          "y": 311,
+          "w": 26,
+          "d": 29,
+          "h": 30,
+          "color": "#c6c9b6",
+          "kind": "cozy chair"
+        },
+        {
+          "x": 124,
+          "y": 280,
+          "w": 24,
+          "d": 18,
+          "h": 16,
+          "color": "#c2ae8a",
+          "kind": "side table"
+        },
+        {
+          "x": 104,
+          "y": 436,
+          "w": 34,
+          "d": 82,
+          "h": 20,
+          "color": "#dad6c5",
+          "kind": "daybed"
+        },
+        {
+          "x": 91,
+          "y": 568,
+          "w": 34,
+          "d": 82,
+          "h": 20,
+          "color": "#dad6c5",
+          "kind": "daybed"
+        },
+        {
+          "x": 221,
+          "y": 62,
+          "w": 103,
+          "d": 27,
+          "h": 30,
+          "color": "#c5c8b5",
+          "kind": "banquette"
+        },
+        {
+          "x": 235,
+          "y": 97,
+          "w": 81,
+          "d": 35,
+          "h": 31,
+          "color": "#b69770",
+          "kind": "dining table"
+        },
+        {
+          "x": 204,
+          "y": 102,
+          "w": 22,
+          "d": 23,
+          "h": 29,
+          "color": "#d4c7ad",
+          "kind": "dining chair"
+        },
+        {
+          "x": 325,
+          "y": 102,
+          "w": 22,
+          "d": 23,
+          "h": 29,
+          "color": "#d4c7ad",
+          "kind": "dining chair"
+        },
+        {
+          "x": 252,
+          "y": 142,
+          "w": 22,
+          "d": 23,
+          "h": 29,
+          "color": "#d4c7ad",
+          "kind": "dining chair"
+        },
+        {
+          "x": 289,
+          "y": 142,
+          "w": 22,
+          "d": 23,
+          "h": 29,
+          "color": "#d4c7ad",
+          "kind": "dining chair"
+        },
+        {
+          "x": 390,
+          "y": 64,
+          "w": 91,
+          "d": 37,
+          "h": 32,
+          "color": "#bfc7b4",
+          "kind": "sofa"
+        },
+        {
+          "x": 421,
+          "y": 122,
+          "w": 32,
+          "d": 22,
+          "h": 16,
+          "color": "#c2ae8a",
+          "kind": "side table"
+        },
+        {
+          "x": 518,
+          "y": 139,
+          "w": 26,
+          "d": 29,
+          "h": 30,
+          "color": "#c6c9b6",
+          "kind": "cozy chair"
+        }
+      ]
+    }
+  ]
+}

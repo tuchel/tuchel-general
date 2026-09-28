@@ -1,0 +1,555 @@
+{
+  "source": "Exposé PDF p19; source crop x60/y70/w750/h880 at 216dpi",
+  "geometry": "Shared A+B+C envelope; openings are proposals, not structural approval",
+  "envelope": [
+    [
+      104,
+      126
+    ],
+    [
+      626,
+      126
+    ],
+    [
+      626,
+      275
+    ],
+    [
+      639,
+      275
+    ],
+    [
+      639,
+      809
+    ],
+    [
+      334,
+      809
+    ],
+    [
+      334,
+      716
+    ],
+    [
+      104,
+      716
+    ]
+  ],
+  "removed": [
+    {
+      "x": 343,
+      "y": 275,
+      "w": 91,
+      "d": 42
+    },
+    {
+      "x": 516,
+      "y": 275,
+      "w": 84,
+      "d": 42
+    },
+    {
+      "x": 334,
+      "y": 332,
+      "w": 43,
+      "d": 131
+    }
+  ],
+  "layouts": [
+    {
+      "slug": "kitchen-abc-social",
+      "title": "The social kitchen",
+      "zones": [
+        "A · garden dining",
+        "B · morning lounge",
+        "C · generous working kitchen"
+      ],
+      "change": "Open west and north connections; retain the east cooker.",
+      "objects": [
+        {
+          "x": 566,
+          "y": 333,
+          "w": 54,
+          "d": 169,
+          "h": 57,
+          "color": "#b6bba6",
+          "kind": "counter"
+        },
+        {
+          "x": 566,
+          "y": 518,
+          "w": 54,
+          "d": 99,
+          "h": 57,
+          "color": "#5e665d",
+          "kind": "cooker"
+        },
+        {
+          "x": 566,
+          "y": 632,
+          "w": 54,
+          "d": 32,
+          "h": 57,
+          "color": "#b6bba6",
+          "kind": "counter"
+        },
+        {
+          "x": 377,
+          "y": 345,
+          "w": 34,
+          "d": 93,
+          "h": 57,
+          "color": "#b6bba6",
+          "kind": "counter"
+        },
+        {
+          "x": 389,
+          "y": 467,
+          "w": 90,
+          "d": 190,
+          "h": 57,
+          "color": "#cbb48f",
+          "kind": "island"
+        },
+        {
+          "x": 169,
+          "y": 328,
+          "w": 70,
+          "d": 220,
+          "h": 47,
+          "color": "#b99c76",
+          "kind": "table"
+        },
+        {
+          "x": 128,
+          "y": 340,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 252,
+          "y": 340,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 128,
+          "y": 417,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 252,
+          "y": 417,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 128,
+          "y": 494,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 252,
+          "y": 494,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 190,
+          "y": 288,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 190,
+          "y": 561,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 380,
+          "y": 153,
+          "w": 178,
+          "d": 51,
+          "h": 42,
+          "color": "#c8c9b8",
+          "kind": "sofa"
+        },
+        {
+          "x": 420,
+          "y": 225,
+          "w": 77,
+          "d": 31,
+          "h": 25,
+          "color": "#d1c4aa",
+          "kind": "coffee table"
+        },
+        {
+          "x": 553,
+          "y": 207,
+          "w": 46,
+          "d": 43,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        }
+      ]
+    },
+    {
+      "slug": "kitchen-abc-garden",
+      "title": "Cook in the garden",
+      "zones": [
+        "A · kitchen facing the garden",
+        "B · breakfast and coffee",
+        "C · dining and a serving wall"
+      ],
+      "change": "Open both connections; relocate cooker, sink and services to A.",
+      "objects": [
+        {
+          "x": 115,
+          "y": 329,
+          "w": 43,
+          "d": 101,
+          "h": 57,
+          "color": "#b6bba6",
+          "kind": "counter"
+        },
+        {
+          "x": 115,
+          "y": 444,
+          "w": 43,
+          "d": 92,
+          "h": 57,
+          "color": "#5e665d",
+          "kind": "cooker"
+        },
+        {
+          "x": 115,
+          "y": 550,
+          "w": 43,
+          "d": 112,
+          "h": 57,
+          "color": "#b6bba6",
+          "kind": "counter"
+        },
+        {
+          "x": 228,
+          "y": 426,
+          "w": 60,
+          "d": 161,
+          "h": 57,
+          "color": "#cbb48f",
+          "kind": "island"
+        },
+        {
+          "x": 565,
+          "y": 346,
+          "w": 55,
+          "d": 305,
+          "h": 57,
+          "color": "#b6bba6",
+          "kind": "counter"
+        },
+        {
+          "x": 419,
+          "y": 451,
+          "w": 76,
+          "d": 181,
+          "h": 47,
+          "color": "#b99c76",
+          "kind": "table"
+        },
+        {
+          "x": 380,
+          "y": 462,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 508,
+          "y": 462,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 380,
+          "y": 527,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 508,
+          "y": 527,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 380,
+          "y": 592,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 508,
+          "y": 592,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 442,
+          "y": 411,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 442,
+          "y": 645,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 373,
+          "y": 150,
+          "w": 190,
+          "d": 37,
+          "h": 42,
+          "color": "#c8c9b8",
+          "kind": "sofa"
+        },
+        {
+          "x": 423,
+          "y": 207,
+          "w": 95,
+          "d": 35,
+          "h": 47,
+          "color": "#b99c76",
+          "kind": "table"
+        },
+        {
+          "x": 435,
+          "y": 249,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 482,
+          "y": 249,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        }
+      ]
+    },
+    {
+      "slug": "kitchen-abc-family",
+      "title": "The all-day family room",
+      "zones": [
+        "A · a proper garden lounge",
+        "B + northwest corner · dining",
+        "C · a redesigned kitchen"
+      ],
+      "change": "Open both connections; keep cooker east and move the island.",
+      "objects": [
+        {
+          "x": 566,
+          "y": 342,
+          "w": 54,
+          "d": 160,
+          "h": 57,
+          "color": "#b6bba6",
+          "kind": "counter"
+        },
+        {
+          "x": 566,
+          "y": 518,
+          "w": 54,
+          "d": 99,
+          "h": 57,
+          "color": "#5e665d",
+          "kind": "cooker"
+        },
+        {
+          "x": 566,
+          "y": 633,
+          "w": 54,
+          "d": 31,
+          "h": 57,
+          "color": "#b6bba6",
+          "kind": "counter"
+        },
+        {
+          "x": 386,
+          "y": 333,
+          "w": 139,
+          "d": 36,
+          "h": 57,
+          "color": "#b6bba6",
+          "kind": "counter"
+        },
+        {
+          "x": 434,
+          "y": 461,
+          "w": 69,
+          "d": 159,
+          "h": 57,
+          "color": "#cbb48f",
+          "kind": "island"
+        },
+        {
+          "x": 166,
+          "y": 184,
+          "w": 185,
+          "d": 70,
+          "h": 47,
+          "color": "#b99c76",
+          "kind": "table"
+        },
+        {
+          "x": 125,
+          "y": 206,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 365,
+          "y": 206,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 189,
+          "y": 143,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 189,
+          "y": 268,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 267,
+          "y": 143,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 267,
+          "y": 268,
+          "w": 30,
+          "d": 28,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 117,
+          "y": 438,
+          "w": 53,
+          "d": 195,
+          "h": 42,
+          "color": "#c8c9b8",
+          "kind": "sofa"
+        },
+        {
+          "x": 210,
+          "y": 495,
+          "w": 70,
+          "d": 88,
+          "h": 25,
+          "color": "#d1c4aa",
+          "kind": "coffee table"
+        },
+        {
+          "x": 272,
+          "y": 620,
+          "w": 48,
+          "d": 48,
+          "h": 34,
+          "color": "#ddd0b9",
+          "kind": "chair"
+        },
+        {
+          "x": 500,
+          "y": 158,
+          "w": 92,
+          "d": 40,
+          "h": 42,
+          "color": "#c8c9b8",
+          "kind": "sofa"
+        }
+      ]
+    }
+  ]
+}
