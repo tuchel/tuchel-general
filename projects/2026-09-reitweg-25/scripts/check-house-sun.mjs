@@ -19,15 +19,29 @@ assert.equal(studyInstant(298,150).date.toISOString(),'2026-10-25T00:30:00.000Z'
 assert(Math.abs(sunDirection(97.5,0)[0]-1)<1e-10,'east roof bearing maps to +X');assert(sunDirection(0,0)[0]<0&&sunDirection(0,0)[2]<0,'true north matches plan compass');
 console.log('Passed: five NOAA fixtures across seasons/day/night, CET/CEST including both transitions, and model north/east registration.');
 
-await build({entryPoints:['lib/house-model/sun-lighting.ts'],outfile:'tmp/sun-lighting-check.mjs',bundle:true,platform:'node',format:'esm',packages:'external'});
-const {sunLighting}=await import('../tmp/sun-lighting-check.mjs');
-const root=new T.Group(),scene=new T.Scene(),sun=new T.DirectionalLight(),hemi=new T.HemisphereLight();scene.fog=new T.Fog('#dce4e2',150,340);const fog=scene.fog.color.clone();
-const lighting=sunLighting(root,scene,sun,hemi,{shadowMap:{needsUpdate:false},toneMappingExposure:1});
-lighting.apply({enabled:true,day:172,minutes:780});const direction=sun.position.clone().sub(sun.target.position).normalize(),reading=solarPosition(studyInstant(172,780).date);
-assert(direction.distanceTo(new T.Vector3(...sunDirection(reading.azimuth,reading.apparentElevation)))<1e-10);assert(sun.intensity>3);
-lighting.apply({enabled:true,day:355,minutes:0});assert.equal(sun.intensity,0);assert(scene.fog.color.r<.02);
-lighting.apply({enabled:false,day:355,minutes:0});assert(scene.fog.color.equals(fog));assert.equal(scene.getObjectByName('calculated-sun-sky').visible,false);lighting.dispose();
-console.log('Passed: renderer sun vector follows calculated angles, night has no direct sunlight, studio sky/fog restore.');
+await build({entryPoints:['lib/house-model/lighting.ts'],outfile:'tmp/lighting-check.mjs',bundle:true,platform:'node',format:'esm',packages:'external'});
+const {createLighting,skyRadiance}=await import('../tmp/lighting-check.mjs');
+const scene=new T.Scene(),root=new T.Group(),renderer={shadowMap:{needsUpdate:false}};
+const lighting=createLighting(renderer,scene,root,{shadowSize:1024});
+const noon=lighting.apply({enabled:true,day:172,minutes:780}),sun=lighting.sun;
+const direction=sun.position.clone().sub(sun.target.position).normalize(),reading=solarPosition(studyInstant(172,780).date);
+assert(direction.distanceTo(new T.Vector3(...sunDirection(reading.azimuth,reading.apparentElevation)))<1e-10,'sun light follows the calculated sun');
+assert(sun.intensity>0&&sun.visible);
+const noonFog=scene.fog.color.clone();assert(noonFog.r>0&&noonFog.b>noonFog.r,'midday haze is a pale blue');
+// A mid-grey wall's exposed brightness: the key light times exposure.
+const grey=r=>r.key*r.exposure;
+const sunset=lighting.apply({enabled:true,day:172,minutes:1277});
+assert(grey(sunset)>.2*grey(noon),'sunset stays legible, not black');
+assert(scene.fog.color.r/scene.fog.color.b>noonFog.r/noonFog.b,'sunset haze is warmer than midday');
+assert(sunset.dusk>.3&&root.getObjectByName('evening-interior-light').visible,'interior lamps come on at dusk');
+const night=lighting.apply({enabled:true,day:355,minutes:0});
+assert.equal(sun.intensity,0);assert(!sun.visible,'no direct sunlight at night');
+assert(grey(night)<grey(sunset),'night is darker than sunset');
+assert(Number.isFinite(night.exposure)&&night.exposure>noon.exposure);
+const zenith=skyRadiance(new T.Vector3(0,1,0),new T.Vector3(...sunDirection(171,65)).normalize());
+assert(zenith.b>zenith.g&&zenith.g>zenith.r,'clear zenith is blue');
+lighting.dispose();
+console.log('Passed: sun light follows calculated angles, sunset stays legible with warm haze and lamps, night has no direct sun, blue zenith.');
 
 // Independent NOAA calculator event fixtures: local minutes, including both
 // German clock-change days. NOAA solar noon and maximum altitude differ only

@@ -14,7 +14,7 @@ export function buildPool(){
  const wood=new T.MeshStandardMaterial({color:'#8c867b',roughness:.87});wood.userData.photo='deck';
  const rim=new T.MeshStandardMaterial({color:'#d3d3cc',roughness:.61});
  const liner=new T.MeshStandardMaterial({color:'#83bdc8',roughness:.48});
- const water=new T.MeshStandardMaterial({color:'#76abae',roughness:.14,transparent:true,opacity:.82,depthWrite:false});
+ const water=new T.MeshStandardMaterial({color:'#76abae',roughness:.14,transparent:true,opacity:.82,depthWrite:false});water.userData.water=true;
  const geo=new T.BoxGeometry(1,1,1);
  function box(name:string,x:number,y:number,z:number,w:number,h:number,d:number,mat:T.Material){
   const mesh=new T.Mesh(geo,mat);mesh.name=name;mesh.position.set(x,y+h/2,z);mesh.scale.set(w,h,d);mesh.castShadow=true;mesh.receiveShadow=true;mesh.userData.region='pool';g.add(mesh);return mesh;

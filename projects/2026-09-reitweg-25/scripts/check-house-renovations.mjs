@@ -9,7 +9,7 @@ const {solarPanels,solarRoofs,solarModule,roofSkylights}=await import('../tmp/re
 const {renovationState}=await import('../tmp/renovation-check/renovation-data.mjs');
 const realistic=process.argv.includes('--realism');
 const model=buildHouseModel(realistic),ids=Object.keys(renovationState());
-if(realistic){assert(model.root.getObjectByName('individual-roof-tiles'));assert(model.root.getObjectByName('individual-tree-leaves'));}
+if(realistic){assert(model.root.getObjectByName('tree-leaf-cards'),'instanced leaf-card trees');assert(model.root.getObjectByName('hedge-leaf-cards'),'leafy hedge');}
 const visible=o=>{while(o){if(!o.visible)return false;o=o.parent;}return true;};
 model.setLevel('exterior');model.setRenovations(renovationState());
 const snapshot=()=>{const data=[];model.root.traverse(o=>data.push([o.uuid,o.visible,...o.position.toArray(),...o.scale.toArray(),...(o.isInstancedMesh?o.instanceMatrix.array:[])]));return data;};
@@ -37,7 +37,7 @@ if(realistic){const ray=new T.Raycaster();for(const roof of solarRoofs)for(const
  const mesh=model.root.getObjectByName(roof.id+'-roof-slope-'+win.side),half=roof.width/2,rise=roof.ridge-roof.eave;
  const local=new T.Vector3(win.side*half*win.fraction,roof.ridge-rise*win.fraction,win.z),normal=new T.Vector3(win.side*rise,half,0).normalize();
  const start=local.clone().add(normal).applyMatrix4(mesh.parent.matrixWorld),end=local.clone().sub(normal).applyMatrix4(mesh.parent.matrixWorld);ray.set(start,end.clone().sub(start).normalize());ray.far=start.distanceTo(end);
- assert.equal(ray.intersectObject(mesh,false).length,0,'skylight is an actual hole through the roof');const tiles=mesh.parent.getObjectByName('individual-roof-tiles');assert.equal(ray.intersectObject(tiles).length,0,'individual tiles do not cover a skylight');
+ assert.equal(ray.intersectObject(mesh,false).length,0,'skylight is an actual hole through the roof');
  const solid=new T.Vector3(win.side*half*.15,roof.ridge-rise*.15,-roof.length/2+.3);ray.set(solid.clone().add(normal).applyMatrix4(mesh.parent.matrixWorld),normal.clone().negate().transformDirection(mesh.parent.matrixWorld));assert(ray.intersectObject(mesh,false).length>0,'roof surface winding faces the sky on both slopes');
 }}
 model.root.traverse(o=>{for(const n of o.matrixWorld.elements)assert(Number.isFinite(n));});model.dispose();

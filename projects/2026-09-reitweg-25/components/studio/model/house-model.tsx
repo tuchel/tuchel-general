@@ -1,60 +1,147 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import {Download,Layers,ArrowUpRight,Box,Maximize,Minimize,Minus,Plus,RotateCcw,Play,Pause,TreePine,MousePointer2} from 'lucide-react';
-import {Popover,PopoverTrigger,PopoverContent} from '@/components/ui/popover';
+import {ArrowLeft,ArrowUpRight,Box,Camera,Layers,MoreHorizontal,Sun,Building2,X} from 'lucide-react';
+import {Dialog} from 'radix-ui';
 import RenovationControls from './renovation-controls';
+import {ViewsPanel,FloorPanel,LightPanel,MorePanel,floors,type ViewKey} from './model-panels';
 import {renovations,renovationState,type RenovationState,type RenovationId} from '@/lib/house-model/renovation-data';
-import ExperienceControls from './experience-controls';
-import {places,initialExperience,type Presence} from '@/lib/house-model/experience-data';
-import MobileModelControls from './mobile-controls';
-import {Choice} from '../panels';
-import {viewpoints,regions,sourceNotes,photoChecks,type Level,type Region,type Viewpoint} from '@/lib/house-model/site-data';
+import {places,initialCapture,type Place,type CaptureState} from '@/lib/house-model/experience-data';
+import {viewpoints,regions,sourceNotes,photoChecks,planPoint,UPPER_PLAN_X_OFFSET,type Level,type Region,type Viewpoint} from '@/lib/house-model/site-data';
 import {interiorRooms} from '@/lib/house-model/interior-data';
-import {planPoint,UPPER_PLAN_X_OFFSET} from '@/lib/house-model/site-data';
-import type {TextureStatus} from '@/lib/house-model/photo-sources';
+import {clockLabel,sunStudyReading} from '@/lib/house-model/sun-position';
+import {detectQuality,qualityFromParam,tiers,type Quality} from '@/lib/house-model/device-tier';
 import type {HouseViewer} from '@/lib/house-model/viewer';
 
+type Panel='views'|'floor'|'changes'|'light'|'more';
+const panelTitles:Record<Panel,string>={views:'Views',floor:'Floor',changes:'Renovations',light:'Light',more:'More'};
+/** A June afternoon: long, warm light across the east lawn and courtyard. */
+const START={day:172,minutes:17*60};
+
 export default function HouseModel({onNavigate}:{onNavigate:(id:string)=>void}){
- const host=useRef<HTMLDivElement>(null),shell=useRef<HTMLDivElement>(null),api=useRef<HouseViewer|null>(null);
- const [experience,setExperience]=useState(initialExperience),[pendingPlace,setPendingPlace]=useState<Presence|null>(null);
- const [quality,setQuality]=useState('natural'),[textures,setTextures]=useState<TextureStatus>('idle');
- const savedCamera=useRef<ReturnType<HouseViewer['snapshot']>|null>(null);
- useEffect(()=>{if(new URLSearchParams(window.location.search).get('quality')==='realism')setQuality('realism');},[]);
- const chooseQuality=(value:string)=>{if(value===quality)return;savedCamera.current=api.current?.snapshot()||null;setTextures('idle');setQuality(value);const url=new URL(window.location.href);if(value==='realism')url.searchParams.set('quality','realism');else url.searchParams.delete('quality');window.history.replaceState(null,'',url);};
- const [mobile,setMobile]=useState(false),[interacted,setInteracted]=useState(false);
- useEffect(()=>{const query=window.matchMedia('(max-width: 767px), (max-width: 950px) and (max-height: 500px)');const update=()=>setMobile(query.matches);update();query.addEventListener('change',update);return()=>query.removeEventListener('change',update);},[]);
- const [changes,setChanges]=useState<RenovationState>(()=>renovationState()),[renovationsOpen,setRenovationsOpen]=useState(false);
- useEffect(()=>{const ids=new URLSearchParams(window.location.search).get('renovations')?.split(',')||[];if(ids.length)setChanges(previous=>Object.fromEntries(Object.entries(previous).map(([id,value])=>[id,value||ids.includes(id)])) as RenovationState);},[]);
- const activeCount=Object.values(changes).filter(Boolean).length;
- const [roomId,setRoomId]=useState('overview'),[ready,setReady]=useState(false),[failed,setFailed]=useState(false),[attempt,setAttempt]=useState(0),[level,setLevel]=useState<Level>('exterior'),[view,setView]=useState<Viewpoint>('courtyard'),[trees,setTrees]=useState(true),[rotating,setRotating]=useState(false),[expanded,setExpanded]=useState(false),[region,setRegion]=useState<Region>('main');
- useEffect(()=>{let cancelled=false;setReady(false);setFailed(false);import('@/lib/house-model/viewer').then(({createHouseViewer})=>{if(cancelled||!host.current)return;try{api.current=createHouseViewer(host.current,setRegion,()=>setReady(true),()=>setFailed(true),quality==='realism',setTextures,setExperience);if(savedCamera.current)api.current.restore(savedCamera.current);}catch{setFailed(true);}}).catch(()=>{if(!cancelled)setFailed(true);});return()=>{cancelled=true;api.current?.dispose();api.current=null;};},[attempt,quality]);
- useEffect(()=>{api.current?.setRenovations(changes);},[ready,changes]);
- useEffect(()=>{api.current?.setLevel(level);},[ready,level]);
- useEffect(()=>{api.current?.setTrees(trees);},[ready,trees,level]);
- useEffect(()=>{api.current?.setRotate(rotating);},[ready,rotating]);
- useEffect(()=>{if(!expanded&&!mobile)return;const onKey=(event:KeyboardEvent)=>{if(event.key==='Escape')setExpanded(false);};const before=document.body.style.overflow;document.body.style.overflow='hidden';window.addEventListener('keydown',onKey);return()=>{document.body.style.overflow=before;window.removeEventListener('keydown',onKey);};},[expanded,mobile]);
- const choosePlace=(p:Presence)=>{setInteracted(true);setRotating(false);setRoomId('overview');if(level!=='exterior'){setPendingPlace(p);setLevel('exterior');}else api.current?.experience?.presence(p);};
- useEffect(()=>{if(pendingPlace&&level==='exterior'){api.current?.experience?.presence(pendingPlace);setPendingPlace(null);}},[pendingPlace,level]);
- const chooseView=(v:Viewpoint)=>{setRoomId('overview');setView(v);api.current?.view(v);};
- const chooseLevel=(v:string)=>{const l=v as Level;setRoomId('overview');setLevel(l);setRotating(false);if(l!=='exterior'){setView('top');api.current?.setLevel(l);api.current?.view('top');}else{setView('courtyard');api.current?.setLevel(l);api.current?.view('courtyard');}};
- const room=interiorRooms.find(r=>r.id===roomId);
- const chooseRoom=(id:string)=>{setRoomId(id);setRotating(false);if(id==='overview'){api.current?.view('top');return;}const r=interiorRooms.find(r=>r.id===id);if(!r)return;const [x,z]=planPoint(...r.center);api.current?.focus(x+(r.level==='upper'?UPPER_PLAN_X_OFFSET:0),z,r.level==='upper'?3.4:r.level==='basement'?-2:.4,r.span);};
- const focusRenovation=(id:RenovationId)=>{setChanges(previous=>({...previous,[id]:true}));const r=renovations.find(item=>item.id===id)!;setRenovationsOpen(false);setRotating(false);setRoomId('overview');if(id==='front'||id==='solar'){chooseLevel('exterior');chooseView(id==='solar'?'east':'arrival');}else{setLevel('ground');api.current?.setLevel('ground');setView(r.view);api.current?.focus(r.center[0],r.center[1],.5,r.span);}};
- const selected=regions[region];
+ const host=useRef<HTMLDivElement>(null),compass=useRef<HTMLSpanElement>(null),api=useRef<HouseViewer|null>(null),saved=useRef<ReturnType<HouseViewer['snapshot']>|null>(null);
+ // The model page renders only in the browser, so presets and URL choices are read at mount.
+ const [detected]=useState<Quality>(()=>typeof window==='undefined'?'model':detectQuality());
+ const [quality,setQuality]=useState<Quality>(()=>typeof window==='undefined'?'model':qualityFromParam(new URLSearchParams(window.location.search).get('quality'))??detected);
+ const [ready,setReady]=useState(false),[failed,setFailed]=useState(false),[attempt,setAttempt]=useState(0),[materials,setMaterials]=useState<'loading'|'ready'>('ready');
+ const [level,setLevel]=useState<Level>('exterior'),[view,setView]=useState<ViewKey|null>('courtyard'),levelRef=useRef<Level>('exterior');
+ useEffect(()=>{levelRef.current=level;},[level]);
+ const [changes,setChanges]=useState<RenovationState>(()=>{
+  const state=renovationState(),ids=typeof window==='undefined'?[]:new URLSearchParams(window.location.search).get('renovations')?.split(',')||[];
+  return Object.fromEntries(Object.keys(state).map(id=>[id,ids.includes(id)])) as RenovationState;
+ });
+ const [sun,setSun]=useState(START),[capture,setCapture]=useState<CaptureState>(initialCapture);
+ const [panel,setPanel]=useState<Panel|null>(null),[region,setRegion]=useState<Region|null>(null),[about,setAbout]=useState(false);
+ const apply=(v:ViewKey,instant=false)=>{
+  const viewer=api.current;if(!viewer)return;
+  if(v.startsWith('room:')){
+   const r=interiorRooms.find(room=>`room:${room.id}`===v);if(!r)return;
+   const [x,z]=planPoint(...r.center);viewer.focus(x+(r.level==='upper'?UPPER_PLAN_X_OFFSET:0),z,r.level==='upper'?3.4:r.level==='basement'?-2:.4,r.span);return;
+  }
+  viewer.view(v as Viewpoint|Place,instant);
+ };
+ // One viewer per detail setting; the camera carries over when the preset changes.
+ useEffect(()=>{
+  let cancelled=false;
+  import('@/lib/house-model/viewer').then(({createHouseViewer})=>{
+   if(cancelled||!host.current)return;
+   try{
+    api.current=createHouseViewer(host.current,{
+     quality,onSelect:r=>{setRegion(r);setPanel(null);},onReady:()=>setReady(true),onError:()=>setFailed(true),onCapture:setCapture,onMaterials:setMaterials,
+     onHeading:deg=>{if(compass.current)compass.current.style.transform=`rotate(${deg}deg)`;},
+     onRequest:()=>{const next=levelRef.current==='exterior'?'courtyard':'top';setView(next);setRegion(null);api.current?.view(next);},
+    });
+    if(saved.current&&quality!=='model'&&tiers[quality])api.current.restore(saved.current);
+   }catch(error){console.warn('3D model',error);setFailed(true);}
+  }).catch(()=>{if(!cancelled)setFailed(true);});
+  return()=>{cancelled=true;api.current?.dispose();api.current=null;};
+  // The viewer is rebuilt only for a new preset or an explicit retry.
+ },[attempt,quality]);
+ // Keep the viewer in step with React state once it is ready (also after a rebuild).
+ useEffect(()=>{if(!ready)return;const v=api.current;if(!v)return;v.setLevel(level);v.setRenovations(changes);v.setSun({enabled:true,...sun});if(view)apply(view,true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[ready]);
+ useEffect(()=>{if(ready)api.current?.setRenovations(changes);},[ready,changes]);
+ useEffect(()=>{if(ready)api.current?.setSun({enabled:true,...sun});},[ready,sun]);
+ useEffect(()=>{
+  const key=(e:KeyboardEvent)=>{if(e.key==='Escape'&&panel)setPanel(null);};
+  window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);
+ },[panel]);
+
+ const chooseView=(v:ViewKey)=>{
+  setRegion(null);
+  if(v in places&&level!=='exterior'){setLevel('exterior');api.current?.setLevel('exterior');}
+  setView(v);apply(v);
+ };
+ const chooseLevel=(l:Level)=>{
+  setRegion(null);setLevel(l);api.current?.setLevel(l);
+  const next:ViewKey=l==='exterior'?'courtyard':'top';setView(next);apply(next);
+ };
+ const focusRenovation=(id:RenovationId)=>{
+  setChanges(previous=>({...previous,[id]:true}));setPanel(null);setRegion(null);
+  const r=renovations.find(item=>item.id===id)!;
+  if(id==='front'||id==='solar'){chooseLevel('exterior');const v=id==='solar'?'east':'arrival';setView(v);apply(v);return;}
+  setLevel('ground');api.current?.setLevel('ground');setView(null);api.current?.focus(r.center[0],r.center[1],.5,r.span);
+ };
+ const chooseQuality=(q:Quality)=>{
+  if(q===quality)return;saved.current=api.current?.snapshot()??null;setCapture(initialCapture);setReady(false);setFailed(false);setQuality(q);
+  const url=new URL(window.location.href);if(q===detected)url.searchParams.delete('quality');else url.searchParams.set('quality',q);window.history.replaceState(null,'',url);
+ };
+ const toggle=(p:Panel)=>setPanel(current=>current===p?null:p);
+ const activeCount=Object.values(changes).filter(Boolean).length,realistic=quality!=='model';
+ const place=view&&view in places?places[view as Place]:undefined,room=view?.startsWith('room:')?interiorRooms.find(r=>`room:${r.id}`===view):undefined;
+ const reading=sunStudyReading({enabled:true,...sun}),selected=region?regions[region]:undefined;
+ const caption=place?{title:place.label,detail:place.caption}:room?{title:room.label,detail:room.detail}:view&&view in viewpoints?{title:level==='exterior'?viewpoints[view as Viewpoint].label:view==='top'?floors.find(f=>f.id===level)!.label:viewpoints[view as Viewpoint].label,detail:level==='exterior'?'':'Walls cut at window height'}:undefined;
+ const busy=capture.busy||capture.render!=='idle'||capture.recording||!!capture.message;
  return <div className="house-model-page">
-  <div className="model-page-heading"><div><span className="eyebrow">REITWEG 25 · A SPATIAL STUDY</span><h1>The house, in three dimensions.</h1></div><p>The house today. The possibilities ahead.<br/>Explore your renovations together.</p></div>
-  <div ref={shell} className={'model-shell'+(expanded?' is-expanded':'')}>
-   <div className="model-toolbar"><div className="model-renovation-toolbar"><Popover open={renovationsOpen} onOpenChange={setRenovationsOpen}><PopoverTrigger className="model-renovation-trigger"><Layers size={18}/>Renovations<span>{activeCount||'+'}</span></PopoverTrigger><PopoverContent align="start" className="model-renovation-popover"><RenovationControls value={changes} onChange={setChanges} onFocus={focusRenovation} level={level} ready={ready&&!failed}/><button className="renovation-done" onClick={()=>setRenovationsOpen(false)}>Back to the house</button></PopoverContent></Popover><span className="model-design-status" aria-live="polite">{activeCount?`${activeCount} renovation${activeCount===1?'':'s'} on`:'Original house'}<small>{quality==='realism'?'Detailed realism':'Natural materials'}</small></span></div><div className="model-toolbar-right"><Choice label="Visual detail" value={quality} onChange={chooseQuality} items={[{id:'natural',label:'Natural materials'},{id:'realism',label:'Detailed realism'}]}/><Choice label="Choose floor" value={level} onChange={chooseLevel} items={[{id:'exterior',label:'Exterior · roofs on'},{id:'ground',label:'Ground floor'},{id:'upper',label:'Upper floor'},{id:'basement',label:'Basement'}]}/><button className="model-icon" aria-label="Save 4K image" title="Save 4K image" disabled={!ready||failed} onClick={()=>api.current?.saveImage()}><Download size={18}/></button><button className="model-icon" aria-label={expanded?'Exit expanded view':'Expand 3D view'} title={expanded?'Exit expanded view':'Expand 3D view'} onClick={()=>setExpanded(!expanded)}>{expanded?<Minimize size={19}/>:<Maximize size={19}/>}</button></div></div>
-   {level!=='exterior'&&<div className="model-room-toolbar"><span className="mini-label">LOOK INSIDE</span><Choice label="Explore a room" value={roomId} onChange={chooseRoom} items={[{id:'overview',label:'Whole floor'},...interiorRooms.filter(r=>r.level===level).map(r=>({id:r.id,label:r.label}))]}/><span>Choose a room to move closer</span></div>}
-   <div className="model-canvas-wrap"><ExperienceControls api={api.current} state={experience} ready={ready&&!failed} realistic={quality==='realism'} onEnable={()=>chooseQuality('realism')} onPlace={choosePlace}/><div ref={host} className="model-canvas" onPointerDown={()=>setInteracted(true)}/>{!ready&&!failed&&<div className="model-loading" role="status"><Box size={32}/><span>{quality==='realism'?'Building the detailed house…':'Assembling the house…'}</span></div>}{failed&&<div className="model-error" role="alert"><h3>The 3D view couldn’t start.</h3><p>Try reloading the model, or open the original plans below.</p><button className="btn" onClick={()=>setAttempt(attempt+1)}>Reload model</button><button className="text-btn" onClick={()=>onNavigate('plans')}>Open the plans</button></div>}
-    <div className="model-tools"><button className="model-icon" aria-label="Zoom in" title="Zoom in" disabled={!ready||failed} onClick={()=>api.current?.zoom(1.2)}><Plus size={18}/></button><button className="model-icon" aria-label="Zoom out" title="Zoom out" disabled={!ready||failed} onClick={()=>api.current?.zoom(.83)}><Minus size={18}/></button><button className="model-icon" aria-label="Reset camera" title="Reset camera" disabled={!ready||failed} onClick={()=>chooseView(level==='exterior'?'courtyard':'top')}><RotateCcw size={18}/></button><button className="model-icon" aria-label={rotating?'Pause rotation':'Rotate model'} title={rotating?'Pause rotation':'Rotate model'} aria-pressed={rotating} disabled={!ready||failed} onClick={()=>setRotating(!rotating)}>{rotating?<Pause size={18}/>:<Play size={18}/>}</button><button className="model-icon" aria-label={trees?'Hide trees':'Show trees'} title={trees?'Hide trees':'Show trees'} aria-pressed={trees} disabled={level!=='exterior'} onClick={()=>setTrees(!trees)}><TreePine size={18}/></button></div>
-    {experience.presence==='overview'&&<div className="model-help"><MousePointer2 size={14}/><span>{quality==='realism'&&textures==='loading'?'Loading materials from your photos…':quality==='realism'&&textures==='partial'?'Some photo materials unavailable · refresh to retry':'Drag to orbit · scroll or pinch to zoom'}</span></div>}<div className="model-north">N <span>↑</span><small>Plan north</small></div>
+  <div className="model-stage">
+   <div ref={host} className="model-canvas"/>
+   {!ready&&!failed&&<div className="model-loading" role="status"><Box size={30} aria-hidden/><span>{realistic?'Building the house and its setting…':'Assembling the house…'}</span></div>}
+   {failed&&<div className="model-error" role="alert"><h3>The 3D view couldn’t start.</h3><p>Reload the model, or open the original plans.</p><button className="btn" onClick={()=>{setFailed(false);setReady(false);setAttempt(attempt+1);}}>Reload model</button><button className="text-btn" onClick={()=>onNavigate('plans')}>Open the plans</button></div>}
+   <div className="model-top">
+    <button className="model-round model-back" aria-label="Back to the design studio" onClick={()=>onNavigate('studio')}><ArrowLeft size={20}/></button>
+    {caption&&!selected&&<div className="model-caption" aria-live="polite"><strong>{caption.title}</strong>{caption.detail&&<span>{caption.detail}</span>}
+     {place&&<a href={'/assets/'+place.photo} target="_blank" rel="noreferrer">Reference photograph <ArrowUpRight size={13}/></a>}
+     {room&&<div className="model-caption-photos">{room.photos.map((src,i)=><a key={src} href={src} target="_blank" rel="noreferrer"><img src={src} alt={`${room.label}, reference ${i+1}`} loading="lazy"/></a>)}</div>}
+    </div>}
+    {selected&&<div className="model-caption" aria-live="polite"><strong>{selected.title}</strong><span>{selected.detail}</span>
+     <div className="model-caption-links"><a href={'/assets/'+selected.source} target="_blank" rel="noreferrer">Source plan <ArrowUpRight size={13}/></a>{selected.renovation&&<button className="model-link" onClick={()=>onNavigate(selected.renovation!)}>The renovation <ArrowUpRight size={13}/></button>}</div>
+     <button className="model-caption-close" aria-label="Close" onClick={()=>setRegion(null)}><X size={16}/></button>
+    </div>}
+    <div className="model-top-right">
+     <span className="model-compass" aria-label="Compass; the arrow points north" role="img"><span ref={compass}>N</span></span>
+     <button className="model-round" aria-label="More" aria-expanded={panel==='more'} onClick={()=>toggle('more')}><MoreHorizontal size={20}/></button>
+    </div>
    </div>
-   {mobile&&<MobileModelControls presenceLabel={experience.presence==='overview'?undefined:places[experience.presence].label} onSave={()=>api.current?.saveImage()} quality={quality} onQuality={chooseQuality} textures={textures} level={level} changes={changes} onChanges={setChanges} onRenovationFocus={focusRenovation} roomId={roomId} room={room} view={view} trees={trees} rotating={rotating} ready={ready&&!failed} interacted={interacted} onBack={()=>onNavigate('studio')} onLevel={chooseLevel} onRoom={chooseRoom} onView={chooseView} onTrees={()=>setTrees(!trees)} onRotate={()=>setRotating(!rotating)} onZoom={n=>api.current?.zoom(n)} onReset={()=>chooseView(level==='exterior'?'courtyard':'top')}/>}
-   <div className="model-viewbar" aria-label="Camera views">{Object.entries(viewpoints).filter(([id])=>quality==='realism'||!['garden','poolside'].includes(id)).map(([id,v],i)=><button key={id} className={!room&&view===id?'selected':''} aria-pressed={!room&&view===id} disabled={!ready||failed} onClick={()=>chooseView(id as Viewpoint)}><span>0{i+1}</span>{v.label}</button>)}</div>
+   {busy&&<div className="model-status" role="status"><div><strong>{capture.busy?'Preparing…':capture.render==='panorama'?'360° panorama':capture.render==='refining'?'Photograph':capture.recording?'Recording':'Model'}</strong><small>{capture.message}{capture.samples>0?` · ${capture.samples} samples`:''}</small></div>
+    {capture.samples>0&&<button onClick={()=>api.current?.captures?.savePhoto()}>Save PNG</button>}
+    <button onClick={()=>capture.recording?api.current?.captures?.film():api.current?.captures?.stop()}>{capture.busy?'Cancel':capture.recording?'Finish':'Close'}</button>
+   </div>}
+   {panel&&<section className={'model-panel model-panel-'+panel} role="dialog" aria-label={panelTitles[panel]}>
+    <header><h2>{panelTitles[panel]}</h2><button className="model-panel-close" aria-label="Close" onClick={()=>setPanel(null)}><X size={18}/></button></header>
+    {panel==='views'&&<ViewsPanel level={level} view={view} onView={chooseView}/>}
+    {panel==='floor'&&<FloorPanel level={level} onLevel={chooseLevel}/>}
+    {panel==='changes'&&<div className="model-panel-body"><RenovationControls value={changes} onChange={setChanges} onFocus={focusRenovation} level={level} ready={ready&&!failed}/></div>}
+    {panel==='light'&&<LightPanel day={sun.day} minutes={sun.minutes} onChange={(day,minutes)=>setSun({day,minutes})}/>}
+    {panel==='more'&&<MorePanel quality={quality} detected={detected} onQuality={chooseQuality} capture={capture} heavy={tiers[quality].photographic} eyeLevel={!!place}
+     onSave={()=>{setPanel(null);void api.current?.saveImage();}} onPhotograph={pano=>{setPanel(null);void api.current?.captures?.photograph(pano);}} onFilm={()=>{setPanel(null);if(place)chooseView('courtyard');api.current?.captures?.film();}}
+     onExport={()=>{setPanel(null);void api.current?.captures?.exportModel();}} onBreeze={on=>api.current?.captures?.breeze(on)} onSound={on=>void api.current?.captures?.sound(on)} onAbout={()=>{setPanel(null);setAbout(true);}}/>}
+   </section>}
+   <nav className="model-dock" aria-label="Model controls">
+    <button aria-expanded={panel==='views'} onClick={()=>toggle('views')} disabled={!ready}><Camera size={19} aria-hidden/><span>Views</span></button>
+    <button aria-expanded={panel==='floor'} onClick={()=>toggle('floor')} disabled={!ready}><Building2 size={19} aria-hidden/><span>{floors.find(f=>f.id===level)!.short}</span></button>
+    <button aria-expanded={panel==='changes'} onClick={()=>toggle('changes')} disabled={!ready}><Layers size={19} aria-hidden/><span>Changes</span>{activeCount>0&&<b aria-label={`${activeCount} on`}>{activeCount}</b>}</button>
+    {realistic&&<button aria-expanded={panel==='light'} onClick={()=>toggle('light')} disabled={!ready}><Sun size={19} aria-hidden/><span>{clockLabel(reading.minutes)}</span></button>}
+   </nav>
+   {ready&&realistic&&materials==='loading'&&<div className="model-hint" role="status">Loading surface detail…</div>}
   </div>
-  {room&&<section className="model-room-evidence"><div><span className="mini-label">EXISTING FURNITURE · PHOTO STUDY</span><h2>{room.label}</h2><p>{room.detail}</p><small>{room.note||'Recognizable pieces and their arrangement follow the photos; furniture sizes are approximate.'}</small></div><div className="model-room-photos">{room.photos.map((src,i)=><a key={src} href={src} target="_blank" rel="noreferrer"><img src={src} alt={`${room.label} — original reference ${i+1}`} loading="lazy"/><span>Reference {i+1} ↗</span></a>)}</div></section>}
-  <div className="model-bottom"><section className="model-explore" aria-label="Explore the model"><span className="mini-label">EXPLORE THE PROPERTY</span><div className="model-region-list">{Object.entries(regions).map(([id,item])=><button key={id} className={region===id?'selected':''} aria-pressed={region===id} onClick={()=>{setRegion(id as Region);chooseView(id==='grounds'?'estate':id==='kitchen'?'arrival':id==='main'?'east':'courtyard');}}>{item.title}</button>)}</div></section><section className="model-selection" aria-live="polite"><h2>{selected.title}</h2><p>{selected.detail}</p><div className="button-row"><a className="text-btn" href={'/assets/'+selected.source} target="_blank" rel="noreferrer">See the source plan <ArrowUpRight size={15}/></a>{selected.renovation&&<button className="text-btn" onClick={()=>onNavigate(selected.renovation!)}>Explore this renovation <ArrowUpRight size={15}/></button>}</div></section></div>
-  <details className="model-sources"><summary>How this model relates to the real house</summary><div><div className="model-photo-checks">{photoChecks.map(photo=><a key={photo.file} href={'/assets/'+photo.file} target="_blank" rel="noreferrer"><img loading="lazy" src={'/assets/'+photo.file} alt={photo.label}/><span>{photo.label} ↗</span></a>)}</div><p>Detailed realism adds photo-led joinery, curtains and ceilings, individual tiles and leaves, timber, stone and fabric textures, changing light and eye-level views. “Be here” includes progressive path-traced photographs, panoramas, films and textured model export. It uses the same plan-based geometry. Small construction details, plant species and material relief are interpretations; this is not a laser scan or a measured digital twin.</p><ul>{sourceNotes.map(note=><li key={note}>{note}</li>)}</ul><div className="button-row"><a href="/assets/expose.pdf#page=18" target="_blank" rel="noreferrer">Original exposé ↗</a><a href="/assets/house-model-source-notes.json" target="_blank" rel="noreferrer">Model assumptions ↗</a><a href="https://x.com/techartist_/status/2102503719762018434?s=20" target="_blank" rel="noreferrer">Visual inspiration ↗</a></div></div></details>
+  <Dialog.Root open={about} onOpenChange={setAbout}><Dialog.Portal><Dialog.Overlay className="model-about-scrim"/><Dialog.Content className="model-about">
+   <Dialog.Title>About this model</Dialog.Title>
+   <Dialog.Description>Plan-based geometry, the owner’s photographs and calculated sunlight. It is not a laser scan or a measured survey.</Dialog.Description>
+   <div className="model-about-photos">{photoChecks.map(photo=><a key={photo.file} href={'/assets/'+photo.file} target="_blank" rel="noreferrer"><img loading="lazy" src={'/assets/'+photo.file} alt={photo.label}/><span>{photo.label}</span></a>)}</div>
+   <ul>{sourceNotes.map(note=><li key={note}>{note}</li>)}
+    <li>Surfaces use tileable textures generated to match the photographed cladding, roof slates, oak, limestone and lawn. Sunlight follows the calculated sun for the address; sky light inside rooms is precomputed from the building’s openings.</li></ul>
+   <div className="button-row"><a href="/assets/expose.pdf#page=18" target="_blank" rel="noreferrer">Original exposé ↗</a><a href="/assets/house-model-source-notes.json" target="_blank" rel="noreferrer">Model assumptions ↗</a></div>
+   <Dialog.Close className="btn">Back to the house</Dialog.Close>
+  </Dialog.Content></Dialog.Portal></Dialog.Root>
  </div>;
 }

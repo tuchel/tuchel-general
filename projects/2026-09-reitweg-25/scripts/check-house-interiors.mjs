@@ -53,7 +53,7 @@ const lo=new T.Box3().setFromObject(lowerStair),hi=new T.Box3().setFromObject(up
 model.root.traverse(o=>{if(o instanceof T.Mesh){for(const n of o.matrixWorld.elements)assert(Number.isFinite(n),'finite transform');}});
 if(model.detail){
  model.setLevel('exterior');model.root.updateMatrixWorld(true);
- const ceilings=model.detail.ceilings;model.root.getObjectByName('upper-interior-behind-roof').traverse(o=>{if(!o.userData.enclosedSourceUuid)return;const original=model.root.getObjectByProperty('uuid',o.userData.enclosedSourceUuid);assert(original);assert(new T.Box3().setFromObject(o).min.distanceTo(new T.Box3().setFromObject(original).min)<1e-6,'roofs-on furniture matches the registered upper-floor layout');});
+ const ceilings=model.detail.ceilings;let enclosed=0;model.upper.traverse(o=>{if(!o.userData.alsoExterior)return;enclosed++;assert(model.rendered(o),'roofs-on view keeps upper-floor rooms in place');for(let a=o;a&&a!==model.upper;a=a.parent)assert(!a.name.includes('stair'),'cutaway stairs stay out of the roofs-on view');assert(new T.Box3().setFromObject(o).min.y>=2.85);});assert(enclosed>100,'upper-floor furnishings shown behind the roof');
  for(const [x,z] of [[1035,540],[1035,630],[978,530]]){const [px,pz]=p(x,z);assert.equal(crosses([px+UPPER_PLAN_X_OFFSET,4,pz],[px+UPPER_PLAN_X_OFFSET,2,pz],[ceilings]).length,0,'ceiling preserves full main atrium');}
  const [cx,cz]=p(231,860);assert.equal(crosses([cx+UPPER_PLAN_X_OFFSET,4,cz],[cx+UPPER_PLAN_X_OFFSET,2,cz],[ceilings]).length,0,'ceiling preserves guest stairwell');
  assert.equal(ceilings.visible,true);model.setLevel('ground');assert.equal(ceilings.visible,false,'ceilings hide for a cutaway');

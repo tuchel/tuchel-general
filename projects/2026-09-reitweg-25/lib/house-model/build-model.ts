@@ -1,13 +1,14 @@
 import * as T from 'three';
 import {roofSlopeWithOpenings} from './roof-openings';
 import {architecturalDetails} from './architectural-details';
-import {tiledRoof,detailedTree} from './realism-details';
+import {roofTrim} from './realism-details';
 import {garageCars} from './garage-cars';
 import {guestStair} from './guest-stair';
 import {buildGarden} from './garden';
 import {buildEntranceGarden} from './entrance-garden';
 import {buildPool,poolHole} from './pool';
 import {boundaryHedge} from './landscape-context';
+import {buildTrees,foliageMaterials,type TreeSpec} from './foliage';
 import {buildFrontWall} from './front-wall';
 import {furnishHouse} from './interiors';
 import {roofSkylights} from './solar-layout';
@@ -15,7 +16,7 @@ import {buildRenovations} from './renovations';
 import {renovationState,type RenovationId,type RenovationState} from './renovation-data';
 import {planPoint as p,sitePoint as s,plotOutline,treePositions,guestRoofFrame,UPPER_PLAN_X_OFFSET,type Level,type Region} from './site-data';
 
-export function buildHouseModel(realistic=false){
+export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:ReturnType<typeof foliageMaterials>){
  const root=new T.Group(),ground=new T.Group(),upper=new T.Group(),basement=new T.Group(),roofs=new T.Group(),site=new T.Group(),trees=new T.Group();
  root.add(site,trees,ground,upper,basement,roofs);
  ground.name='ground-floor';upper.name='upper-floor';basement.name='basement';
@@ -161,7 +162,7 @@ export function buildHouseModel(realistic=false){
   const g=new T.Group();g.position.set(cx,0,cz);g.rotation.y=rotation;roofs.add(g);const rise=ridge-eave,half=width/2,slope=Math.atan2(rise,half),span=Math.hypot(half,rise);
   const windows=kind==='link'?[]:roofSkylights(kind);
   for(const side of [-1,1]){const mesh=realistic?add(roofSlopeWithOpenings(half,length,eave,ridge,side,windows),m.roof,g,'main'):box(g,side*half/2,(eave+ridge)/2-.075,0,span,.15,length,m.roof,'main');if(!realistic)mesh.rotation.z=-side*slope;mesh.name=kind+'-roof-slope-'+side;outline(mesh);box(g,side*half,eave-.06,0,.14,.18,length,m.edge);}
-  if(realistic)materials.push(tiledRoof(g,half,length,eave,ridge,m.roof,windows));
+  if(realistic)roofTrim(g,half,length,eave);
   // Close the whole upper envelope on the actual wall planes. Roof eaves
   // overhang these walls; gable faces must never be placed at the roof ends.
   const outlinePoints=footprint??[[W,N],[E,N],[E,S],[W,S]];
@@ -191,31 +192,40 @@ export function buildHouseModel(realistic=false){
  // Fine cladding rhythm, deliberately restrained in the pale model finish.
  const slats=new T.Group();ground.add(slats);for(let z=N;z<S;z+=.23){for(const x of [W-.025,E+.025]){const bar=box(slats,x,2.4,z,.035,.38,.025,m.wood);bar.castShadow=false;if(x>0)(originals.east??=[]).push(bar);else if(z<kitchenSouth)(originals.kitchen??=[]).push(bar);}}
  // Low-poly crowns, open trunks and gentle variation, fixed to the source planting plan.
- treePositions.forEach(([px,pz,r],i)=>{const [x,z]=s(px,pz),height=r*1.35+1.7;const trunk=add(cylinderGeo,m.trunk,trees);trunk.scale.set(.1,height*.68,.1);trunk.position.set(x,height*.34,z);
+ // Detailed trees: instanced leaf-card archetypes. Pines and the Japanese maples follow the owner photos.
+ const foliage=realistic?(foliageIn??foliageMaterials()):undefined;
+ if(foliage)trees.add(buildTrees(treePositions.map(([px,pz,r],i)=>{const [x,z]=s(px,pz),seed=171+i*927;return {x,z,r,height:r*1.35+1.7,seed,kind:[171,1098,2025,4806,5733].includes(seed)?'pine':i%5===3?'maple':'broadleaf'} as TreeSpec;}),foliage,'garden-trees'));
+ treePositions.forEach(([px,pz,r],i)=>{if(realistic)return;const [x,z]=s(px,pz),height=r*1.35+1.7;const trunk=add(cylinderGeo,m.trunk,trees);trunk.scale.set(.1,height*.68,.1);trunk.position.set(x,height*.34,z);
   for(let k=0;k<5;k++){const angle=k*2.4+i,dx=Math.cos(angle)*r*.52,dz=Math.sin(angle)*r*.52;segment(trees,[x,height*.43,z],[x+dx,height-r*.2,z+dz],.06,m.trunk);}
-  if(realistic){detailedTree(trees,x,z,r,height,171+i*927);return;}
   // Seeded, overlapping lobes give each crown an irregular, airy silhouette.
   let seed=171+i*927;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
   const foliage=new T.InstancedMesh(sphereGeo,m.leaf,65);foliage.castShadow=true;foliage.receiveShadow=true;const dummy=new T.Object3D();
   for(let k=0;k<65;k++){const angle=random()*Math.PI*2,vertical=random()*2-1,radial=Math.sqrt(1-vertical*vertical)*Math.sqrt(random());dummy.position.set(x+Math.cos(angle)*radial*r*.76,height-r*.35+vertical*r*.62,z+Math.sin(angle)*radial*r*.71);const size=r*(.16+random()*.18);dummy.scale.set(size*(.8+random()*.5),size*(.75+random()*.55),size);dummy.rotation.set(random(),random(),random());dummy.updateMatrix();foliage.setMatrixAt(k,dummy.matrix);foliage.setColorAt(k,new T.Color().setRGB(.88+random()*.12,.9+random()*.1,.86+random()*.14));}trees.add(foliage);
  });
 
- trees.add(boundaryHedge());
+ trees.add(boundaryHedge(foliage));
  const renovation=buildRenovations(ground,roofs,site,material);
  facade(renovation.groups.east,[W,S],[.82,S],[{from:1.6,to:4.2,sill:.9,head:2.2}],'main');
  ground.traverse(o=>{const id=o.userData.replacedBy as RenovationId|undefined;if(id)(originals[id]??=[]).push(o);});
  const detail=realistic?architecturalDetails(ground,upper):undefined;
  // Roofs-on views still contain the real upper-floor furnishings and gallery.
  // Omit the cutaway's duplicated lower hall and stairs; the ground model supplies those.
- const upperEnvelope=new T.Group();upperEnvelope.name='upper-interior-behind-roof';root.add(upperEnvelope);
- if(realistic){upper.updateMatrixWorld(true);upper.traverse(o=>{if(!(o instanceof T.Mesh))return;let parent:T.Object3D|null=o;while(parent&&parent!==upper){if(parent.name.includes('stair'))return;parent=parent.parent;}const bounds=new T.Box3().setFromObject(o);if(bounds.min.y<2.85)return;const copy=o.clone(false);copy.matrix.copy(o.matrixWorld);copy.matrix.decompose(copy.position,copy.quaternion,copy.scale);copy.userData.enclosedSourceUuid=o.uuid;copy.name='enclosed-'+o.name;upperEnvelope.add(copy);});}
+ if(realistic){upper.updateMatrixWorld(true);upper.traverse(o=>{if(!(o instanceof T.Mesh))return;let parent:T.Object3D|null=o;while(parent&&parent!==upper){if(parent.name.includes('stair'))return;parent=parent.parent;}if(new T.Box3().setFromObject(o).min.y>=2.85)o.userData.alsoExterior=true;});}
+ if(setting){setting.name||='surrounding-setting';root.add(setting);}
 
  let active=renovationState(),currentLevel:Level='exterior';
  const applyRenovations=()=>{for(const id of Object.keys(originals) as RenovationId[])for(const o of originals[id]!)o.visible=!active[id];renovation.set(active,currentLevel);garden.setRenovations(active);};
  const setRenovations=(next:RenovationState)=>{active={...next};applyRenovations();};
  // One consistent natural-material palette across the original house and all proposals.
  for(const mat of materials)mat.color.set(mat.userData.timber);garden.setFinish('timber');lineMat.opacity=.2;
- const setLevel=(level:Level)=>{currentLevel=level;upperEnvelope.visible=level==='exterior';if(detail)detail.ceilings.visible=level==='exterior';slats.visible=level==='exterior';site.visible=level!=='basement';trees.visible=level==='exterior';roofs.visible=level==='exterior';ground.visible=level==='exterior'||level==='ground';upper.visible=level==='upper';basement.visible=level==='basement';for(const mesh of cutWalls){const h=mesh.userData.height as number,y=mesh.userData.base as number;const cap=mesh.parent===upper?4.12:mesh.parent===basement?-1:1.17;const shown=level==='exterior'?h:Math.max(0,Math.min(h,cap-y));mesh.visible=shown>0;mesh.scale.y=Math.max(.001,shown);mesh.position.y=y+shown/2;}applyRenovations();};
+ const setLevel=(level:Level)=>{currentLevel=level;if(setting)setting.visible=level==='exterior';if(detail)detail.ceilings.visible=level==='exterior';slats.visible=level==='exterior';site.visible=level!=='basement';trees.visible=level==='exterior';roofs.visible=level==='exterior';ground.visible=level==='exterior'||level==='ground';upper.visible=level==='upper';basement.visible=level==='basement';for(const mesh of cutWalls){const h=mesh.userData.height as number,y=mesh.userData.base as number;const cap=mesh.parent===upper?4.12:mesh.parent===basement?-1:1.17;const shown=level==='exterior'?h:Math.max(0,Math.min(h,cap-y));mesh.visible=shown>0;mesh.scale.y=Math.max(.001,shown);mesh.position.y=y+shown/2;}applyRenovations();};
  const dispose=()=>{const gs=new Set<T.BufferGeometry>(),ms=new Set<T.Material>();root.traverse(o=>{if(o instanceof T.Mesh||o instanceof T.Line){gs.add(o.geometry);(Array.isArray(o.material)?o.material:[o.material]).forEach(a=>ms.add(a));}});gs.forEach(g=>g.dispose());ms.forEach(m=>{if(m instanceof T.MeshStandardMaterial)m.map?.dispose();m.dispose();});};
- return {root,site,trees,pickables,detail,setRenovations,setLevel,dispose};
+ // Every floor × renovation combination, for static batching: state = floor*64 + renovation bits.
+ const renovationIds=Object.keys(renovationState()) as RenovationId[];
+ const stateOf=(level:Level,state:RenovationState)=>levels.indexOf(level)*64+renovationIds.reduce((bits,id,i)=>bits|(state[id]?1<<i:0),0);
+ const applyState=(index:number)=>{setLevel(levels[index>>6]);setRenovations(Object.fromEntries(renovationIds.map((id,i)=>[id,!!(index&(1<<i))])) as RenovationState);};
+ // Upper-floor rooms stay visible behind the roofs in the whole-house view.
+ const rendered=(mesh:T.Object3D)=>{for(let o:T.Object3D|null=mesh;o;o=o.parent){if(o.visible)continue;if(o===upper&&currentLevel==='exterior'&&mesh.userData.alsoExterior)continue;return false;}return true;};
+ return {root,site,trees,upper,pickables,detail,setRenovations,setLevel,dispose,stateCount:levels.length*64,stateOf,applyState,rendered};
 }
+export const levels:Level[]=['exterior','ground','upper','basement'];

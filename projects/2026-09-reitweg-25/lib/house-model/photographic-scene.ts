@@ -1,57 +1,107 @@
 import * as T from 'three';
-import {photoSurfaces,type PhotoSurface} from './photo-sources';
-import type {Mood} from './experience-data';
+import {hasShaderFeature,materialsOf} from './shader-features';
 
-/** Rectify source quads into ordinary PBR maps so ray tracing and GLB export
- * use the same photographs as the live shader, without depending on shader injection. */
-async function photoMaps(){
- const maps=new Map<PhotoSurface,{color:T.DataTexture;rough:T.DataTexture;normal:T.DataTexture}>();
- await Promise.all(Object.entries(photoSurfaces).map(async([key,s])=>{
-  const image=await new T.ImageLoader().loadAsync('/assets/'+s.file);
-  const canvas=document.createElement('canvas');canvas.width=s.size[0];canvas.height=s.size[1];const ctx=canvas.getContext('2d',{willReadFrequently:true})!;ctx.drawImage(image,0,0,canvas.width,canvas.height);
-  const src=ctx.getImageData(0,0,canvas.width,canvas.height).data,n=256,colour=new Uint8Array(n*n*4),rough=new Uint8Array(n*n*4);const means=[0,0,0];
-  for(let y=0;y<n;y++)for(let x=0;x<n;x++){
-   const u=x/(n-1),v=1-y/(n-1),top=s.quad[0].map((a,i)=>a+(s.quad[1][i]-a)*u),bottom=s.quad[3].map((a,i)=>a+(s.quad[2][i]-a)*u),sx=Math.round(top[0]+(bottom[0]-top[0])*v),sy=Math.round(top[1]+(bottom[1]-top[1])*v),i=(y*n+x)*4,j=(Math.min(canvas.height-1,sy)*canvas.width+Math.min(canvas.width-1,sx))*4;
-   for(let c=0;c<3;c++){colour[i+c]=src[j+c];means[c]+=src[j+c];}colour[i+3]=255;
-  }
-  for(let i=0;i<n*n;i++){const luminance=(colour[i*4]+colour[i*4+1]+colour[i*4+2])/3;for(let c=0;c<3;c++){const relative=colour[i*4+c]/Math.max(1,means[c]/(n*n));colour[i*4+c]=Math.round(255*Math.min(1,Math.max(.4,.76+(relative-1)*.3)));rough[i*4+c]=Math.round(210+luminance*.12);}rough[i*4+3]=255;}
-  const tex=new T.DataTexture(colour,n,n);tex.colorSpace=T.SRGBColorSpace;tex.wrapS=tex.wrapT=T.MirroredRepeatWrapping;tex.magFilter=tex.minFilter=T.LinearFilter;tex.needsUpdate=true;
-  const r=new T.DataTexture(rough,n,n);r.wrapS=r.wrapT=T.MirroredRepeatWrapping;r.magFilter=r.minFilter=T.LinearFilter;r.needsUpdate=true;const normalData=new Uint8Array(n*n*4),height=(x:number,y:number)=>{const i=((y+n)%n*n+(x+n)%n)*4;return (colour[i]+colour[i+1]+colour[i+2])/(3*255);};
-  for(let y=0;y<n;y++)for(let x=0;x<n;x++){const nx=(height(x-1,y)-height(x+1,y))*s.bump*n/s.metres[0],ny=(height(x,y-1)-height(x,y+1))*s.bump*n/s.metres[1],vector=new T.Vector3(nx,ny,1).normalize(),i=(y*n+x)*4;normalData[i]=Math.round((vector.x*.5+.5)*255);normalData[i+1]=Math.round((vector.y*.5+.5)*255);normalData[i+2]=Math.round((vector.z*.5+.5)*255);normalData[i+3]=255;}
-  const normal=new T.DataTexture(normalData,n,n);normal.wrapS=normal.wrapT=T.MirroredRepeatWrapping;normal.minFilter=normal.magFilter=T.LinearFilter;normal.needsUpdate=true;maps.set(key as PhotoSurface,{color:tex,rough:r,normal});
- }));return maps;
+/** A standalone copy of what the camera sees, with ordinary UVs and PBR maps, for the
+ * path tracer and GLB export. World-projected surfaces become baked UVs; the texture sets
+ * are converted once to standard colour, roughness and normal maps. */
+type Standard={map:T.Texture;roughness:T.Texture;normal:T.Texture;metres:T.Vector2;slope:boolean};
+function pixels(texture:T.Texture){
+ const image=texture.image as CanvasImageSource&{width:number;height:number};
+ const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;
+ const ctx=canvas.getContext('2d',{willReadFrequently:true})!;ctx.drawImage(image,0,0);
+ return ctx.getImageData(0,0,canvas.width,canvas.height);
 }
-export async function photographicScene(source:T.Scene,camera:T.Camera,mood:Mood,signal:AbortSignal,progress:(text:string)=>void){
- const maps=await photoMaps();const scene=new T.Scene(),geometries:T.BufferGeometry[]=[],materials=new Map<T.Material,T.Material>();
- const waterData=new Uint8Array(128*128*4);for(let y=0;y<128;y++)for(let x=0;x<128;x++){const u=x/128*Math.PI*8,v=y/128*Math.PI*8,n=new T.Vector3(Math.cos(u+v*.5)*.12,Math.cos(v*2-u)*.09,1).normalize(),i=(y*128+x)*4;waterData[i]=(n.x*.5+.5)*255;waterData[i+1]=(n.y*.5+.5)*255;waterData[i+2]=(n.z*.5+.5)*255;waterData[i+3]=255;}const waterNormal=new T.DataTexture(waterData,128,128);waterNormal.wrapS=waterNormal.wrapT=T.RepeatWrapping;waterNormal.repeat.set(12,4);waterNormal.needsUpdate=true;
- const cleanup=()=>{waterNormal.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());maps.forEach(m=>{m.color.dispose();m.rough.dispose();m.normal.dispose();});environment.dispose();};
- const environment=new T.DataTexture(new Float32Array(256*128*4),256,128,T.RGBAFormat,T.FloatType);
- const pixels=environment.image.data as Float32Array;const top=new T.Color(mood==='evening'?'#50658a':mood==='overcast'?'#c8d0d3':'#8cb9dd'),horizon=new T.Color(mood==='evening'?'#ebbb91':'#e1e3dc'),ground=new T.Color('#69745b');
- for(let y=0;y<128;y++)for(let x=0;x<256;x++){const t=y/127,c=t>.5?horizon.clone().lerp(top,(t-.5)*2):ground.clone().lerp(horizon,t*2),i=(y*256+x)*4;pixels[i]=c.r;pixels[i+1]=c.g;pixels[i+2]=c.b;pixels[i+3]=1;}
- environment.mapping=T.EquirectangularReflectionMapping;environment.needsUpdate=true;scene.environment=environment;scene.background=environment;scene.environmentIntensity=mood==='evening'?.35:.8;scene.backgroundIntensity=1;
- const material=(m:T.Material)=>{if(materials.has(m))return materials.get(m)!;const c=m.clone();c.onBeforeCompile=()=>{};c.customProgramCacheKey=()=>'';if(c instanceof T.MeshStandardMaterial){const map=maps.get(m.userData.photo);if(map){c.map=map.color;c.roughnessMap=map.rough;c.normalMap=map.normal;c.normalScale.set(.65,.65);}if(m.userData.water){c.normalMap=waterNormal;c.roughness=.12;c.metalness=.15;}if(c instanceof T.MeshPhysicalMaterial&&c.transmission>0){c.side=T.DoubleSide;c.thickness=.028;c.transmission=.98;c.roughness=.015;(c as T.MeshPhysicalMaterial & {castShadow:boolean}).castShadow=false;}}materials.set(m,c);return c;};
- source.updateMatrixWorld(true);const meshes:T.Mesh[]=[];source.traverseVisible(o=>{if(o instanceof T.Mesh&&!o.userData.skipPhotographic)meshes.push(o);else if(o instanceof T.Light&&!(o instanceof T.HemisphereLight)){const light=o.clone();o.getWorldPosition(light.position);scene.add(light);}});
- let counter=0;
- try{for(const mesh of meshes){
-  if(signal.aborted)throw new DOMException('Cancelled','AbortError');
-  const original=mesh.geometry,base=original.index?original.toNonIndexed():original,positions=base.attributes.position,normals=base.attributes.normal,baseUV=base.attributes.uv; if(!positions)continue;
-  const materialList=Array.isArray(mesh.material)?mesh.material:[mesh.material],kind=materialList[0].userData.photo as PhotoSurface,surface=photoSurfaces[kind];
-  const instanced=mesh instanceof T.InstancedMesh,count=instanced?mesh.count:1;
-  // Distant fine foliage uses a stable LOD; building, glass, furniture and panels retain full geometry.
-  const stride=instanced&&mesh.name==='individual-tree-leaves'?2:1,valid:number[]=[];const matrix=new T.Matrix4(),instance=new T.Matrix4();
-  for(let j=0;j<count;j+=stride){if(instanced){mesh.getMatrixAt(j,instance);if(Math.abs(instance.determinant())<1e-12)continue;}valid.push(j);}
-  const size=positions.count*valid.length,out=new Float32Array(size*3),normal=new Float32Array(size*3),uv=new Float32Array(size*2),colors=new Float32Array(size*4),v=new T.Vector3(),n=new T.Vector3(),nm=new T.Matrix3(),color=new T.Color();
-  for(let a=0;a<valid.length;a++){const j=valid[a];matrix.copy(mesh.matrixWorld);color.set(0xffffff);if(instanced){mesh.getMatrixAt(j,instance);matrix.multiply(instance);if(mesh.instanceColor)mesh.getColorAt(j,color);}nm.getNormalMatrix(matrix);
-   for(let i=0;i<positions.count;i++){const k=a*positions.count+i;v.fromBufferAttribute(positions,i).applyMatrix4(matrix);n.set(0,1,0);if(normals)n.fromBufferAttribute(normals,i).applyNormalMatrix(nm);out.set(v.toArray(),k*3);normal.set(n.toArray(),k*3);const vertexColor=base.attributes.color;colors.set([color.r*(vertexColor?vertexColor.getX(i):1),color.g*(vertexColor?vertexColor.getY(i):1),color.b*(vertexColor?vertexColor.getZ(i):1),1],k*4);
-    if(surface){const ax=Math.abs(n.x),ay=Math.abs(n.y),az=Math.abs(n.z);uv[k*2]=(ay>Math.max(ax,az)?v.x:ax>az?v.z:v.x)/surface.metres[0];uv[k*2+1]=(ay>Math.max(ax,az)?v.z:v.y)/surface.metres[1];if(surface.axis){const ridge=new T.Vector3().crossVectors(new T.Vector3(0,1,0),n);if(ridge.lengthSq()>.00001){ridge.normalize();const slope=new T.Vector3().crossVectors(n,ridge).normalize();uv[k*2]=v.dot(ridge)/surface.metres[0];uv[k*2+1]=v.dot(slope)/surface.metres[1];}}}else if(baseUV){uv[k*2]=baseUV.getX(i);uv[k*2+1]=baseUV.getY(i);}
-   }
+function standardMaps(color:T.Texture,normal:T.Texture):Omit<Standard,'metres'|'slope'>{
+ const c=pixels(color),n=pixels(normal),w=c.width,h=c.height,size=w*h;
+ const rgb=new Uint8Array(size*4),rough=new Uint8Array(size*4),nrm=new Uint8Array(size*4);
+ for(let i=0;i<size;i++){
+  rgb.set([c.data[i*4],c.data[i*4+1],c.data[i*4+2],255],i*4);
+  const r=c.data[i*4+3];rough.set([r,r,r,255],i*4);
+  const x=n.data[i*4]/127.5-1,y=n.data[i*4+1]/127.5-1,z=Math.sqrt(Math.max(0,1-x*x-y*y));
+  nrm.set([n.data[i*4],n.data[i*4+1],Math.round((z*.5+.5)*255),255],i*4);
+ }
+ // Canvas pixel rows run top-down, as the loaded images do; keep three's default flip.
+ const make=(data:Uint8Array,srgb:boolean)=>{const t=new T.DataTexture(data,w,h);t.flipY=true;t.wrapS=t.wrapT=T.RepeatWrapping;t.magFilter=T.LinearFilter;t.minFilter=T.LinearMipmapLinearFilter;t.generateMipmaps=true;if(srgb)t.colorSpace=T.SRGBColorSpace;t.needsUpdate=true;return t;};
+ return {map:make(rgb,true),roughness:make(rough,false),normal:make(nrm,false)};
+}
+
+export async function photographicScene(source:T.Scene,environment:T.Texture,signal:AbortSignal,progress:(text:string)=>void,options:{maxDistance?:number;origin?:T.Vector3}={}){
+ const scene=new T.Scene(),geometries:T.BufferGeometry[]=[],materials=new Map<T.Material,T.Material>(),converted=new Map<T.Texture,ReturnType<typeof standardMaps>>(),textures:T.Texture[]=[];
+ scene.environment=environment;scene.background=environment;
+ const cleanup=()=>{geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());};
+ const surfaceOf=(m:T.Material):Standard|undefined=>{
+  if(!hasShaderFeature(m,'surface-v1'))return;
+  const u=(m.userData.surfaceUniforms||{}) as Record<string,{value:unknown}>;
+  const color=u.uSurfaceColor?.value as T.Texture|undefined,normal=u.uSurfaceNormal?.value as T.Texture|undefined;
+  if(!color?.image||!normal?.image)return;
+  let maps=converted.get(color);if(!maps){maps=standardMaps(color,normal);converted.set(color,maps);textures.push(maps.map,maps.roughness,maps.normal);}
+  return {...maps,metres:u.uSurfaceMetres.value as T.Vector2,slope:(u.uSurfaceSlope.value as number)>.5};
+ };
+ const material=(m:T.Material)=>{
+  if(materials.has(m))return materials.get(m)!;
+  const c=m.clone() as T.MeshPhysicalMaterial;c.onBeforeCompile=()=>{};c.customProgramCacheKey=()=>'';c.userData={};
+  const surface=surfaceOf(m);
+  if(surface&&c instanceof T.MeshStandardMaterial){
+   c.map=surface.map;c.roughnessMap=surface.roughness;c.normalMap=surface.normal;c.roughness=1;
+   const tint=(m.userData.surfaceUniforms.uSurfaceTint.value as T.Color);c.color.copy(tint);
   }
-  const geo=new T.BufferGeometry();geo.setAttribute('position',new T.BufferAttribute(out,3));geo.setAttribute('normal',new T.BufferAttribute(normal,3));geo.setAttribute('uv',new T.BufferAttribute(uv,2));geo.setAttribute('color',new T.BufferAttribute(colors,4));if(materialList.length>1)for(let a=0;a<valid.length;a++)for(const g of base.groups)geo.addGroup(a*positions.count+g.start,g.count,g.materialIndex);geometries.push(geo);const mats=materialList.map(material);mats.forEach(m=>{if(m instanceof T.MeshStandardMaterial)m.vertexColors=true;});// The pinned tracer merges one material per mesh. Split multi-material faces
-  // explicitly so frame, glazing and wall materials cannot shift subsequent indices.
-  const emit=(geometry:T.BufferGeometry,mat:T.Material)=>{const baked=new T.Mesh(geometry,mat);baked.name=mesh.name;baked.castShadow=true;baked.receiveShadow=true;scene.add(baked);};
-  if(mats.length>1){for(const group of geo.groups){const part=new T.BufferGeometry();for(const [name,attribute] of Object.entries(geo.attributes)){part.setAttribute(name,new T.BufferAttribute(attribute.array.slice(group.start*attribute.itemSize,(group.start+group.count)*attribute.itemSize),attribute.itemSize));}geometries.push(part);emit(part,mats[group.materialIndex||0]);}}else emit(geo,mats[0]);
-  if(base!==original)base.dispose();
-  if(++counter%60===0){progress('Preparing geometry · '+Math.round(counter/meshes.length*100)+'%');await new Promise(r=>setTimeout(r,0));}
- }}catch(error){cleanup();throw error;}
+  if(hasShaderFeature(m,'fresnel-glass')){Object.assign(c,{transparent:false,opacity:1,transmission:1,ior:1.5,thickness:.02,roughness:.01,side:T.DoubleSide});c.color.set('#ffffff');}
+  if(hasShaderFeature(m,'pool-water')){Object.assign(c,{transparent:false,opacity:1,transmission:.9,ior:1.33,thickness:1.4,roughness:.03});c.color.set('#7fc6c9');}
+  if(c instanceof T.MeshStandardMaterial&&(c.map||hasShaderFeature(m,'surface-v1')))c.vertexColors=!!(m as T.MeshStandardMaterial).vertexColors||!!m.userData.instanceTint;
+  materials.set(m,c);return c;
+ };
+ source.updateMatrixWorld(true);
+ const meshes:T.Mesh[]=[];
+ source.traverseVisible(o=>{
+  if(!o.layers.isEnabled(0)||o.userData.skipPhotographic)return;
+  if(o instanceof T.Mesh)meshes.push(o);
+  else if(o instanceof T.DirectionalLight||(o instanceof T.SpotLight&&o.intensity>0)){const light=o.clone();o.getWorldPosition(light.position);if(light instanceof T.DirectionalLight||light instanceof T.SpotLight){light.target=new T.Object3D();o.target.getWorldPosition(light.target.position);scene.add(light.target);}scene.add(light);}
+ });
+ const v=new T.Vector3(),n=new T.Vector3(),nm=new T.Matrix3(),color=new T.Color(),matrix=new T.Matrix4(),instance=new T.Matrix4(),tu=new T.Vector3(),tv=new T.Vector3(),up=new T.Vector3(0,1,0);
+ let counter=0;
+ try{
+  for(const mesh of meshes){
+   if(signal.aborted)throw new DOMException('Cancelled','AbortError');
+   const base=mesh.geometry.index?mesh.geometry.toNonIndexed():mesh.geometry,pos=base.attributes.position,nor=base.attributes.normal,uv0=base.attributes.uv,vc=base.attributes.color;
+   if(!pos)continue;
+   const mats=materialsOf(mesh),instanced=mesh instanceof T.InstancedMesh,count=instanced?mesh.count:1,surface=surfaceOf(mats[0]);
+   const valid:number[]=[];
+   for(let j=0;j<count;j++){
+    if(instanced){mesh.getMatrixAt(j,instance);if(Math.abs(instance.determinant())<1e-12)continue;}
+    matrix.copy(mesh.matrixWorld);if(instanced)matrix.multiply(instance);
+    // Distant instanced trees add little to a photograph near the house but a lot to its memory.
+    if(instanced&&options.maxDistance&&options.origin){v.setFromMatrixPosition(matrix);if(v.distanceTo(options.origin)>options.maxDistance)continue;}
+    valid.push(j);
+   }
+   const size=pos.count*valid.length,out=new Float32Array(size*3),normal=new Float32Array(size*3),uv=new Float32Array(size*2),colors=new Float32Array(size*4);
+   valid.forEach((j,a)=>{
+    matrix.copy(mesh.matrixWorld);color.set(0xffffff);
+    if(instanced){mesh.getMatrixAt(j,instance);matrix.multiply(instance);if(mesh.instanceColor)mesh.getColorAt(j,color);}
+    nm.getNormalMatrix(matrix);
+    for(let i=0;i<pos.count;i++){
+     const k=a*pos.count+i;v.fromBufferAttribute(pos,i).applyMatrix4(matrix);n.set(0,1,0);if(nor)n.fromBufferAttribute(nor,i).applyNormalMatrix(nm);
+     out.set([v.x,v.y,v.z],k*3);normal.set([n.x,n.y,n.z],k*3);
+     colors.set([color.r*(vc?vc.getX(i):1),color.g*(vc?vc.getY(i):1),color.b*(vc?vc.getZ(i):1),1],k*4);
+     if(surface){
+      // Same projection as the live shader (surface-materials.ts).
+      const ax=Math.abs(n.x),ay=Math.abs(n.y),az=Math.abs(n.z);
+      if(surface.slope&&ay<.97&&ay>.08){tu.crossVectors(up,n).normalize();tv.crossVectors(n,tu).normalize();}
+      else if(ay>=ax&&ay>=az){tu.set(1,0,0);tv.set(0,0,-1);}
+      else if(ax>=az){tu.set(0,0,-Math.sign(n.x));tv.set(0,1,0);}
+      else{tu.set(Math.sign(n.z),0,0);tv.set(0,1,0);}
+      uv[k*2]=v.dot(tu)/surface.metres.x;uv[k*2+1]=v.dot(tv)/surface.metres.y;
+     }else if(uv0){uv[k*2]=uv0.getX(i);uv[k*2+1]=uv0.getY(i);}
+    }
+   });
+   const geo=new T.BufferGeometry();
+   geo.setAttribute('position',new T.BufferAttribute(out,3));geo.setAttribute('normal',new T.BufferAttribute(normal,3));geo.setAttribute('uv',new T.BufferAttribute(uv,2));geo.setAttribute('color',new T.BufferAttribute(colors,4));
+   geometries.push(geo);
+   const baked=new T.Mesh(geo,material(mats[0]));baked.name=mesh.name;baked.castShadow=mesh.castShadow;baked.receiveShadow=true;
+   if(baked.material instanceof T.MeshStandardMaterial)baked.material.vertexColors=true;
+   scene.add(baked);
+   if(base!==mesh.geometry)base.dispose();
+   if(++counter%40===0){progress('Preparing geometry · '+Math.round(counter/meshes.length*100)+'%');await new Promise(r=>setTimeout(r,0));}
+  }
+ }catch(error){cleanup();throw error;}
  return {scene,dispose:cleanup};
 }
