@@ -68,11 +68,12 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  // Guest yoga room, rust lounge modules and glazed sauna.
  g=place(ground,256,865,-.093);rug(g,.72,1.8,m.grey);round(g,.05,.04,-.63,.17,.55,m.rust).rotation.x=Math.PI/2;
  g=place(ground,245,1117,-.093);sofa(g,0,1.28,2.1,0,m.rust);sofa(g,.86,-.15,1.75,Math.PI/2,m.rust,false);table(group(g,-.24,0,-.24),.73,.73,.31,m.charcoal);
- // Full corner sauna: timber lining, stepped L benches, glazed front and stone heater.
- // Clay-plastered walls inside; timber only on the benches and the spruce front frame (IMG_1582).
+ // Full corner sauna, 2.1 m high: timber lining, stepped L benches, glazed front and stone heater.
+ // Clay-plastered walls and ceiling inside; timber only on the benches and the spruce front frame (IMG_1582).
  g=place(ground,127,1143,-.093);g.name='guest-corner-sauna';
- box(g,0,0,0,2.72,.06,3.03,m.pine);box(g,-1.3,0,0,.12,1.05,3.03,clay);box(g,0,0,1.46,2.72,1.05,.1,clay);box(g,0,0,-1.46,2.72,1.05,.1,clay);
- box(g,1.32,0,0,.03,1.05,3,clear);for(const z of [-1.46,-.3,.5,1.46])box(g,1.34,0,z,.05,1.05,.045,m.pine);box(g,1.34,1.05,0,.05,.05,3,m.pine);box(g,1.37,.75,.4,.045,.28,.045,m.oak);
+ box(g,0,0,0,2.72,.06,3.03,m.pine);box(g,-1.3,0,0,.12,2.1,3.03,clay);box(g,0,0,1.46,2.72,2.1,.1,clay);box(g,0,0,-1.46,2.72,2.1,.1,clay);
+ box(g,0,2.1,0,2.72,.08,3.03,clay).name='guest-sauna-ceiling';
+ passable(box(g,1.32,0,0,.03,2.1,3,clear));for(const z of [-1.46,-.3,.5,1.46])box(g,1.34,0,z,.05,2.1,.045,m.pine);box(g,1.34,2.1,0,.05,.05,3,m.pine);passable(box(g,1.37,1,.4,.045,.28,.045,m.oak));
  box(g,-.94,0,0,.65,.42,2.8,m.pine);box(g,-.64,0,1.08,1.94,.75,.69,m.pine);box(g,-.95,0,.1,.62,.75,2.63,m.pine);
  for(let i=0;i<12;i++)box(g,-.64,.755,.77+i*.054,1.93,.018,.025,m.oak);
  for(let i=0;i<11;i++)box(g,-1.25+i*.054,.755,.1,.026,.018,2.63,m.oak);
@@ -101,8 +102,8 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  // South bathroom: a separate WC and shower occupy the strip beside the atrium.
  g=place(upper,939,697,-Math.PI/2);g.name='upper-south-wc';box(g,0,.02,0,.39,.34,.57,m.white,true);box(g,0,.35,0,.42,.07,.6,m.white,true);box(g,0,.06,.26,.43,.75,.12,m.white,true);
  g=place(upper,1007,697);g.name='upper-south-shower';box(g,0,.015,0,62*12/434,.045,44*12/434,m.white,true);
- box(g,.48,.065,.65,.65,1.04,.025,clear);box(g,.48,1.105,.65,.65,.025,.026,m.charcoal);
- rod(g,[0,.08,-.58],[0,1.12,-.58],.023,m.charcoal);rod(g,[0,1.12,-.58],[0,1.12,-.26],.023,m.charcoal);box(g,0,1.09,-.26,.22,.035,.22,m.charcoal);
+ box(g,.48,.065,.65,.65,1.98,.025,clear);box(g,.48,2.045,.65,.65,.025,.026,m.charcoal);
+ rod(g,[0,.08,-.58],[0,2.12,-.58],.023,m.charcoal);rod(g,[0,2.12,-.58],[0,2.12,-.26],.023,m.charcoal);box(g,0,2.09,-.26,.22,.035,.22,m.charcoal);
  // The south screen leaves a clear walk-in opening beside the vanity.
  // The small east-side room off the gallery contains a WC and a single basin.
  g=place(upper,1184,472);g.name='upper-gallery-wc';box(g,0,.02,0,.39,.34,.57,m.white,true);box(g,0,.35,0,.42,.07,.6,m.white,true);box(g,0,.06,.26,.43,.75,.12,m.white,true);
@@ -116,9 +117,9 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  box(shower,0,.025,0,118*12/434,.045,49*12/434,m.white,true);
  box(shower,0,.073,-.53,2.6,.007,.035,m.charcoal);
  // One shower zone: screens stop short of both side entrances, with no middle wall.
- for(const [x,w] of [[1008,8],[1064,40],[1120,8]]){const screen=place(upper,x,340);box(screen,0,.05,0,w*12/434,1.1,.025,clear);box(screen,0,1.15,0,w*12/434,.022,.026,m.charcoal);}
- rod(shower,[0,.08,-.67],[0,1.12,-.67],.023,m.charcoal);rod(shower,[0,1.12,-.67],[0,1.12,-.34],.023,m.charcoal);box(shower,0,1.095,-.34,.22,.035,.22,m.charcoal);
- for(const [x,side] of [[1000,1],[1128,-1]]){const door=place(upper,x,379);door.name='north-bath-bedroom-door-'+x;box(door,side*.46,.015,0,.92,1.03,.045,m.pine);box(door,side*.78,.77,-.047,.12,.023,.03,m.charcoal);passable(door);}
+ for(const [x,w] of [[1008,8],[1064,40],[1120,8]]){const screen=place(upper,x,340);box(screen,0,.05,0,w*12/434,2,.025,clear);box(screen,0,2.05,0,w*12/434,.022,.026,m.charcoal);}
+ rod(shower,[0,.08,-.67],[0,2.12,-.67],.023,m.charcoal);rod(shower,[0,2.12,-.67],[0,2.12,-.34],.023,m.charcoal);box(shower,0,2.095,-.34,.22,.035,.22,m.charcoal);
+ for(const [x,side] of [[1000,1],[1128,-1]]){const door=place(upper,x,379);door.name='north-bath-bedroom-door-'+x;box(door,side*.46,.015,0,.92,2.03,.045,m.pine);box(door,side*.78,1.02,-.047,.12,.023,.03,m.charcoal);passable(door);}
  // Guest upper study: daybed under the west slope, worktop opposite; no invented double bed.
  g=place(upper,225,657,-Math.PI/2-.093);g.name='guest-study-daybed-against-wall';bench(g,0,0,4.5);desk(place(upper,369,661,Math.PI/2-.093),3.6);g=place(upper,311,664,-.093);rug(g,1.75,3.2,m.cream,true);
  // Gallery kitchenette and small red bistro table beside the staircase.
@@ -126,8 +127,9 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  g=place(upper,236,1086,-.093);g.name='guest-bedroom-corner-bed';bed(g,1.8);
  g=place(upper,343,977,Math.PI/2-.093);g.name='guest-bedroom-corner-vanity';vanity(g,.75,false);
  g=place(upper,217,958,Math.PI-.093);g.name='guest-upper-bath-toilet';box(g,0,.02,0,.4,.36,.58,m.white,true);box(g,0,.38,0,.43,.065,.61,m.white,true);box(g,0,.03,.25,.43,.74,.13,m.white,true);
- g=place(upper,223,1018,-.093);g.name='guest-upper-bath-shower';box(g,0,.015,0,1.72,.045,.91,m.white,true);box(g,-.5,.06,-.49,.64,1.07,.025,clear);box(g,-.5,1.13,-.49,.64,.022,.025,m.charcoal);rod(g,[0,.08,.43],[0,1.12,.43],.025,m.charcoal);rod(g,[0,1.12,.43],[0,1.12,.12],.025,m.charcoal);box(g,0,1.1,.12,.22,.03,.22,m.charcoal);
- g=place(upper,263,980,-.093);g.name='guest-upper-bath-open-door';box(g,-.4,.015,0,.8,1.03,.045,m.pine);box(g,-.69,.78,-.04,.11,.024,.035,m.charcoal);passable(g);
+ // The guest shower sits under the slope: the screen on the low side stays short, the riser stands on the high side.
+ g=place(upper,223,1018,-.093);g.name='guest-upper-bath-shower';box(g,0,.015,0,1.72,.045,.91,m.white,true);box(g,-.5,.06,-.49,.64,1,.025,clear);box(g,-.5,1.06,-.49,.64,.022,.025,m.charcoal);rod(g,[.78,.08,.43],[.78,2.08,.43],.025,m.charcoal);rod(g,[.78,2.08,.43],[.78,2.08,.12],.025,m.charcoal);box(g,.78,2.05,.12,.22,.03,.22,m.charcoal);
+ g=place(upper,263,980,-.093);g.name='guest-upper-bath-open-door';box(g,-.4,.015,0,.8,2.03,.045,m.pine);box(g,-.69,1.03,-.04,.11,.024,.035,m.charcoal);passable(g);
  // Long low bookshelf along the gallery knee wall (562560DE).
  g=place(upper,914,565,-Math.PI/2);g.name='gallery-bookshelf';box(g,0,0,0,5.2,.06,.34,m.oak);for(const y of [.36,.72])box(g,0,y,0,5.2,.03,.34,m.oak);for(let x=-2.6;x<=2.61;x+=.65)box(g,x,0,0,.03,.75,.34,m.oak);
  for(let i=0;i<24;i++){const x=-2.5+(i%12)*.43,y=i<12?.06:.39;box(g,x,y,.02,.3,.26+(i*7%5)*.02,.24,[m.rust,m.navy,m.cream,m.sage][i%4]);}

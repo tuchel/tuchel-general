@@ -337,6 +337,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // Ground-floor ceilings over the whole footprint, open above the two stairs. They close the ground floor
  // under the upper floor in the whole-house and upper-floor views, and lift off for the ground-floor cutaway.
  const ceilings=new T.Group();ceilings.name='interior-ceilings';ground.add(ceilings);
+ // The sauna's ceiling hides with the room ceilings in the ground-floor view.
+ {const sauna=ground.getObjectByName('guest-sauna-ceiling');if(sauna){ground.updateMatrixWorld(true);ceilings.attach(sauna);}}
  const ceiling=(outline:number[][],opening:number[][])=>{const plan=(points:number[][])=>points.map(([x,z])=>{const a=p(x,z);return new T.Vector2(a[0],-a[1]);});const shape=new T.Shape(plan(outline));shape.holes.push(new T.Path(plan(opening)));const geo=new T.ExtrudeGeometry(shape,{depth:.06,bevelEnabled:false});geo.rotateX(-Math.PI/2);const mesh=add(geo,m.plaster,ceilings);mesh.position.y=2.79;return mesh;};
  ceiling([[795,182],[1229,182],[1229,877],[795,877]],[[906,458],[948,458],[948,466],[1044,466],[1044,668],[906,668]]).name='main-ground-ceiling';
  ceiling([[116,535],[475,573],[461,668],[367,671],[316,1228],[49,1208]],[[96,782],[215,792],[202,932],[92,927]]).name='guest-ground-ceiling';

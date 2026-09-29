@@ -94,6 +94,10 @@ assert(Math.abs(new T.Box3().setFromObject(model.root.getObjectByName('main-roof
 // Upper rooms: partitions rise above standing eye height to the ceiling; with detail, a plastered ceiling hangs under the
 // slate, and from the south-east room the lower half of a low east roof window shows above the knee wall.
 model.upper.visible=true;model.root.updateMatrixWorld(true);
+// Full-height fittings now that rooms are walled to the ceiling: the sauna stands 2.1 m high and door leaves are door height.
+const height=name=>{const b=new T.Box3().setFromObject(model.root.getObjectByName(name));return b.max.y-b.min.y;};
+assert(height('guest-corner-sauna')>2.1,`sauna is 2.1 m high (${height('guest-corner-sauna').toFixed(2)} m)`);
+for(const name of ['north-bath-bedroom-door-1000','north-bath-bedroom-door-1128','guest-upper-bath-open-door'])assert(height(name)>2,`${name} is door height`);
 assert(crosses(upstairs(1190,650,3.07+1.68),upstairs(1190,690,3.07+1.68),[model.upper]).length>0,'upper bedroom walls rise above eye height');
 if(process.argv.includes('--realism')){
  const [rx,rz]=p(1128,766),eye=new T.Vector3(rx+UPPER_PLAN_X_OFFSET,3.07+1.6,rz),visible=[];model.root.traverse(o=>{if(o.isMesh&&model.rendered(o))visible.push(o);});
