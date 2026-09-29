@@ -21,8 +21,8 @@ export function createWalker(camera:T.PerspectiveCamera|T.OrthographicCamera,sur
  });
  const groundAt=(x:number,z:number,top:number,meshes:T.Mesh[])=>{ray.set(new T.Vector3(x,top,z),down);ray.far=8;const hit=ray.intersectObjects(meshes,false)[0];return hit?.point.y;};
  return {
-  /** Starts a walk from the current eye-level position, keeping its height above the floor. */
-  reset:()=>{feet=undefined;},
+  /** Starts a walk from the current eye-level position, keeping its height above the floor (or above `floor`). */
+  reset:(floor?:number)=>{feet=floor;if(floor!==undefined)eye=T.MathUtils.clamp(camera.position.y-floor,1.3,1.8);},
   /** Moves by one frame of input; returns true when the camera moved. */
   step:(dt:number,input:WalkInput)=>{
    if(!input.forward&&!input.strafe)return false;

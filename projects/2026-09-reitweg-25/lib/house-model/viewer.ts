@@ -144,7 +144,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   captures?.stop();
   if(key in places){
    const p=places[key as Place];place=key as Place;
-   rig.enterEyeLevel(new T.Vector3(...p.position),new T.Vector3(...p.target));walker.reset();walkAnchor.copy(rig.lens.position);
+   rig.enterEyeLevel(new T.Vector3(...p.position),new T.Vector3(...p.target));walker.reset(p.floor);walkAnchor.copy(rig.lens.position);
    lighting?.setInterior(p.interior);fitShadowToView();grass?.showAround(rig.lens.position);fadeIn();
    canvas.setAttribute('aria-label','Eye-level view. W, A, S and D walk; Shift runs. Drag or use arrow keys to look around. Pinch or scroll to zoom. Escape returns to the overview.');
   }else{

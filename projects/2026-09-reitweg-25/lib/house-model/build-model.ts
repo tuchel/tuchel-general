@@ -107,6 +107,9 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const N=-9.61,S=9.61,W=-6,E=6;
  // Upper rooms have a plastered ceiling this far (vertically) below the roof slab: the insulated build-up.
  const CEILING=realistic?.28:0;
+ // The east knee wall is 0.55 m high under a spruce sill, with the lowest roof windows just above it (owner photo of
+ // the south-east room); it stands further out than the plan's line, which would make it 1.2 m high.
+ const eastKnee=((8-.045-CEILING-3.07-.55)*6.55/5.36-UPPER_PLAN_X_OFFSET)/PLAN_SCALE+1012;
  capture('east',ground,()=>facade(ground,[E,N],[E,S],[{from:1.9,to:4.6,sill:.1,head:2.2},{from:5.8,to:8.15,sill:0,head:2.2},{from:10.3,to:11.15,sill:.45,head:2.2},{from:12,to:13,sill:0,head:2.2},{from:14.86,to:17.05,sill:.1,head:2.25}],'main'));
  const kitchenSouth=p(795,464)[1],kitchenEast=p(970,182)[0],westSplit=kitchenSouth-N,northSplit=kitchenEast-W;
  capture('kitchen',ground,()=>facade(ground,[W,N],[W,kitchenSouth],[{from:2.75,to:5.74,sill:0,head:2.3,kind:'sliding'}],'kitchen'));
@@ -162,9 +165,9 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  q=at(380,772);box(ground,q[0],.13,q[1],.55,1.15,1.1,m.plaster,'courtyard');box(ground,q[0]+.04,1.28,q[1],.66,.07,1.28,m.plaster);box(ground,q[0]+.28,.33,q[1],.02,.55,.62,m.dark);
  // Upper-floor cutaway: layout under the roof, at an inferred 2.95 m floor level.
  // Open stairwell in the slab, rather than an opaque dark patch.
- const slabShape=new T.Shape([[900,183],[1227,183],[1227,875],[900,875]].map(([x,z])=>{const a=p(x,z);return new T.Vector2(a[0],-a[1])}));
+ const slabShape=new T.Shape([[900,183],[eastKnee+3,183],[eastKnee+3,875],[900,875]].map(([x,z])=>{const a=p(x,z);return new T.Vector2(a[0],-a[1])}));
  const voidPath=new T.Path([[958,458],[1000,458],[1000,466],[1096,466],[1096,668],[958,668]].map(([x,z])=>{const a=p(x,z);return new T.Vector2(a[0],-a[1])}));slabShape.holes.push(voidPath);const slabGeo=new T.ExtrudeGeometry(slabShape,{depth:.15,bevelEnabled:false});slabGeo.rotateX(-Math.PI/2);const slab=add(slabGeo,m.floor,upper);slab.position.y=2.92;slab.name='main-floor-with-atrium';
- const upperWalls=[[903,407,966,407],[1064,196,1064,279],[1000,282,1128,282],[1000,282,1000,345],[1000,379,1000,407],[1128,282,1128,345],[1128,379,1128,407],[1064,341,1064,407],[1000,407,1128,407],[903,668,1100,668],[1150,668,1222,668],[1042,669,1042,824],[1042,860,1042,875],[925,674,925,721],[925,721,938,721],[974,674,974,721],[1164,409,1218,409],[1164,409,1164,425],[1164,449,1164,487],[1164,487,1218,487],[1218,409,1218,487]];
+ const upperWalls=[[903,407,966,407],[1064,196,1064,279],[1000,282,1128,282],[1000,282,1000,345],[1000,379,1000,407],[1128,282,1128,345],[1128,379,1128,407],[1064,341,1064,407],[1000,407,1128,407],[903,668,1100,668],[1150,668,eastKnee,668],[1042,669,1042,824],[1042,860,1042,875],[925,674,925,721],[925,721,938,721],[974,674,974,721],[1164,409,eastKnee,409],[1164,409,1164,425],[1164,449,1164,487],[1164,487,eastKnee,487]];
  const partitions:{walls:number[][];floor:number;roof:'main'|'guest'}[]=[{walls:upperWalls,floor:3.07,roof:'main'}];
  // Full double-height Luftraum from the upper plan, with galleries on both sides.
  for(const rail of [[958,458,958,668],[1000,466,1096,466],[1096,466,1096,668]])galleryRail(upper,...rail as [number,number,number,number]);
@@ -234,7 +237,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
   }
   // The east roof has three groups and one high window; the photos rule out an even row.
   const skylights=kind==='link'?[]:roofSkylights(kind);
-  for(const {side,z,fraction} of skylights){const x=side*half*fraction,y=ridge-rise*fraction;if(realistic){const frame=new T.Group();frame.position.set(x,y,z);frame.rotation.z=-side*slope;frame.name='open-roof-window';g.add(frame);for(const a of [-.655,.655])box(frame,a,-.03,0,.09,.12,.78,m.dark);for(const a of [-.345,.345])box(frame,0,-.03,a,1.4,.12,.09,m.dark);box(frame,0,.05,0,1.32,.028,.7,glass);}else{const win=box(g,x,y-.03,z,1.4,.11,.78,m.dark);win.rotation.z=-side*slope;const pane=box(g,x,y+.02,z,1.3,.04,.7,glass);pane.rotation.z=-side*slope;}}
+  for(const {side,z,fraction} of skylights){const x=side*half*fraction,y=ridge-rise*fraction;if(realistic){const frame=new T.Group();frame.position.set(x,y,z);frame.rotation.z=-side*slope;frame.name='open-roof-window';g.add(frame);passable(frame);for(const a of [-.655,.655])box(frame,a,-.03,0,.09,.12,.78,m.dark);for(const a of [-.345,.345])box(frame,0,-.03,a,1.4,.12,.09,m.dark);box(frame,0,.05,0,1.32,.028,.7,glass);}else{const win=box(g,x,y-.03,z,1.4,.11,.78,m.dark);win.rotation.z=-side*slope;const pane=box(g,x,y+.02,z,1.3,.04,.7,glass);pane.rotation.z=-side*slope;}}
 
   box(g,0,ridge-.01,0,.15,.12,length,m.edge).name='roof-ridge-cap';
   // Inside, a plastered ceiling hangs a build-up below the slab, with plastered reveals and blinds at the roof windows,
@@ -242,12 +245,14 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
   // the windows (IMG_1558, IMG_1579), and posts with braces in the guest wing (A58F5DA7).
   if(realistic&&kind!=='link'){
    const ceiling=(x:number)=>ridge-rise*Math.abs(x)/half-.045-CEILING,depth=CEILING*half/span;
-   for(const side of [-1,1]){const lining=add(roofLining(half,length,eave,ridge,side,skylights,depth,half-.3),m.upperPlaster,g);lining.castShadow=false;lining.name=kind+'-ceiling-'+side;}
+   // Ceilings and reveals never stop a walk: the knee walls do, and a walk back in from a roof window passes under them.
+   for(const side of [-1,1]){const lining=passable(add(roofLining(half,length,eave,ridge,side,skylights,depth,half-.3),m.upperPlaster,g));lining.castShadow=false;lining.name=kind+'-ceiling-'+side;}
    for(const {side,z,fraction} of skylights){
     const reveal=new T.Group();reveal.position.set(side*half*fraction,ridge-rise*fraction,z);reveal.rotation.z=-side*slope;g.add(reveal);const y=-.15-depth;
     for(const d of [-1,1]){box(reveal,0,y,d*.415,1.47,depth,.03,m.upperPlaster).castShadow=false;box(reveal,d*.735,y,0,.03,depth,.86,m.upperPlaster).castShadow=false;}
     // The rolled blind sits up inside the reveal at the window head.
     box(reveal,-side*.63,y+.02,0,.12,.1,.84,m.blind).castShadow=false;
+    passable(reveal);
    }
    box(g,0,ceiling(0)-.22,0,.16,.22,length-.3,m.spruce);
    const rafter=(side:number,z:number)=>segment(g,[side*.12,ceiling(.12)-.08,z],[side*(half-.35),ceiling(half-.35)-.08,z],.15,m.spruce);
@@ -269,9 +274,6 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // Knee walls close the low edge of the upper rooms, as drawn on the upper plan.
  const knee=(under:(x:number,z:number)=>number,floor:number,x1:number,z1:number,x2:number,z2:number,sill=false)=>{const top=Math.max(.2,Math.min(...[[x1,z1],[x2,z2]].map(([x,z])=>{const [px,pz]=p(x,z);return under(px+UPPER_PLAN_X_OFFSET,pz);}))-CEILING-floor+.01);const w=wall(upper,x1,z1,x2,z2,top,floor);w.userData.alsoExterior=true;
   if(sill&&realistic){const [ax,az]=p(x1,z1),[bx,bz]=p(x2,z2);segment(upper,[ax,floor+top+.06,az],[bx,floor+top+.06,bz],.13,m.spruce);}};
- // The east knee wall is 0.55 m high under a spruce sill, with the lowest roof windows just above it (owner photo of
- // the south-east room); it stands further out than the plan's line, which would make it 1.2 m high.
- const eastKnee=((8-.045-CEILING-3.07-.55)*6.55/5.36-UPPER_PLAN_X_OFFSET)/PLAN_SCALE+1012;
  knee(mainUnder,3.07,904,185,904,873,true);knee(mainUnder,3.07,eastKnee,185,eastKnee,873,true);
  knee(guestUnder,3.1,222,546,200,794);knee(guestUnder,3.1,188,936,163,1207);knee(guestUnder,3.1,395,565,334,1219);
  // Upper partitions rise to the ceiling. Doorways (gaps of 0.55–1.45 m between wall runs on one line) get a head piece,

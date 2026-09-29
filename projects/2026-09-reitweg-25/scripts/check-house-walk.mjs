@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import * as T from 'three';
 import {build} from 'esbuild';
 // Walking at eye level: walls stop the walker, doors and gates let it through, and stairs carry it to the upper floor.
-await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/site-data.ts','lib/house-model/walk.ts'],outdir:'tmp/walk-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
+await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/site-data.ts','lib/house-model/walk.ts','lib/house-model/experience-data.ts'],outdir:'tmp/walk-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
 const {buildHouseModel}=await import('../tmp/walk-check/build-model.mjs');
 const {planPoint:p,sitePoint:site}=await import('../tmp/walk-check/site-data.mjs');
 const {createWalker}=await import('../tmp/walk-check/walk.mjs');
+const {places}=await import('../tmp/walk-check/experience-data.mjs');
 const model=buildHouseModel(true);model.setLevel('exterior');model.root.updateMatrixWorld(true);
 // As the viewer's merged scene does, keep only what the whole-house view draws; its upper-floor rooms show through the roofs.
 const meshes=[];model.root.traverse(o=>{if(o.isMesh&&!o.isInstancedMesh&&model.rendered(o))meshes.push(o);});
@@ -32,4 +33,9 @@ assert(through>1,`walker goes through the front gate (${through.toFixed(2)} m pa
 // Main stair: from the hall at its foot, walking north up the flight to the upper floor.
 const [sx,sz]=p(927,533.5),top=walk([sx,1.8,sz+2.9],[sx,1.8,sz-10],8);
 assert(top.y-1.65>3,`walker climbs the stair to the upper floor (feet at ${(top.y-1.65).toFixed(2)} m)`);
+// Leaning out of the upstairs roof window, a walk back into the room starts on the upper floor, not on the roof.
+const up=places.upstairs;camera.position.set(...up.position);camera.lookAt(up.position[0]-10,up.position[1],up.position[2]);camera.updateMatrixWorld();
+{const walker=createWalker(camera,()=>meshes);walker.reset(up.floor);for(let t=0;t<2.5;t+=1/30)walker.step(1/30,{forward:1,strafe:0,run:false});}
+// The roof there is 5.5 m up; the route crosses the gallery bathroom, whose WC is low enough to step onto.
+assert(camera.position.y-1.65<3.07+.46&&camera.position.x<up.position[0]-1.5,`walk from the roof window comes back in on the upper floor (x ${camera.position.x.toFixed(2)}, eye ${camera.position.y.toFixed(2)})`);
 console.log(`Passed: the garden door, hall doors and front gate let the walker through, a wall stops it (${south.z.toFixed(2)} m), and the main stair reaches the upper floor (feet at ${(top.y-1.65).toFixed(2)} m).`);
