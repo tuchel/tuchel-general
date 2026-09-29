@@ -188,7 +188,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  guestBasement.forEach((a,i)=>{const b=guestBasement[(i+1)%4];wall(basement,a[0],a[1],b[0],b[1],1.3,-2.3);});
  {q=at(262,1074);const column=add(cylinderGeo,m.plaster,basement);column.scale.set(.15,1.3,.15);column.position.set(q[0],-2.3+.65,q[1]);column.userData.base=-2.3;column.userData.height=1.3;cutWalls.push(column);}
  furnishHouse(ground,upper,basement,material);
- ground.add(garageCars(material));
+ ground.add(garageCars());
  const within=(x:number,z:number,points:number[][])=>{let inside=false;for(let i=0,j=points.length-1;i<points.length;j=i++){const [xi,zi]=points[i],[xj,zj]=points[j];if((zi>z)!==(zj>z)&&x<(xj-xi)*(z-zi)/(zj-zi)+xi)inside=!inside;}return inside;};
  const mainFootprint=[[W-.11,N-.11],[E+.11,N-.11],[E+.11,S+.11],[W-.11,S+.11]],indoors=(x:number,z:number)=>within(x,z,mainFootprint)||within(x,z,guestOutline);
  // Pitched roofs: the main pitch follows the upper plan's height lines; other heights are model assumptions.
