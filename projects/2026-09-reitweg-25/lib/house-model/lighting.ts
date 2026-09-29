@@ -138,7 +138,7 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
  return {
   sun,sky,lamps,apply,fitShadow,
   get reading(){return reading;},
-  get exposure(){return (reading?.exposure??1)*(interior?2.3:1);},
+  get exposure(){return (reading?.exposure??1)*(interior?4:1);},
   setInterior:(value:boolean)=>{interior=value;},
   /** Keeps haze matched to the horizon the camera faces; regenerates sky light when the sun moves. */
   update:(camera:T.Camera,now:number)=>{

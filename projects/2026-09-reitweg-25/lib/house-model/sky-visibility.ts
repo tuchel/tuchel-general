@@ -10,8 +10,10 @@ import {addShaderFeature,after,materialsOf} from './shader-features';
  * Geometry is untouched, so there are no seams or cracks. */
 const DIRECTIONS=48,PER_FRAME=6,CELL=.5,MAP=2048;
 const BOX=new T.Box3(new T.Vector3(-27,-3,-11),new T.Vector3(8,8.5,21));
-// Light bounced between walls, floors and furniture keeps enclosed rooms from reading as black.
-const BOUNCE=.3;
+// Light bounced between walls, floors and furniture keeps enclosed rooms from reading as black. It arrives from every
+// direction, so a surface that cannot see the sky gets this share of the sky's overhead light whichever way it faces,
+// scaled by how much of the sky its room sees through windows (a closed basement stays dim).
+const BOUNCE=.7;
 
 export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],receivers:T.Object3D[]){
  const size=BOX.getSize(new T.Vector3()),nx=Math.round(size.x/CELL),ny=Math.round(size.y/CELL),nz=Math.round(size.z/CELL);
@@ -56,12 +58,18 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
     {
      vec3 skyN=inverseTransformDirection(normal,viewMatrix);
      vec3 skyUvw=(vSkyWorld+skyN*0.35-uSkyMin)/uSkySize;
-     float skyVisible=1.0;
+     float open=1.0,bounce=uSkyBounce;
      if(uSkyReady>0.5&&all(greaterThan(skyUvw,vec3(0.0)))&&all(lessThan(skyUvw,vec3(1.0)))){
       vec4 s=texture(uSkyVolume,skyUvw.xzy)/${DIRECTIONS.toFixed(1)};
-      skyVisible=mix(uSkyBounce,1.0,clamp(s.r+2.0*dot(s.gba,skyN),0.0,1.0));
+      open=clamp(s.r+2.0*dot(s.gba,skyN),0.0,1.0);bounce=uSkyBounce*mix(0.15,1.0,clamp(s.r*5.0,0.0,1.0));
      }
-     iblIrradiance*=skyVisible;irradiance*=skyVisible;radiance*=mix(1.0,skyVisible,0.85);
+     vec3 overhead=iblIrradiance;
+     #if defined( USE_ENVMAP ) && defined( STANDARD )
+      overhead=getIBLIrradiance((viewMatrix*vec4(0.0,1.0,0.0,0.0)).xyz);
+     #endif
+     float skyVisible=mix(bounce,1.0,open);
+     // Bounced light comes mostly off sunlit floors and walls, so it is warmer than the sky.
+     iblIrradiance=iblIrradiance*open+overhead*bounce*vec3(1.08,.97,.84)*(1.0-open);irradiance*=skyVisible;radiance*=mix(1.0,skyVisible,0.85);
     }`);
   }});
  }});

@@ -31,10 +31,10 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const material=(model:string,timber=model,roughness=.8)=>{const m=new T.MeshStandardMaterial({color:model,roughness});m.userData={model,timber};materials.push(m);return m;};
  const m={garage:material('#a6a397','#493c31'),wall:material('#e4e0d5','#6e5946'),plaster:material('#f0eee6','#e9e4d9'),roof:material('#c3c4bc','#4d5453'),edge:material('#999d92','#3c443f'),floor:material('#dfd7c6','#d5bd96'),stone:material('#d6d3c9','#b1afa4'),paving:material('#e4e0d6','#cfccc0'),soil:material('#c9c6b7','#a5a78b'),lawn:material('#acb89a','#a0b18d'),leaf:material('#899975','#798f68'),trunk:material('#b9b09b','#95836b'),wood:material('#c5b79e','#ad8d62'),fabric:material('#ece8dc','#e7e0cc'),dark:material('#707770','#4a514b'),water:material('#a8c8c7','#76abae',.14),
   // Roof timber is pale spruce (IMG_1558); upper walls and ceilings have their own plaster so the section view can cut them.
-  spruce:material('#dcc7a4','#d7ab70'),
+  spruce:material('#dcc7a4','#d9b27b',.7),
   // Large polished stone tiles in the hall, kitchen, dining room and entrance (owner photos).
   tile:material('#d6d3c9','#b7b0a4',.32),upperPlaster:material('#f0eee6','#ebe6db'),blind:material('#b3aca2','#a39c92'),switch:material('#2a2a2a','#161616',.35)};
- for(const [key,surface] of Object.entries({garage:'cladding',wall:'cladding',roof:'roof',floor:'oak',stone:'stone',paving:'stone',lawn:'lawn',leaf:'foliage',wood:'oak',spruce:'oak',tile:'stone',fabric:'linen',blind:'linen'}))m[key as keyof typeof m].userData.photo=surface;
+ for(const [key,surface] of Object.entries({garage:'cladding',wall:'cladding',roof:'roof',floor:'oak',stone:'stone',paving:'stone',lawn:'lawn',leaf:'foliage',wood:'oak',tile:'stone',fabric:'linen',blind:'linen'}))m[key as keyof typeof m].userData.photo=surface;
  const glass=new T.MeshPhysicalMaterial({color:'#bdcfcd',transparent:true,opacity:.38,roughness:.14,metalness:.12,depthWrite:false,side:T.DoubleSide});
  const lineMat=new T.LineBasicMaterial({color:'#7f897e',transparent:true,opacity:.28});
  const boxGeo=new T.BoxGeometry(1,1,1);const sphereGeo=new T.IcosahedronGeometry(1,2);const cylinderGeo=new T.CylinderGeometry(1,1,1,9);
@@ -257,9 +257,13 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
    box(g,0,ceiling(0)-.22,0,.16,.22,length-.3,m.spruce);
    const rafter=(side:number,z:number)=>segment(g,[side*.12,ceiling(.12)-.08,z],[side*(half-.35),ceiling(half-.35)-.08,z],.15,m.spruce);
    const clear=(side:number,z:number)=>skylights.every(w=>w.side!==side||Math.abs(w.z-z)>.55);
+   // Each roof window sits between two rafters (owner photos); the regular rafters keep clear of them.
+   const flanks=skylights.flatMap(w=>[-1,1].map(d=>({side:w.side,z:w.z+d*.52}))).filter(f=>Math.abs(f.z)<length/2-.3);
+   const free=(side:number,z:number)=>clear(side,z)&&flanks.every(f=>f.side!==side||Math.abs(f.z-z)>.45);
    const atrium=kind==='main'?[-2.2,4]:[0,0],trusses:number[]=[];
    for(let z=atrium[0];z<atrium[1];z+=.05)if(clear(-1,z)&&clear(1,z)&&(!trusses.length||z-trusses[trusses.length-1]>=1.3))trusses.push(z);
-   for(let z=-length/2+.45;z<length/2-.3;z+=.9)for(const side of [-1,1])if(clear(side,z)&&!(z>atrium[0]&&z<atrium[1]))rafter(side,z);
+   for(let z=-length/2+.45;z<length/2-.3;z+=.9)for(const side of [-1,1])if(free(side,z)&&!(z>atrium[0]&&z<atrium[1]))rafter(side,z);
+   for(const f of flanks)if(!(f.z>atrium[0]&&f.z<atrium[1])&&!trusses.some(t=>Math.abs(t-f.z)<.3))rafter(f.side,f.z);
    for(const z of trusses){
     const y=6.1,reach=(ridge-.045-CEILING-.1-y)*half/rise;
     box(g,0,y-.1,z,reach*2,.2,.14,m.spruce);
