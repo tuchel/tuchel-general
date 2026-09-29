@@ -3,7 +3,8 @@ import {planPoint as p} from './site-data';
 /** Photo-led finishes; construction dimensions are indicative. Never changes partitions. */
 export function architecturalDetails(ground:T.Group,ceilings:T.Group){
  const group=new T.Group();group.name='photo-led-interior-details';ground.add(group);
- const plaster=new T.MeshStandardMaterial({color:'#e8e4db',roughness:.92});
+ // Stone skirting matching the polished floor tiles (owner photos).
+ const skirting=new T.MeshStandardMaterial({color:'#b1ab9f',roughness:.4});skirting.userData.photo='stone';
  const linen=new T.MeshStandardMaterial({color:'#ded8c9',roughness:1,side:T.DoubleSide});linen.userData.photo='linen';
  const dark=new T.MeshStandardMaterial({color:'#252824',roughness:.42,metalness:.5});
  const stone=new T.MeshStandardMaterial({color:'#c3bdaa',roughness:.78});stone.userData.photo='stone';
@@ -30,7 +31,7 @@ export function architecturalDetails(ground:T.Group,ceilings:T.Group){
  }
  // Low trim follows wall segments, keeping every doorway open.
  const walls:T.Mesh[]=[];ground.traverse(o=>{if(o instanceof T.Mesh&&o.userData.height>2&&o.material instanceof T.MeshStandardMaterial&&o.material.userData.timber==='#e9e4d9')walls.push(o);});
- for(const wall of walls){const trim=box(group,wall.position.x,.14,wall.position.z,wall.scale.x,.075,.2,plaster);trim.rotation.copy(wall.rotation);}
+ for(const wall of walls){const trim=box(group,wall.position.x,.14,wall.position.z,wall.scale.x,.075,.2,skirting);trim.rotation.copy(wall.rotation);}
  // Fine sewn edges catch light around photographed upholstered seat cushions.
  const cushions:T.Mesh[]=[];ground.traverse(o=>{if(o instanceof T.Mesh&&o.material instanceof T.MeshStandardMaterial&&o.material.userData.photo==='linen'&&o.scale.x>.35&&o.scale.z>.3&&o.scale.y>.07&&o.scale.y<.18)cushions.push(o);});
  const piping=new T.MeshStandardMaterial({color:'#cbc7b8',roughness:.97});

@@ -91,4 +91,15 @@ const mainStair=model.root.getObjectByName('main-open-timber-stair');
 assert(Math.abs(below(946,538)[0]-new T.Box3().setFromObject(mainStair).getCenter(new T.Vector3()).x)<.15,'basement stair (basement sheet x 946) sits under the main stair');
 model.setLevel('exterior');model.root.updateMatrixWorld(true);
 assert(Math.abs(new T.Box3().setFromObject(model.root.getObjectByName('main-roof-slope-1')).max.y-8)<.2,'main ridge near 8 m (4.90 m room height)');
-model.dispose();console.log('Passed: dining circulation, yoga doorway, sliding door, corridor clearance, walkway, outdoor table, guest atrium, plan doorways, guest stair, basement doors and registration, roof height and finite model transforms.');
+// Upper rooms: partitions rise above standing eye height to the ceiling; with detail, a plastered ceiling hangs under the
+// slate, and from the south-east room the lower half of a low east roof window shows above the knee wall.
+model.upper.visible=true;model.root.updateMatrixWorld(true);
+assert(crosses(upstairs(1190,650,3.07+1.68),upstairs(1190,690,3.07+1.68),[model.upper]).length>0,'upper bedroom walls rise above eye height');
+if(process.argv.includes('--realism')){
+ const [rx,rz]=p(1128,766),eye=new T.Vector3(rx+UPPER_PLAN_X_OFFSET,3.07+1.6,rz),visible=[];model.root.traverse(o=>{if(o.isMesh&&model.rendered(o))visible.push(o);});
+ const up=new T.Raycaster(eye.clone().setZ(eye.z+.45),new T.Vector3(0,1,0)).intersectObjects(visible,false)[0];
+ assert(up&&up.object.name.startsWith('main-ceiling'),`the south-east room looks up at a plastered ceiling (${up?.object.name})`);
+ const slope=Math.atan2(5.36,6.55),glass=new T.Vector3(6.55*.68+.3*Math.cos(slope)+.05*Math.sin(slope),8-5.36*.68-.3*Math.sin(slope)+.05*Math.cos(slope),8.8),front=eye.clone().setZ(8.8),toward=new T.Raycaster(front,glass.clone().sub(front).normalize()).intersectObjects(visible,false)[0];
+ assert(toward&&[toward.object.material].flat().some(m=>m.transparent),`a low east roof window is visible over the knee wall (${toward?.object.name||toward?.object.parent?.name})`);
+}
+model.dispose();console.log('Passed: dining circulation, yoga doorway, sliding door, corridor clearance, walkway, outdoor table, guest atrium, plan doorways, guest stair, basement doors and registration, roof height, upper walls to the ceiling, roof windows over the knee wall and finite model transforms.');

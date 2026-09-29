@@ -11,7 +11,7 @@ import {addShaderFeature,after,materialsOf} from './shader-features';
 const DIRECTIONS=48,PER_FRAME=6,CELL=.5,MAP=2048;
 const BOX=new T.Box3(new T.Vector3(-27,-3,-11),new T.Vector3(8,8.5,21));
 // Light bounced between walls, floors and furniture keeps enclosed rooms from reading as black.
-const BOUNCE=.18;
+const BOUNCE=.3;
 
 export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],receivers:T.Object3D[]){
  const size=BOX.getSize(new T.Vector3()),nx=Math.round(size.x/CELL),ny=Math.round(size.y/CELL),nz=Math.round(size.z/CELL);
