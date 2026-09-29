@@ -23,7 +23,8 @@ export const porsche911:CarSpec={
  halfWidth:[[2.271,.66],[2.15,.8],[1.9,.88],[1.3,.912],[.6,.895],[-.2,.886],[-.8,.905],[-1.17,.926],[-1.7,.914],[-2.1,.86],[-2.271,.77]],
  fender:[[2.2,.02],[1.9,.07],[1.4,.07],[1,.04],[.85,0],[-1.35,0],[-1.5,.04],[-1.9,.03],[-2.271,0]],
  cabin:[-1.35,.85],roof:[-.6,.2],bPillar:-.35,roofHalf:.55,glassRoof:false,
- paint:{color:'#5b6062',metalness:.55,roughness:.32},wheel:'spokes',
+ // Racing green metallic.
+ paint:{color:'#1d3a2a',metalness:.55,roughness:.3},wheel:'spokes',
  details:(car,m,s)=>{
   // Round headlamps on the front wings, full-width tail light, engine-lid grille, mirrors and front intakes.
   for(const side of [-1,1]){const lamp=new T.Mesh(new T.SphereGeometry(1,20,12),m.lamp);lamp.scale.set(.19,.085,.12);lamp.position.set(1.93,.735,side*.62);lamp.rotation.z=-.22;car.add(lamp);}
@@ -42,7 +43,8 @@ export const teslaModelY:CarSpec={
  halfWidth:[[2.395,.72],[2.25,.88],[2,.94],[1.5,.955],[.5,.96],[-.5,.96],[-1.375,.958],[-2,.93],[-2.3,.86],[-2.395,.79]],
  fender:[[2.2,.01],[1.8,.02],[1.12,0],[-1.6,0],[-1.9,.015],[-2.395,0]],
  cabin:[-1.6,1.12],roof:[-1.3,.3],bPillar:-.15,roofHalf:.63,glassRoof:true,
- paint:{color:'#e8e7e2',metalness:0,roughness:.28},wheel:'aero',
+ // Solid black.
+ paint:{color:'#131415',metalness:.15,roughness:.22},wheel:'aero',
  details:(car,m,s)=>{
   // Slim front light bar and lamps, full-width rear light bar, mirrors.
   add(car,new T.BoxGeometry(.03,.02,1.3),m.lamp,2.33,.845,0);

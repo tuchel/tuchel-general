@@ -16,6 +16,7 @@ import {foliageMaterials,finishFoliage} from './foliage';
 import {loadSurfaceTextures,finishSurfaces} from './surface-materials';
 import {bakeSkyVisibility} from './sky-visibility';
 import {eyeLevelGrass} from './grass';
+import {createWalker,type WalkInput} from './walk';
 import {tiers,type Quality} from './device-tier';
 import {renovationState,type RenovationState} from './renovation-data';
 import {viewpoints,type Level,type Region,type Viewpoint} from './site-data';
@@ -97,6 +98,9 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  };
  applyState();
  const grass=realistic&&tier.grass?eyeLevelGrass(scene,[...batches.meshes,stage]):undefined;
+ // Walking at eye level: W A S D (Shift to run) on computers, the joysticks on phones.
+ const walker=createWalker(camera,()=>[...batches.meshes,stage]),walkInput:WalkInput={forward:0,strafe:0,run:false},lookRate={x:0,y:0};
+ const walkAnchor=new T.Vector3();let joystick=false;
 
  const post=realistic?createPost(renderer,scene,camera,{samples:tier.samples,ao:tier.ao,bloom:tier.bloom}):undefined;
  const captures=lighting?createCaptures({
@@ -135,14 +139,14 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(level==='basement')target.y=-2;
   return {target,direction:position.sub(target),span:v.span,exterior:level==='exterior'};
  };
- const leaveEyeLevel=()=>{if(!place)return;place=undefined;lighting?.setInterior(false);grass?.hide();fitShadowToView();};
+ const leaveEyeLevel=()=>{if(!place)return;place=undefined;pressed.clear();Object.assign(walkInput,{forward:0,strafe:0,run:false});lookRate.x=lookRate.y=0;lighting?.setInterior(false);grass?.hide();fitShadowToView();};
  const view=(key:Viewpoint|Place,instant=false)=>{
   captures?.stop();
   if(key in places){
    const p=places[key as Place];place=key as Place;
-   rig.enterEyeLevel(new T.Vector3(...p.position),new T.Vector3(...p.target));
+   rig.enterEyeLevel(new T.Vector3(...p.position),new T.Vector3(...p.target));walker.reset();walkAnchor.copy(camera.position);
    lighting?.setInterior(p.interior);fitShadowToView();grass?.showAround(camera.position);fadeIn();
-   canvas.setAttribute('aria-label','Eye-level view. Drag or use arrow keys to look around. Pinch or scroll to zoom. Escape returns to the overview.');
+   canvas.setAttribute('aria-label','Eye-level view. W, A, S and D walk; Shift runs. Drag or use arrow keys to look around. Pinch or scroll to zoom. Escape returns to the overview.');
   }else{
    const wasEye=!!place;leaveEyeLevel();
    rig.frame(framing(key as Viewpoint),instant||wasEye);if(wasEye)fadeIn();
@@ -177,6 +181,13 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(arrows[e.key]){e.preventDefault();captures?.stop();const [x,y]=arrows[e.key];if(rig.eyeLevel)rig.lookBy(x*.1,y*.08);else rig.orbitBy(x*.14,y*.1);changed();return;}
   if(['+','=','-'].includes(e.key)){e.preventDefault();rig.zoomBy(e.key==='-'?.85:1.18);changed();}
  };
+ const pressed=new Set<string>(),walkKeys:Record<string,[number,number]>={w:[1,0],s:[-1,0],a:[0,-1],d:[0,1]};
+ const syncWalk=()=>{if(joystick)return;let f=0,r=0;for(const k of pressed){f+=walkKeys[k][0];r+=walkKeys[k][1];}walkInput.forward=Math.sign(f);walkInput.strafe=Math.sign(r);};
+ const typing=(e:KeyboardEvent)=>{const t=e.target as HTMLElement|null;return !!t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable);};
+ const walkDown=(e:KeyboardEvent)=>{if(!rig.eyeLevel||e.metaKey||e.ctrlKey||e.altKey||typing(e))return;const k=e.key.toLowerCase();walkInput.run=e.shiftKey;if(!(k in walkKeys))return;e.preventDefault();captures?.stop();pressed.add(k);syncWalk();changed();};
+ const walkUp=(e:KeyboardEvent)=>{walkInput.run=e.shiftKey;if(pressed.delete(e.key.toLowerCase()))syncWalk();};
+ const walkBlur=()=>{pressed.clear();syncWalk();};
+ window.addEventListener('keydown',walkDown);window.addEventListener('keyup',walkUp);window.addEventListener('blur',walkBlur);
  const lost=(e:Event)=>{e.preventDefault();options.onError();};
  canvas.addEventListener('webglcontextlost',lost);canvas.addEventListener('pointerdown',down);canvas.addEventListener('pointermove',move);
  canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',up);canvas.addEventListener('wheel',wheel,{passive:false});canvas.addEventListener('keydown',key);
@@ -198,6 +209,12 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   // A finished or cancelled film hands the camera back.
   if(film&&!captures?.recording){film=undefined;controls.enabled=!rig.eyeLevel;}
   let moving=rig.update(now);
+  if(rig.eyeLevel){
+   if(lookRate.x||lookRate.y){rig.lookBy(lookRate.x*delta*1.9,lookRate.y*delta*1.3);moving=true;}
+   if(walker.step(delta,walkInput)){moving=true;
+    // Keep shadows and near grass centred on the walker, refreshed every few metres.
+    if(camera.position.distanceTo(walkAnchor)>4){walkAnchor.copy(camera.position);fitShadowToView();grass?.showAround(camera.position);}}
+  }
   if(controls.enabled&&controls.update(delta))moving=true;
   if(moving)changed();
   if(lighting?.update(camera,now)){post?.reset();needsFrame=true;}
@@ -247,10 +264,12 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   get lightReading(){return lighting?.reading;},
   captures,
   get eyeLevel(){return rig.eyeLevel;},
+  /** Joystick input: move (forward, strafe) and look rates, each −1…1; zero releases. */
+  joystick:(move:{x:number;y:number},look:{x:number;y:number})=>{if(!rig.eyeLevel)return;joystick=!!(move.x||move.y);if(joystick){walkInput.forward=-move.y;walkInput.strafe=move.x;walkInput.run=Math.hypot(move.x,move.y)>.92;}else syncWalk();lookRate.x=look.x;lookRate.y=look.y;changed();},
   snapshot:rig.snapshot,
   restore:(s:Parameters<typeof rig.restore>[0])=>{rig.restore(s);changed();},
   dispose:()=>{
-   disposed=true;cancelAnimationFrame(frame);captures?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
+   disposed=true;cancelAnimationFrame(frame);window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);captures?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
    canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('wheel',wheel);canvas.removeEventListener('keydown',key);
    bake?.dispose();grass?.dispose();post?.dispose();lighting?.dispose();textures?.dispose();environment?.dispose();
    const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
