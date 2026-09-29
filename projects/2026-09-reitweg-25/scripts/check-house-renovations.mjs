@@ -9,7 +9,7 @@ const {solarPanels,solarRoofs,solarModule,roofSkylights}=await import('../tmp/re
 const {renovationState}=await import('../tmp/renovation-check/renovation-data.mjs');
 const realistic=process.argv.includes('--realism');
 const model=buildHouseModel(realistic),ids=Object.keys(renovationState());
-if(realistic){assert(model.root.getObjectByName('tree-leaf-cards'),'instanced leaf-card trees');assert(model.root.getObjectByName('hedge-leaf-cards'),'leafy hedge');}
+if(realistic){assert(model.root.getObjectByName('tree-leaves'),'instanced modelled-leaf trees');assert(model.root.getObjectByName('hedge-leaf-cards'),'leafy hedge');}
 const visible=o=>{while(o){if(!o.visible)return false;o=o.parent;}return true;};
 model.setLevel('exterior');model.setRenovations(renovationState());
 const snapshot=()=>{const data=[];model.root.traverse(o=>data.push([o.uuid,o.visible,...o.position.toArray(),...o.scale.toArray(),...(o.isInstancedMesh?o.instanceMatrix.array:[])]));return data;};
