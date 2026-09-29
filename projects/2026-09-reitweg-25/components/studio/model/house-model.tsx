@@ -24,8 +24,11 @@ export default function HouseModel({onNavigate}:{onNavigate:(id:string)=>void}){
  const [detected]=useState<Quality>(()=>typeof window==='undefined'?'model':detectQuality());
  const [quality,setQuality]=useState<Quality>(()=>typeof window==='undefined'?'model':qualityFromParam(new URLSearchParams(window.location.search).get('quality'))??detected);
  const [ready,setReady]=useState(false),[failed,setFailed]=useState(false),[attempt,setAttempt]=useState(0),[materials,setMaterials]=useState<'loading'|'ready'>('ready');
+ // Set when Detailed could not run here and the model dropped to Balanced.
+ const [fellBack,setFellBack]=useState(false);
  const [level,setLevel]=useState<Level>('exterior'),[view,setView]=useState<ViewKey|null>('courtyard'),levelRef=useRef<Level>('exterior');
  useEffect(()=>{levelRef.current=level;},[level]);
+ useEffect(()=>{if(!fellBack||!ready)return;const t=setTimeout(()=>setFellBack(false),9000);return()=>clearTimeout(t);},[fellBack,ready]);
  const [changes,setChanges]=useState<RenovationState>(()=>{
   const state=renovationState(),ids=typeof window==='undefined'?[]:new URLSearchParams(window.location.search).get('renovations')?.split(',')||[];
   return Object.fromEntries(Object.keys(state).map(id=>[id,ids.includes(id)])) as RenovationState;
@@ -45,16 +48,22 @@ export default function HouseModel({onNavigate}:{onNavigate:(id:string)=>void}){
  // One viewer per detail setting; the camera carries over when the preset changes.
  useEffect(()=>{
   let cancelled=false;
+  // Detailed can ask more of the graphics memory than a phone browser gives a page; Balanced is the same scene, lighter.
+  const fail=()=>{
+   if(quality!=='detailed'){setFailed(true);return;}
+   setFellBack(true);setReady(false);setQuality('balanced');
+   const url=new URL(window.location.href);url.searchParams.set('quality','balanced');window.history.replaceState(null,'',url);
+  };
   import('@/lib/house-model/viewer').then(({createHouseViewer})=>{
    if(cancelled||!host.current)return;
    try{
     api.current=createHouseViewer(host.current,{
-     quality,onSelect:r=>{setRegion(r);setPanel(null);},onReady:()=>setReady(true),onError:()=>setFailed(true),onCapture:setCapture,onMaterials:setMaterials,
+     quality,onSelect:r=>{setRegion(r);setPanel(null);},onReady:()=>setReady(true),onError:fail,onCapture:setCapture,onMaterials:setMaterials,
      onHeading:deg=>{if(compass.current)compass.current.style.transform=`rotate(${deg}deg)`;},
      onRequest:()=>{const next=levelRef.current==='exterior'?'courtyard':'top';setView(next);setRegion(null);api.current?.view(next);},
     });
     if(saved.current&&quality!=='model'&&tiers[quality])api.current.restore(saved.current);
-   }catch(error){console.warn('3D model',error);setFailed(true);}
+   }catch(error){console.warn('3D model',error);fail();}
   }).catch(()=>{if(!cancelled)setFailed(true);});
   return()=>{cancelled=true;api.current?.dispose();api.current=null;};
   // The viewer is rebuilt only for a new preset or an explicit retry.
@@ -86,7 +95,7 @@ export default function HouseModel({onNavigate}:{onNavigate:(id:string)=>void}){
   setLevel('ground');api.current?.setLevel('ground');setView(null);api.current?.focus(r.center[0],r.center[1],.5,r.span);
  };
  const chooseQuality=(q:Quality)=>{
-  if(q===quality)return;saved.current=api.current?.snapshot()??null;setCapture(initialCapture);setReady(false);setFailed(false);setQuality(q);
+  if(q===quality)return;saved.current=api.current?.snapshot()??null;setCapture(initialCapture);setReady(false);setFailed(false);setFellBack(false);setQuality(q);
   const url=new URL(window.location.href);if(q===detected)url.searchParams.delete('quality');else url.searchParams.set('quality',q);window.history.replaceState(null,'',url);
  };
  const toggle=(p:Panel)=>setPanel(current=>current===p?null:p);
@@ -137,7 +146,7 @@ export default function HouseModel({onNavigate}:{onNavigate:(id:string)=>void}){
     <button aria-expanded={panel==='changes'} onClick={()=>toggle('changes')} disabled={!ready}><Layers size={19} aria-hidden/><span>Changes</span>{activeCount>0&&<b aria-label={`${activeCount} on`}>{activeCount}</b>}</button>
     {realistic&&<button aria-expanded={panel==='light'} onClick={()=>toggle('light')} disabled={!ready}><Sun size={19} aria-hidden/><span>{clockLabel(reading.minutes)}</span></button>}
    </nav>
-   {ready&&realistic&&materials==='loading'&&<div className="model-hint" role="status">Loading surface detail…</div>}
+   {ready&&realistic&&(fellBack?<div className="model-hint" role="status">Detailed couldn’t run on this device, so the model is showing Balanced.</div>:materials==='loading'&&<div className="model-hint" role="status">Loading surface detail…</div>)}
   </div>
   <Dialog.Root open={about} onOpenChange={setAbout}><Dialog.Portal><Dialog.Overlay className="model-about-scrim"/><Dialog.Content className="model-about">
    <Dialog.Title>About this model</Dialog.Title>

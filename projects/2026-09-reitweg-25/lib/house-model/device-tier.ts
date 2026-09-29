@@ -14,6 +14,11 @@ export const tiers:Record<Quality,TierSettings>={
  balanced:{quality:'balanced',pixelRatio:1.5,samples:2,shadowSize:2048,ao:true,bloom:false,refineFrames:8,textureSize:512,farWoodland:.45,grass:false,skyBake:true,photographic:false,sunBounce:0,trees:'hybrid'},
  model:{quality:'model',pixelRatio:1.75,samples:4,shadowSize:2048,ao:false,bloom:false,refineFrames:0,textureSize:512,farWoodland:0,grass:false,skyBake:false,photographic:false,sunBounce:0,trees:'hybrid'},
 };
+/** The settings a viewer runs with. Detailed on a phone keeps the scene, materials and light, but fits a phone
+ * browser's graphics memory: a 2048 shadow map and 2× multisampling need about 160 MB less at phone size. */
+export function tierFor(quality:Quality,phone=isPhone()):TierSettings{
+ return quality==='detailed'&&phone?{...tiers.detailed,shadowSize:2048,samples:2}:tiers[quality];
+}
 const weakGPU=/SwiftShader|llvmpipe|softpipe|Microsoft Basic Render|Mali-(4|T[678])|Adreno \(TM\) [345]\d\d|PowerVR SGX|Intel\(R\) (HD|UHD) Graphics( [2-6]\d\d)?\b/i;
 export function isPhone(){
  if(typeof window==='undefined')return false;

@@ -26,7 +26,8 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
   probes.set([BOX.min.x+(x+.5)*CELL,BOX.min.y+(j+.5)*CELL,BOX.min.z+(z+.5)*CELL],k*3);cells.set([x,z],k*2);
  }
  const grid=new T.BufferGeometry();grid.setAttribute('position',new T.BufferAttribute(probes,3));grid.setAttribute('cell',new T.BufferAttribute(cells,2));
- const depth=new T.WebGLRenderTarget(MAP,MAP,{depthTexture:new T.DepthTexture(MAP,MAP,T.FloatType)});
+ // Only depth is read; the colour layer is one byte a texel.
+ const depth=new T.WebGLRenderTarget(MAP,MAP,{format:T.RedFormat,depthTexture:new T.DepthTexture(MAP,MAP,T.FloatType)});
  const extent=size.length()/2+1,eye=new T.OrthographicCamera(-extent,extent,extent,-extent,1,extent*2+60);eye.layers.set(2);
  const center=BOX.getCenter(new T.Vector3()),blocker=new T.MeshBasicMaterial({colorWrite:false,side:T.DoubleSide});
  const accumulate=new T.ShaderMaterial({

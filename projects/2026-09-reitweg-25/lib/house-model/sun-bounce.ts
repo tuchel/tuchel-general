@@ -44,7 +44,8 @@ export function bakeSunBounce(renderer:T.WebGLRenderer,occluders:T.Mesh[],receiv
  };
 
  // The sun's view of the same geometry: hidden batches fold away in the vertex shader.
- const sunMap=new T.WebGLRenderTarget(MAP,MAP,{depthTexture:new T.DepthTexture(MAP,MAP,T.FloatType)});
+ // Only depth is read; the colour layer is one byte a texel.
+ const sunMap=new T.WebGLRenderTarget(MAP,MAP,{format:T.RedFormat,depthTexture:new T.DepthTexture(MAP,MAP,T.FloatType)});
  const extent=size.length()/2+1,eye=new T.OrthographicCamera(-extent,extent,extent,-extent,1,extent*2+60),center=BOX.getCenter(new T.Vector3());
  const sunScene=new T.Scene(),sunMesh=new T.Mesh(merged,new T.ShaderMaterial({
   uniforms:{batches:{value:table}},side:T.DoubleSide,colorWrite:false,
