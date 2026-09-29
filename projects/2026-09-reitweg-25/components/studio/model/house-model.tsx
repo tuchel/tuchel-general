@@ -23,7 +23,7 @@ export default function HouseModel({onNavigate}:{onNavigate:(id:string)=>void}){
  // The model page renders only in the browser, so presets and URL choices are read at mount.
  const [detected]=useState<Quality>(()=>typeof window==='undefined'?'model':detectQuality());
  const [quality,setQuality]=useState<Quality>(()=>typeof window==='undefined'?'model':qualityFromParam(new URLSearchParams(window.location.search).get('quality'))??detected);
- const [ready,setReady]=useState(false),[failed,setFailed]=useState(false),[attempt,setAttempt]=useState(0),[materials,setMaterials]=useState<'loading'|'ready'>('ready');
+ const [ready,setReady]=useState(false),[failed,setFailed]=useState(false),[materials,setMaterials]=useState<'loading'|'ready'>('ready');
  // Set when Detailed could not run here and the model dropped to Balanced.
  const [fellBack,setFellBack]=useState(false);
  const [level,setLevel]=useState<Level>('exterior'),[view,setView]=useState<ViewKey|null>('courtyard'),levelRef=useRef<Level>('exterior');
@@ -66,8 +66,8 @@ export default function HouseModel({onNavigate}:{onNavigate:(id:string)=>void}){
    }catch(error){console.warn('3D model',error);fail();}
   }).catch(()=>{if(!cancelled)setFailed(true);});
   return()=>{cancelled=true;api.current?.dispose();api.current=null;};
-  // The viewer is rebuilt only for a new preset or an explicit retry.
- },[attempt,quality]);
+  // The viewer is rebuilt only for a new preset.
+ },[quality]);
  // Keep the viewer in step with React state once it is ready (also after a rebuild).
  useEffect(()=>{if(!ready)return;const v=api.current;if(!v)return;v.setLevel(level);v.setRenovations(changes);v.setSun({enabled:true,...sun});if(view)apply(view,true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -98,6 +98,12 @@ export default function HouseModel({onNavigate}:{onNavigate:(id:string)=>void}){
   if(q===quality)return;saved.current=api.current?.snapshot()??null;setCapture(initialCapture);setReady(false);setFailed(false);setFellBack(false);setQuality(q);
   const url=new URL(window.location.href);if(q===detected)url.searchParams.delete('quality');else url.searchParams.set('quality',q);window.history.replaceState(null,'',url);
  };
+ // A lost 3D view can refuse to restart inside the same page, so a reload loads the page afresh, keeping the renovations.
+ const reloadPage=()=>{
+  const url=new URL(window.location.href),on=Object.entries(changes).filter(([,value])=>value).map(([id])=>id);
+  if(on.length)url.searchParams.set('renovations',on.join(','));else url.searchParams.delete('renovations');
+  window.location.replace(url);
+ };
  const toggle=(p:Panel)=>setPanel(current=>current===p?null:p);
  const activeCount=Object.values(changes).filter(Boolean).length,realistic=quality!=='model';
  const place=view&&view in places?places[view as Place]:undefined,room=view?.startsWith('room:')?interiorRooms.find(r=>`room:${r.id}`===view):undefined;
@@ -108,7 +114,7 @@ export default function HouseModel({onNavigate}:{onNavigate:(id:string)=>void}){
   <div className="model-stage">
    <div ref={host} className="model-canvas"/>
    {!ready&&!failed&&<div className="model-loading" role="status"><Box size={30} aria-hidden/><span>{realistic?'Building the house and its setting…':'Assembling the house…'}</span></div>}
-   {failed&&<div className="model-error" role="alert"><h3>The 3D view couldn’t start.</h3><p>Reload the model, or open the original plans.</p><button className="btn" onClick={()=>{setFailed(false);setReady(false);setAttempt(attempt+1);}}>Reload model</button><button className="text-btn" onClick={()=>onNavigate('plans')}>Open the plans</button></div>}
+   {failed&&<div className="model-error" role="alert"><h3>The 3D view couldn’t start.</h3><p>Reload the model, or open the original plans.</p><button className="btn" onClick={reloadPage}>Reload model</button><button className="text-btn" onClick={()=>onNavigate('plans')}>Open the plans</button></div>}
    <div className="model-top">
     <button className="model-round model-back" aria-label="Back to the design studio" onClick={()=>onNavigate('studio')}><ArrowLeft size={20}/></button>
     {caption&&!selected&&<div className="model-caption" aria-live="polite"><strong>{caption.title}</strong>{caption.detail&&<span>{caption.detail}</span>}
