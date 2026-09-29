@@ -35,6 +35,8 @@ const SITE_CENTER=new T.Vector3(-5,0,8),SITE_RADIUS=70;
 export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const tier=tiers[options.quality],realistic=tier.quality!=='model';
  const renderer=new T.WebGLRenderer({antialias:!realistic,alpha:false,stencil:false,powerPreference:'high-performance'});
+ // Floor views cut roofs at the wall height with per-material clipping.
+ renderer.localClippingEnabled=true;
  renderer.setPixelRatio(Math.min(window.devicePixelRatio,tier.pixelRatio));
  renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFShadowMap;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
  renderer.toneMapping=realistic?T.AgXToneMapping:T.ACESFilmicToneMapping;renderer.toneMappingExposure=.9;renderer.outputColorSpace=T.SRGBColorSpace;

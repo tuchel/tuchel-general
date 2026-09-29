@@ -15,7 +15,7 @@ npm run install:ci
 npm run dev
 ```
 
-The local preview runs at http://localhost:5173. `npm run build` creates the Cloudflare Worker and client assets. `npx tsc --noEmit` checks types. `mkdir -p tmp`, then `node scripts/check-house-<name>.mjs` runs a model check: `sun` (solar geometry, daily events, lighting), `batching` (merged draws match the source scene in every floor and renovation state), `camera`, `materials`, `motion`, `setting`, `renovations` (add `--realism` for the detailed scene), `interiors`, `pool` and `entrance`. `node scripts/build-materials.mjs` regenerates the surface textures in `public/assets/materials/`.
+The local preview runs at http://localhost:5173. `npm run build` creates the Cloudflare Worker and client assets. `npx tsc --noEmit` checks types. `mkdir -p tmp`, then `node scripts/check-house-<name>.mjs` runs a model check: `sun` (solar geometry, daily events, lighting), `batching` (merged draws match the source scene in every floor and renovation state), `camera`, `materials`, `motion`, `setting`, `renovations` (add `--realism` for the detailed scene), `interiors`, `pool`, `entrance` and `roofs` (nothing breaks through a roof). `node scripts/build-materials.mjs` regenerates the surface textures in `public/assets/materials/`.
 
 ## Status and data
 
