@@ -33,8 +33,8 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  const east=groups.east;
  // Bedroom / bathroom / dining / living divisions keep their original alignment.
  for(const [from,to,privateBand] of [[182,388,0],[388,524,1],[524,669,0],[669,877,0]])glazing(east,p(1229,from),p(1229,to),!!privateBand);
- glazing(east,[.82,9.61],[6,9.61]);
- // South wall west of the retained fireplace is unchanged, supplied by build-model.
+ // The south wall is glazed on both sides of the retained fireplace; build-model keeps the piers beside it solid.
+ for(const [from,to] of [[-6,-.93],[.82,6]])glazing(east,[from,9.61],[to,9.61]);
  const farDining=dining(east,...p(1132,739),2.7,1.02,Math.PI/2);farDining.name='east-family-dining';
  // Kitchen: the complete A+B+C footprint, with the original cooking wall to the east.
  const kitchen=groups.kitchen,outline=kitchenLayout.envelope.map(([x,z])=>kitchenPoint(x,z));

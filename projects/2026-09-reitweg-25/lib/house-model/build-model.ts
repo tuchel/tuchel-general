@@ -332,7 +332,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  trees.add(boundaryHedge(foliage));
  const frontGarden=buildFrontGarden(foliage);trees.add(frontGarden.planting);site.add(frontGarden.ground);
  const renovation=buildRenovations(ground,roofs,site,material);
- facade(renovation.groups.east,[W,S],[.82,S],[{from:1.6,to:4.2,sill:.9,head:2.2}],'main');
+ // The retained fireplace and a pier either side of it, between the two runs of south glazing (renovations.ts).
+ facade(renovation.groups.east,[-.93,S],[.82,S],[],'main');
  ground.traverse(o=>{const id=o.userData.replacedBy as RenovationId|undefined;if(id)(originals[id]??=[]).push(o);});
  // Ground-floor ceilings over the whole footprint, open above the two stairs. They close the ground floor
  // under the upper floor in the whole-house and upper-floor views, and lift off for the ground-floor cutaway.

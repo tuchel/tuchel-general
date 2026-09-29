@@ -49,4 +49,9 @@ assert.equal(study.scenarios[1].components.existingElectricity, (412*12-180)/.35
 assert.equal(Object.keys(study.scenarios[1].components).length,2,'no new heating or cooling loads');
 for(const b of study.fullRoof.batteries){const standby=b.units*.01*study.hours/19;assert(Math.abs(study.fullRoof.annualPV+b.annualImport-load-standby-b.annualExport-b.annualBatteryLoss-b.endingSocKwh/19)<.001,'full-roof energy conservation');}
 assert(Math.abs(study.monthly.reduce((sum,m)=>sum+m.generation,0)-study.annualPV)<.001);
-console.log('Passed: all 64 renovation combinations across four floors; original scene and meadow restored; 50 panels clear skylights, perimeter and each other; finite transforms.');
+// The east glazing wraps the south wall on both sides of the retained fireplace; the pier beside it stays solid.
+model.setLevel('exterior');model.setRenovations({...renovationState(),east:true});model.root.updateMatrixWorld(true);
+const southRay=new T.Raycaster(),southAt=x=>{southRay.set(new T.Vector3(x,.6,10.4),new T.Vector3(0,0,-1));southRay.far=1.6;return southRay.intersectObject(model.root,true).filter(h=>h.object.isMesh&&visible(h.object));};
+for(const x of [-4.5,-2.5,2.5,4.5]){const hits=southAt(x);assert(hits.length&&hits.every(h=>[h.object.material].flat().every(m=>m.transparent)),`south wall at x ${x} is glazed`);}
+assert(southAt(-.7).some(h=>[h.object.material].flat().some(m=>!m.transparent)),'the pier west of the fireplace stays solid');
+console.log('Passed: all 64 renovation combinations across four floors; original scene and meadow restored; 50 panels clear skylights, perimeter and each other; finite transforms; south glazing on both sides of the fireplace.');
