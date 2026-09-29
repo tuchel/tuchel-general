@@ -99,7 +99,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  applyState();
  const grass=realistic&&tier.grass?eyeLevelGrass(scene,[...batches.meshes,stage]):undefined;
  // Walking at eye level: W A S D (Shift to run) on computers, the joysticks on phones.
- const walker=createWalker(camera,()=>[...batches.meshes,stage]),walkInput:WalkInput={forward:0,strafe:0,run:false},lookRate={x:0,y:0};
+ const walker=createWalker(rig.lens,()=>[...batches.meshes,stage]),walkInput:WalkInput={forward:0,strafe:0,run:false},lookRate={x:0,y:0};
  const walkAnchor=new T.Vector3();let joystick=false;
 
  const post=realistic?createPost(renderer,scene,camera,{samples:tier.samples,ao:tier.ao,bloom:tier.bloom}):undefined;
@@ -129,7 +129,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
 
  const fitShadowToView=()=>{
   if(!lighting)return;
-  if(rig.eyeLevel){const f=new T.Vector3();camera.getWorldDirection(f);f.y=0;f.normalize();lighting.fitShadow(camera.position.clone().addScaledVector(f,18).setY(0),34);}
+  if(rig.eyeLevel){const f=new T.Vector3();rig.lens.getWorldDirection(f);f.y=0;f.normalize();lighting.fitShadow(rig.lens.position.clone().addScaledVector(f,18).setY(0),34);}
   else lighting.fitShadow(SITE_CENTER,SITE_RADIUS);
  };
  const fadeIn=()=>{if(!reduced)canvas.animate([{opacity:0},{opacity:1}],{duration:420,easing:'ease-out'});};
@@ -144,8 +144,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   captures?.stop();
   if(key in places){
    const p=places[key as Place];place=key as Place;
-   rig.enterEyeLevel(new T.Vector3(...p.position),new T.Vector3(...p.target));walker.reset();walkAnchor.copy(camera.position);
-   lighting?.setInterior(p.interior);fitShadowToView();grass?.showAround(camera.position);fadeIn();
+   rig.enterEyeLevel(new T.Vector3(...p.position),new T.Vector3(...p.target));walker.reset();walkAnchor.copy(rig.lens.position);
+   lighting?.setInterior(p.interior);fitShadowToView();grass?.showAround(rig.lens.position);fadeIn();
    canvas.setAttribute('aria-label','Eye-level view. W, A, S and D walk; Shift runs. Drag or use arrow keys to look around. Pinch or scroll to zoom. Escape returns to the overview.');
   }else{
    const wasEye=!!place;leaveEyeLevel();
@@ -163,7 +163,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(!rig.eyeLevel||!pointers.has(e.pointerId))return;
   const last=pointers.get(e.pointerId)!;pointers.set(e.pointerId,[e.clientX,e.clientY]);
   if(pointers.size===2){const [a,b]=[...pointers.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]);if(pinch>0)rig.zoomBy(d/pinch);pinch=d;changed();return;}
-  const k=.0042/camera.zoom;rig.lookBy((e.clientX-last[0])*k,(e.clientY-last[1])*k);changed();
+  const k=.0042/rig.lens.zoom;rig.lookBy((e.clientX-last[0])*k,(e.clientY-last[1])*k);changed();
  };
  const up=(e:PointerEvent)=>{
   pointers.delete(e.pointerId);pinch=0;
@@ -195,8 +195,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const north=new T.Vector3(...sunDirection(0,0)).normalize(),a=new T.Vector3(),b=new T.Vector3(),buffer=new T.Vector2();
  const reportHeading=()=>{
   if(!options.onHeading)return;
-  const origin=rig.eyeLevel?camera.position.clone().add(camera.getWorldDirection(a).multiplyScalar(5)):controls.target;
-  a.copy(origin).project(camera);b.copy(origin).add(north).project(camera);
+  const view=rig.camera,origin=rig.eyeLevel?view.position.clone().add(view.getWorldDirection(a).multiplyScalar(5)):controls.target;
+  a.copy(origin).project(view);b.copy(origin).add(north).project(view);
   const deg=Math.atan2(b.x-a.x,b.y-a.y)*180/Math.PI;
   if(!(Math.abs(deg-heading)<.5)){heading=deg;options.onHeading(deg);}
  };
@@ -213,7 +213,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    if(lookRate.x||lookRate.y){rig.lookBy(lookRate.x*delta*1.9,lookRate.y*delta*1.3);moving=true;}
    if(walker.step(delta,walkInput)){moving=true;
     // Keep shadows and near grass centred on the walker, refreshed every few metres.
-    if(camera.position.distanceTo(walkAnchor)>4){walkAnchor.copy(camera.position);fitShadowToView();grass?.showAround(camera.position);}}
+    if(rig.lens.position.distanceTo(walkAnchor)>4){walkAnchor.copy(rig.lens.position);fitShadowToView();grass?.showAround(rig.lens.position);}}
   }
   if(controls.enabled&&controls.update(delta))moving=true;
   if(moving)changed();
@@ -229,7 +229,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    if(motion&&captures?.breezing&&tier.quality==='detailed')renderer.shadowMap.needsUpdate=true;
    post.render(still,renderer.toneMappingExposure);
    if(jitter)camera.clearViewOffset();
-  }else renderer.render(scene,camera);
+  }else renderer.render(scene,rig.camera);
   needsFrame=false;
   reportHeading();
   if(!ready){
@@ -249,7 +249,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   try{
    renderer.setPixelRatio(1);renderer.setSize(w,h,false);post?.setSize(w,h,1);
    if(post){for(let i=0;i<Math.max(8,tier.refineFrames);i++){if(i)camera.setViewOffset(w,h,halton(i,2)-.5,halton(i,3)-.5,w,h);post.render(true,renderer.toneMappingExposure);camera.clearViewOffset();}}
-   else renderer.render(scene,camera);
+   else renderer.render(scene,rig.camera);
    const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/png'));
    if(blob){const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='reitweg-25-'+(realistic?'detailed':'model')+'.png';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
   }finally{renderer.setPixelRatio(ratio);renderer.setSize(cssSize.x,cssSize.y,false);post?.setSize(cssSize.x,cssSize.y,ratio);changed();}

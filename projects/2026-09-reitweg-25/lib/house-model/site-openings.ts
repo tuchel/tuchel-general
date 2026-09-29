@@ -1,4 +1,5 @@
 import * as T from 'three';
+import {passable} from './walk';
 import {planPoint as p,PLAN_SCALE} from './site-data';
 
 /** Openings in the ground: the guest basement's external stair and the basement light wells.
@@ -22,7 +23,7 @@ export function buildBasementStair(stone:T.Material,steel:T.Material,door:T.Mate
  // Retaining walls on both sides and at the landing end; the north side is the basement wall.
  for(const v of [-1,1])box(length/2+.1,FLOOR-.15,v*(WIDTH/2+.1),length+.3,-FLOOR+.23,.2,stone);
  box(length+.15,FLOOR-.15,0,.2,-FLOOR+.23,WIDTH+.4,stone);
- box(length-.85,FLOOR,-(WIDTH/2)+.015,.9,2.05,.03,door);
+ passable(box(length-.85,FLOOR,-(WIDTH/2)+.015,.9,2.05,.03,door));
  // Guard rail along the open south edge and the landing end.
  for(let u=.1;u<=length+.1;u+=1.1)box(u,.08,WIDTH/2+.1,.04,.95,.04,steel);
  box(length/2+.1,1.01,WIDTH/2+.1,length+.05,.04,.05,steel);

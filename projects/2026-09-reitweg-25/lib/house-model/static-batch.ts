@@ -70,7 +70,7 @@ export function batchStatic(model:StaticModel):StaticBatches{
    for(let s=0;s<states;s++)if(seen[i][s]===v)signature[s>>5]|=1<<(s&31);
    for(const part of parts){
     if(!part.material)continue;
-    const key=[signature.join(','),part.material.uuid,mesh.castShadow,mesh.receiveShadow,mesh.renderOrder,mesh.userData.region||'',parent.uuid].join('|');
+    const key=[signature.join(','),part.material.uuid,mesh.castShadow,mesh.receiveShadow,mesh.renderOrder,mesh.userData.region||'',!!mesh.userData.passable,parent.uuid].join('|');
     let bucket=buckets.get(key);
     if(!bucket){bucket={items:[],material:part.material,signature,mesh,parent};buckets.set(key,bucket);}
     // Group ranges count indices (or vertices); after expansion both address the same triangles.
@@ -89,7 +89,7 @@ export function batchStatic(model:StaticModel):StaticBatches{
   const batch=new T.Mesh(merged,material);
   batch.name='batch-'+(mesh.userData.region||'static')+'-'+batches.length;
   batch.castShadow=mesh.castShadow;batch.receiveShadow=mesh.receiveShadow;batch.renderOrder=mesh.renderOrder;
-  batch.userData={region:mesh.userData.region,signature,batch:true};
+  batch.userData={region:mesh.userData.region,signature,batch:true,passable:!!mesh.userData.passable};
   batch.matrixAutoUpdate=false;
   if(parent!==root){parent.updateMatrixWorld(true);batch.applyMatrix4(parent.matrixWorld.clone().invert());batch.updateMatrix();}
   parent.add(batch);batches.push(batch);

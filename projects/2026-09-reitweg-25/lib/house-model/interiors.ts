@@ -1,4 +1,5 @@
 import * as T from 'three';
+import {passable} from './walk';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {planPoint as p} from './site-data';
 
@@ -117,7 +118,7 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  // One shower zone: screens stop short of both side entrances, with no middle wall.
  for(const [x,w] of [[1008,8],[1064,40],[1120,8]]){const screen=place(upper,x,340);box(screen,0,.05,0,w*12/434,1.1,.025,clear);box(screen,0,1.15,0,w*12/434,.022,.026,m.charcoal);}
  rod(shower,[0,.08,-.67],[0,1.12,-.67],.023,m.charcoal);rod(shower,[0,1.12,-.67],[0,1.12,-.34],.023,m.charcoal);box(shower,0,1.095,-.34,.22,.035,.22,m.charcoal);
- for(const [x,side] of [[1000,1],[1128,-1]]){const door=place(upper,x,379);door.name='north-bath-bedroom-door-'+x;box(door,side*.46,.015,0,.92,1.03,.045,m.pine);box(door,side*.78,.77,-.047,.12,.023,.03,m.charcoal);}
+ for(const [x,side] of [[1000,1],[1128,-1]]){const door=place(upper,x,379);door.name='north-bath-bedroom-door-'+x;box(door,side*.46,.015,0,.92,1.03,.045,m.pine);box(door,side*.78,.77,-.047,.12,.023,.03,m.charcoal);passable(door);}
  // Guest upper study: daybed under the west slope, worktop opposite; no invented double bed.
  g=place(upper,225,657,-Math.PI/2-.093);g.name='guest-study-daybed-against-wall';bench(g,0,0,4.5);desk(place(upper,369,661,Math.PI/2-.093),3.6);g=place(upper,311,664,-.093);rug(g,1.75,3.2,m.cream,true);
  // Gallery kitchenette and small red bistro table beside the staircase.
@@ -126,7 +127,7 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  g=place(upper,343,977,Math.PI/2-.093);g.name='guest-bedroom-corner-vanity';vanity(g,.75,false);
  g=place(upper,217,958,Math.PI-.093);g.name='guest-upper-bath-toilet';box(g,0,.02,0,.4,.36,.58,m.white,true);box(g,0,.38,0,.43,.065,.61,m.white,true);box(g,0,.03,.25,.43,.74,.13,m.white,true);
  g=place(upper,223,1018,-.093);g.name='guest-upper-bath-shower';box(g,0,.015,0,1.72,.045,.91,m.white,true);box(g,-.5,.06,-.49,.64,1.07,.025,clear);box(g,-.5,1.13,-.49,.64,.022,.025,m.charcoal);rod(g,[0,.08,.43],[0,1.12,.43],.025,m.charcoal);rod(g,[0,1.12,.43],[0,1.12,.12],.025,m.charcoal);box(g,0,1.1,.12,.22,.03,.22,m.charcoal);
- g=place(upper,263,980,-.093);g.name='guest-upper-bath-open-door';box(g,-.4,.015,0,.8,1.03,.045,m.pine);box(g,-.69,.78,-.04,.11,.024,.035,m.charcoal);
+ g=place(upper,263,980,-.093);g.name='guest-upper-bath-open-door';box(g,-.4,.015,0,.8,1.03,.045,m.pine);box(g,-.69,.78,-.04,.11,.024,.035,m.charcoal);passable(g);
  // Long low bookshelf along the gallery knee wall (562560DE).
  g=place(upper,914,565,-Math.PI/2);g.name='gallery-bookshelf';box(g,0,0,0,5.2,.06,.34,m.oak);for(const y of [.36,.72])box(g,0,y,0,5.2,.03,.34,m.oak);for(let x=-2.6;x<=2.61;x+=.65)box(g,x,0,0,.03,.75,.34,m.oak);
  for(let i=0;i<24;i++){const x=-2.5+(i%12)*.43,y=i<12?.06:.39;box(g,x,y,.02,.3,.26+(i*7%5)*.02,.24,[m.rust,m.navy,m.cream,m.sage][i%4]);}
