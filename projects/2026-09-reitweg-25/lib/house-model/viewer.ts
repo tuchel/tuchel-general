@@ -18,7 +18,7 @@ import {bakeSkyVisibility} from './sky-visibility';
 import {bakeSunBounce} from './sun-bounce';
 import {eyeLevelGrass} from './grass';
 import {createWalker,type WalkInput} from './walk';
-import {tiers,type Quality} from './device-tier';
+import {tierFor,type Quality} from './device-tier';
 import {renovationState,type RenovationState} from './renovation-data';
 import {viewpoints,type Level,type Region,type Viewpoint} from './site-data';
 
@@ -35,7 +35,7 @@ const halton=(i:number,b:number)=>{let f=1,r=0;while(i>0){f/=b;r+=f*(i%b);i=Math
 const SITE_CENTER=new T.Vector3(-5,0,8),SITE_RADIUS=70;
 
 export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
- const tier=tiers[options.quality],realistic=tier.quality!=='model';
+ const tier=tierFor(options.quality),realistic=tier.quality!=='model';
  const renderer=new T.WebGLRenderer({antialias:!realistic,alpha:false,stencil:false,powerPreference:'high-performance'});
  // Floor views cut roofs at the wall height with per-material clipping.
  renderer.localClippingEnabled=true;
