@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import * as T from 'three';
 import {build} from 'esbuild';
-await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/entrance-garden.ts'],outdir:'tmp/entrance-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external'});
+await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/entrance-garden.ts','lib/house-model/site-data.ts'],outdir:'tmp/entrance-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external'});
 const {buildHouseModel}=await import('../tmp/entrance-check/build-model.mjs');
 const {entranceRoute}=await import('../tmp/entrance-check/entrance-garden.mjs');
+const {sitePoint}=await import('../tmp/entrance-check/site-data.mjs');
 for(const realistic of [false,true]){
  const model=buildHouseModel(realistic);model.root.updateMatrixWorld(true);
  const walk=model.root.getObjectByName('front-door-walkway');assert(walk);
@@ -27,6 +28,14 @@ for(const realistic of [false,true]){
  for(const offset of [-1.1,1.1])assert.equal(hit(x,z+offset,oldPaving).length,0,'old slab removed below planting');
  assert.equal(Math.round((hit(-14.05,0,[step])[0].point.y-hit(x,z,[base])[0].point.y)*1000),85,'shallow step rises 85 mm');
  assert(walk.getObjectByName('entrance-arching-ornamental-grasses').count>1000,'planted borders present');
+ // Front garden: a clipped hedge closes the parking from the garden except for a path beside the guest wing,
+ // and a gravel path leads through that gap to the well's brick circle, with a timber trough beyond the well.
+ const across=(from,to,objects)=>{const [ax,az]=sitePoint(...from),[bx,bz]=sitePoint(...to),a=new T.Vector3(ax,1.2,az),d=new T.Vector3(bx-ax,0,bz-az);const r=new T.Raycaster(a,d.clone().normalize());r.far=d.length();return r.intersectObjects(objects,true);};
+ const hedge=model.root.getObjectByName('parking-yew-hedge'),path=model.root.getObjectByName('front-garden-ground');assert(hedge&&path,'front garden present');
+ assert(across([400,690],[400,760],[hedge]).length>0,'the hedge closes the parking from the garden');
+ assert.equal(across([476,695],[470,735],[hedge]).length,0,'a path passes the hedge beside the guest wing');
+ for(const point of [[471,712],[425,747]]){const [x,z]=sitePoint(...point);assert(hit(x,z,path.children).some(h=>h.object.name==='well-garden-gravel-path'),'gravel path to the well');}
+ assert(model.root.getObjectByName('well-garden-timber-trough'),'timber trough beyond the well');
  model.dispose();
 }
-console.log('Passed in both detail settings: continuous narrow approach, planted edges, removed slab and shallow step.');
+console.log('Passed in both detail settings: continuous narrow approach, planted edges, removed slab, shallow step, and the front garden hedge, gravel path and trough.');
