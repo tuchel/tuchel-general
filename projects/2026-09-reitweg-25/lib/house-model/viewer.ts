@@ -15,6 +15,7 @@ import {places,type Place,type CaptureState} from './experience-data';
 import {foliageMaterials,finishFoliage} from './foliage';
 import {loadSurfaceTextures,finishSurfaces} from './surface-materials';
 import {bakeSkyVisibility} from './sky-visibility';
+import {bakeSunBounce} from './sun-bounce';
 import {eyeLevelGrass} from './grass';
 import {createWalker,type WalkInput} from './walk';
 import {tiers,type Quality} from './device-tier';
@@ -90,11 +91,13 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const pickables:T.Object3D[]=[...batches.meshes.filter(b=>b.userData.region)];
  model.root.traverse(o=>{if(o instanceof T.InstancedMesh&&o.userData.region)pickables.push(o);});
  let level:Level='exterior',renovations=renovationState(),place:Place|undefined;
- const bake=realistic&&tier.skyBake?bakeSkyVisibility(renderer,batches.meshes.filter(b=>[b.material].flat().every(m=>!m.transparent&&m.userData.photo!=='lawn')),[model.root,stage]):undefined;
+ const bake=realistic&&tier.skyBake?bakeSkyVisibility(renderer,batches.meshes.filter(b=>[b.material].flat().every(m=>!m.transparent&&m.userData.photo!=='lawn')),[model.root,stage],tier.sunBounce?.55:.7):undefined;
+ // Sunlight bounced indoors: the house itself, without trees and planting.
+ const bounce=realistic&&tier.sunBounce?bakeSunBounce(renderer,batches.meshes.filter(b=>b.parent===model.root&&[b.material].flat().every(m=>!m.transparent&&!m.alphaTest&&m.userData.photo!=='lawn')),[model.root,stage],sun,tier.sunBounce):undefined;
  const applyState=()=>{
   model.setLevel(level);model.setRenovations(renovations);batches.sync(model.stateOf(level,renovations));
   stage.visible=level!=='basement';renderer.shadowMap.needsUpdate=true;
-  bake?.request();invalidate();
+  bake?.request();bounce?.request();invalidate();
  };
  applyState();
  const grass=realistic&&tier.grass?eyeLevelGrass(scene,[...batches.meshes,stage]):undefined;
@@ -219,6 +222,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(moving)changed();
   if(lighting?.update(camera,now)){post?.reset();needsFrame=true;}
   if(bake?.update())changed();
+  if(bounce?.update())changed();
   const motion=!!(captures?.breezing||captures?.recording||film);
   const still=!motion&&!moving&&now-lastChange>110,refine=!!post&&still&&post.accumulated<tier.refineFrames;
   if(!needsFrame&&!refine&&!motion)return;
@@ -260,7 +264,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   zoom:(factor:number)=>{captures?.stop();rig.zoomBy(factor);changed();},
   setLevel:(l:Level)=>{captures?.stop();leaveEyeLevel();const floorChanged=l!==level;level=l;applyState();if(floorChanged)controls.target.y=l==='basement'?-2:l==='upper'?3.1:1;rig.project();changed();},
   setRenovations:(state:RenovationState)=>{captures?.stop();renovations={...state};applyState();},
-  setSun:(study:SunStudy):LightReading|undefined=>{if(!lighting)return;const r=lighting.apply(study);fitShadowToView();changed();return r;},
+  setSun:(study:SunStudy):LightReading|undefined=>{if(!lighting)return;const r=lighting.apply(study);fitShadowToView();bounce?.request();changed();return r;},
   get lightReading(){return lighting?.reading;},
   captures,
   get eyeLevel(){return rig.eyeLevel;},
@@ -271,7 +275,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   dispose:()=>{
    disposed=true;cancelAnimationFrame(frame);window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);captures?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
    canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('wheel',wheel);canvas.removeEventListener('keydown',key);
-   bake?.dispose();grass?.dispose();post?.dispose();lighting?.dispose();textures?.dispose();environment?.dispose();
+   bake?.dispose();bounce?.dispose();grass?.dispose();post?.dispose();lighting?.dispose();textures?.dispose();environment?.dispose();
    const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
    scene.traverse(o=>{if(o instanceof T.Mesh||o instanceof T.Line){geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);}if(o instanceof T.Mesh&&o.customDepthMaterial)materials.add(o.customDepthMaterial);});
    geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());

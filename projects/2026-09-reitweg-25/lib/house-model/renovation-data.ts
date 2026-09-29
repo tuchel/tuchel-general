@@ -1,7 +1,7 @@
 import type {Level,Viewpoint} from './site-data';
 export const renovations = [
  {id:'kitchen',title:'The garden kitchen',detail:'The full west + north volume, garden dining, breakfast bar and wider cooking aisle.',view:'arrival',center:[-5.7,-7.5],span:16},
- {id:'east',title:'Open the east façade',detail:'Floor-to-ceiling glass, a private bathroom band and the wrap to the fireplace.',view:'east',center:[1,1],span:25},
+ {id:'east',title:'Open the east façade',detail:'Floor-to-ceiling glass, a private bathroom band and a south wall glazed on both sides of the fireplace.',view:'east',center:[1,1],span:25},
  {id:'terrace',title:'Dining on the east terrace',detail:'A generous stone terrace, long oak table and a little shade.',view:'east',center:[7.5,5.8],span:14},
  {id:'courtyard',title:'Lounge by the fire',detail:'The fireside lounge, long table under the eaves and a wall-side serving counter.',view:'courtyard',center:[-13.7,7],span:20},
  {id:'front',title:'A timber arrival wall',detail:'A taller boundary with horizontal timber and matching gates.',view:'arrival',center:[-35,0],span:35},

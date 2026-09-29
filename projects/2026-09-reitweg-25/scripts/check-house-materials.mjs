@@ -29,7 +29,14 @@ for(const m of [oak,glass,water])root.add(new T.Mesh(new T.BoxGeometry(),m));
 finishSurfaces(root,textures,{value:0});
 const compile=m=>{const s={uniforms:{},vertexShader:T.ShaderLib.physical.vertexShader,fragmentShader:T.ShaderLib.physical.fragmentShader};m.onBeforeCompile(s,null);return s;};
 const o=compile(oak);assert(o.fragmentShader.includes('textureGrad(uSurfaceColor')&&o.fragmentShader.includes('roughnessFactor=surfaceTexel.a'));
+// Textured surfaces keep their painted colour for the bounced-sunlight bake, whose patches also find their chunks.
+const rounded=c=>c?.toArray().map(v=>+v.toFixed(4));
+assert.deepEqual(rounded(oak.userData.albedo),rounded(new T.Color('#c6aa80')),'oak keeps its painted colour as albedo');
+await build({entryPoints:['lib/house-model/sun-bounce.ts'],outfile:'tmp/bounce-check.mjs',bundle:true,platform:'node',format:'esm',packages:'external'});
+const {bakeSunBounce}=await import('../tmp/bounce-check.mjs');
+bakeSunBounce({},[new T.Mesh(new T.BoxGeometry(4,.2,4).toNonIndexed(),oak)],[root],new T.DirectionalLight(),32);
+assert(compile(oak).fragmentShader.includes('uBounceLight'),'bounced sunlight reaches textured surfaces');
 assert.equal(glass.transmission,0,'glass has no transmission pass');assert(compile(glass).fragmentShader.includes('pow(1.0-abs(dot(normal'));
 assert(compile(water).fragmentShader.includes('uWaterNormal'));
 assert(root.children.every(m=>!m.material.transparent||!m.castShadow),'transparent surfaces cast no shadow');
-console.log('Passed: all generated surface sets present and square, mean colours near the photographed surfaces, surface/glass/water patches compile against three\'s chunks.');
+console.log('Passed: all generated surface sets present and square, mean colours near the photographed surfaces, surface/glass/water/bounce patches compile against three\'s chunks.');

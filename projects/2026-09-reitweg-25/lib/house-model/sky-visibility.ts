@@ -10,12 +10,14 @@ import {addShaderFeature,after,materialsOf} from './shader-features';
  * Geometry is untouched, so there are no seams or cracks. */
 const DIRECTIONS=48,PER_FRAME=6,CELL=.5,MAP=2048;
 const BOX=new T.Box3(new T.Vector3(-27,-3,-11),new T.Vector3(8,8.5,21));
+/** The probe grid, shared with the sun bounce (sun-bounce.ts). */
+export const PROBE_GRID={box:BOX,cell:CELL};
 // Light bounced between walls, floors and furniture keeps enclosed rooms from reading as black. It arrives from every
-// direction, so a surface that cannot see the sky gets this share of the sky's overhead light whichever way it faces,
-// scaled by how much of the sky its room sees through windows (a closed basement stays dim).
-const BOUNCE=.7;
+// direction, so a surface that cannot see the sky gets a share of the sky's overhead light whichever way it faces,
+// scaled by how much of the sky its room sees through windows (a closed basement stays dim). The share is .7 alone,
+// and .55 where bounced sunlight is traced as well (sun-bounce.ts).
 
-export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],receivers:T.Object3D[]){
+export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],receivers:T.Object3D[],bounce=.7){
  const size=BOX.getSize(new T.Vector3()),nx=Math.round(size.x/CELL),ny=Math.round(size.y/CELL),nz=Math.round(size.z/CELL);
  // Texture axes: width = x, height = z, layers = y.
  const volumes=[0,1].map(()=>{const v=new T.WebGL3DRenderTarget(nx,nz,ny,{type:T.HalfFloatType,depthBuffer:false});v.texture.minFilter=v.texture.magFilter=T.LinearFilter;v.texture.wrapS=v.texture.wrapT=v.texture.wrapR=T.ClampToEdgeWrapping;return v;});
@@ -42,7 +44,7 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
  const cloud=new T.Points(grid,accumulate);cloud.frustumCulled=false;
  const pointScene=new T.Scene();pointScene.add(cloud);const pointCamera=new T.OrthographicCamera(-1,1,1,-1,0,1);
  const directions=Array.from({length:DIRECTIONS},(_,i)=>{const y=1-2*(i+.5)/DIRECTIONS,r=Math.sqrt(1-y*y),a=i*2.399963;return new T.Vector3(Math.cos(a)*r,y,Math.sin(a)*r);});
- const uniforms={uSkyVolume:{value:volumes[0].texture as T.Texture},uSkyMin:{value:BOX.min.clone()},uSkySize:{value:size.clone()},uSkyReady:{value:0},uSkyBounce:{value:BOUNCE}};
+ const uniforms={uSkyVolume:{value:volumes[0].texture as T.Texture},uSkyMin:{value:BOX.min.clone()},uSkySize:{value:size.clone()},uSkyReady:{value:0},uSkyBounce:{value:bounce}};
  const patched=new Set<T.Material>();
  for(const root of receivers)root.traverse(o=>{for(const m of materialsOf(o)){
   if(patched.has(m)||!(m instanceof T.MeshStandardMaterial)||m.transparent)continue;patched.add(m);
@@ -68,7 +70,7 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
       overhead=getIBLIrradiance((viewMatrix*vec4(0.0,1.0,0.0,0.0)).xyz);
      #endif
      float skyVisible=mix(bounce,1.0,open);
-     // Bounced light comes mostly off sunlit floors and walls, so it is warmer than the sky.
+     // Oak floors and warm plaster make bounced light warmer than the sky.
      iblIrradiance=iblIrradiance*open+overhead*bounce*vec3(1.08,.97,.84)*(1.0-open);irradiance*=skyVisible;radiance*=mix(1.0,skyVisible,0.85);
     }`);
   }});

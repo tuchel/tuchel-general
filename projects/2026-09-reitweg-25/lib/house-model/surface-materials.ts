@@ -46,7 +46,8 @@ function surfaceFeature(material:T.MeshStandardMaterial,surface:Surface,textures
  const set=textures.get(surface),ref=new T.Color(painted[surface]),own=material.color;
  const tint=new T.Color(T.MathUtils.clamp(own.r/ref.r,.3,2),T.MathUtils.clamp(own.g/ref.g,.3,2),T.MathUtils.clamp(own.b/ref.b,.3,2));
  const uniforms={uSurfaceColor:{value:set.color},uSurfaceNormal:{value:set.normal},uSurfaceMetres:{value:new T.Vector2(...metres[surface])},uSurfaceTint:{value:tint},uSurfaceBump:{value:bump[surface]},uSurfaceSlope:{value:surface==='roof'?1:0},uLawn:{value:surface==='lawn'?1:0}};
- material.color.set('#ffffff');material.userData.surfaceUniforms=uniforms;
+ // The texture carries the colour from here on; the bounced-light bake reads the average (sun-bounce.ts).
+ material.userData.albedo=ref.clone().multiply(tint);material.color.set('#ffffff');material.userData.surfaceUniforms=uniforms;
  addShaderFeature(material,{key:'surface-v1',compile:shader=>{
   Object.assign(shader.uniforms,uniforms);
   shader.vertexShader='varying vec3 vSurfacePos;varying vec3 vSurfaceNormal;\n'+after(shader.vertexShader,'project_vertex',`
