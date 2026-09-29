@@ -41,9 +41,9 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const wall=(parent:T.Group,x1:number,z1:number,x2:number,z2:number,height=2.67,y=.12,mat:T.Material=m.plaster)=>{const a=p(x1,z1),b=p(x2,z2);const w=segment(parent,[a[0],y,a[1]],[b[0],y,b[1]],.18,mat);const len=Math.hypot(b[0]-a[0],b[1]-a[1]);w.scale.set(len,height,.18);w.rotation.set(0,-Math.atan2(b[1]-a[1],b[0]-a[0]),0);w.position.set((a[0]+b[0])/2,y+height/2,(a[1]+b[1])/2);w.userData.base=y;w.userData.height=height;cutWalls.push(w);return w;};
  const stairs=(parent:T.Group,x:number,z:number,w:number,depth:number,y=0,rise=2.9)=>{for(let i=0;i<16;i++)box(parent,x,y+i*rise/16,z+depth/2-i*depth/16,w,rise/16,depth/16,m.floor);segment(parent,[x+w/2,y+1,z+depth/2],[x+w/2,y+rise+1,z-depth/2],.035,m.dark);};
  // Open timber treads and slender steelwork, visible from the hall and gallery.
- const mainStair=(parent:T.Group,xOffset=0)=>{
+ const mainStair=(parent:T.Group)=>{
   const g=new T.Group();g.name='main-open-timber-stair';parent.add(g);
-  const [x,z]=p(927+xOffset,533.5),width=1.12,depth=151*12/434,rise=2.95,base=.12,count=16;
+  const [x,z]=p(927,533.5),width=1.12,depth=151*12/434,rise=2.95,base=.12,count=16;
   for(let i=0;i<count;i++)box(g,x,base+(i+1)*rise/count-.055,z+depth/2-(i+.5)*depth/count,width,.055,depth/count+.035,m.wood);
   for(const side of [-1,1]){
    const sx=x+side*(width/2-.04);
@@ -157,12 +157,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  for(const a of upperWalls)wall(upper,...a as [number,number,number,number],1.25,3.07);
  // Full double-height Luftraum from the upper plan, with galleries on both sides.
  for(const rail of [[958,458,958,668],[1000,466,1096,466],[1096,466,1096,668]])galleryRail(upper,...rail as [number,number,number,number]);
- // Retain the lower hall through the void; registration shifts the upper plan 52 px east.
- rectFloor(upper,946,464,1100,669,0,m.stone);
- wall(upper,945,464,945,609,2.8,.12);
- wall(upper,1102,470,1102,613,2.8,.12);
- wall(upper,1022,402,1022,458,2.8,.12);
- mainStair(upper,52);
+ // The upper-floor view keeps the real ground floor beneath, seen through the atrium.
  // The guest gallery has a real open stair atrium along its west side.
  const guestUpper=[[222,544],[397,563],[332,1221],[163,1209],[188,934],[254,932],[267,802],[200,796]].map(([x,z])=>p(x,z));
  const guestSlabShape=new T.Shape(guestUpper.map(([x,z])=>new T.Vector2(x,-z)));
@@ -170,10 +165,6 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // The stair opening meets the west edge; a notch avoids floor crossing the turning flight.
  const guestSlabGeo=new T.ExtrudeGeometry(guestSlabShape,{depth:.15,bevelEnabled:false});guestSlabGeo.rotateX(-Math.PI/2);const guestSlab=add(guestSlabGeo,m.floor,upper,'guest');guestSlab.position.y=2.95;guestSlab.name='guest-floor-with-atrium';
  for(const a of [[207,780,292,789],[324,793,371,798],[193,934,267,942],[305,946,356,951],[186,1035,257,1043],[193,934,186,1035],[267,942,263,980],[260,1012,257,1043]])wall(upper,...a as [number,number,number,number],1.25,3.07);
- // A lower floor and staircase remain visible through the actual opening in the slab.
- poly([[116,535],[475,573],[461,668],[367,671],[338,956],[80,929]].map(([x,z])=>p(x+52,z)),.1,.035,m.floor,upper);
- wall(upper,207,780,371,798,2.83,.12);
- upper.add(guestStair(m.wood,m.dark,true));
  const guestLanding=poly([[246,797],[267,802],[263,839],[242,836]].map(([x,z])=>p(x,z)),.15,2.95,m.floor,upper);guestLanding.name='guest-stair-turning-landing';
  for(const [a,b] of [[p(263,839),guestAtrium[2]],[guestAtrium[2],guestAtrium[3]]] as [number[],number[]][]){
   for(const y of [3.28,3.52,3.76,4.02])segment(upper,[a[0],y,a[1]],[b[0],y,b[1]],.025,m.dark);
@@ -269,7 +260,13 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const renovation=buildRenovations(ground,roofs,site,material);
  facade(renovation.groups.east,[W,S],[.82,S],[{from:1.6,to:4.2,sill:.9,head:2.2}],'main');
  ground.traverse(o=>{const id=o.userData.replacedBy as RenovationId|undefined;if(id)(originals[id]??=[]).push(o);});
- const detail=realistic?architecturalDetails(ground,upper):undefined;
+ // Ground-floor ceilings over the whole footprint, open above the two stairs. They close the ground floor
+ // under the upper floor in the whole-house and upper-floor views, and lift off for the ground-floor cutaway.
+ const ceilings=new T.Group();ceilings.name='interior-ceilings';ground.add(ceilings);
+ const ceiling=(outline:number[][],opening:number[][])=>{const plan=(points:number[][])=>points.map(([x,z])=>{const a=p(x,z);return new T.Vector2(a[0],-a[1]);});const shape=new T.Shape(plan(outline));shape.holes.push(new T.Path(plan(opening)));const geo=new T.ExtrudeGeometry(shape,{depth:.06,bevelEnabled:false});geo.rotateX(-Math.PI/2);const mesh=add(geo,m.plaster,ceilings);mesh.position.y=2.79;return mesh;};
+ ceiling([[795,182],[1229,182],[1229,877],[795,877]],[[906,458],[948,458],[948,466],[1044,466],[1044,668],[906,668]]).name='main-ground-ceiling';
+ ceiling([[116,535],[475,573],[461,668],[367,671],[316,1228],[49,1208]],[[96,782],[215,792],[202,932],[92,927]]).name='guest-ground-ceiling';
+ const detail=realistic?architecturalDetails(ground,ceilings):undefined;
  // Roofs-on views still contain the real upper-floor furnishings and gallery.
  // Omit the cutaway's duplicated lower hall and stairs; the ground model supplies those.
  if(realistic){upper.updateMatrixWorld(true);upper.traverse(o=>{if(!(o instanceof T.Mesh))return;let parent:T.Object3D|null=o;while(parent&&parent!==upper){if(parent.name.includes('stair'))return;parent=parent.parent;}if(new T.Box3().setFromObject(o).min.y>=2.85)o.userData.alsoExterior=true;});}
@@ -280,7 +277,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const setRenovations=(next:RenovationState)=>{active={...next};applyRenovations();};
  // One consistent natural-material palette across the original house and all proposals.
  for(const mat of materials)mat.color.set(mat.userData.timber);garden.setFinish('timber');lineMat.opacity=.2;
- const setLevel=(level:Level)=>{currentLevel=level;if(setting)setting.visible=level==='exterior';if(detail)detail.ceilings.visible=level==='exterior';slats.visible=level==='exterior';site.visible=level!=='basement';trees.visible=level==='exterior';roofs.visible=level==='exterior';ground.visible=level==='exterior'||level==='ground';upper.visible=level==='upper';basement.visible=level==='basement';for(const mesh of cutWalls){const h=mesh.userData.height as number,y=mesh.userData.base as number;const cap=mesh.parent===upper?4.12:mesh.parent===basement?-1:1.17;const shown=level==='exterior'?h:Math.max(0,Math.min(h,cap-y));mesh.visible=shown>0;mesh.scale.y=Math.max(.001,shown);mesh.position.y=y+shown/2;}applyRenovations();};
+ const setLevel=(level:Level)=>{currentLevel=level;if(setting)setting.visible=level==='exterior';ceilings.visible=level==='exterior'||level==='upper';slats.visible=level==='exterior'||level==='upper';site.visible=level!=='basement';trees.visible=level==='exterior';roofs.visible=level==='exterior';ground.visible=level!=='basement';upper.visible=level==='upper';basement.visible=level==='basement';for(const mesh of cutWalls){const h=mesh.userData.height as number,y=mesh.userData.base as number;const cap=mesh.parent===upper?4.12:mesh.parent===basement?-1:1.17;const full=level==='exterior'||(level==='upper'&&mesh.parent!==upper),shown=full?h:Math.max(0,Math.min(h,cap-y));mesh.visible=shown>0;mesh.scale.y=Math.max(.001,shown);mesh.position.y=y+shown/2;}applyRenovations();};
  const dispose=()=>{const gs=new Set<T.BufferGeometry>(),ms=new Set<T.Material>();root.traverse(o=>{if(o instanceof T.Mesh||o instanceof T.Line){gs.add(o.geometry);(Array.isArray(o.material)?o.material:[o.material]).forEach(a=>ms.add(a));}});gs.forEach(g=>g.dispose());ms.forEach(m=>{if(m instanceof T.MeshStandardMaterial)m.map?.dispose();m.dispose();});};
  // Every floor × renovation combination, for static batching: state = floor*64 + renovation bits.
  const renovationIds=Object.keys(renovationState()) as RenovationId[];
@@ -288,6 +285,6 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const applyState=(index:number)=>{setLevel(levels[index>>6]);setRenovations(Object.fromEntries(renovationIds.map((id,i)=>[id,!!(index&(1<<i))])) as RenovationState);};
  // Upper-floor rooms stay visible behind the roofs in the whole-house view.
  const rendered=(mesh:T.Object3D)=>{for(let o:T.Object3D|null=mesh;o;o=o.parent){if(o.visible)continue;if(o===upper&&currentLevel==='exterior'&&mesh.userData.alsoExterior)continue;return false;}return true;};
- return {root,site,trees,upper,pickables,detail,setRenovations,setLevel,dispose,stateCount:levels.length*64,stateOf,applyState,rendered};
+ return {root,site,trees,upper,ceilings,pickables,detail,setRenovations,setLevel,dispose,stateCount:levels.length*64,stateOf,applyState,rendered};
 }
 export const levels:Level[]=['exterior','ground','upper','basement'];

@@ -2,10 +2,10 @@ import * as T from 'three';
 import {planPoint} from './site-data';
 
 /** Guest stair from the ground plan: a wall-side flight rising north from the Entrée, three winders in the
- * north-west corner and a flight east along the north wall; the same geometry serves both cutaways. */
-export function guestStair(timber:T.Material,steel:T.Material,upper=false){
- const g=new T.Group();g.name=upper?'guest-upper-turning-stair':'guest-ground-turning-stair';
- const [x,z]=planPoint(112+(upper?52:0),808);g.position.set(x,0,z);g.rotation.y=-.093;
+ * north-west corner and a flight east along the north wall. */
+export function guestStair(timber:T.Material,steel:T.Material){
+ const g=new T.Group();g.name='guest-ground-turning-stair';
+ const [x,z]=planPoint(112,808);g.position.set(x,0,z);g.rotation.y=-.093;
  const geo=new T.BoxGeometry(1,1,1);
  const box=(x:number,y:number,z:number,w:number,h:number,d:number,mat:T.Material)=>{const o=new T.Mesh(geo,mat);o.position.set(x,y+h/2,z);o.scale.set(w,h,d);o.castShadow=true;o.receiveShadow=true;g.add(o);return o;};
  const rail=(a:number[],b:number[],width=.03)=>{const u=new T.Vector3(...a),v=new T.Vector3(...b);const o=box(0,0,0,width,u.distanceTo(v),width,steel);o.position.copy(u.clone().add(v).multiplyScalar(.5));o.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),v.sub(u).normalize());};

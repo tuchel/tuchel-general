@@ -51,7 +51,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const rig=createCameraRig(camera,controls,reduced);
 
  // Scene: house, setting and ground.
- const foliage=realistic?foliageMaterials():undefined;
+ const foliage=realistic?foliageMaterials(tier.trees):undefined;
  const setting=realistic?landscapeContext({foliage,density:tier.farWoodland}):undefined;
  const model=buildHouseModel(realistic,setting?.group,foliage);scene.add(model.root);
  const stageGeometry=terrainWithPoolOpening([basementStairWell()]);

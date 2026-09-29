@@ -48,12 +48,17 @@ const bedBounds=new T.Box3().setFromObject(nwBed);const dividerFace=p(1064,225)[
 assert.equal(crosses(upstairs(245,819),upstairs(290,819),[upper]).length,0,'mezzanine railing has a landing opening');
 assert.equal(crosses(upstairs(283,996),upstairs(244,996),[upper]).length,0,'guest bathroom door remains open');
 for(const name of ['guest-upper-bath-toilet','guest-upper-bath-shower','guest-bedroom-corner-vanity','guest-study-daybed-against-wall'])assert(model.root.getObjectByName(name),name+' present');
-const lowerStair=model.root.getObjectByName('guest-ground-turning-stair'),upperStair=model.root.getObjectByName('guest-upper-turning-stair');assert(lowerStair&&upperStair);assert.equal(lowerStair.children.length,upperStair.children.length,'same stairs on both floors');
-const lo=new T.Box3().setFromObject(lowerStair),hi=new T.Box3().setFromObject(upperStair);assert(lo.min.distanceTo(hi.min)<1e-8&&lo.max.distanceTo(hi.max)<1e-8,'stair geometry aligns exactly between floors');
+const lowerStair=model.root.getObjectByName('guest-ground-turning-stair');assert(lowerStair);
+// The upper-floor view stands on the real ground floor: full-height walls, ceilings closed except over the stairs.
+assert(model.rendered(lowerStair.children[0])&&model.rendered(model.root.getObjectByName('main-open-timber-stair').children[0]),'upper-floor view keeps both stairs from the ground floor');
+assert(crosses(point(780,440,2.55),point(812,440,2.55),[ground]).length>0,'ground-floor walls stay full height under the upper floor');
+assert.equal(model.ceilings.visible,true,'ground-floor ceiling closes the ground floor in the upper-floor view');
+for(const [x,z] of [[1035,540],[1035,630],[978,530],[231,860]]){const [px,pz]=p(x,z);assert.equal(crosses([px+UPPER_PLAN_X_OFFSET,4,pz],[px+UPPER_PLAN_X_OFFSET,2,pz],[model.ceilings]).length,0,'ceiling open over the stairs and atrium');}
+assert(model.upper.getObjectByName('guest-ground-turning-stair')===undefined,'no stand-in stair copies on the upper floor');
 model.root.traverse(o=>{if(o instanceof T.Mesh){for(const n of o.matrixWorld.elements)assert(Number.isFinite(n),'finite transform');}});
 if(model.detail){
  model.setLevel('exterior');model.root.updateMatrixWorld(true);
- const ceilings=model.detail.ceilings;let enclosed=0;model.upper.traverse(o=>{if(!o.userData.alsoExterior)return;enclosed++;assert(model.rendered(o),'roofs-on view keeps upper-floor rooms in place');for(let a=o;a&&a!==model.upper;a=a.parent)assert(!a.name.includes('stair'),'cutaway stairs stay out of the roofs-on view');assert(new T.Box3().setFromObject(o).min.y>=2.85);});assert(enclosed>100,'upper-floor furnishings shown behind the roof');
+ const ceilings=model.ceilings;let enclosed=0;model.upper.traverse(o=>{if(!o.userData.alsoExterior)return;enclosed++;assert(model.rendered(o),'roofs-on view keeps upper-floor rooms in place');for(let a=o;a&&a!==model.upper;a=a.parent)assert(!a.name.includes('stair'),'cutaway stairs stay out of the roofs-on view');assert(new T.Box3().setFromObject(o).min.y>=2.85);});assert(enclosed>100,'upper-floor furnishings shown behind the roof');
  for(const [x,z] of [[1035,540],[1035,630],[978,530]]){const [px,pz]=p(x,z);assert.equal(crosses([px+UPPER_PLAN_X_OFFSET,4,pz],[px+UPPER_PLAN_X_OFFSET,2,pz],[ceilings]).length,0,'ceiling preserves full main atrium');}
  const [cx,cz]=p(231,860);assert.equal(crosses([cx+UPPER_PLAN_X_OFFSET,4,cz],[cx+UPPER_PLAN_X_OFFSET,2,cz],[ceilings]).length,0,'ceiling preserves guest stairwell');
  assert.equal(ceilings.visible,true);model.setLevel('ground');assert.equal(ceilings.visible,false,'ceilings hide for a cutaway');

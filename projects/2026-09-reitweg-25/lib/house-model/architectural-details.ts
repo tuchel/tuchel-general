@@ -1,18 +1,13 @@
 import * as T from 'three';
-import {planPoint as p,UPPER_PLAN_X_OFFSET} from './site-data';
+import {planPoint as p} from './site-data';
 /** Photo-led finishes; construction dimensions are indicative. Never changes partitions. */
-export function architecturalDetails(ground:T.Group,upper:T.Group){
+export function architecturalDetails(ground:T.Group,ceilings:T.Group){
  const group=new T.Group();group.name='photo-led-interior-details';ground.add(group);
  const plaster=new T.MeshStandardMaterial({color:'#e8e4db',roughness:.92});
  const linen=new T.MeshStandardMaterial({color:'#ded8c9',roughness:1,side:T.DoubleSide});linen.userData.photo='linen';
  const dark=new T.MeshStandardMaterial({color:'#252824',roughness:.42,metalness:.5});
  const stone=new T.MeshStandardMaterial({color:'#c3bdaa',roughness:.78});stone.userData.photo='stone';
  const box=(g:T.Object3D,x:number,y:number,z:number,w:number,h:number,d:number,mat:T.Material)=>{const mesh=new T.Mesh(new T.BoxGeometry(w,h,d),mat);mesh.position.set(x,y+h/2,z);mesh.castShadow=true;mesh.receiveShadow=true;g.add(mesh);return mesh;};
- // Ceiling slabs use the very same atrium holes and registered plan as the upper floor.
- const ceilings=new T.Group();ceilings.name='interior-ceilings';ground.add(ceilings);
- for(const name of ['main-floor-with-atrium','guest-floor-with-atrium']){const source=upper.getObjectByName(name) as T.Mesh;const mesh=new T.Mesh(source.geometry,plaster);mesh.position.copy(source.position);mesh.position.x+=UPPER_PLAN_X_OFFSET;mesh.castShadow=true;mesh.receiveShadow=true;ceilings.add(mesh);}
- // Main floor ceiling reaches the eaves on both sides; atrium remains completely open.
- box(ceilings,-5.28,2.86,0,1.44,.07,19.2,plaster);box(ceilings,5.3,2.86,0,1.4,.07,19.2,plaster);
  // Pleated curtains occupy the existing living-room window reveals (IMG_1462).
  const curtains=new T.Group();curtains.name='living-room-linen-curtains';group.add(curtains);
  for(const z of [5.02,7.67]){
