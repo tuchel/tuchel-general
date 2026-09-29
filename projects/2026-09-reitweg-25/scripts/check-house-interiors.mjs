@@ -26,7 +26,7 @@ const cars=model.root.getObjectByName('garage-cars');assert.equal(cars.children.
 for(const car of cars.children){const {length,width,height,wheelbase}=car.userData.spec,body=car.getObjectByName('car-body');body.geometry.computeBoundingBox();const size=body.geometry.boundingBox.getSize(new T.Vector3());
  for(const [got,want,what] of [[size.x,length,'length'],[size.z,width,'width'],[size.y+body.geometry.boundingBox.min.y,height,'height']])assert(Math.abs(got-want)<.01,`${car.name} ${what} ${got.toFixed(3)} ≠ ${want}`);
  const axles=[...new Set(car.children.filter(c=>c.name==='car-wheel').map(w=>w.position.x.toFixed(4)))].map(Number);assert(Math.abs(Math.abs(axles[0]-axles[1])-wheelbase)<1e-6,`${car.name} wheelbase`);}
-assert(cars.getObjectByName('Porsche 911 Carrera')&&cars.getObjectByName('Tesla Model Y'),'a Porsche 911 and a Tesla Model Y');
+assert(cars.getObjectByName('Porsche 911 Carrera GTS')&&cars.getObjectByName('Tesla Model Y Performance'),'a Porsche 911 Carrera GTS and a Tesla Model Y Performance');
 assert(model.root.getObjectByName('guest-corner-sauna'),'corner sauna present');
 model.setLevel('upper');model.root.updateMatrixWorld(true);const slab=model.root.getObjectByName('guest-floor-with-atrium');assert(slab);const [ax,az]=p(231,860);const [bx,bz]=p(310,866);
 assert.equal(crosses([ax+UPPER_PLAN_X_OFFSET,5,az],[ax+UPPER_PLAN_X_OFFSET,2,az],[slab]).length,0,'guest atrium is a hole, not a floor patch');
