@@ -3,7 +3,7 @@ import * as T from 'three';
 import {build} from 'esbuild';
 // Nothing may break through a roof: seen from above, every wall, window frame and beam lies
 // under the roof surface, except the parts meant to stand on it (ridge caps, eave fascias, chimney).
-await build({entryPoints:['lib/house-model/build-model.ts'],outdir:'tmp/roof-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
+await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/site-data.ts'],outdir:'tmp/roof-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
 const {buildHouseModel}=await import('../tmp/roof-check/build-model.mjs');
 const onRoof=new Set(['roof-ridge-cap','roof-eave-fascia','chimney']);
 for(const realism of [false,true]){
@@ -32,6 +32,11 @@ for(const realism of [false,true]){
   }
  });
  assert.equal(faults.length,0,`${realism?'detailed':'model'}: ${faults.slice(0,5).join('; ')}`);
+ // Downpipes stand outside: never within the main house or the guest wing (and its garage).
+ const {planPoint:p}=await import('../tmp/roof-check/site-data.mjs');
+ const guest=[[116,535],[475,573],[461,668],[367,671],[316,1228],[49,1208]].map(([x,z])=>p(x,z)),[w,n]=p(795,182),[e,s]=p(1229,877);
+ const within=(x,z,pts)=>{let inside=false;for(let i=0,j=pts.length-1;i<pts.length;j=i++){const [xi,zi]=pts[i],[xj,zj]=pts[j];if((zi>z)!==(zj>z)&&x<(xj-xi)*(z-zi)/(zj-zi)+xi)inside=!inside;}return inside;};
+ model.root.traverse(o=>{if(o.name!=='downpipe')return;const v=o.getWorldPosition(new T.Vector3());assert(!(v.x>w&&v.x<e&&v.z>n&&v.z<s)&&!within(v.x,v.z,guest),`downpipe indoors at x ${v.x.toFixed(1)}, z ${v.z.toFixed(1)}`);});
  model.dispose();
 }
-console.log('Passed: no wall, window or beam breaks through a roof in either detail mode.');
+console.log('Passed: no wall, window or beam breaks through a roof, and no downpipe stands indoors, in either detail mode.');
