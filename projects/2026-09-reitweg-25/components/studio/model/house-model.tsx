@@ -3,6 +3,7 @@ import {useEffect,useRef,useState} from 'react';
 import {ArrowLeft,ArrowUpRight,Box,Camera,Layers,MoreHorizontal,Sun,Building2,X} from 'lucide-react';
 import {Dialog} from 'radix-ui';
 import RenovationControls from './renovation-controls';
+import {WalkJoysticks} from './walk-joysticks';
 import {ViewsPanel,FloorPanel,LightPanel,MorePanel,floors,type ViewKey} from './model-panels';
 import {renovations,renovationState,type RenovationState,type RenovationId} from '@/lib/house-model/renovation-data';
 import {places,initialCapture,type Place,type CaptureState} from '@/lib/house-model/experience-data';
@@ -31,6 +32,8 @@ export default function HouseModel({onNavigate}:{onNavigate:(id:string)=>void}){
  });
  const [sun,setSun]=useState(START),[capture,setCapture]=useState<CaptureState>(initialCapture);
  const [panel,setPanel]=useState<Panel|null>(null),[region,setRegion]=useState<Region|null>(null),[about,setAbout]=useState(false);
+ // Touch screens walk with thumbsticks; keyboards with W A S D.
+ const [touch]=useState(()=>typeof window!=='undefined'&&window.matchMedia('(pointer: coarse)').matches);
  const apply=(v:ViewKey,instant=false)=>{
   const viewer=api.current;if(!viewer)return;
   if(v.startsWith('room:')){
@@ -100,6 +103,7 @@ export default function HouseModel({onNavigate}:{onNavigate:(id:string)=>void}){
    <div className="model-top">
     <button className="model-round model-back" aria-label="Back to the design studio" onClick={()=>onNavigate('studio')}><ArrowLeft size={20}/></button>
     {caption&&!selected&&<div className="model-caption" aria-live="polite"><strong>{caption.title}</strong>{caption.detail&&<span>{caption.detail}</span>}
+     {place&&!touch&&<small className="model-walk-hint">Walk with W A S D · Shift to run · drag to look</small>}
      {place&&<a href={'/assets/'+place.photo} target="_blank" rel="noreferrer">Reference photograph <ArrowUpRight size={13}/></a>}
      {room&&<div className="model-caption-photos">{room.photos.map((src,i)=><a key={src} href={src} target="_blank" rel="noreferrer"><img src={src} alt={`${room.label}, reference ${i+1}`} loading="lazy"/></a>)}</div>}
     </div>}
@@ -126,6 +130,7 @@ export default function HouseModel({onNavigate}:{onNavigate:(id:string)=>void}){
      onSave={()=>{setPanel(null);void api.current?.saveImage();}} onPhotograph={pano=>{setPanel(null);void api.current?.captures?.photograph(pano);}} onFilm={()=>{setPanel(null);if(place)chooseView('courtyard');api.current?.captures?.film();}}
      onExport={()=>{setPanel(null);void api.current?.captures?.exportModel();}} onBreeze={on=>api.current?.captures?.breeze(on)} onSound={on=>void api.current?.captures?.sound(on)} onAbout={()=>{setPanel(null);setAbout(true);}}/>}
    </section>}
+   {place&&touch&&ready&&!panel&&<WalkJoysticks onChange={(move,look)=>api.current?.joystick(move,look)}/>}
    <nav className="model-dock" aria-label="Model controls">
     <button aria-expanded={panel==='views'} onClick={()=>toggle('views')} disabled={!ready}><Camera size={19} aria-hidden/><span>Views</span></button>
     <button aria-expanded={panel==='floor'} onClick={()=>toggle('floor')} disabled={!ready}><Building2 size={19} aria-hidden/><span>{floors.find(f=>f.id===level)!.short}</span></button>

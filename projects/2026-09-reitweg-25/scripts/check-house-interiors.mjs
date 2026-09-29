@@ -21,7 +21,12 @@ assert(model.root.getObjectByName('hall-wc-toilet'),'hall WC toilet exists');ass
 assert(crosses(point(170,851),point(245,851),[ground]).length>0,'yoga partition is present');
 assert.equal(crosses(point(171,910),point(231,910),[ground]).length,0,'yoga doorway remains clear');
 assert.equal(crosses(point(455,602),point(498,602),[ground]).length,0,'garage corridor door is open');
-const cars=model.root.getObjectByName('two-model-y-garage-cars');assert.equal(cars.children.length,2,'two garage cars');
+const cars=model.root.getObjectByName('garage-cars');assert.equal(cars.children.length,2,'two garage cars');
+// Each car's body matches its published length, width and height within 1 cm, and its wheelbase exactly.
+for(const car of cars.children){const {length,width,height,wheelbase}=car.userData.spec,body=car.getObjectByName('car-body');body.geometry.computeBoundingBox();const size=body.geometry.boundingBox.getSize(new T.Vector3());
+ for(const [got,want,what] of [[size.x,length,'length'],[size.z,width,'width'],[size.y+body.geometry.boundingBox.min.y,height,'height']])assert(Math.abs(got-want)<.01,`${car.name} ${what} ${got.toFixed(3)} ≠ ${want}`);
+ const axles=[...new Set(car.children.filter(c=>c.name==='car-wheel').map(w=>w.position.x.toFixed(4)))].map(Number);assert(Math.abs(Math.abs(axles[0]-axles[1])-wheelbase)<1e-6,`${car.name} wheelbase`);}
+assert(cars.getObjectByName('Porsche 911 Carrera GTS')&&cars.getObjectByName('Tesla Model Y Performance'),'a Porsche 911 Carrera GTS and a Tesla Model Y Performance');
 assert(model.root.getObjectByName('guest-corner-sauna'),'corner sauna present');
 model.setLevel('upper');model.root.updateMatrixWorld(true);const slab=model.root.getObjectByName('guest-floor-with-atrium');assert(slab);const [ax,az]=p(231,860);const [bx,bz]=p(310,866);
 assert.equal(crosses([ax+UPPER_PLAN_X_OFFSET,5,az],[ax+UPPER_PLAN_X_OFFSET,2,az],[slab]).length,0,'guest atrium is a hole, not a floor patch');
