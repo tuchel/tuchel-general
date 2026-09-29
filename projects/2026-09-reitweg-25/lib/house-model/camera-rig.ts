@@ -19,20 +19,22 @@ export function fitDistance(span:number,aspect:number,fov:number,exterior:boolea
  return Math.max(span/2/v,wide/2/h);
 }
 
+/** Eye level always looks through a perspective lens: the overview camera's own, or a second camera when the
+ * overview is orthographic (the plain model). */
 export function createCameraRig(camera:T.PerspectiveCamera|T.OrthographicCamera,controls:OrbitControls,reduced:boolean){
- const perspective=camera instanceof T.PerspectiveCamera;
+ const perspective=camera instanceof T.PerspectiveCamera,lens=perspective?camera:new T.PerspectiveCamera(58,1,.05,3000);
  let width=1,height=1,span=58,exterior=true,eye=false,transition:null|{start:number;duration:number;from:Pose;to:Pose}=null;
  const pose=():Pose=>({target:controls.target.clone(),offset:new T.Spherical().setFromVector3(camera.position.clone().sub(controls.target)),span});
  const narrow=()=>width<768;
  const project=()=>{
   const aspect=width/height;
+  if(eye||!perspective){lens.aspect=aspect;lens.fov=eyeLevelFov(aspect);lens.near=.05;lens.far=3000;lens.updateProjectionMatrix();if(eye&&perspective)return;}
   if(camera instanceof T.OrthographicCamera){
    const framing=Math.max(span,span*(exterior?(narrow()?1.28:1.65):1)/aspect);
    Object.assign(camera,{left:-framing*aspect/2,right:framing*aspect/2,top:framing/2,bottom:-framing/2});
   }else{
-   camera.aspect=aspect;camera.fov=eye?eyeLevelFov(aspect):overviewFov(aspect);
-   const distance=eye?0:camera.position.distanceTo(controls.target);
-   camera.near=eye?.05:T.MathUtils.clamp(distance*.006,.08,2);camera.far=3000;
+   camera.aspect=aspect;camera.fov=overviewFov(aspect);
+   camera.near=T.MathUtils.clamp(camera.position.distanceTo(controls.target)*.006,.08,2);camera.far=3000;
   }
   camera.updateProjectionMatrix();
  };
@@ -44,6 +46,9 @@ export function createCameraRig(camera:T.PerspectiveCamera|T.OrthographicCamera,
  const look={yaw:0,pitch:0};
  return {
   get eyeLevel(){return eye;},
+  /** The camera to render with; the eye-level lens while at eye level. */
+  get camera():T.PerspectiveCamera|T.OrthographicCamera{return eye?lens:camera;},
+  lens,
   get moving(){return !!transition;},
   resize:(w:number,h:number)=>{width=Math.max(1,w);height=Math.max(1,h);project();},
   /** Frames a view; overview-to-overview moves travel around the target on a sphere. */
@@ -56,17 +61,17 @@ export function createCameraRig(camera:T.PerspectiveCamera|T.OrthographicCamera,
   },
   /** Eye-level views cut rather than fly, so the camera never passes through walls. */
   enterEyeLevel:(position:T.Vector3,target:T.Vector3)=>{
-   transition=null;eye=true;controls.enabled=false;camera.zoom=1;
-   camera.position.copy(position);camera.lookAt(target);
-   const e=new T.Euler().setFromQuaternion(camera.quaternion,'YXZ');look.yaw=e.y;look.pitch=e.x;
+   transition=null;eye=true;controls.enabled=false;lens.zoom=1;
+   lens.position.copy(position);lens.lookAt(target);
+   const e=new T.Euler().setFromQuaternion(lens.quaternion,'YXZ');look.yaw=e.y;look.pitch=e.x;
    project();
   },
   lookBy:(dx:number,dy:number)=>{
    look.yaw-=dx;look.pitch=T.MathUtils.clamp(look.pitch-dy,-1.35,1.35);
-   camera.quaternion.setFromEuler(new T.Euler(look.pitch,look.yaw,0,'YXZ'));
+   lens.quaternion.setFromEuler(new T.Euler(look.pitch,look.yaw,0,'YXZ'));
   },
   zoomBy:(factor:number)=>{
-   if(eye){camera.zoom=T.MathUtils.clamp(camera.zoom*factor,1,2.6);camera.updateProjectionMatrix();return;}
+   if(eye){lens.zoom=T.MathUtils.clamp(lens.zoom*factor,1,2.6);lens.updateProjectionMatrix();return;}
    if(camera instanceof T.OrthographicCamera){camera.zoom=T.MathUtils.clamp(camera.zoom*factor,.45,5);camera.updateProjectionMatrix();return;}
    const offset=camera.position.clone().sub(controls.target),d=T.MathUtils.clamp(offset.length()/factor,controls.minDistance,controls.maxDistance);
    camera.position.copy(controls.target).add(offset.setLength(d));project();

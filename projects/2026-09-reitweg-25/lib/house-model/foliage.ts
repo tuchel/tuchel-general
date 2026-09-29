@@ -32,7 +32,7 @@ export function foliageMaterials(style:TreeStyle='leaves'){
  const solid=new T.MeshStandardMaterial({color:'#ffffff',roughness:.78,envMapIntensity:.8,side:T.DoubleSide,vertexColors:true});solid.userData.photo='foliage';addShaderFeature(solid,translucency);
  return {leaves,depth,bark,core,solid,style};
 }
-type FoliageMaterials=ReturnType<typeof foliageMaterials>;
+export type FoliageMaterials=ReturnType<typeof foliageMaterials>;
 
 function card(center:T.Vector3,normal:T.Vector3,size:number,spin:number,cell:[number,number],flip:boolean,crown:T.Vector3,tint:T.Color,out:{p:number[];n:number[];uv:number[];c:number[]}){
  const up=Math.abs(normal.y)>.95?new T.Vector3(1,0,0):new T.Vector3(0,1,0);

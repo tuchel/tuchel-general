@@ -19,4 +19,13 @@ const house=new T.Box3(new T.Vector3(-6,0,-9.6),new T.Vector3(6,8,9.6));
 for(let t=0;t<=1000;t+=50){rig.update(start+t);assert.equal(camera.fov,fov,'field of view is constant through a transition');assert(!house.containsPoint(camera.position),'camera path stays outside the house');}
 assert(!rig.moving);
 rig.enterEyeLevel(new T.Vector3(0,1.65,0),new T.Vector3(10,1.4,0));assert(rig.eyeLevel&&!controls.enabled);assert(camera.near<=.05);
-console.log('Passed: fixed field of view during transitions, orbit paths outside the house, framed spans fit, portrait eye level keeps a wide view.');
+// The plain model's overviews are orthographic; eye level still looks through a perspective lens from the given spot.
+const ortho=new T.OrthographicCamera(),plainControls={...controls,target:new T.Vector3(),enabled:true},plain=createCameraRig(ortho,plainControls,false);plain.resize(1440,900);
+plain.frame({target:new T.Vector3(-1,2,1),direction:new T.Vector3(48,20,21),span:41,exterior:true},true);assert.equal(plain.camera,ortho);
+plain.enterEyeLevel(new T.Vector3(0,1.65,0),new T.Vector3(10,1.4,0));
+const eye=plain.camera,ahead=eye.getWorldDirection(new T.Vector3());
+assert(eye instanceof T.PerspectiveCamera,'plain-model eye level uses a perspective lens');
+assert(eye.position.distanceTo(new T.Vector3(0,1.65,0))<1e-9&&ahead.x>.99&&eye.fov===eyeLevelFov(1440/900)&&eye.near<=.05,'plain-model eye level stands at the place and looks at its target');
+plain.lookBy(.2,0);assert(eye.getWorldDirection(new T.Vector3()).angleTo(ahead)>.19,'looking around turns the eye-level lens');
+plain.frame({target:new T.Vector3(-1,2,1),direction:new T.Vector3(48,20,21),span:41,exterior:true},true);assert.equal(plain.camera,ortho,'overviews return to the orthographic camera');
+console.log('Passed: fixed field of view during transitions, orbit paths outside the house, framed spans fit, portrait eye level keeps a wide view, plain-model eye level is in perspective.');

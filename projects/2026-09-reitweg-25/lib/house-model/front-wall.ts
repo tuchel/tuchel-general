@@ -1,4 +1,5 @@
 import * as T from 'three';
+import {passable} from './walk';
 import {sitePoint as s} from './site-data';
 
 /** Existing wall, not the proposed higher timber replacement.
@@ -19,7 +20,9 @@ export function buildFrontWall(material:(pale:string,natural?:string)=>T.MeshSta
  const a=s(365,422),b=s(346,610),len=Math.hypot(b[0]-a[0],b[1]-a[1]);const g=new T.Group();g.position.set(a[0],0,a[1]);g.rotation.y=-Math.atan2(b[1]-a[1],b[0]-a[0]);group.add(g);
  const wall=(lo:number,hi:number)=>{if(renovated){boards(g,lo,hi);return;}box(g,(lo+hi)/2,0,0,hi-lo,.18,.31,cap);box(g,(lo+hi)/2,.18,0,hi-lo,1.14,.28,render);box(g,(lo+hi)/2,1.32,0,hi-lo+.035,.045,.34,cap);};
  wall(0,1.15);wall(2.45,3.45);wall(5.7,7.65);wall(11.85,len);
- const gate=(lo:number,hi:number,barred:boolean)=>{if(renovated){boards(g,lo+.05,hi-.05);for(const x of [lo,hi])box(g,x,0,0,.09,2.15,.3,metal);box(g,hi-.18,.92,-.17,.045,.27,.04,metal);return;}for(const x of [lo,hi])box(g,x,.05,0,.09,1.31,.1,metal);if(barred){for(let x=lo+.12;x<hi;x+=.13)box(g,x,.16,0,.035,1.04,.055,metal);for(const y of [.16,1.2])box(g,(lo+hi)/2,y,0,hi-lo,.065,.065,metal);}else{box(g,(lo+hi)/2,.08,0,hi-lo-.07,1.21,.06,metal);box(g,hi-.14,.71,-.055,.12,.03,.025,cap);}};
+ // Gate leaves let the walker through; the posts stay solid.
+ const gate=(lo:number,hi:number,barred:boolean)=>{for(const x of [lo,hi])if(renovated)box(g,x,0,0,.09,2.15,.3,metal);else box(g,x,.05,0,.09,1.31,.1,metal);const leaves=g.children.length;leaf(lo,hi,barred);g.children.slice(leaves).forEach(passable);};
+ const leaf=(lo:number,hi:number,barred:boolean)=>{if(renovated){boards(g,lo+.05,hi-.05);box(g,hi-.18,.92,-.17,.045,.27,.04,metal);return;}if(barred){for(let x=lo+.12;x<hi;x+=.13)box(g,x,.16,0,.035,1.04,.055,metal);for(const y of [.16,1.2])box(g,(lo+hi)/2,y,0,hi-lo,.065,.065,metal);}else{box(g,(lo+hi)/2,.08,0,hi-lo-.07,1.21,.06,metal);box(g,hi-.14,.71,-.055,.12,.03,.025,cap);}};
  gate(1.15,2.45,false);gate(3.45,5.7,false);gate(7.65,11.85,true);
  box(g,2.98,.88,-.16,.31,.36,.06,metal); // inset mailbox/intercom, facing the road
  run([346,610],[246,626]);run([246,626],[199,849]);
