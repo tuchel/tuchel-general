@@ -30,7 +30,9 @@ export function buildFrontGarden(foliage?:FoliageMaterials){
   const strip=new T.Mesh(new T.BoxGeometry(len+1.1,.03,1.1),gravel);strip.position.set((ax+bx)/2,.015,(az+bz)/2);strip.rotation.y=-Math.atan2(bz-az,bx-ax);strip.receiveShadow=true;strip.name='well-garden-gravel-path';ground.add(strip);
  }
  // Perennials along both edges of the path: grey-lilac catmint and yellow-green lady's mantle clumps.
- const clump=new T.IcosahedronGeometry(1,1),colours=['#8e8fae','#a9b46a','#dcd8c8'],dummy=new T.Object3D();
+ // A lumpy, leafy mound rather than a ball: each vertex pushed in or out by a fixed hash of its direction.
+ const clump=new T.IcosahedronGeometry(1,2),colours=['#7f809c','#939f5c','#c9c5b6'],dummy=new T.Object3D(),tint=new T.Color();
+ {const p=clump.attributes.position;for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),h=Math.sin(x*12.9898+y*78.233+z*37.719)*43758.5453,k=.78+.34*(h-Math.floor(h));p.setXYZ(i,x*k,Math.max(y,-.2)*k,z*k);}clump.computeVertexNormals();}
  let seed=911;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
  const places:[number,number,number][]=[];
  for(let i=1;i<PATH.length;i++){
@@ -39,7 +41,7 @@ export function buildFrontGarden(foliage?:FoliageMaterials){
  }
  colours.forEach((colour,k)=>{
   const mine=places.filter((_,i)=>(i%5<2?0:i%5<4?1:2)===k),mesh=new T.InstancedMesh(clump,new T.MeshStandardMaterial({color:colour,roughness:.95}),mine.length);
-  mine.forEach(([x,z,r],i)=>{dummy.position.set(x,r*.7,z);dummy.scale.set(r*1.3,r,r*1.3);dummy.rotation.y=random()*Math.PI;dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);});
+  mine.forEach(([x,z,r],i)=>{dummy.position.set(x,r*.35,z);dummy.scale.set(r*1.4,r*.8,r*1.4);dummy.rotation.set(0,random()*Math.PI,0);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);const v=.85+random()*.25;mesh.setColorAt(i,tint.setRGB(v,v,v));});
   mesh.castShadow=true;mesh.receiveShadow=true;mesh.name='well-garden-perennials';planting.add(mesh);
  });
  // Timber vegetable trough beyond the well, boarded like the ring of beds around it.
