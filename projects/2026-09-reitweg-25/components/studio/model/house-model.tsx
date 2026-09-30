@@ -9,14 +9,14 @@ import {renovations,offeredState,type RenovationState,type RenovationId} from '@
 import {places,initialCapture,type Place,type CaptureState} from '@/lib/house-model/experience-data';
 import {viewpoints,regions,sourceNotes,photoChecks,planPoint,UPPER_PLAN_X_OFFSET,BASEMENT_PLAN_X_OFFSET,type Level,type Region,type Viewpoint} from '@/lib/house-model/site-data';
 import {interiorRooms} from '@/lib/house-model/interior-data';
-import {clockLabel,sunStudyReading} from '@/lib/house-model/sun-position';
+import {clockLabel,initialSunStudy,sunStudyReading} from '@/lib/house-model/sun-position';
 import {detectQuality,qualityFromParam,tiers,type Quality} from '@/lib/house-model/device-tier';
 import type {HouseViewer} from '@/lib/house-model/viewer';
 
 type Panel='views'|'floor'|'changes'|'light'|'more';
 const panelTitles:Record<Panel,string>={views:'Views',floor:'Floor',changes:'Renovations',light:'Light',more:'More'};
-/** A June afternoon: long, warm light across the east lawn and courtyard. */
-const START={day:172,minutes:17*60};
+/** A June morning: the sun in the east, over the east lawn. */
+const START={day:initialSunStudy.day,minutes:initialSunStudy.minutes};
 
 export default function HouseModel({onNavigate}:{onNavigate:(id:string)=>void}){
  const host=useRef<HTMLDivElement>(null),compass=useRef<HTMLSpanElement>(null),api=useRef<HouseViewer|null>(null),saved=useRef<ReturnType<HouseViewer['snapshot']>|null>(null);
