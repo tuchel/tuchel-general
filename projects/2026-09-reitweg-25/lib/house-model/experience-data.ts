@@ -5,7 +5,7 @@ const upper=(x:number,z:number,h:number):[number,number,number]=>{const [a,b]=p(
 /** Eye-level places; exposure follows how much sky each spot sees (lighting.ts, roomExposure). */
 /** `floor` names the floor a walk starts on when the viewpoint is not standing on it (leaning out of a window). */
 export const places:Record<Place,{label:string;short:string;position:[number,number,number];target:[number,number,number];photo:string;caption:string;floor?:number}>={
- lane:{label:'Beneath the avenue',short:'Avenue',position:[-45.5,1.65,17],target:[-60,2.3,57],photo:'setting-tree-lined-lane.jpg',caption:'Street level · beneath the tall trees'},
+ lane:{label:'At the curbside',short:'Curbside',position:[-43,1.65,-2.5],target:[-22,3,2],photo:'IMG_1627.jpg',caption:'Street level · across the front wall to the house'},
  entrance:{label:'Along the entrance walk',short:'Entrance',position:[-25,1.65,-2.21],target:[-14,1.4,1.1],photo:'F92D9025-5B99-4FAF-9BAE-ECC47E3D555A_1_105_c.jpg',caption:'Standing height · approaching the front door'},
  pool:{label:'Under the courtyard eaves',short:'Eaves',position:[-12,1.65,5.7],target:[-9,1.3,20],photo:'207644AC-3AC6-42D5-86F7-98FFC7A242DC_1_105_c.jpg',caption:'Standing height · looking toward the pool'},
  court:{label:'In the courtyard',short:'Courtyard',position:[-7.5,1.65,11],target:[-17,1.4,9],photo:'FDE39D63-B192-4A7E-A16B-886A2F38F0A6_1_105_c.jpg',caption:'Standing height · across the lawn to the loggia'},
