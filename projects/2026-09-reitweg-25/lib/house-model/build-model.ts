@@ -197,7 +197,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // The stair opening meets the west edge; a notch avoids floor crossing the turning flight.
  const guestSlabGeo=new T.ExtrudeGeometry(guestSlabShape,{depth:.15,bevelEnabled:false});guestSlabGeo.rotateX(-Math.PI/2);const guestSlab=add(guestSlabGeo,m.floor,upper,'guest');guestSlab.position.y=2.95;guestSlab.name='guest-floor-with-atrium';
  partitions.push({walls:[[207,780,292,789],[324,793,371,798],[193,934,267,942],[305,946,356,951],[186,1035,257,1043],[193,934,186,1035],[267,942,263,980],[260,1012,257,1043]],floor:3.07,roof:'guest'});
- const guestLanding=poly([[246,797],[267,802],[263,839],[242,836]].map(([x,z])=>p(x,z)),.15,2.95,m.floor,upper);guestLanding.name='guest-stair-turning-landing';
+ // Named without "stair": the whole-house view leaves out upper-floor pieces named for stairs (duplicates of the ground ones).
+ const guestLanding=poly([[246,797],[267,802],[263,839],[242,836]].map(([x,z])=>p(x,z)),.15,2.95,m.floor,upper);guestLanding.name='guest-upper-landing';
  for(const [a,b] of [[p(263,839),guestAtrium[2]],[guestAtrium[2],guestAtrium[3]]] as [number[],number[]][]){
   for(const y of [3.28,3.52,3.76,4.02])segment(upper,[a[0],y,a[1]],[b[0],y,b[1]],.025,m.dark);
   for(let t=0;t<=1.01;t+=.25)box(upper,a[0]+(b[0]-a[0])*t,3.1,a[1]+(b[1]-a[1])*t,.045,.96,.045,m.dark);
