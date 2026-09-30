@@ -93,7 +93,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  let level:Level='exterior',renovations=renovationState(),place:Place|undefined;
  const bake=realistic&&tier.skyBake?bakeSkyVisibility(renderer,batches.meshes.filter(b=>[b.material].flat().every(m=>!m.transparent&&m.userData.photo!=='lawn')),[model.root,stage],tier.sunBounce?.55:.7):undefined;
  // Sunlight bounced indoors: the house itself, without trees and planting.
- const bounce=realistic&&tier.sunBounce?bakeSunBounce(renderer,batches.meshes.filter(b=>b.parent===model.root&&[b.material].flat().every(m=>!m.transparent&&!m.alphaTest&&m.userData.photo!=='lawn')),[model.root,stage],sun,tier.sunBounce):undefined;
+ const bounce=realistic&&tier.sunBounce?bakeSunBounce(batches.meshes.filter(b=>b.parent===model.root&&[b.material].flat().every(m=>!m.transparent&&!m.alphaTest&&m.userData.photo!=='lawn')),[model.root,stage],sun,tier.sunBounce):undefined;
  const applyState=()=>{
   model.setLevel(level);model.setRenovations(renovations);batches.sync(model.stateOf(level,renovations));
   stage.visible=level!=='basement';renderer.shadowMap.needsUpdate=true;
