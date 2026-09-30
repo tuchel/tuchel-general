@@ -7,7 +7,7 @@ import {basementStairWell} from './site-openings';
 import {landscapeContext} from './landscape-context';
 import {buildHouseModel} from './build-model';
 import {batchStatic} from './static-batch';
-import {createLighting,type LightReading} from './lighting';
+import {createLighting,roomExposure,type LightReading} from './lighting';
 import {createPost} from './post';
 import {createCameraRig,type Framing} from './camera-rig';
 import {createCaptures} from './experience';
@@ -103,7 +103,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const grass=realistic&&tier.grass?eyeLevelGrass(scene,[...batches.meshes,stage]):undefined;
  // Walking at eye level: W A S D (Shift to run) on computers, the joysticks on phones.
  const walker=createWalker(rig.lens,()=>[...batches.meshes,stage]),walkInput:WalkInput={forward:0,strafe:0,run:false},lookRate={x:0,y:0};
- const walkAnchor=new T.Vector3();let joystick=false;
+ const walkAnchor=new T.Vector3(),skyAnchor=new T.Vector3();let joystick=false,room=1,roomTarget=1;
 
  const post=realistic?createPost(renderer,scene,camera,{samples:tier.samples,ao:tier.ao,bloom:tier.bloom}):undefined;
  const captures=lighting?createCaptures({
@@ -142,13 +142,13 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(level==='basement')target.y=-2;
   return {target,direction:position.sub(target),span:v.span,exterior:level==='exterior'};
  };
- const leaveEyeLevel=()=>{if(!place)return;place=undefined;pressed.clear();Object.assign(walkInput,{forward:0,strafe:0,run:false});lookRate.x=lookRate.y=0;lighting?.setInterior(false);grass?.hide();fitShadowToView();};
+ const leaveEyeLevel=()=>{if(!place)return;place=undefined;pressed.clear();Object.assign(walkInput,{forward:0,strafe:0,run:false});lookRate.x=lookRate.y=0;room=roomTarget=1;lighting?.setRoom(1);grass?.hide();fitShadowToView();};
  const view=(key:Viewpoint|Place,instant=false)=>{
   captures?.stop();
   if(key in places){
    const p=places[key as Place];place=key as Place;
    rig.enterEyeLevel(new T.Vector3(...p.position),new T.Vector3(...p.target));walker.reset(p.floor);walkAnchor.copy(rig.lens.position);
-   lighting?.setInterior(p.interior);fitShadowToView();grass?.showAround(rig.lens.position);fadeIn();
+   room=roomTarget=roomExposure(walker.openness());skyAnchor.copy(rig.lens.position);lighting?.setRoom(room);fitShadowToView();grass?.showAround(rig.lens.position);fadeIn();
    canvas.setAttribute('aria-label','Eye-level view. W, A, S and D walk; Shift runs. Drag or use arrow keys to look around. Pinch or scroll to zoom. Escape returns to the overview.');
   }else{
    const wasEye=!!place;leaveEyeLevel();
@@ -216,7 +216,10 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    if(lookRate.x||lookRate.y){rig.lookBy(lookRate.x*delta*1.9,lookRate.y*delta*1.3);moving=true;}
    if(walker.step(delta,walkInput)){moving=true;
     // Keep shadows and near grass centred on the walker, refreshed every few metres.
-    if(rig.lens.position.distanceTo(walkAnchor)>4){walkAnchor.copy(rig.lens.position);fitShadowToView();grass?.showAround(rig.lens.position);}}
+    if(rig.lens.position.distanceTo(walkAnchor)>4){walkAnchor.copy(rig.lens.position);fitShadowToView();grass?.showAround(rig.lens.position);}
+    if(rig.lens.position.distanceTo(skyAnchor)>.5){skyAnchor.copy(rig.lens.position);roomTarget=roomExposure(walker.openness());}}
+   // Exposure eases to the new surroundings over about a second, as eyes adjust walking in or out.
+   if(Math.abs(roomTarget-room)>.005){room+=(roomTarget-room)*Math.min(1,delta*3);lighting?.setRoom(room);moving=true;}
   }
   if(controls.enabled&&controls.update(delta))moving=true;
   if(moving)changed();

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import * as T from 'three';
 import {build} from 'esbuild';
 // Walking at eye level: walls stop the walker, doors and gates let it through, and stairs carry it to the upper floor.
-await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/site-data.ts','lib/house-model/walk.ts','lib/house-model/experience-data.ts'],outdir:'tmp/walk-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
+await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/site-data.ts','lib/house-model/walk.ts','lib/house-model/experience-data.ts','lib/house-model/lighting.ts'],outdir:'tmp/walk-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
 const {buildHouseModel}=await import('../tmp/walk-check/build-model.mjs');
 const {planPoint:p,sitePoint:site}=await import('../tmp/walk-check/site-data.mjs');
 const {createWalker}=await import('../tmp/walk-check/walk.mjs');
@@ -38,4 +38,11 @@ const up=places.upstairs;camera.position.set(...up.position);camera.lookAt(up.po
 {const walker=createWalker(camera,()=>meshes);walker.reset(up.floor);for(let t=0;t<2.5;t+=1/30)walker.step(1/30,{forward:1,strafe:0,run:false});}
 // The roof there is 5.5 m up; the route crosses the gallery bathroom, whose WC is low enough to step onto.
 assert(camera.position.y-1.65<3.07+.46&&camera.position.x<up.position[0]-1.5,`walk from the roof window comes back in on the upper floor (x ${camera.position.x.toFixed(2)}, eye ${camera.position.y.toFixed(2)})`);
-console.log(`Passed: the garden door, hall doors and front gate let the walker through, a wall stops it (${south.z.toFixed(2)} m), and the main stair reaches the upper floor (feet at ${(top.y-1.65).toFixed(2)} m).`);
+// Exposure follows where the walker stands: the family room sees almost no sky and keeps the room exposure (4×); out
+// through the garden door, the terrace is exposed as outdoors.
+const {roomExposure}=await import('../tmp/walk-check/lighting.mjs');
+const openness=position=>{camera.position.copy(position);camera.updateMatrixWorld();return createWalker(camera,()=>meshes).openness();};
+const inside=roomExposure(openness(new T.Vector3(lx,1.65,lz))),outside=roomExposure(openness(east));
+assert(inside>3.5,`the family room keeps the room exposure (×${inside.toFixed(2)})`);
+assert(outside<1.1,`the terrace is exposed as outdoors (×${outside.toFixed(2)})`);
+console.log(`Passed: the garden door, hall doors and front gate let the walker through, a wall stops it (${south.z.toFixed(2)} m), and the main stair reaches the upper floor (feet at ${(top.y-1.65).toFixed(2)} m); the family room keeps the room exposure (×${inside.toFixed(2)}) and the terrace is exposed as outdoors (×${outside.toFixed(2)}).`);

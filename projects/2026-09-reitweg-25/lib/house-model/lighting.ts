@@ -51,6 +51,10 @@ const NOON_KEY=noonSky*5;
 /** Exposure that places an 18% grey card at 0.25 linear under the June noon key. */
 const NOON_EXPOSURE=.25/(.18/Math.PI*NOON_KEY);
 
+/** Rooms are exposed up to two stops brighter than outdoors, as a photographer would, by how little sky the camera
+ * sees (walk.ts): 4× in a closed room, easing to 1× once a fifth of the sky is open, so a terrace or the eaves are
+ * exposed as outdoors. */
+export const roomExposure=(openness:number)=>1+3*(1-T.MathUtils.smoothstep(openness,.03,.2));
 export type LightReading=ReturnType<typeof sunStudyReading>&{exposure:number;dusk:number;daylight:number;key:number};
 export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Object3D,options:{shadowSize:number}){
  const sky=new Sky();sky.name='calculated-sun-sky';sky.userData.skipPhotographic=true;sky.scale.setScalar(20000);sky.frustumCulled=false;scene.add(sky);
@@ -88,7 +92,7 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
   }
  });
  const sunVector=new T.Vector3(),horizon=new T.Color(),view=new T.Vector3(),probe=new T.Vector3();
- let reading:LightReading|undefined,interior=false,viewAzimuth=NaN;
+ let reading:LightReading|undefined,room=1,viewAzimuth=NaN;
  const updateFog=(azimuth:number)=>{
   if(!scene.fog)return;viewAzimuth=azimuth;
   probe.set(Math.cos(azimuth),.035,Math.sin(azimuth)).normalize();
@@ -138,8 +142,9 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
  return {
   sun,sky,lamps,apply,fitShadow,
   get reading(){return reading;},
-  get exposure(){return (reading?.exposure??1)*(interior?4:1);},
-  setInterior:(value:boolean)=>{interior=value;},
+  get exposure(){return (reading?.exposure??1)*room;},
+  /** Extra exposure for where the camera stands (roomExposure). */
+  setRoom:(value:number)=>{room=value;},
   /** Keeps haze matched to the horizon the camera faces; regenerates sky light when the sun moves. */
   update:(camera:T.Camera,now:number)=>{
    camera.getWorldDirection(view);const azimuth=Math.atan2(view.z,view.x);
