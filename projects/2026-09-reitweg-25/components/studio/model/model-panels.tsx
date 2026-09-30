@@ -1,26 +1,47 @@
 'use client';
-import {useMemo} from 'react';
+import {useMemo,useState,type CSSProperties} from 'react';
 import {Sun,Sunrise,Sunset,Moon,Check} from 'lucide-react';
 import {Slider} from '@/components/ui/slider';
 import {viewpoints,type Level,type Viewpoint} from '@/lib/house-model/site-data';
-import {places,type Place,type CaptureState} from '@/lib/house-model/experience-data';
+import type {Place,CaptureState} from '@/lib/house-model/experience-data';
 import {interiorRooms} from '@/lib/house-model/interior-data';
+import {sheets,mapMarkers,sheetOf,wholeViews,type Sheet} from '@/lib/house-model/view-map';
 import {sunDayEvents,clockLabel,studyDate,SUN_SITE,sunStudyReading} from '@/lib/house-model/sun-position';
 import type {Quality} from '@/lib/house-model/device-tier';
 
 export const floors:{id:Level;label:string;short:string}[]=[{id:'exterior',label:'Whole house',short:'House'},{id:'ground',label:'Ground floor',short:'Ground'},{id:'upper',label:'Upper floor',short:'Upper'},{id:'basement',label:'Basement',short:'Basement'}];
-export const overviewIds:Viewpoint[]=['courtyard','east','arrival','estate','top'];
 export type ViewKey=Viewpoint|Place|`room:${string}`;
 
 export function ViewsPanel({level,view,onView}:{level:Level;view:ViewKey|null;onView:(v:ViewKey)=>void}){
- const rooms=interiorRooms.filter(r=>r.level===level);
+ const rooms=interiorRooms.filter(r=>r.level===level),whole=level==='exterior';
+ const [inside,setInside]=useState(()=>{const sheet=view?sheetOf(view):undefined;return sheet==='ground'||sheet==='upper';});
  const chip=(id:ViewKey,label:string)=><button key={id} className="model-chip" aria-pressed={view===id} onClick={()=>onView(id)}>{label}</button>;
  return <div className="model-panel-body">
-  <span className="model-panel-label">{level==='exterior'?'Around the house':'This floor'}</span>
-  <div className="model-chips">{level==='exterior'?overviewIds.map(id=>chip(id,viewpoints[id].label)):[chip('top','Whole floor'),...rooms.map(r=>chip(`room:${r.id}`,r.label))]}</div>
-  <span className="model-panel-label">At eye level</span>
-  <div className="model-chips">{(Object.keys(places) as Place[]).map(id=>chip(id,places[id].short))}</div>
+  {!whole&&<><span className="model-panel-label">This floor</span><div className="model-chips">{[chip('top','Whole floor'),...rooms.map(r=>chip(`room:${r.id}`,r.label))]}</div></>}
+  <div className="view-map-tabs" role="tablist" aria-label="Map">
+   <button role="tab" aria-selected={!inside} onClick={()=>setInside(false)}>Outside</button>
+   <button role="tab" aria-selected={inside} onClick={()=>setInside(true)}>Inside</button>
+  </div>
+  {inside?<div className="view-map-pair">{(['ground','upper'] as const).map(sheet=><ViewMap key={sheet} sheet={sheet} overviews={false} view={view} onView={onView}/>)}</div>
+   :<ViewMap sheet="grounds" overviews={whole} view={view} onView={onView}/>}
+  <div className="view-map-foot">
+   <span className="view-map-key"><i aria-hidden/>Eye level{whole&&!inside&&<><i className="air" aria-hidden/>From above</>}</span>
+   {whole&&!inside&&<div className="view-map-whole">{wholeViews.map(id=>chip(id,viewpoints[id].label))}</div>}
+  </div>
  </div>;
+}
+
+/** An exposé plan with a dot where each eye-level view stands, its cone the way it looks, and overview arrows on the frame. */
+function ViewMap({sheet,overviews,view,onView}:{sheet:Sheet;overviews:boolean;view:ViewKey|null;onView:(v:ViewKey)=>void}){
+ const {src,title,crop}=sheets[sheet];
+ return <figure className="view-map" style={{aspectRatio:`${crop[2]} / ${crop[3]}`}}>
+  <svg viewBox={crop.join(' ')} aria-hidden><image href={'/assets/'+src} width="2200" height="1556"/></svg>
+  {sheet!=='grounds'&&<figcaption>{title}</figcaption>}
+  {mapMarkers(sheet,overviews).map(m=><button key={m.id} className="view-map-marker" data-kind={m.kind} data-side={m.side} aria-pressed={view===m.id} onClick={()=>onView(m.id)}
+   style={{left:`${m.x*100}%`,top:`${m.y*100}%`,'--heading':`${m.heading}deg`} as CSSProperties}>
+   {m.kind==='eye'&&<span className="view-map-cone" aria-hidden/>}<span className="view-map-pin" aria-hidden/><span className="view-map-label">{m.label}</span>
+  </button>)}
+ </figure>;
 }
 
 export function FloorPanel({level,onLevel}:{level:Level;onLevel:(l:Level)=>void}){
