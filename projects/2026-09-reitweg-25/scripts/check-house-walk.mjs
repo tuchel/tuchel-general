@@ -38,6 +38,12 @@ const up=places.upstairs;camera.position.set(...up.position);camera.lookAt(up.po
 {const walker=createWalker(camera,()=>meshes);walker.reset(up.floor);for(let t=0;t<2.5;t+=1/30)walker.step(1/30,{forward:1,strafe:0,run:false});}
 // The roof there is 5.5 m up; the route crosses the gallery bathroom, whose WC is low enough to step onto.
 assert(camera.position.y-1.65<3.07+.46&&camera.position.x<up.position[0]-1.5,`walk from the roof window comes back in on the upper floor (x ${camera.position.x.toFixed(2)}, eye ${camera.position.y.toFixed(2)})`);
+// Starting places: the courtyard lawn and the master bedroom upstairs each start on their floor with room to walk;
+// a walking pace covers about 2.1 m a second (1.5× an everyday 1.4 m/s), so a second's walk from the lawn is over 2 m.
+for(const [key,floor] of [['court',0],['bedroom',3.07]]){const q=places[key];assert(q,`${key} place exists`);
+ const start=new T.Vector3(...q.position),end=walk(q.position,q.target,1),moved=Math.hypot(end.x-start.x,end.z-start.z);
+ assert(Math.abs(end.y-1.65-floor)<.35,`${key}: the walk starts on its floor (feet at ${(end.y-1.65).toFixed(2)} m)`);
+ assert(moved>(key==='court'?2:.8),`${key}: a second's walk covers ${moved.toFixed(2)} m`);}
 // Exposure follows where the walker stands: the family room sees almost no sky and keeps the room exposure (4×); out
 // through the garden door, the terrace is exposed as outdoors.
 const {roomExposure}=await import('../tmp/walk-check/lighting.mjs');
@@ -45,4 +51,4 @@ const openness=position=>{camera.position.copy(position);camera.updateMatrixWorl
 const inside=roomExposure(openness(new T.Vector3(lx,1.65,lz))),outside=roomExposure(openness(east));
 assert(inside>3.5,`the family room keeps the room exposure (×${inside.toFixed(2)})`);
 assert(outside<1.1,`the terrace is exposed as outdoors (×${outside.toFixed(2)})`);
-console.log(`Passed: the garden door, hall doors and front gate let the walker through, a wall stops it (${south.z.toFixed(2)} m), and the main stair reaches the upper floor (feet at ${(top.y-1.65).toFixed(2)} m); the family room keeps the room exposure (×${inside.toFixed(2)}) and the terrace is exposed as outdoors (×${outside.toFixed(2)}).`);
+console.log(`Passed: the courtyard and master bedroom places start on their floors at a 2.1 m/s pace; the garden door, hall doors and front gate let the walker through, a wall stops it (${south.z.toFixed(2)} m), and the main stair reaches the upper floor (feet at ${(top.y-1.65).toFixed(2)} m); the family room keeps the room exposure (×${inside.toFixed(2)}) and the terrace is exposed as outdoors (×${outside.toFixed(2)}).`);
