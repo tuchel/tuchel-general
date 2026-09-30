@@ -24,12 +24,13 @@ export function isPhone(){
  const coarse=window.matchMedia('(pointer: coarse)').matches,small=Math.min(screen.width,screen.height)<820;
  return coarse&&small||/iPhone|Android.+Mobile/i.test(navigator.userAgent);
 }
-/** Every device starts in Detailed (phones with a lighter shadow map and multisampling, tierFor); a URL or menu choice
- * wins. A browser without WebGL2 gets the plain model; if Detailed cannot run, the viewer drops to Balanced and says so. */
+/** Computers start in Detailed and phones in Balanced, since Detailed stutters every few seconds on a phone (Detailed
+ * stays in the menu, with a lighter shadow map and multisampling, tierFor); a URL or menu choice wins. A browser without
+ * WebGL2 gets the plain model; if Detailed cannot run, the viewer drops to Balanced and says so. */
 export function detectQuality():Quality{
  if(typeof window==='undefined')return 'model';
  try{const gl=document.createElement('canvas').getContext('webgl2');gl?.getExtension('WEBGL_lose_context')?.loseContext();if(!gl)return 'model';}catch{return 'model';}
- return 'detailed';
+ return isPhone()?'balanced':'detailed';
 }
 export function qualityFromParam(value:string|null):Quality|undefined{
  if(value==='detailed'||value==='realism')return 'detailed';
