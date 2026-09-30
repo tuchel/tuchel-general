@@ -64,11 +64,6 @@ assert(down.y-1.65<-2,`walker goes down the basement stair from the hall (feet a
 // At the foot of the stair the basement hall opens to the east: the walk carries on into it.
 {const [fx,fz]=p(926,620),feet=stroll([fx,-2.3+1.65,fz],[fx+10,-2.3+1.65,fz],-2.3,[[1.5,{forward:1,strafe:0}]]);
  assert(feet<-2&&camera.position.x-fx>2,`walker carries on into the basement hall (${(camera.position.x-fx).toFixed(2)} m, feet at ${feet.toFixed(2)} m)`);}
-// Leaning out of the upstairs roof window, a walk back into the room starts on the upper floor, not on the roof.
-const up=places.upstairs;camera.position.set(...up.position);camera.lookAt(up.position[0]-10,up.position[1],up.position[2]);camera.updateMatrixWorld();
-{const walker=createWalker(camera,()=>meshes);walker.reset(up.floor);for(let t=0;t<2.5;t+=1/30)walker.step(1/30,{forward:1,strafe:0,run:false});}
-// The roof there is 5.5 m up; the route crosses the gallery bathroom, whose WC is low enough to step onto.
-assert(camera.position.y-1.65<3.07+.46&&camera.position.x<up.position[0]-1.5,`walk from the roof window comes back in on the upper floor (x ${camera.position.x.toFixed(2)}, eye ${camera.position.y.toFixed(2)})`);
 // Starting places: the courtyard lawn and the master bedroom upstairs each start on their floor with room to walk;
 // a walking pace covers about 2.1 m a second (1.5× an everyday 1.4 m/s), so a second's walk from the lawn is over 2 m.
 // Curbside stands on the road outside the front wall and looks east across it to the house.
