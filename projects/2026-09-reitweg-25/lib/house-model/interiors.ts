@@ -99,7 +99,9 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  // The owner confirms the two mirrored north bedrooms; the east bed has its head against the dividing wall.
  g=place(upper,1020,225,-Math.PI/2);g.name='northwest-bed-against-divider';bed(g,1.6,true,false,[1]);desk(place(upper,925,337,-Math.PI/2),2.55);
  bed(place(upper,1108,225,Math.PI/2),1.6,true,false,[-1]);desk(place(upper,1203,337,Math.PI/2),2.55);
- g=place(upper,1128,766);rug(g,4,4.4,m.pink);bed(place(upper,1082,760),1.8,false,true,[]);g=place(upper,1201,768,Math.PI/2);box(g,0,.72,0,1.15,.66,.055,m.charcoal);rod(g,[0,.72,0],[0,.22,0],.04,m.charcoal);box(g,0,.18,0,.75,.025,.42,m.charcoal);
+ g=place(upper,1128,766);rug(g,4,4.4,m.pink);
+ // The bed's headboard stands against the west wall, facing the television across the rug.
+ g=place(upper,1087,760,Math.PI/2);g.name='south-bedroom-bed-against-west-wall';bed(g,1.8,false,true,[]);g=place(upper,1201,768,Math.PI/2);box(g,0,.72,0,1.15,.66,.055,m.charcoal);rod(g,[0,.72,0],[0,.22,0],.04,m.charcoal);box(g,0,.18,0,.75,.025,.42,m.charcoal);
  tub(place(upper,930,770));vanity(place(upper,1020,770,Math.PI/2),1.75);g=place(upper,1179,576,Math.PI/2);cabinets(g,4.8,2,m.pine,false);
  // South bathroom: a separate WC and shower occupy the strip beside the atrium.
  g=place(upper,939,697,-Math.PI/2);g.name='upper-south-wc';box(g,0,.02,0,.39,.34,.57,m.white,true);box(g,0,.35,0,.42,.07,.6,m.white,true);box(g,0,.06,.26,.43,.75,.12,m.white,true);
