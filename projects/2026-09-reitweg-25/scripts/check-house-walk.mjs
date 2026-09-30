@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import * as T from 'three';
 import {build} from 'esbuild';
 // Walking at eye level: walls stop the walker, doors and gates let it through, and stairs carry it to the upper floor.
-await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/site-data.ts','lib/house-model/walk.ts','lib/house-model/experience-data.ts','lib/house-model/lighting.ts'],outdir:'tmp/walk-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
+await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/site-data.ts','lib/house-model/walk.ts','lib/house-model/experience-data.ts','lib/house-model/lighting.ts','lib/house-model/pool.ts','lib/house-model/site-openings.ts'],outdir:'tmp/walk-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
 const {buildHouseModel}=await import('../tmp/walk-check/build-model.mjs');
 const {planPoint:p,sitePoint:site}=await import('../tmp/walk-check/site-data.mjs');
 const {createWalker}=await import('../tmp/walk-check/walk.mjs');
@@ -11,6 +11,10 @@ const model=buildHouseModel(true);model.setLevel('exterior');model.root.updateMa
 // As the viewer's merged scene does, keep only what the whole-house view draws; its upper-floor rooms show through the roofs.
 const meshes=[];model.root.traverse(o=>{if(o.isMesh&&!o.isInstancedMesh&&model.rendered(o))meshes.push(o);});
 model.upper.visible=true;model.upper.traverse(o=>{if(o.isMesh&&!o.userData.alsoExterior)o.visible=false;});
+// The viewer's surrounding ground (in Detailed a lawn-coloured plane just below the lot) is walked on too, with the same
+// openings the viewer cuts: the pool, the guest basement's outside stair and the hall stairwell.
+{const {terrainWithPoolOpening}=await import('../tmp/walk-check/pool.mjs'),{groundOpenings}=await import('../tmp/walk-check/site-openings.mjs');
+ const stage=new T.Mesh(terrainWithPoolOpening(groundOpenings()),new T.MeshStandardMaterial());stage.position.y=-.035;stage.updateMatrixWorld(true);meshes.push(stage);}
 const camera=new T.PerspectiveCamera(60,1.5,.1,500);
 const walk=(from,toward,seconds)=>{
  camera.position.set(...from);camera.lookAt(...toward);camera.updateMatrixWorld();
@@ -39,6 +43,21 @@ assert(top.y-1.65>3,`walker climbs the stair to the upper floor (feet at ${(top.
  for(let lx=2.35;lx<=3.2;lx+=.05){const w=new T.Vector3(lx,3.6,-.055).applyMatrix4(stair.matrixWorld);probe.set(w,new T.Vector3(0,-1,0));probe.far=1.2;
   const h=probe.intersectObjects(meshes.filter(o=>{for(let a=o;a;a=a.parent)if(!a.visible)return false;return true;}),false)[0];
   assert(h&&h.point.y>3.05,`no gap at the top of the guest stair (${lx.toFixed(2)} m along the flight: ${h?h.point.y.toFixed(2)+' m':'nothing'})`);}}
+// Between floors the house is solid: seen from inside the stair openings at the height of the ground-floor ceiling and
+// the floor above (as when walking the stairs), a level sightline stops at the opening's edge, never runs on between them.
+{const visible=meshes.filter(o=>{for(let a=o;a;a=a.parent)if(!a.visible)return false;return true;}),probe=new T.Raycaster();
+ for(const [[cx,cz],[x0,z0,x1,z1]] of [[[927,560],[906,458,1044,668]],[[1000,560],[906,458,1044,668]],[[150,850],[92,782,215,932]],[[180,900],[92,782,215,932]]])
+  for(const y of [2.82,2.88,2.95,3.02])for(const d of [[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]]){const [x,z]=p(cx,cz);probe.set(new T.Vector3(x,y,z),new T.Vector3(...d));probe.far=40;
+   const h=probe.intersectObjects(visible,false)[0],hx=h&&h.point.x/(12/434)+1012,hz=h&&h.point.z/(12/434)+529.5;
+   assert(h&&hx>x0-8&&hx<x1+8&&hz>z0-8&&hz<z1+8,`sightline from ${cx},${cz} at ${y} m runs on between floors (to ${h?hx.toFixed(0)+','+hz.toFixed(0):'nothing'})`);}}
+// No falling: a drop deeper than a stair step stops the walker, off the upstairs gallery into the atrium, through the
+// rail into the basement stairwell, or sideways off the stair up.
+const stroll=(from,toward,floor,moves)=>{camera.position.set(...from);camera.lookAt(...toward);camera.updateMatrixWorld();const walker=createWalker(camera,()=>meshes);walker.reset(floor);
+ for(const [seconds,input] of moves)for(let t=0;t<seconds;t+=1/30)walker.step(1/30,{run:false,...input});return camera.position.y-1.65;};
+{const [gx,gz]=p(1075,560),[wx,wz]=p(975,560),[sx,sz]=p(927,640);
+ const gallery=stroll([gx,3.07+1.65,gz],[gx-10,3.07+1.65,gz],3.07,[[2,{forward:1,strafe:0}]]);assert(gallery>3,`the gallery edge stops the walker (feet at ${gallery.toFixed(2)} m)`);
+ const well=stroll([wx,1.77,wz],[wx-10,1.77,wz],.12,[[2,{forward:1,strafe:0}]]);assert(well>0,`the stairwell rail stops the walker (feet at ${well.toFixed(2)} m)`);
+ const side=stroll([sx,1.77,sz],[sx,1.77,sz-10],.12,[[1.1,{forward:1,strafe:0}],[1.5,{forward:0,strafe:1}]]);assert(side>.9,`the stair's open side stops the walker (feet at ${side.toFixed(2)} m)`);}
 // Basement stair: from its landing off the hall, walking south down the flight under the stair up to the basement.
 const [bx,bz]=p(926,474),down=walk([bx,1.8,bz],[bx,1.8,bz+10],5);
 assert(down.y-1.65<-2,`walker goes down the basement stair from the hall (feet at ${(down.y-1.65).toFixed(2)} m)`);

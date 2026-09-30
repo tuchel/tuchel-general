@@ -13,6 +13,14 @@ const at=(u:number,v:number):[number,number]=>[top[0]+ux*u-uz*v,top[1]+uz*u+ux*v
 /** The open stairwell, for cutting the lawn, soil and surrounding ground. */
 export function basementStairWell():[number,number][]{const h=WIDTH/2+.2;return [at(-.05,-h),at(length+.25,-h),at(length+.25,h),at(-.05,h)];}
 
+/** The hall's stairwell to the basement, beneath the open stair up (ground-plan pixels x0, z0, x1, z1): all of the
+ * basement flight but its top step, which is the landing from the hall (build-model.ts). */
+export const HALL_WELL=[906,478,946,607] as const;
+export function hallStairWell():[number,number][]{const [x0,z0,x1,z1]=HALL_WELL;return [p(x0,z0),p(x1,z0),p(x1,z1),p(x0,z1)];}
+
+/** Every opening cut from the ground around and under the house (the viewer's surrounding ground, the lawn and soil). */
+export const groundOpenings=()=>[basementStairWell(),hallStairWell()];
+
 export function buildBasementStair(stone:T.Material,steel:T.Material,door:T.Material){
  const g=new T.Group();g.name='guest-basement-external-stair';g.position.set(top[0],0,top[1]);g.rotation.y=-Math.atan2(uz,ux);
  const geo=new T.BoxGeometry(1,1,1);

@@ -3,7 +3,8 @@ import {computeBoundsTree,acceleratedRaycast} from 'three-mesh-bvh';
 import {materialsOf} from './shader-features';
 
 /** Walking at eye level: moves the camera over floors, up stairs and around walls and furniture.
- * Rays run against the visible static scene; bounding-volume trees are built on the first step. */
+ * Rays run against the visible static scene; bounding-volume trees are built on the first step. The walker never falls:
+ * it stops at any drop deeper than a stair step. */
 // Collision rays start just above the step height: anything lower is climbed, like a stair tread.
 // Walking pace is 1.5× an everyday 1.4 m/s, so the rooms and garden cover quickly; Shift runs.
 const RADIUS=.3,STEP=.45,WALK=2.1,RUN=5.1,KNEE=.5,CHEST=1.2;
@@ -54,9 +55,11 @@ export function createWalker(camera:T.PerspectiveCamera|T.OrthographicCamera,sur
     if(!blocked)break;
    }
    const x=camera.position.x+move.x,z=camera.position.z+move.z;
-   // Follow the floor: step up at most a stair's height, step down or fall to whatever is below.
+   // Follow the floor a stair's height up or down at a time. A deeper drop (a stairwell, the gallery edge, a stair's open
+   // side, the pool) or nothing below stops the walker: railings of thin bars would let the knee and chest rays through.
    const ground=groundAt(x,z,feet+STEP,meshes);
-   if(ground!==undefined)feet=ground;
+   if(ground===undefined||ground<feet-STEP)return false;
+   feet=ground;
    camera.position.set(x,feet+eye,z);camera.updateMatrixWorld();
    return true;
   },

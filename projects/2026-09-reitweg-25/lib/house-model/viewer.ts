@@ -3,7 +3,7 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {sunDirection,initialSunStudy,type SunStudy} from './sun-position';
 import {terrainWithPoolOpening} from './pool';
-import {basementStairWell} from './site-openings';
+import {groundOpenings} from './site-openings';
 import {landscapeContext} from './landscape-context';
 import {buildHouseModel} from './build-model';
 import {batchStatic} from './static-batch';
@@ -58,7 +58,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const foliage=realistic?foliageMaterials(tier.trees):undefined;
  const setting=realistic?landscapeContext({foliage,density:tier.farWoodland}):undefined;
  const model=buildHouseModel(realistic,setting?.group,foliage);scene.add(model.root);
- const stageGeometry=terrainWithPoolOpening([basementStairWell()]);
+ const stageGeometry=terrainWithPoolOpening(groundOpenings());
  if(realistic){const p=stageGeometry.attributes.position;for(let i=0;i<p.count;i++)p.setY(i,-5*T.MathUtils.smoothstep(p.getX(i),55,140));stageGeometry.computeVertexNormals();}
  const stageMaterial=new T.MeshStandardMaterial({color:realistic?'#a0b18d':'#edece5',roughness:1});if(realistic)stageMaterial.userData.photo='lawn';
  const stage=new T.Mesh(stageGeometry,stageMaterial);stage.position.y=realistic?-.035:-.53;stage.receiveShadow=true;stage.name='surrounding-ground';scene.add(stage);
