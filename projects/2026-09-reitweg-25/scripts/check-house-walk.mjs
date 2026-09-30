@@ -10,7 +10,7 @@ const {places}=await import('../tmp/walk-check/experience-data.mjs');
 const model=buildHouseModel(true);model.setLevel('exterior');model.root.updateMatrixWorld(true);
 // As the viewer's merged scene does, keep only what the whole-house view draws; its upper-floor rooms show through the roofs.
 const meshes=[];model.root.traverse(o=>{if(o.isMesh&&!o.isInstancedMesh&&model.rendered(o))meshes.push(o);});
-model.upper.visible=true;model.upper.traverse(o=>{if(o.isMesh&&!o.userData.alsoExterior)o.visible=false;});
+model.upper.visible=true;model.upper.traverse(o=>{if(o.isMesh&&!o.userData.alsoExterior)o.visible=false;});model.basement.visible=true;
 // The viewer's surrounding ground (in Detailed a lawn-coloured plane just below the lot) is walked on too, with the same
 // openings the viewer cuts: the pool, the guest basement's outside stair and the hall stairwell.
 {const {terrainWithPoolOpening}=await import('../tmp/walk-check/pool.mjs'),{groundOpenings}=await import('../tmp/walk-check/site-openings.mjs');
@@ -61,6 +61,9 @@ const stroll=(from,toward,floor,moves)=>{camera.position.set(...from);camera.loo
 // Basement stair: from its landing off the hall, walking south down the flight under the stair up to the basement.
 const [bx,bz]=p(926,474),down=walk([bx,1.8,bz],[bx,1.8,bz+10],5);
 assert(down.y-1.65<-2,`walker goes down the basement stair from the hall (feet at ${(down.y-1.65).toFixed(2)} m)`);
+// At the foot of the stair the basement hall opens to the east: the walk carries on into it.
+{const [fx,fz]=p(926,620),feet=stroll([fx,-2.3+1.65,fz],[fx+10,-2.3+1.65,fz],-2.3,[[1.5,{forward:1,strafe:0}]]);
+ assert(feet<-2&&camera.position.x-fx>2,`walker carries on into the basement hall (${(camera.position.x-fx).toFixed(2)} m, feet at ${feet.toFixed(2)} m)`);}
 // Leaning out of the upstairs roof window, a walk back into the room starts on the upper floor, not on the roof.
 const up=places.upstairs;camera.position.set(...up.position);camera.lookAt(up.position[0]-10,up.position[1],up.position[2]);camera.updateMatrixWorld();
 {const walker=createWalker(camera,()=>meshes);walker.reset(up.floor);for(let t=0;t<2.5;t+=1/30)walker.step(1/30,{forward:1,strafe:0,run:false});}

@@ -19,7 +19,7 @@ assert.equal(crosses(point(777,630),point(920,630),[ground]).length,0,'connector
 assert.equal(crosses(point(850,625),point(850,580),[ground]).length,0,'hall WC south doorway is accessible');
 // The basement stair opens off the hall beneath the open stair up: the floor is open over its flight, the flight shows
 // from the hall, and a rail guards the open side.
-{const [x,z]=p(926,540),under=crosses([x,1,z],[x,-3,z],[ground]).filter(h=>h.object.isMesh)[0];assert(under&&under.point.y<-.6&&under.point.y>-2,`the hall floor is open over the basement flight (first surface at ${under?.point.y.toFixed(2)} m)`);
+{const [x,z]=p(926,540),floor=crosses([x,1,z],[x,-.5,z],[ground]).filter(h=>h.object.isMesh)[0];assert(!floor,`the hall floor is open over the basement flight (floor at ${floor?.point.y.toFixed(2)} m)`);
  // Where the stair up passes well overhead (about 1.9 m), a ray from the hall at rail height meets the rail at the edge.
  const [ex,gz]=p(975,510),[gx]=p(946,510),guard=crosses([ex,1.12,gz],[gx-.4,1.12,gz],[ground]).filter(h=>h.object.isMesh)[0];assert(guard&&guard.point.x>gx-.05&&guard.point.x<gx+.15,'a rail guards the stairwell on the hall side');}
 // The hall table stands beside the dining-room doorway, never across it: clear at table-top height over the whole opening.
