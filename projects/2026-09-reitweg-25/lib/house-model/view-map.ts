@@ -18,7 +18,7 @@ export const sheets:Record<Sheet,{src:string;title:string;crop:[number,number,nu
 const placeSheets:Record<Place,[Sheet,Side]>={
  lane:['grounds','above'],entrance:['grounds','above'],pool:['grounds','left'],court:['grounds','below'],
  living:['ground','below'],dining:['ground','left'],kitchen:['ground','right'],
- bedroom:['upper','above-left'],upstairs:['upper','left'],
+ bedroom:['upper','above-left'],
 };
 /** Overviews that look across the house from one side; the whole lot and the plan view look at everything. */
 const overviews:Partial<Record<Viewpoint,Side>>={courtyard:'left',east:'left',arrival:'right'};

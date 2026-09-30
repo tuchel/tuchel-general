@@ -11,7 +11,7 @@ for(const id of places)assert.equal(all.filter(m=>m.id===id).length,1,`${id} is 
 const on=(id)=>all.find(m=>m.id===id);
 for(const id of ['lane','entrance','pool','court'])assert.equal(on(id).sheet,'grounds',`${id} is outside`);
 for(const id of ['living','dining','kitchen'])assert.equal(on(id).sheet,'ground',`${id} is on the ground floor`);
-for(const id of ['bedroom','upstairs'])assert.equal(on(id).sheet,'upper',`${id} is on the upper floor`);
+assert.deepEqual(mapMarkers('upper',false).map(m=>m.id),['bedroom'],'the upper floor has the master bedroom');
 // Overviews from one side sit on the frame of the grounds map, pointing at what they look at; the whole lot and the plan view are buttons.
 for(const id of ['courtyard','east','arrival']){const m=on(id);assert.equal(m.sheet,'grounds');assert.equal(m.kind,'air');assert(Math.min(m.x,1-m.x,m.y,1-m.y)<.08,`${id} is on the frame`);}
 assert.equal(all.filter(m=>m.kind==='air').length,3);assert.deepEqual(wholeViews,['estate','top']);
@@ -47,4 +47,4 @@ for(const width of [331,384,434]){
   }
  }
 }
-console.log('Passed: nine eye-level places and three side overviews on the site and floor plans, registered to the model, pointing the way each view looks, with labels clear of one another at 331–434 px.');
+console.log('Passed: eight eye-level places and three side overviews on the site and floor plans, registered to the model, pointing the way each view looks, with labels clear of one another at 331–434 px.');
