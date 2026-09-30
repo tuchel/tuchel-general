@@ -95,7 +95,9 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
   box(desk,-.08,.76,.05,.24,.015,.33,m.metal);box(desk,.05,.775,.05,.012,.22,.33,ink);box(desk,.2,.76,.55,.22,.06,.3,rust);box(desk,.2,.82,.55,.2,.04,.28,m.sage);
   chair(desk,-.72,0,-Math.PI/2);
  }
- {const plant=place(nook,...p(1205,550));solid(plant,cyl,m.stone,0,.21,0,.2,.42,.2);solid(plant,new T.IcosahedronGeometry(1,1),m.leaf,0,.95,0,.36,.48,.36);}
+ // A leafy plant in the corner: broad leaves spiralling up out of a stone pot.
+ {const plant=place(nook,...p(1203,552)),leaf=new T.IcosahedronGeometry(1,1);solid(plant,cyl,m.stone,0,.21,0,.19,.42,.19);
+  for(let i=0;i<11;i++){const a=i*2.4,r=.06+.012*i;const o=solid(plant,leaf,m.leaf,Math.cos(a)*r,.55+i*.06,Math.sin(a)*r,.07,.2,.15);o.rotation.set(0,-a,.55);}}
  groups.front.add(buildFrontWall(material,true));
  const solarRoof=buildSolar(roofs,groups.solar);
  const set=(state:RenovationState,level:Level)=>{for(const id of Object.keys(groups) as RenovationId[])groups[id].visible=state[id];kitchenRoof.visible=state.kitchen;solarRoof.visible=state.solar;for(const o of kitchen.children)if(o.name==='kitchen-retained-pier'){o.scale.y=level==='exterior'?2.55:1.01;o.position.y=.16+o.scale.y/2;}};
