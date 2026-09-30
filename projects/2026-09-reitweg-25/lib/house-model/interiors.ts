@@ -57,7 +57,7 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  g=place(ground,870,531,-Math.PI/2);g.name='hall-wc-toilet';box(g,0,.02,0,.39,.34,.57,m.white,true);box(g,0,.35,0,.42,.07,.6,m.white,true);box(g,0,.06,.26,.43,.75,.12,m.white,true);
  g=place(ground,881,578,-Math.PI/2);g.name='hall-wc-basin';box(g,0,.74,.02,.7,.05,.42,m.pine);box(g,0,.3,.02,.7,.03,.4,m.pine);mesh(g,ball,m.white,0,.86,0,.21,.08,.15);rod(g,[0,1.06,.23],[0,1.06,.07],.018,m.brass);box(g,0,.77,.235,.8,.9,.012,tile);
  // Dining alcove: U-shaped timber banquette, three white chairs on the open side.
- g=place(ground,1132,578);table(g,2.65,1.02);bench(g,0,-1.14,3.7,Math.PI);bench(g,-1.6,-.23,1.6,-Math.PI/2);bench(g,1.6,-.23,1.6,Math.PI/2);for(const x of [-.9,0,.9])chair(g,x,.98);
+ g=place(ground,1132,578);g.name='dining-alcove';g.userData.replacedBy='nook';table(g,2.65,1.02);bench(g,0,-1.14,3.7,Math.PI);bench(g,-1.6,-.23,1.6,-Math.PI/2);bench(g,1.6,-.23,1.6,Math.PI/2);for(const x of [-.9,0,.9])chair(g,x,.98);
  // Living: two facing sofas, transparent coffee table and woven chair by the garden.
  g=place(ground,1020,784);sofa(g,-2.05,0,2.9,-Math.PI/2);sofa(g,2.05,0,2.9,Math.PI/2).userData.replacedBy='east';table(group(g,0,0,0),1.45,1.05,.42,clear);
  const cane=place(ground,1190,827,-.5);chair(cane,0,0,0,m.oak);box(cane,0,.47,0,.5,.13,.48,m.cream,true);plant(place(ground,1194,700));g=place(ground,920,841);round(g,0,0,0,.22,.025,m.charcoal);rod(g,[0,0,0],[0,1.5,0],.025,m.charcoal);mesh(g,new T.ConeGeometry(.25,.2,20),m.charcoal,.13,1.53,0);

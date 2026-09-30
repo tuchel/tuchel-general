@@ -24,6 +24,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  root.add(site,trees,ground,upper,basement,roofs);
  ground.name='ground-floor';upper.name='upper-floor';basement.name='basement';
  const originals:Partial<Record<RenovationId,T.Object3D[]>>={};
+ // Parts built with the house but shown only while a renovation is on (the opened east gable upstairs).
+ const additions:Partial<Record<RenovationId,T.Object3D[]>>={};
  const capture=(id:RenovationId,parent:T.Group,build:()=>void)=>{const start=parent.children.length;build();const objects=parent.children.slice(start);const group=new T.Group();group.name='original-'+id;parent.add(group);for(const o of objects)group.add(o);(originals[id]??=[]).push(group);};
  upper.position.x=UPPER_PLAN_X_OFFSET;basement.position.x=BASEMENT_PLAN_X_OFFSET;
  const garden=buildGarden(realistic);site.add(garden.group);
@@ -225,15 +227,35 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
    profile.push(new T.Vector2(0,underside(a[0])));const shape=new T.Shape(profile);
    const windows=kind==='main'&&index===2?[[-2.35,3.15,1.05,2.1],[2.35,3.15,1.05,2.1]]:kind==='main'&&index===0?[[-2.27,3.1,1.1,2.1],[1,3.1,1.1,2.1]]:kind==='guest'&&index===0?[[0,3.15,2.3,1.8]]:kind==='guest'&&index===4?[[0,3.05,2.4,2.25]]:[];
    const face=new T.Group();face.position.set(a[0],0,a[1]);face.rotation.y=-Math.atan2(dz,dx);g.add(face);
-   for(const [x,y,w,h] of windows){const u=(x-a[0])/dx*len;const hole=new T.Path();hole.moveTo(u-w/2,y);hole.lineTo(u-w/2,y+h);hole.lineTo(u+w/2,y+h);hole.lineTo(u+w/2,y);hole.closePath();shape.holes.push(hole);box(face,u,y,0,w,h,.05,glass).name='gable-window';for(const offset of [-w/2,w/2])box(face,u+offset,y,0,.05,h,.25,m.dark);for(const dy of [0,h])box(face,u,y+dy,0,w,.05,.25,m.dark);}
-   const wallGeometry=new T.ExtrudeGeometry(shape,{depth:.21,bevelEnabled:false});wallGeometry.translate(0,0,-.105);const mesh=add(wallGeometry,m.wall,face,kind==='guest'?'guest':'main');mesh.name=kind+'-roof-wall-'+index;
+   // The opened east façade glazes the master bedroom's gable (the main south gable, east of the chimney) instead of its window.
+   const eastGable=kind==='main'&&index===2,holes:T.Path[]=[];
+   for(const [x,y,w,h] of windows){const u=(x-a[0])/dx*len;const hole=new T.Path();hole.moveTo(u-w/2,y);hole.lineTo(u-w/2,y+h);hole.lineTo(u+w/2,y+h);hole.lineTo(u+w/2,y);hole.closePath();
+    const start=face.children.length;box(face,u,y,0,w,h,.05,glass).name='gable-window';for(const offset of [-w/2,w/2])box(face,u+offset,y,0,.05,h,.25,m.dark);for(const dy of [0,h])box(face,u,y+dy,0,w,.05,.25,m.dark);
+    if(eastGable&&x>0)(originals.east??=[]).push(...face.children.slice(start));else holes.push(hole);shape.holes.push(hole);}
    // Rooms under the roof are plastered: line the inner face so the cladding never shows between wall head and ceiling.
    // The room side is whichever side of the face's midpoint lies inside the footprint (the guest wing is not convex).
    const probe=[(a[0]+b[0])/2-dz/len*.3,(a[1]+b[1])/2+dx/len*.3];let inside=false;
    for(let i=0,j=local.length-1;i<local.length;j=i++){const [xi,zi]=local[i],[xj,zj]=local[j];if((zi>probe[1])!==(zj>probe[1])&&probe[0]<(xj-xi)*(probe[1]-zi)/(zj-zi)+xi)inside=!inside;}
-   const inward=inside?1:-1,lining=new T.ShapeGeometry(shape);
-   if(inward<0){const idx=lining.index!;for(let t=0;t<idx.count;t+=3){const k=idx.getX(t+1);idx.setX(t+1,idx.getX(t+2));idx.setX(t+2,k);}const n=lining.attributes.normal;for(let v=0;v<n.count;v++)n.setZ(v,-1);}
-   lining.translate(0,0,inward*.107);const inner=add(lining,m.plaster,face);inner.castShadow=false;inner.name=kind+'-roof-wall-lining-'+index;
+   const inward=inside?1:-1;
+   const skin=(outline:T.Shape,parent:T.Object3D)=>{
+    const wallGeometry=new T.ExtrudeGeometry(outline,{depth:.21,bevelEnabled:false});wallGeometry.translate(0,0,-.105);const mesh=add(wallGeometry,m.wall,face,kind==='guest'?'guest':'main');mesh.name=kind+'-roof-wall-'+index;
+    const lining=new T.ShapeGeometry(outline);
+    if(inward<0){const idx=lining.index!;for(let t=0;t<idx.count;t+=3){const k=idx.getX(t+1);idx.setX(t+1,idx.getX(t+2));idx.setX(t+2,k);}const n=lining.attributes.normal;for(let v=0;v<n.count;v++)n.setZ(v,-1);}
+    lining.translate(0,0,inward*.107);const inner=add(lining,m.plaster,face);inner.castShadow=false;inner.name=kind+'-roof-wall-lining-'+index;
+    parent.attach(mesh);parent.attach(inner);return [mesh,inner];
+   };
+   const original=skin(shape,face);
+   if(eastGable){
+    (originals.east??=[]).push(...original);const opened=new T.Group();opened.name='east-gable-glazing';opened.visible=false;face.add(opened);(additions.east??=[]).push(opened);
+    // From 15 cm beside the chimney to the knee wall, 5 cm above the floor to 3 m, and 12 cm under the sloped ceiling.
+    const sill=3.15,cap=6.1,west=.5,top=(x:number)=>Math.min(cap,ridge-rise*x/half-.045-CEILING-.12),east=(ridge-.045-CEILING-3.07-.55)*half/rise-.1,knee=(ridge-.045-CEILING-.12-cap)*half/rise;
+    const u=(x:number)=>(x-a[0])/dx*len,outline=[[west,sill],[east,sill],[east,top(east)],[knee,cap],[west,cap]].map(([x,y])=>new T.Vector2(u(x),y));
+    const glazed=new T.Shape(profile);glazed.holes.push(...holes,new T.Path(outline));skin(glazed,opened);
+    const pane=new T.ExtrudeGeometry(new T.Shape(outline),{depth:.03,bevelEnabled:false});pane.translate(0,0,-.015);add(pane,glass,opened).name='east-gable-glass';
+    const bar=(x1:number,y1:number,x2:number,y2:number)=>segment(opened,[u(x1),y1,0],[u(x2),y2,0],.07,m.dark);
+    outline.forEach((q,i)=>{const r=outline[(i+1)%outline.length];bar(a[0]+q.x*dx/len,q.y,a[0]+r.x*dx/len,r.y);});
+    const bays=Math.round((east-west)/1.1);for(let i=1;i<bays;i++){const x=west+(east-west)*i/bays;bar(x,sill,x,top(x));}
+   }
   }
   // The east roof has three groups and one high window; the photos rule out an even row.
   const skylights=kind==='link'?[]:roofSkylights(kind);
@@ -373,6 +395,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  ceiling([[795,182],[1229,182],[1229,877],[795,877]],[[906,458],[948,458],[948,466],[1044,466],[1044,668],[906,668]]).name='main-ground-ceiling';
  ceiling([[116,535],[475,573],[461,668],[367,671],[316,1228],[49,1208]],[[96,782],[215,792],[202,932],[92,927]]).name='guest-ground-ceiling';
  const detail=realistic?architecturalDetails(ground,ceilings):undefined;
+ // Details added after the renovations were collected, such as the family-room curtains, join them here.
+ ground.getObjectByName('photo-led-interior-details')?.traverse(o=>{const id=o.userData.replacedBy as RenovationId|undefined;if(id)(originals[id]??=[]).push(o);});
  // Roofs-on views still contain the real upper-floor furnishings and gallery.
  // Omit the cutaway's duplicated lower hall and stairs; the ground model supplies those.
  if(realistic){upper.updateMatrixWorld(true);upper.traverse(o=>{if(!(o instanceof T.Mesh))return;let parent:T.Object3D|null=o;while(parent&&parent!==upper){if(parent.name.includes('stair'))return;parent=parent.parent;}if(new T.Box3().setFromObject(o).min.y>=2.85)o.userData.alsoExterior=true;});}
@@ -383,18 +407,22 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const sectionCut=new T.Plane(new T.Vector3(0,-1,0),4.12),roofMaterials=new Set<T.Material>();
  roofs.traverse(o=>{if(o instanceof T.Mesh)for(const mat of [o.material].flat())roofMaterials.add(mat);});roofMaterials.add(m.upperPlaster);roofMaterials.add(m.spruce);
  let active=renovationState(),currentLevel:Level='exterior';
- const applyRenovations=()=>{for(const id of Object.keys(originals) as RenovationId[])for(const o of originals[id]!)o.visible=!active[id];renovation.set(active,currentLevel);garden.setRenovations(active);};
+ const applyRenovations=()=>{for(const id of Object.keys(originals) as RenovationId[])for(const o of originals[id]!)o.visible=!active[id];for(const id of Object.keys(additions) as RenovationId[])for(const o of additions[id]!)o.visible=active[id];renovation.set(active,currentLevel);garden.setRenovations(active);};
  const setRenovations=(next:RenovationState)=>{active={...next};applyRenovations();};
  // One consistent natural-material palette across the original house and all proposals.
  for(const mat of materials)mat.color.set(mat.userData.timber);garden.setFinish('timber');lineMat.opacity=.2;
  const setLevel=(level:Level)=>{currentLevel=level;if(setting)setting.visible=level==='exterior';ceilings.visible=level==='exterior'||level==='upper';slats.visible=level==='exterior'||level==='upper';site.visible=level!=='basement';trees.visible=level==='exterior';roofs.visible=level==='exterior'||level==='upper';for(const mat of roofMaterials){mat.clippingPlanes=level==='upper'?[sectionCut]:null;mat.clipShadows=true;}ground.visible=level!=='basement';upper.visible=level==='upper';basement.visible=level==='basement';for(const mesh of cutWalls){const h=mesh.userData.height as number,y=mesh.userData.base as number;const cap=mesh.parent===upper?4.12:mesh.parent===basement?-1:1.17;const full=level==='exterior'||(level==='upper'&&mesh.parent!==upper),shown=full?h:Math.max(0,Math.min(h,cap-y));mesh.visible=shown>0;mesh.scale.y=Math.max(.001,shown);mesh.position.y=y+shown/2;}applyRenovations();};
  const dispose=()=>{const gs=new Set<T.BufferGeometry>(),ms=new Set<T.Material>();root.traverse(o=>{if(o instanceof T.Mesh||o instanceof T.Line){gs.add(o.geometry);(Array.isArray(o.material)?o.material:[o.material]).forEach(a=>ms.add(a));}});gs.forEach(g=>g.dispose());ms.forEach(m=>{if(m instanceof T.MeshStandardMaterial)m.map?.dispose();m.dispose();});};
- // Every floor × renovation combination, for static batching: state = floor*64 + renovation bits.
- const renovationIds=Object.keys(renovationState()) as RenovationId[];
- const stateOf=(level:Level,state:RenovationState)=>levels.indexOf(level)*64+renovationIds.reduce((bits,id,i)=>bits|(state[id]?1<<i:0),0);
- const applyState=(index:number)=>{setLevel(levels[index>>6]);setRenovations(Object.fromEntries(renovationIds.map((id,i)=>[id,!!(index&(1<<i))])) as RenovationState);};
+ // Every floor × renovation combination, for static batching: state = floor*combinations + renovation bits.
+ // A renovation whose parts all sit in its own group, and whose originals sit in one group, toggles outside the states:
+ // both groups stay shown while states are enumerated, and the batches parented to them follow their visibility.
+ const renovationIds=Object.keys(renovationState()) as RenovationId[],grouped=new Set<RenovationId>(['nook']);
+ const stateIds=renovationIds.filter(id=>!grouped.has(id)),combinations=1<<stateIds.length;
+ const toggled=[...grouped].flatMap(id=>[renovation.groups[id],...(originals[id]??[])]);
+ const stateOf=(level:Level,state:RenovationState)=>levels.indexOf(level)*combinations+stateIds.reduce((bits,id,i)=>bits|(state[id]?1<<i:0),0);
+ const applyState=(index:number)=>{setLevel(levels[Math.floor(index/combinations)]);setRenovations({...renovationState(),...Object.fromEntries(stateIds.map((id,i)=>[id,!!(index&(1<<i))]))});for(const o of toggled)o.visible=true;};
  // Upper-floor rooms stay visible behind the roofs in the whole-house view.
  const rendered=(mesh:T.Object3D)=>{for(let o:T.Object3D|null=mesh;o;o=o.parent){if(o.visible)continue;if(o===upper&&currentLevel==='exterior'&&mesh.userData.alsoExterior)continue;return false;}return true;};
- return {root,site,trees,upper,ceilings,pickables,detail,setRenovations,setLevel,dispose,stateCount:levels.length*64,stateOf,applyState,rendered};
+ return {root,site,trees,upper,ceilings,pickables,detail,setRenovations,setLevel,dispose,stateCount:levels.length*combinations,stateOf,applyState,rendered,toggled};
 }
 export const levels:Level[]=['exterior','ground','upper','basement'];

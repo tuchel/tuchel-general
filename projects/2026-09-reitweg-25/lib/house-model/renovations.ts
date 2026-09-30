@@ -69,6 +69,33 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  const lounge=place(courtyard,...p(416,891),-.093);box(lounge,0,.01,0,1.6,.015,2.8,m.linen);
  const sofa=(x:number,z:number,angle:number,w=2.1)=>{const g=place(lounge,x,z,angle,0);box(g,0,.06,0,w,.27,.81,m.oak,true);box(g,0,.33,0,w-.08,.16,.75,m.linen,true);box(g,0,.48,.33,w,.35,.15,m.linen,true);for(const dx of [-w/2+.07,w/2-.07])box(g,dx,.3,0,.11,.25,.86,m.oak,true);for(const dx of [-w*.3,w*.3])box(g,dx,.55,.2,.3,.3,.15,m.clay,true);};
  sofa(-.53,.18,-Math.PI/2);sofa(.33,1.85,0,1);const coffee=place(lounge,.35,.15,0,0);box(coffee,0,.25,0,.67,.09,1.2,m.stone,true);box(coffee,0,.02,0,.43,.23,.85,m.oak);planter(courtyard,...p(746,697));
+ // Reading and office nook in the dining alcove (4.5 × 3.8 m between the hall wall and the east façade): a library wall
+ // to the north, a deep sofa against the hall wall facing the garden, and a desk at the east window. Plan points.
+ const nook=groups.nook,ink=material('#3e4a59'),ochre=material('#c39a53'),wool=material('#cbbda4'),rust=material('#9d5b41');
+ const solid=(g:T.Object3D,geometry:T.BufferGeometry,mat:T.Material,x:number,y:number,z:number,sx:number,sy:number,sz:number)=>{const o=new T.Mesh(geometry,mat);o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.castShadow=o.receiveShadow=true;g.add(o);return o;};
+ {const shelves=place(nook,...p(1124,533.8));shelves.name='nook-bookshelves';const w=3.82,d=.36,h=2.3,bays=4,levels=[.08,.44,.8,1.16,1.52,1.88];
+  for(let i=0;i<=bays;i++)box(shelves,-w/2+.0175+i*(w-.035)/bays,0,0,.035,h,d,m.oak);
+  box(shelves,0,h-.035,0,w,.035,d,m.oak);box(shelves,0,0,0,w,.08,d,m.oak);for(const y of levels.slice(1))box(shelves,0,y-.025,0,w,.025,d,m.oak);
+  // Books in runs of varied width, height and colour, with the odd gap; a fixed seed keeps every visit the same.
+  const colours=[rust,m.sage,m.linen,ink,ochre,m.white,m.clay];let seed=11;const rand=()=>(seed=seed*16807%2147483647)/2147483647;
+  for(let i=0;i<bays;i++)for(const y of levels){const bay=(w-.035)/bays;let x=-w/2+.05+i*bay;const end=x+bay-.07;
+   while(x<end-.1){const run=Math.min(end-x,.1+rand()*.4);if(rand()>.18)box(shelves,x+run/2,y,.03,run-.012,.19+rand()*.11,.24,colours[Math.floor(rand()*colours.length)]);x+=run+.012;}}
+ }
+ {const sofa=place(nook,...p(1069.8,581),Math.PI/2);sofa.name='nook-sofa';const w=1.72;
+  box(sofa,0,0,0,w-.12,.1,.78,ink);box(sofa,0,.1,.02,w,.26,.88,wool,true);box(sofa,0,.1,-.34,w,.62,.2,wool,true);
+  for(const x of [-w/4,w/4]){box(sofa,x,.36,.08,w/2-.2,.15,.62,wool,true);box(sofa,x,.44,-.2,w/2-.22,.38,.18,wool,true).rotation.x=-.18;}
+  for(const x of [-w/2+.09,w/2-.09])box(sofa,x,.1,.02,.18,.5,.88,wool,true);
+  box(sofa,-w/2+.36,.48,-.1,.42,.38,.13,rust,true).rotation.z=-.2;box(sofa,w/2-.4,.48,-.1,.4,.36,.13,m.sage,true).rotation.z=.18;box(sofa,w/2-.42,.515,.12,.5,.025,.62,ochre);
+ }
+ // An arc lamp over the sofa, a pouf and a rug; the desk faces the garden with its lamp, laptop and a few books.
+ {const lamp=place(nook,...p(1072,545.2));solid(lamp,cyl,m.metal,0,.01,0,.14,.02,.14);box(lamp,0,0,0,.028,1.75,.028,m.metal);box(lamp,0,1.72,.36,.022,.022,.72,m.metal);solid(lamp,cyl,m.linen,0,1.6,.72,.18,.22,.18);}
+ solid(place(nook,...p(1112,583)),cyl,rust,0,.2,0,.3,.4,.3);box(place(nook,...p(1106,591)),0,0,0,2.2,.012,2.4,m.clay);
+ {const desk=place(nook,...p(1202.3,596));desk.name='nook-desk';box(desk,0,.72,0,.75,.04,1.7,m.oak);for(const x of [-.32,.32])for(const z of [-.8,.8])box(desk,x,0,z,.035,.72,.035,m.metal);
+  solid(desk,cyl,m.metal,.24,.77,-.6,.08,.02,.08);box(desk,.24,.76,-.6,.018,.4,.018,m.metal);box(desk,.16,1.12,-.6,.2,.04,.07,m.metal);
+  box(desk,-.08,.76,.05,.24,.015,.33,m.metal);box(desk,.05,.775,.05,.012,.22,.33,ink);box(desk,.2,.76,.55,.22,.06,.3,rust);box(desk,.2,.82,.55,.2,.04,.28,m.sage);
+  chair(desk,-.72,0,-Math.PI/2);
+ }
+ {const plant=place(nook,...p(1205,550));solid(plant,cyl,m.stone,0,.21,0,.2,.42,.2);solid(plant,new T.IcosahedronGeometry(1,1),m.leaf,0,.95,0,.36,.48,.36);}
  groups.front.add(buildFrontWall(material,true));
  const solarRoof=buildSolar(roofs,groups.solar);
  const set=(state:RenovationState,level:Level)=>{for(const id of Object.keys(groups) as RenovationId[])groups[id].visible=state[id];kitchenRoof.visible=state.kitchen;solarRoof.visible=state.solar;for(const o of kitchen.children)if(o.name==='kitchen-retained-pier'){o.scale.y=level==='exterior'?2.55:1.01;o.position.y=.16+o.scale.y/2;}};

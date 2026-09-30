@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import {build} from 'esbuild';
 import * as T from 'three';
 fs.mkdirSync('tmp/renovation-check',{recursive:true});
-await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/solar-layout.ts','lib/house-model/renovation-data.ts'],outdir:'tmp/renovation-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external'});
+await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/solar-layout.ts','lib/house-model/renovation-data.ts','lib/house-model/site-data.ts'],outdir:'tmp/renovation-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external'});
 const {buildHouseModel}=await import('../tmp/renovation-check/build-model.mjs');
 const {solarPanels,solarRoofs,solarModule,roofSkylights}=await import('../tmp/renovation-check/solar-layout.mjs');
 const {renovationState}=await import('../tmp/renovation-check/renovation-data.mjs');
@@ -14,7 +14,7 @@ const visible=o=>{while(o){if(!o.visible)return false;o=o.parent;}return true;};
 model.setLevel('exterior');model.setRenovations(renovationState());
 const snapshot=()=>{const data=[];model.root.traverse(o=>data.push([o.uuid,o.visible,...o.position.toArray(),...o.scale.toArray(),...(o.isInstancedMesh?o.instanceMatrix.array:[])]));return data;};
 const before=snapshot();
-for(let bits=0;bits<64;bits++){
+for(let bits=0;bits<1<<ids.length;bits++){
  const state=Object.fromEntries(ids.map((id,i)=>[id,!!(bits&(1<<i))]));model.setRenovations(state);
  for(const level of ['exterior','ground','upper','basement']){
   model.setLevel(level);
@@ -54,4 +54,24 @@ model.setLevel('exterior');model.setRenovations({...renovationState(),east:true}
 const southRay=new T.Raycaster(),southAt=x=>{southRay.set(new T.Vector3(x,.6,10.4),new T.Vector3(0,0,-1));southRay.far=1.6;return southRay.intersectObject(model.root,true).filter(h=>h.object.isMesh&&visible(h.object));};
 for(const x of [-4.5,-2.5,2.5,4.5]){const hits=southAt(x);assert(hits.length&&hits.every(h=>[h.object.material].flat().every(m=>m.transparent)),`south wall at x ${x} is glazed`);}
 assert(southAt(-.7).some(h=>[h.object.material].flat().some(m=>!m.transparent)),'the pier west of the fireplace stays solid');
-console.log('Passed: all 64 renovation combinations across four floors; original scene and meadow restored; 50 panels clear skylights, perimeter and each other; finite transforms; south glazing on both sides of the fireplace.');
+// Upstairs, the opened east façade glazes the master bedroom's gable from the chimney to the knee wall, up to about 3 m
+// and under the roof slope; the original keeps its single window, and the wall beside the chimney stays solid.
+const gableAt=(x,y)=>{southRay.set(new T.Vector3(x,y,8.6),new T.Vector3(0,0,1));southRay.far=1.4;return southRay.intersectObject(model.root,true).filter(h=>h.object.isMesh&&visible(h.object));};
+const opaque=hits=>hits.some(h=>[h.object.material].flat().some(m=>!m.transparent));
+const opened=[[.75,3.3],[1.2,5.95],[3.3,4.2],[3,4.9],[4.7,3.35],[4.3,3.8]];
+for(const east of [false,true]){model.setRenovations({...renovationState(),east});model.setLevel('exterior');model.root.updateMatrixWorld(true);
+ for(const [x,y] of opened)assert.equal(opaque(gableAt(x,y)),!east,`gable at x ${x}, y ${y} is ${east?'glazed':'solid'} with the east façade ${east?'on':'off'}`);
+ assert(opaque(gableAt(.3,4.5)),'the wall beside the chimney stays solid');assert(opaque(gableAt(1,6.45)),'the gable above the new glass stays solid');}
+model.setRenovations(renovationState());
+// The reading and office nook takes the dining alcove: bookshelves, a sofa and a desk inside the alcove's walls, the hall
+// doorway and the opening to the family room kept clear, the same with the east façade open or closed.
+{const {planPoint:p}=await import('../tmp/renovation-check/site-data.mjs'),nook=model.root.getObjectByName('renovation-nook'),alcove=model.root.getObjectByName('dining-alcove');
+ assert(nook&&alcove,'reading nook and original dining alcove exist');for(const part of ['nook-bookshelves','nook-sofa','nook-desk'])assert(nook.getObjectByName(part),`nook has ${part}`);
+ const [w,n]=p(1052,526),[e,s]=p(1218,666),probe=new T.Raycaster(),across=(a,b,y)=>{const u=new T.Vector3(a[0],y,a[1]),v=new T.Vector3(b[0],y,b[1]);probe.set(u,v.clone().sub(u).normalize());probe.far=u.distanceTo(v);return probe.intersectObject(nook,true).filter(h=>h.object.isMesh);};
+ for(const east of [false,true]){model.setRenovations({...renovationState(),east,nook:true});model.setLevel('exterior');model.root.updateMatrixWorld(true);
+  assert(visible(nook)&&!visible(alcove),'nook shows and the dining table goes');const box=new T.Box3().setFromObject(nook);
+  assert(box.min.x>=w-.01&&box.max.x<=e+.01&&box.min.z>=n-.01&&box.max.z<=s+.01,`nook stays inside the alcove (${box.min.x.toFixed(2)}..${box.max.x.toFixed(2)}, ${box.min.z.toFixed(2)}..${box.max.z.toFixed(2)})`);
+  for(const y of [.3,.8])assert.equal(across(p(1040,641),p(1150,641),y).length,0,`hall doorway into the nook is clear at ${y} m`);
+  for(const y of [.3,.8])assert.equal(across(p(1140,600),p(1140,700),y).length,0,`opening to the family room is clear at ${y} m`);}
+ model.setRenovations(renovationState());}
+console.log(`Passed: all ${1<<ids.length} renovation combinations across four floors; original scene and meadow restored; 50 panels clear skylights, perimeter and each other; finite transforms; south glazing on both sides of the fireplace, and the master bedroom gable glazed from the chimney to the knee wall; the reading nook replaces the dining alcove with bookshelves, a sofa and a desk, clear of the doorways, with or without the east façade.`);
