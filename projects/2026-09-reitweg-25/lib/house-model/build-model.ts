@@ -16,7 +16,7 @@ import {roofSkylights} from './solar-layout';
 import {buildRenovations} from './renovations';
 import {renovationState,type RenovationId,type RenovationState} from './renovation-data';
 import {planPoint as p,sitePoint as s,plotOutline,treePositions,guestRoofFrame,UPPER_PLAN_X_OFFSET,BASEMENT_PLAN_X_OFFSET,PLAN_SCALE,type Level,type Region} from './site-data';
-import {basementStairWell,buildBasementStair,buildLightWells,BASEMENT_WINDOWS} from './site-openings';
+import {basementStairWell,hallStairWell,HALL_WELL,buildBasementStair,buildLightWells,BASEMENT_WINDOWS} from './site-openings';
 import {passable} from './walk';
 
 export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:ReturnType<typeof foliageMaterials>){
@@ -47,7 +47,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const segment=(parent:T.Group,a:number[],b:number[],width:number,mat:T.Material,region?:Region)=>{const start=new T.Vector3(...a),end=new T.Vector3(...b),len=start.distanceTo(end);const mesh=box(parent,0,0,0,width,len,width,mat,region);mesh.position.copy(start.add(end).multiplyScalar(.5));mesh.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),end.sub(new T.Vector3(...a)).normalize());return mesh;};
  // The basement stair runs beneath the open stair up, rising north like it (both plans): the hall floor, and the lawn and
  // soil under the house, are open over its flight, all but the top step, where it is entered from the hall.
- const well=[906,478,946,607],wellPath=()=>new T.Path([[well[0],well[1]],[well[2],well[1]],[well[2],well[3]],[well[0],well[3]]].map(([x,z])=>{const a=p(x,z);return new T.Vector2(a[0],-a[1]);}));
+ const well=HALL_WELL,wellPath=()=>new T.Path(hallStairWell().map(([x,z])=>new T.Vector2(x,-z)));
  const poly=(points:[number,number][],height:number,y:number,mat:T.Material,parent:T.Group,region?:Region)=>{const shape=new T.Shape(points.map(([x,z])=>new T.Vector2(x,-z)));if(mat===m.soil||mat===m.lawn)shape.holes.push(poolHole(),new T.Path(basementStairWell().map(([x,z])=>new T.Vector2(x,-z))),wellPath());const geo=new T.ExtrudeGeometry(shape,{depth:height,bevelEnabled:false});geo.rotateX(-Math.PI/2);const mesh=add(geo,mat,parent,region);mesh.position.y=y;return mesh;};
  const outline=(mesh:T.Mesh)=>{const edge=new T.LineSegments(new T.EdgesGeometry(mesh.geometry,24),lineMat);mesh.add(edge);edges.push(edge);};
  const planBox=(parent:T.Group,x1:number,z1:number,x2:number,z2:number,h:number,y:number,mat:T.Material,region?:Region)=>{const a=p(x1,z1),b=p(x2,z2);return box(parent,(a[0]+b[0])/2,y,(a[1]+b[1])/2,b[0]-a[0],h,b[1]-a[1],mat,region)};
@@ -107,11 +107,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  around(795,182,1229,877,(x1,z1,x2,z2)=>rectFloor(ground,x1,z1,x2,z2,0));
  for(const [x1,z1,x2,z2] of [[795,182,970,464],[814,464,1050,669],[1037,388,1229,669]])around(x1,z1,x2,z2,(a,b,c,d)=>planBox(ground,a,b,c,d,.02,.122,m.tile));
  {const stairwell=new T.Group();stairwell.name='basement-stairwell';ground.add(stairwell);
-  // The basement's own flight (drawn on the basement sheet, 20 px east), seen from the hall; a plastered shaft with the
-  // foot of the stair below the floor, and a steel rail along the open hall side, clear of the entry at the top.
-  const [fx,fz]=p(946,538);stairs(stairwell,fx+BASEMENT_PLAN_X_OFFSET,fz,1.1,3.8,-2.3,2.43);
-  for(const [x1,z1,x2,z2] of [[902,463,906,645],[946,463,950,645],[902,463,950,467],[902,645,950,649]])planBox(stairwell,x1,z1,x2,z2,2.42,-2.45,m.plaster);
-  planBox(stairwell,906,467,946,645,.15,-2.45,m.tile);
+  // The basement's own flight shows through the opening (the basement is drawn in every view); a steel rail runs along
+  // the open hall side, clear of the entry at the top.
   const [,gz1]=p(0,492),[,gz2]=p(0,607),[gx]=p(948.5,0),rail=(y:number,h:number)=>box(stairwell,gx,y,(gz1+gz2)/2,.04,h,gz2-gz1,m.dark);
   rail(1.1,.045);rail(.2,.03);for(let z=gz1;z<=gz2+1e-6;z+=(gz2-gz1)/Math.round((gz2-gz1)/.12))box(stairwell,gx,.12,z,.022,1,.022,m.dark);}
  function facade(parent:T.Group,a:[number,number],b:[number,number],openings:{from:number;to:number;sill:number;head:number;kind?:'garage'|'sliding'|'passage'}[],region:Region){
@@ -205,21 +202,23 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  }
 
 
- // Basement is displayed as its own cutaway; surrounding land hides it in exterior views.
+ // Basement is displayed as its own cutaway; surrounding land hides it in the other views, where it is still drawn, so the
+ // hall's stairwell leads down into it. Walls rise to the ground floor; the basement view cuts them 1.3 m up.
+ const BASEMENT_WALL=2.27;
  rectFloor(basement,835,189,1227,868,-2.45,m.stone);
   // Outer walls carry the light-well windows as a glazed band at the top of the cutaway.
  for(const [side,x1,z1,x2,z2] of [['north',841,195,1220,195],['south',841,861,1220,861],['west',841,195,841,861],['east',1220,195,1220,861]] as const){
   const along=z1===z2,windows=BASEMENT_WINDOWS.filter(w=>w.wall===side).sort((a,b)=>a.from-b.from);let from:number=along?x1:z1;
   const piece=(a:number,b:number,h:number,y:number,mat:T.Material=m.plaster)=>along?wall(basement,a,z1,b,z2,h,y,mat):wall(basement,x1,a,x2,b,h,y,mat);
-  for(const w of windows){piece(from,w.from,1.3,-2.3);piece(w.from,w.to,1,-2.3);piece(w.from,w.to,.3,-1.3,glass).scale.z=.03;from=w.to;}
-  piece(from,along?x2:z2,1.3,-2.3);
+  for(const w of windows){piece(from,w.from,BASEMENT_WALL,-2.3);piece(w.from,w.to,1,-2.3);piece(w.from,w.to,.3,-1.3,glass).scale.z=.03;piece(w.from,w.to,BASEMENT_WALL-1.3,-1);from=w.to;}
+  piece(from,along?x2:z2,BASEMENT_WALL,-2.3);
  }
  // Doors from the Diele into Abstell, HWR, wine room and hobby room; Abstell and HWR are separate rooms.
- for(const a of [[983,199,983,287],[1065,199,1065,322],[841,344,984,344],[984,344,984,456],[1065,352,1065,407],[1065,439,1065,497],[1065,524,1065,669],[1065,387,1220,387],[1065,462,1220,462],[841,460,995,460],[914,463,914,630],[841,669,1011,669],[1051,669,1220,669]])wall(basement,...a as [number,number,number,number],1.3,-2.3);
+ for(const a of [[983,199,983,287],[1065,199,1065,322],[841,344,984,344],[984,344,984,456],[1065,352,1065,407],[1065,439,1065,497],[1065,524,1065,669],[1065,387,1220,387],[1065,462,1220,462],[841,460,995,460],[914,463,914,630],[841,669,1011,669],[1051,669,1220,669]])wall(basement,...a as [number,number,number,number],BASEMENT_WALL,-2.3);
  q=at(946,538);stairs(basement,q[0],q[1],1.1,3.8,-2.3,2.43);
  const guestBasement=[[110,930],[353,955],[326,1226],[79,1205]];poly(guestBasement.map(([x,z])=>p(x,z)),.15,-2.45,m.stone,basement,'guest');
- guestBasement.forEach((a,i)=>{const b=guestBasement[(i+1)%4];wall(basement,a[0],a[1],b[0],b[1],1.3,-2.3);});
- {q=at(262,1074);const column=add(cylinderGeo,m.plaster,basement);column.scale.set(.15,1.3,.15);column.position.set(q[0],-2.3+.65,q[1]);column.userData.base=-2.3;column.userData.height=1.3;cutWalls.push(column);}
+ guestBasement.forEach((a,i)=>{const b=guestBasement[(i+1)%4];wall(basement,a[0],a[1],b[0],b[1],BASEMENT_WALL,-2.3);});
+ {q=at(262,1074);const column=add(cylinderGeo,m.plaster,basement);column.scale.set(.15,BASEMENT_WALL,.15);column.position.set(q[0],-2.3+BASEMENT_WALL/2,q[1]);column.userData.base=-2.3;column.userData.height=BASEMENT_WALL;cutWalls.push(column);}
  furnishHouse(ground,upper,basement,material);
  ground.add(garageCars());
  const within=(x:number,z:number,points:number[][])=>{let inside=false;for(let i=0,j=points.length-1;i<points.length;j=i++){const [xi,zi]=points[i],[xj,zj]=points[j];if((zi>z)!==(zj>z)&&x<(xj-xi)*(z-zi)/(zj-zi)+xi)inside=!inside;}return inside;};
@@ -409,8 +408,13 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // The sauna's ceiling hides with the room ceilings in the ground-floor view.
  {const sauna=ground.getObjectByName('guest-sauna-ceiling');if(sauna){ground.updateMatrixWorld(true);ceilings.attach(sauna);}}
  const ceiling=(outline:number[][],opening:number[][])=>{const plan=(points:number[][])=>points.map(([x,z])=>{const a=p(x,z);return new T.Vector2(a[0],-a[1]);});const shape=new T.Shape(plan(outline));shape.holes.push(new T.Path(plan(opening)));const geo=new T.ExtrudeGeometry(shape,{depth:.06,bevelEnabled:false});geo.rotateX(-Math.PI/2);const mesh=add(geo,m.plaster,ceilings);mesh.position.y=2.79;return mesh;};
- ceiling([[795,182],[1229,182],[1229,877],[795,877]],[[906,458],[948,458],[948,466],[1044,466],[1044,668],[906,668]]).name='main-ground-ceiling';
- ceiling([[116,535],[475,573],[461,668],[367,671],[316,1228],[49,1208]],[[96,782],[215,792],[202,932],[92,927]]).name='guest-ground-ceiling';
+ // Around each stair opening the edge is plastered from the ceiling up to the floor above: seen from the stairs at that
+ // height, the gap between ceiling and floor (and the openings' uncapped sides) never shows through.
+ const edge=(opening:number[][],top:number)=>opening.forEach((a,i)=>{const b=opening[(i+1)%opening.length],u=p(a[0],a[1]),v=p(b[0],b[1]);
+  const band=box(ceilings,(u[0]+v[0])/2,2.79,(u[1]+v[1])/2,Math.hypot(v[0]-u[0],v[1]-u[1])+.03,top-2.79,.03,m.plaster);band.rotation.y=-Math.atan2(v[1]-u[1],v[0]-u[0]);band.name='stair-opening-edge';band.castShadow=false;passable(band);});
+ const mainOpening=[[906,458],[948,458],[948,466],[1044,466],[1044,668],[906,668]],guestOpening=[[96,782],[215,792],[202,932],[92,927]];
+ ceiling([[795,182],[1229,182],[1229,877],[795,877]],mainOpening).name='main-ground-ceiling';edge(mainOpening,3.07);
+ ceiling([[116,535],[475,573],[461,668],[367,671],[316,1228],[49,1208]],guestOpening).name='guest-ground-ceiling';edge(guestOpening,2.95);
  const detail=realistic?architecturalDetails(ground,ceilings):undefined;
  // Details added after the renovations were collected, such as the family-room curtains, join them here.
  ground.getObjectByName('photo-led-interior-details')?.traverse(o=>{const id=o.userData.replacedBy as RenovationId|undefined;if(id)(originals[id]??=[]).push(o);});
@@ -439,7 +443,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const stateOf=(level:Level,state:RenovationState)=>levels.indexOf(level)*combinations+stateIds.reduce((bits,id,i)=>bits|(state[id]?1<<i:0),0);
  const applyState=(index:number)=>{setLevel(levels[Math.floor(index/combinations)]);setRenovations({...renovationState(),...Object.fromEntries(stateIds.map((id,i)=>[id,!!(index&(1<<i))]))});for(const o of toggled)o.visible=true;};
  // Upper-floor rooms stay visible behind the roofs in the whole-house view.
- const rendered=(mesh:T.Object3D)=>{for(let o:T.Object3D|null=mesh;o;o=o.parent){if(o.visible)continue;if(o===upper&&currentLevel==='exterior'&&mesh.userData.alsoExterior)continue;return false;}return true;};
- return {root,site,trees,upper,ceilings,pickables,detail,setRenovations,setLevel,dispose,stateCount:levels.length*combinations,stateOf,applyState,rendered,toggled};
+ const rendered=(mesh:T.Object3D)=>{for(let o:T.Object3D|null=mesh;o;o=o.parent){if(o.visible||o===basement)continue;if(o===upper&&currentLevel==='exterior'&&mesh.userData.alsoExterior)continue;return false;}return true;};
+ return {root,site,trees,upper,basement,ceilings,pickables,detail,setRenovations,setLevel,dispose,stateCount:levels.length*combinations,stateOf,applyState,rendered,toggled};
 }
 export const levels:Level[]=['exterior','ground','upper','basement'];
