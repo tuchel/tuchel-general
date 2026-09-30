@@ -33,9 +33,11 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const material=(model:string,timber=model,roughness=.8)=>{const m=new T.MeshStandardMaterial({color:model,roughness});m.userData={model,timber};materials.push(m);return m;};
  const m={garage:material('#a6a397','#493c31'),wall:material('#e4e0d5','#6e5946'),plaster:material('#f0eee6','#e9e4d9'),roof:material('#c3c4bc','#4d5453'),edge:material('#999d92','#3c443f'),floor:material('#dfd7c6','#d5bd96'),stone:material('#d6d3c9','#b1afa4'),paving:material('#e4e0d6','#cfccc0'),soil:material('#c9c6b7','#a5a78b'),lawn:material('#acb89a','#a0b18d'),leaf:material('#899975','#798f68'),trunk:material('#b9b09b','#95836b'),wood:material('#c5b79e','#ad8d62'),fabric:material('#ece8dc','#e7e0cc'),dark:material('#707770','#4a514b'),water:material('#a8c8c7','#76abae',.14),
   // Roof timber is pale spruce (IMG_1558); upper walls and ceilings have their own plaster so the section view can cut them.
-  spruce:material('#dcc7a4','#d9b27b',.7),
+  spruce:material('#dcc7a4','#d69a5c',.7),
   // Large polished stone tiles in the hall, kitchen, dining room and entrance (owner photos).
   tile:material('#d6d3c9','#b7b0a4',.32),upperPlaster:material('#f0eee6','#ebe6db'),blind:material('#b3aca2','#a39c92'),switch:material('#2a2a2a','#161616',.35)};
+ // Spruce takes the honey-orange of the upstairs rafters in the owner's photos (IMG_1502).
+ m.spruce.userData.finish='spruce';
  for(const [key,surface] of Object.entries({garage:'cladding',wall:'cladding',roof:'roof',floor:'oak',stone:'stone',paving:'stone',lawn:'lawn',leaf:'foliage',wood:'oak',tile:'stone',fabric:'linen',blind:'linen'}))m[key as keyof typeof m].userData.photo=surface;
  const glass=new T.MeshPhysicalMaterial({color:'#bdcfcd',transparent:true,opacity:.38,roughness:.14,metalness:.12,depthWrite:false,side:T.DoubleSide});
  const lineMat=new T.LineBasicMaterial({color:'#7f897e',transparent:true,opacity:.28});
@@ -43,7 +45,10 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const add=(geo:T.BufferGeometry,mat:T.Material,parent:T.Group,region?:Region)=>{const mesh=new T.Mesh(geo,mat);mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);if(region){mesh.userData.region=region;pickables.push(mesh)}return mesh;};
  const box=(parent:T.Group,x:number,y:number,z:number,w:number,h:number,d:number,mat:T.Material,region?:Region)=>{const mesh=add(boxGeo,mat,parent,region);mesh.position.set(x,y+h/2,z);mesh.scale.set(w,h,d);return mesh;};
  const segment=(parent:T.Group,a:number[],b:number[],width:number,mat:T.Material,region?:Region)=>{const start=new T.Vector3(...a),end=new T.Vector3(...b),len=start.distanceTo(end);const mesh=box(parent,0,0,0,width,len,width,mat,region);mesh.position.copy(start.add(end).multiplyScalar(.5));mesh.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),end.sub(new T.Vector3(...a)).normalize());return mesh;};
- const poly=(points:[number,number][],height:number,y:number,mat:T.Material,parent:T.Group,region?:Region)=>{const shape=new T.Shape(points.map(([x,z])=>new T.Vector2(x,-z)));if(mat===m.soil||mat===m.lawn)shape.holes.push(poolHole(),new T.Path(basementStairWell().map(([x,z])=>new T.Vector2(x,-z))));const geo=new T.ExtrudeGeometry(shape,{depth:height,bevelEnabled:false});geo.rotateX(-Math.PI/2);const mesh=add(geo,mat,parent,region);mesh.position.y=y;return mesh;};
+ // The basement stair runs beneath the open stair up, rising north like it (both plans): the hall floor, and the lawn and
+ // soil under the house, are open over its flight, all but the top step, where it is entered from the hall.
+ const well=[906,478,946,607],wellPath=()=>new T.Path([[well[0],well[1]],[well[2],well[1]],[well[2],well[3]],[well[0],well[3]]].map(([x,z])=>{const a=p(x,z);return new T.Vector2(a[0],-a[1]);}));
+ const poly=(points:[number,number][],height:number,y:number,mat:T.Material,parent:T.Group,region?:Region)=>{const shape=new T.Shape(points.map(([x,z])=>new T.Vector2(x,-z)));if(mat===m.soil||mat===m.lawn)shape.holes.push(poolHole(),new T.Path(basementStairWell().map(([x,z])=>new T.Vector2(x,-z))),wellPath());const geo=new T.ExtrudeGeometry(shape,{depth:height,bevelEnabled:false});geo.rotateX(-Math.PI/2);const mesh=add(geo,mat,parent,region);mesh.position.y=y;return mesh;};
  const outline=(mesh:T.Mesh)=>{const edge=new T.LineSegments(new T.EdgesGeometry(mesh.geometry,24),lineMat);mesh.add(edge);edges.push(edge);};
  const planBox=(parent:T.Group,x1:number,z1:number,x2:number,z2:number,h:number,y:number,mat:T.Material,region?:Region)=>{const a=p(x1,z1),b=p(x2,z2);return box(parent,(a[0]+b[0])/2,y,(a[1]+b[1])/2,b[0]-a[0],h,b[1]-a[1],mat,region)};
  const wall=(parent:T.Group,x1:number,z1:number,x2:number,z2:number,height=2.67,y=.12,mat:T.Material=m.plaster)=>{const a=p(x1,z1),b=p(x2,z2);const w=segment(parent,[a[0],y,a[1]],[b[0],y,b[1]],.18,mat);const len=Math.hypot(b[0]-a[0],b[1]-a[1]);w.scale.set(len,height,.18);w.rotation.set(0,-Math.atan2(b[1]-a[1],b[0]-a[0]),0);w.position.set((a[0]+b[0])/2,y+height/2,(a[1]+b[1])/2);w.userData.base=y;w.userData.height=height;cutWalls.push(w);return w;};
@@ -96,8 +101,19 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // Photo-confirmed flush timber surround, recessed water and pale narrow rim.
  const pool=buildPool();site.add(pool);pool.traverse(o=>{if(o instanceof T.Mesh)pickables.push(o);});
  // Main ground floor, ~12 x 19.3 m.
- rectFloor(ground,795,182,1229,877,0);
- for(const bounds of [[795,182,970,464],[814,464,1050,669],[1037,388,1229,669]])planBox(ground,...bounds as [number,number,number,number],.02,.122,m.tile);
+ const around=(x1:number,z1:number,x2:number,z2:number,piece:(x1:number,z1:number,x2:number,z2:number)=>void)=>{
+  const [hx1,hz1,hx2,hz2]=well;if(hx1<x1||hx2>x2||hz1<z1||hz2>z2){piece(x1,z1,x2,z2);return;}
+  piece(x1,z1,x2,hz1);piece(x1,hz2,x2,z2);piece(x1,hz1,hx1,hz2);piece(hx2,hz1,x2,hz2);};
+ around(795,182,1229,877,(x1,z1,x2,z2)=>rectFloor(ground,x1,z1,x2,z2,0));
+ for(const [x1,z1,x2,z2] of [[795,182,970,464],[814,464,1050,669],[1037,388,1229,669]])around(x1,z1,x2,z2,(a,b,c,d)=>planBox(ground,a,b,c,d,.02,.122,m.tile));
+ {const stairwell=new T.Group();stairwell.name='basement-stairwell';ground.add(stairwell);
+  // The basement's own flight (drawn on the basement sheet, 20 px east), seen from the hall; a plastered shaft with the
+  // foot of the stair below the floor, and a steel rail along the open hall side, clear of the entry at the top.
+  const [fx,fz]=p(946,538);stairs(stairwell,fx+BASEMENT_PLAN_X_OFFSET,fz,1.1,3.8,-2.3,2.43);
+  for(const [x1,z1,x2,z2] of [[902,463,906,645],[946,463,950,645],[902,463,950,467],[902,645,950,649]])planBox(stairwell,x1,z1,x2,z2,2.42,-2.45,m.plaster);
+  planBox(stairwell,906,467,946,645,.15,-2.45,m.tile);
+  const [,gz1]=p(0,492),[,gz2]=p(0,607),[gx]=p(948.5,0),rail=(y:number,h:number)=>box(stairwell,gx,y,(gz1+gz2)/2,.04,h,gz2-gz1,m.dark);
+  rail(1.1,.045);rail(.2,.03);for(let z=gz1;z<=gz2+1e-6;z+=(gz2-gz1)/Math.round((gz2-gz1)/.12))box(stairwell,gx,.12,z,.022,1,.022,m.dark);}
  function facade(parent:T.Group,a:[number,number],b:[number,number],openings:{from:number;to:number;sill:number;head:number;kind?:'garage'|'sliding'|'passage'}[],region:Region){
   const len=Math.hypot(b[0]-a[0],b[1]-a[1]),dx=(b[0]-a[0])/len,dz=(b[1]-a[1])/len;
   // External walls are about 0.45 m thick on the plans: the cladding face stays 0.105 m outside the traced outline and the wall grows inward.
@@ -181,7 +197,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // The stair opening meets the west edge; a notch avoids floor crossing the turning flight.
  const guestSlabGeo=new T.ExtrudeGeometry(guestSlabShape,{depth:.15,bevelEnabled:false});guestSlabGeo.rotateX(-Math.PI/2);const guestSlab=add(guestSlabGeo,m.floor,upper,'guest');guestSlab.position.y=2.95;guestSlab.name='guest-floor-with-atrium';
  partitions.push({walls:[[207,780,292,789],[324,793,371,798],[193,934,267,942],[305,946,356,951],[186,1035,257,1043],[193,934,186,1035],[267,942,263,980],[260,1012,257,1043]],floor:3.07,roof:'guest'});
- const guestLanding=poly([[246,797],[267,802],[263,839],[242,836]].map(([x,z])=>p(x,z)),.15,2.95,m.floor,upper);guestLanding.name='guest-stair-turning-landing';
+ // Named without "stair": the whole-house view leaves out upper-floor pieces named for stairs (duplicates of the ground ones).
+ const guestLanding=poly([[246,797],[267,802],[263,839],[242,836]].map(([x,z])=>p(x,z)),.15,2.95,m.floor,upper);guestLanding.name='guest-upper-landing';
  for(const [a,b] of [[p(263,839),guestAtrium[2]],[guestAtrium[2],guestAtrium[3]]] as [number[],number[]][]){
   for(const y of [3.28,3.52,3.76,4.02])segment(upper,[a[0],y,a[1]],[b[0],y,b[1]],.025,m.dark);
   for(let t=0;t<=1.01;t+=.25)box(upper,a[0]+(b[0]-a[0])*t,3.1,a[1]+(b[1]-a[1])*t,.045,.96,.045,m.dark);

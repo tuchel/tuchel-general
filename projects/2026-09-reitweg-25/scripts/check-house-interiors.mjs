@@ -17,6 +17,11 @@ const storage=model.root.getObjectByName('entry-storage-clear-of-courtyard-door'
 assert(model.root.getObjectByName('front-door-walkway'),'front door walkway present');assert(model.root.getObjectByName('kitchen-terrace-table'),'outdoor table present');
 assert.equal(crosses(point(777,630),point(920,630),[ground]).length,0,'connector to main atrium is open through both wall planes');
 assert.equal(crosses(point(850,625),point(850,580),[ground]).length,0,'hall WC south doorway is accessible');
+// The basement stair opens off the hall beneath the open stair up: the floor is open over its flight, the flight shows
+// from the hall, and a rail guards the open side.
+{const [x,z]=p(926,540),under=crosses([x,1,z],[x,-3,z],[ground]).filter(h=>h.object.isMesh)[0];assert(under&&under.point.y<-.6&&under.point.y>-2,`the hall floor is open over the basement flight (first surface at ${under?.point.y.toFixed(2)} m)`);
+ // Where the stair up passes well overhead (about 1.9 m), a ray from the hall at rail height meets the rail at the edge.
+ const [ex,gz]=p(975,510),[gx]=p(946,510),guard=crosses([ex,1.12,gz],[gx-.4,1.12,gz],[ground]).filter(h=>h.object.isMesh)[0];assert(guard&&guard.point.x>gx-.05&&guard.point.x<gx+.15,'a rail guards the stairwell on the hall side');}
 // The hall table stands beside the dining-room doorway, never across it: clear at table-top height over the whole opening.
 for(let z=616;z<=661;z+=5)assert.equal(crosses(point(1005,z,.97),point(1068,z,.97),[ground]).length,0,`hall to dining doorway is clear at z ${z}`);
 assert(model.root.getObjectByName('hall-table-beside-dining-door'),'hall table present');
@@ -113,4 +118,4 @@ if(process.argv.includes('--realism')){
  const slope=Math.atan2(5.36,6.55),glass=new T.Vector3(6.55*.68+.3*Math.cos(slope)+.05*Math.sin(slope),8-5.36*.68-.3*Math.sin(slope)+.05*Math.cos(slope),8.8),front=eye.clone().setZ(8.8),toward=new T.Raycaster(front,glass.clone().sub(front).normalize()).intersectObjects(visible,false)[0];
  assert(toward&&[toward.object.material].flat().some(m=>m.transparent),`a low east roof window is visible over the knee wall (${toward?.object.name||toward?.object.parent?.name})`);
 }
-model.dispose();console.log('Passed: dining circulation, the hall doorway beside its table, the south bedroom headboard against its wall, yoga doorway, sliding door, corridor clearance, walkway, outdoor table, guest atrium, plan doorways, guest stair, basement doors and registration, roof height, upper walls to the ceiling, roof windows over the knee wall and finite model transforms.');
+model.dispose();console.log('Passed: dining circulation, the basement stairwell open and guarded in the hall, the hall doorway beside its table, the south bedroom headboard against its wall, yoga doorway, sliding door, corridor clearance, walkway, outdoor table, guest atrium, plan doorways, guest stair, basement doors and registration, roof height, upper walls to the ceiling, roof windows over the knee wall and finite model transforms.');

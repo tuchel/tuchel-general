@@ -33,6 +33,15 @@ assert(through>1,`walker goes through the front gate (${through.toFixed(2)} m pa
 // Main stair: from the hall at its foot, walking north up the flight to the upper floor.
 const [sx,sz]=p(927,533.5),top=walk([sx,1.8,sz+2.9],[sx,1.8,sz-10],8);
 assert(top.y-1.65>3,`walker climbs the stair to the upper floor (feet at ${(top.y-1.65).toFixed(2)} m)`);
+// The guest stair lands on the upper floor with no gap, as the whole-house view draws it: down the top flight's centre
+// line, from past the last tread to past the floor edge, the first surface is at floor height.
+{const stair=model.root.getObjectByName('guest-ground-turning-stair'),probe=new T.Raycaster();stair.updateMatrixWorld(true);
+ for(let lx=2.35;lx<=3.2;lx+=.05){const w=new T.Vector3(lx,3.6,-.055).applyMatrix4(stair.matrixWorld);probe.set(w,new T.Vector3(0,-1,0));probe.far=1.2;
+  const h=probe.intersectObjects(meshes.filter(o=>{for(let a=o;a;a=a.parent)if(!a.visible)return false;return true;}),false)[0];
+  assert(h&&h.point.y>3.05,`no gap at the top of the guest stair (${lx.toFixed(2)} m along the flight: ${h?h.point.y.toFixed(2)+' m':'nothing'})`);}}
+// Basement stair: from its landing off the hall, walking south down the flight under the stair up to the basement.
+const [bx,bz]=p(926,474),down=walk([bx,1.8,bz],[bx,1.8,bz+10],5);
+assert(down.y-1.65<-2,`walker goes down the basement stair from the hall (feet at ${(down.y-1.65).toFixed(2)} m)`);
 // Leaning out of the upstairs roof window, a walk back into the room starts on the upper floor, not on the roof.
 const up=places.upstairs;camera.position.set(...up.position);camera.lookAt(up.position[0]-10,up.position[1],up.position[2]);camera.updateMatrixWorld();
 {const walker=createWalker(camera,()=>meshes);walker.reset(up.floor);for(let t=0;t<2.5;t+=1/30)walker.step(1/30,{forward:1,strafe:0,run:false});}
@@ -53,4 +62,4 @@ const openness=position=>{camera.position.copy(position);camera.updateMatrixWorl
 const inside=roomExposure(openness(new T.Vector3(lx,1.65,lz))),outside=roomExposure(openness(east));
 assert(inside>3.5,`the family room keeps the room exposure (×${inside.toFixed(2)})`);
 assert(outside<1.1,`the terrace is exposed as outdoors (×${outside.toFixed(2)})`);
-console.log(`Passed: the curbside, courtyard and master bedroom places start on their floors at a 2.1 m/s pace; the garden door, hall doors and front gate let the walker through, a wall stops it (${south.z.toFixed(2)} m), and the main stair reaches the upper floor (feet at ${(top.y-1.65).toFixed(2)} m); the family room keeps the room exposure (×${inside.toFixed(2)}) and the terrace is exposed as outdoors (×${outside.toFixed(2)}).`);
+console.log(`Passed: the curbside, courtyard and master bedroom places start on their floors at a 2.1 m/s pace; the garden door, hall doors and front gate let the walker through, a wall stops it (${south.z.toFixed(2)} m), and the main stair reaches the upper floor (feet at ${(top.y-1.65).toFixed(2)} m) and the basement (feet at ${(down.y-1.65).toFixed(2)} m); the family room keeps the room exposure (×${inside.toFixed(2)}) and the terrace is exposed as outdoors (×${outside.toFixed(2)}).`);

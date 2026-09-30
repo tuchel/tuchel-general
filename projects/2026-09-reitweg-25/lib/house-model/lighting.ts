@@ -51,10 +51,13 @@ const NOON_KEY=noonSky*5;
 /** Exposure that places an 18% grey card at 0.25 linear under the June noon key. */
 const NOON_EXPOSURE=.25/(.18/Math.PI*NOON_KEY);
 
-/** Rooms are exposed up to two stops brighter than outdoors, as a photographer would, by how little sky the camera
- * sees (walk.ts): 4× in a closed room, easing to 1× once a fifth of the sky is open, so a terrace or the eaves are
- * exposed as outdoors. */
-export const roomExposure=(openness:number)=>1+3*(1-T.MathUtils.smoothstep(openness,.03,.2));
+/** Rooms are exposed up to about two and a half stops brighter than outdoors, as a photographer would, by how little sky
+ * the camera sees (walk.ts): 5.5× in a closed room, so white walls read white, easing to 1× once a fifth of the sky is
+ * open, so a terrace or the eaves are exposed as outdoors. */
+const ROOM_BOOST=4.5;
+export const roomExposure=(openness:number)=>1+ROOM_BOOST*(1-T.MathUtils.smoothstep(openness,.03,.2));
+/** How far indoors a room exposure puts the camera: 0 outdoors, 1 in a closed room (the interior finish, look.ts). */
+export const indoorOf=(room:number)=>T.MathUtils.clamp((room-1)/ROOM_BOOST,0,1);
 export type LightReading=ReturnType<typeof sunStudyReading>&{exposure:number;dusk:number;daylight:number;key:number};
 export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Object3D,options:{shadowSize:number}){
  const sky=new Sky();sky.name='calculated-sun-sky';sky.userData.skipPhotographic=true;sky.scale.setScalar(20000);sky.frustumCulled=false;scene.add(sky);

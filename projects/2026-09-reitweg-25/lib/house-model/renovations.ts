@@ -49,10 +49,15 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  poly(kitchenRoof,roofOutline,2.83,.055,clear);
  for(let z=126;z<=716;z+=84){const a=kitchenPoint(104,z),b=kitchenPoint(z<=275?626:334,z);box(kitchenRoof,(a[0]+b[0])/2,2.82,a[1],b[0]-a[0],.11,.07,m.metal);}
  for(const [a,b] of [[[104,126],[104,716]],[[104,126],[626,126]],[[104,716],[334,716]],[[626,126],[626,275]]]){const u=kitchenPoint(...a as [number,number]),v=kitchenPoint(...b as [number,number]),g=place(kitchenRoof,(u[0]+v[0])/2,(u[1]+v[1])/2,-Math.atan2(v[1]-u[1],v[0]-u[0]),2.82);box(g,0,0,0,Math.hypot(v[0]-u[0],v[1]-u[1]),.13,.1,m.metal);}
- for(const o of kitchenLayout.layouts[0].objects){const [x,z]=kitchenPoint(o.x+o.w/2,o.y+o.d/2),g=place(kitchen,x,z),w=o.w*K,d=o.d*K;g.name='garden-kitchen-'+o.kind.replaceAll(' ','-');
+ // The island is 2.08 m, not the layout's 2.78 m, and has no stools at its end: the way between its end and the retained
+ // pier stays 0.85 m wide. It takes the cabinets' sage.
+ for(const item of kitchenLayout.layouts[0].objects){
+  if(item.kind==='chair'&&item.x>300&&item.y>600)continue;
+  const o=item.kind==='island'?{...item,d:142}:item;
+  const [x,z]=kitchenPoint(o.x+o.w/2,o.y+o.d/2),g=place(kitchen,x,z),w=o.w*K,d=o.d*K;g.name='garden-kitchen-'+o.kind.replaceAll(' ','-');
   if(o.kind==='table'){table(g,w,d);continue;}
   if(o.kind==='chair'){const stool=o.x>300;chair(g,0,0,stool?(o.y<333?Math.PI:0):o.x<155?-Math.PI/2:o.x>225?Math.PI/2:o.y<320?Math.PI:0,stool);continue;}
-  const h=o.kind==='pantry'?2.25:.9;box(g,0,0,0,w,h,d,o.kind==='island'||o.kind==='pantry'?m.oak:o.kind==='cooker'||o.kind==='second oven'?m.metal:m.sage);
+  const h=o.kind==='pantry'?2.25:.9;box(g,0,0,0,w,h,d,o.kind==='pantry'?m.oak:o.kind==='cooker'||o.kind==='second oven'?m.metal:m.sage);
   if(o.kind==='pantry'){for(let i=1;i<3;i++)box(g,-w/2-.009,1.15,(i/3-.5)*d,.02,.38,.02,m.metal);continue;}
   box(g,0,h,0,w+.045,.065,d+.055,m.stone);
   // Quiet, irregular mineral lines in the stone; these are illustrative, not a photo finish.
