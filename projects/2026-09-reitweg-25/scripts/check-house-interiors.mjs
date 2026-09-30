@@ -118,4 +118,10 @@ if(process.argv.includes('--realism')){
  const slope=Math.atan2(5.36,6.55),glass=new T.Vector3(6.55*.68+.3*Math.cos(slope)+.05*Math.sin(slope),8-5.36*.68-.3*Math.sin(slope)+.05*Math.cos(slope),8.8),front=eye.clone().setZ(8.8),toward=new T.Raycaster(front,glass.clone().sub(front).normalize()).intersectObjects(visible,false)[0];
  assert(toward&&[toward.object.material].flat().some(m=>m.transparent),`a low east roof window is visible over the knee wall (${toward?.object.name||toward?.object.parent?.name})`);
 }
-model.dispose();console.log('Passed: dining circulation, the basement stairwell open and guarded in the hall, the hall doorway beside its table, the south bedroom headboard against its wall, yoga doorway, sliding door, corridor clearance, walkway, outdoor table, guest atrium, plan doorways, guest stair, basement doors and registration, roof height, upper walls to the ceiling, roof windows over the knee wall and finite model transforms.');
+// The walk-in pantry is closed off from the hall WC: solid wall on its west side down to the wall between them (plan).
+assert(crosses(point(835,480),point(812,525),[ground]).length>0,'a wall separates the pantry from the WC');
+// The basement stair is entered from the hall across its top step: nothing stands in that way between 0.3 and 1.9 m.
+model.basement.visible=true;
+for(let x=920;x<=975;x+=2)for(let z=470;z<=490;z+=2)assert.equal(crosses(point(x,z,1.9),point(x,z,.3),[ground,model.basement]).filter(h=>h.object.isMesh).length,0,`the way onto the basement stair is clear at ${x}, ${z}`);
+model.basement.visible=false;
+model.dispose();console.log('Passed: dining circulation, the basement stairwell open and guarded in the hall with a clear way onto its top step, the pantry closed off from the WC, the hall doorway beside its table, the south bedroom headboard against its wall, yoga doorway, sliding door, corridor clearance, walkway, outdoor table, guest atrium, plan doorways, guest stair, basement doors and registration, roof height, upper walls to the ceiling, roof windows over the knee wall and finite model transforms.');

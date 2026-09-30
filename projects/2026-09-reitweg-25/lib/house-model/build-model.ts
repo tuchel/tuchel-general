@@ -52,7 +52,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const outline=(mesh:T.Mesh)=>{const edge=new T.LineSegments(new T.EdgesGeometry(mesh.geometry,24),lineMat);mesh.add(edge);edges.push(edge);};
  const planBox=(parent:T.Group,x1:number,z1:number,x2:number,z2:number,h:number,y:number,mat:T.Material,region?:Region)=>{const a=p(x1,z1),b=p(x2,z2);return box(parent,(a[0]+b[0])/2,y,(a[1]+b[1])/2,b[0]-a[0],h,b[1]-a[1],mat,region)};
  const wall=(parent:T.Group,x1:number,z1:number,x2:number,z2:number,height=2.67,y=.12,mat:T.Material=m.plaster)=>{const a=p(x1,z1),b=p(x2,z2);const w=segment(parent,[a[0],y,a[1]],[b[0],y,b[1]],.18,mat);const len=Math.hypot(b[0]-a[0],b[1]-a[1]);w.scale.set(len,height,.18);w.rotation.set(0,-Math.atan2(b[1]-a[1],b[0]-a[0]),0);w.position.set((a[0]+b[0])/2,y+height/2,(a[1]+b[1])/2);w.userData.base=y;w.userData.height=height;cutWalls.push(w);return w;};
- const stairs=(parent:T.Group,x:number,z:number,w:number,depth:number,y=0,rise=2.9)=>{for(let i=0;i<16;i++)box(parent,x,y+i*rise/16,z+depth/2-i*depth/16,w,rise/16,depth/16,m.floor);segment(parent,[x+w/2,y+1,z+depth/2],[x+w/2,y+rise+1,z-depth/2],.035,m.dark);};
+ const stairs=(parent:T.Group,x:number,z:number,w:number,depth:number,y=0,rise=2.9,railTo=z-depth/2)=>{for(let i=0;i<16;i++)box(parent,x,y+i*rise/16,z+depth/2-i*depth/16,w,rise/16,depth/16,m.floor);segment(parent,[x+w/2,y+1,z+depth/2],[x+w/2,y+1+rise*(z+depth/2-railTo)/depth,railTo],.035,m.dark);};
  // Open timber treads and slender steelwork, visible from the hall and gallery.
  const mainStair=(parent:T.Group)=>{
   const g=new T.Group();g.name='main-open-timber-stair';parent.add(g);
@@ -133,6 +133,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  facade(ground,[kitchenEast,N],[E,N],[{from:5.5-northSplit,to:6.7-northSplit,sill:0,head:2.2},{from:8.2-northSplit,to:9.4-northSplit,sill:.7,head:2.15}],'main');
  capture('east',ground,()=>facade(ground,[W,S],[E,S],[{from:1.6,to:4.2,sill:.9,head:2.2},{from:7.83,to:10.26,sill:.9,head:2.2}],'main'));
  for(const [a,b,c,d] of [[965,194,965,382],[964,386,1003,386],[1030,388,1043,388],[988,389,988,464],[814,464,850,464],[877,464,952,464],[980,464,1001,464],[1029,464,1043,464],[1043,388,1126,388],[1175,388,1218,388],[1050,388,1050,462],[1114,428,1114,462],[1050,462,1114,462],[1050,470,1050,613],[1050,524,1215,524],[1037,669,1078,669],[814,669,959,669],[893,464,893,609],[893,652,893,669],[829,507,893,507],[869,559,893,559],[869,559,869,598],[869,598,893,598],[829,598,833,598]])wall(ground,a,b,c,d);
+ // The walk-in pantry's west side is solid down to its wall with the WC: the thick wall drawn between it and the facade.
+ wall(ground,816,466,816,505).scale.z=26*PLAN_SCALE;
  // The dining alcove opens into the sitting room between two piers, as drawn on the plan.
  wall(ground,1166,669,1215,669);
  // Door leaves: thin panels cut with the walls in floor views. Steel-framed glazed leaves follow the photographs.
@@ -215,7 +217,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  }
  // Doors from the Diele into Abstell, HWR, wine room and hobby room; Abstell and HWR are separate rooms.
  for(const a of [[983,199,983,287],[1065,199,1065,322],[841,344,984,344],[984,344,984,456],[1065,352,1065,407],[1065,439,1065,497],[1065,524,1065,669],[1065,387,1220,387],[1065,462,1220,462],[841,460,995,460],[914,463,914,630],[841,669,1011,669],[1051,669,1220,669]])wall(basement,...a as [number,number,number,number],BASEMENT_WALL,-2.3);
- q=at(946,538);stairs(basement,q[0],q[1],1.1,3.8,-2.3,2.43);
+ // Its handrail stops where the hall's rail begins, so the way from the hall onto the top step stays clear.
+ q=at(946,538);stairs(basement,q[0],q[1],1.1,3.8,-2.3,2.43,p(0,492)[1]);
  const guestBasement=[[110,930],[353,955],[326,1226],[79,1205]];poly(guestBasement.map(([x,z])=>p(x,z)),.15,-2.45,m.stone,basement,'guest');
  guestBasement.forEach((a,i)=>{const b=guestBasement[(i+1)%4];wall(basement,a[0],a[1],b[0],b[1],BASEMENT_WALL,-2.3);});
  {q=at(262,1074);const column=add(cylinderGeo,m.plaster,basement);column.scale.set(.15,BASEMENT_WALL,.15);column.position.set(q[0],-2.3+BASEMENT_WALL/2,q[1]);column.userData.base=-2.3;column.userData.height=BASEMENT_WALL;cutWalls.push(column);}
