@@ -206,8 +206,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const within=(x:number,z:number,points:number[][])=>{let inside=false;for(let i=0,j=points.length-1;i<points.length;j=i++){const [xi,zi]=points[i],[xj,zj]=points[j];if((zi>z)!==(zj>z)&&x<(xj-xi)*(z-zi)/(zj-zi)+xi)inside=!inside;}return inside;};
  const mainFootprint=[[W-.11,N-.11],[E+.11,N-.11],[E+.11,S+.11],[W-.11,S+.11]],indoors=(x:number,z:number)=>within(x,z,mainFootprint)||within(x,z,guestOutline);
  // Pitched roofs: the main pitch follows the upper plan's height lines; other heights are model assumptions.
- function pitchedRoof(cx:number,cz:number,width:number,length:number,eave:number,ridge:number,rotation=0,kind:'main'|'guest'|'link'='main',footprint?:[number,number][]){
-  const g=new T.Group();g.position.set(cx,0,cz);g.rotation.y=rotation;roofs.add(g);const rise=ridge-eave,half=width/2,slope=Math.atan2(rise,half),span=Math.hypot(half,rise);
+ function pitchedRoof(cx:number,cz:number,width:number,length:number,eave:number,ridge:number,rotation=0,kind:'main'|'guest'|'link'='main',footprint?:[number,number][],above:((x:number,z:number)=>number)[]=[]){
+  const g=new T.Group();g.name=kind+'-roof';g.position.set(cx,0,cz);g.rotation.y=rotation;roofs.add(g);const rise=ridge-eave,half=width/2,slope=Math.atan2(rise,half),span=Math.hypot(half,rise);
   const windows=kind==='link'?[]:roofSkylights(kind);
   for(const side of [-1,1]){const mesh=realistic?add(roofSlopeWithOpenings(half,length,eave,ridge,side,windows),m.roof,g,'main'):box(g,side*half/2,(eave+ridge)/2-.075,0,span,.15,length,m.roof,'main');if(!realistic)mesh.rotation.z=-side*slope;mesh.name=kind+'-roof-slope-'+side;outline(mesh);box(g,side*half,eave-.06,0,.14,.18,length,m.edge).name='roof-eave-fascia';}
   // A downpipe or gutter never stands inside a building: test eave points against the main and guest footprints.
@@ -223,9 +223,9 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
    const profile=[new T.Vector2(0,2.74),new T.Vector2(len,2.74),new T.Vector2(len,underside(b[0]))];
    const cross=-a[0]/dx;if(Number.isFinite(cross)&&cross>0&&cross<1)profile.push(new T.Vector2(cross*len,ridge-.045));
    profile.push(new T.Vector2(0,underside(a[0])));const shape=new T.Shape(profile);
-   const windows=kind==='main'&&index===2?[[-2.6,3.15,1.05,2.1],[2.6,3.15,1.05,2.1]]:kind==='main'&&index===0?[[-2.27,3.1,1.1,2.1],[1,3.1,1.1,2.1]]:kind==='guest'&&index===0?[[0,3.15,2.3,1.8]]:kind==='guest'&&index===4?[[0,3.05,2.4,2.25]]:[];
+   const windows=kind==='main'&&index===2?[[-2.35,3.15,1.05,2.1],[2.35,3.15,1.05,2.1]]:kind==='main'&&index===0?[[-2.27,3.1,1.1,2.1],[1,3.1,1.1,2.1]]:kind==='guest'&&index===0?[[0,3.15,2.3,1.8]]:kind==='guest'&&index===4?[[0,3.05,2.4,2.25]]:[];
    const face=new T.Group();face.position.set(a[0],0,a[1]);face.rotation.y=-Math.atan2(dz,dx);g.add(face);
-   for(const [x,y,w,h] of windows){const u=(x-a[0])/dx*len;const hole=new T.Path();hole.moveTo(u-w/2,y);hole.lineTo(u-w/2,y+h);hole.lineTo(u+w/2,y+h);hole.lineTo(u+w/2,y);hole.closePath();shape.holes.push(hole);box(face,u,y,0,w,h,.05,glass);for(const offset of [-w/2,w/2])box(face,u+offset,y,0,.05,h,.25,m.dark);for(const dy of [0,h])box(face,u,y+dy,0,w,.05,.25,m.dark);}
+   for(const [x,y,w,h] of windows){const u=(x-a[0])/dx*len;const hole=new T.Path();hole.moveTo(u-w/2,y);hole.lineTo(u-w/2,y+h);hole.lineTo(u+w/2,y+h);hole.lineTo(u+w/2,y);hole.closePath();shape.holes.push(hole);box(face,u,y,0,w,h,.05,glass).name='gable-window';for(const offset of [-w/2,w/2])box(face,u+offset,y,0,.05,h,.25,m.dark);for(const dy of [0,h])box(face,u,y+dy,0,w,.05,.25,m.dark);}
    const wallGeometry=new T.ExtrudeGeometry(shape,{depth:.21,bevelEnabled:false});wallGeometry.translate(0,0,-.105);const mesh=add(wallGeometry,m.wall,face,kind==='guest'?'guest':'main');mesh.name=kind+'-roof-wall-'+index;
    // Rooms under the roof are plastered: line the inner face so the cladding never shows between wall head and ceiling.
    // The room side is whichever side of the face's midpoint lies inside the footprint (the guest wing is not convex).
@@ -244,9 +244,10 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
   // and pale spruce is exposed: rafters between the windows, a ridge beam, trusses over the main atrium placed clear of
   // the windows (IMG_1558, IMG_1579), and posts with braces in the guest wing (A58F5DA7).
   if(realistic&&kind!=='link'){
-   const ceiling=(x:number)=>ridge-rise*Math.abs(x)/half-.045-CEILING,depth=CEILING*half/span;
+   // The main roof overhangs its gables; its ceiling and ridge beam stop at the gable walls' inner faces.
+   const ceiling=(x:number)=>ridge-rise*Math.abs(x)/half-.045-CEILING,depth=CEILING*half/span,lined=footprint?length:S-N-.21;
    // Ceilings and reveals never stop a walk: the knee walls do, and a walk back in from a roof window passes under them.
-   for(const side of [-1,1]){const lining=passable(add(roofLining(half,length,eave,ridge,side,skylights,depth,half-.3),m.upperPlaster,g));lining.castShadow=false;lining.name=kind+'-ceiling-'+side;}
+   for(const side of [-1,1]){const lining=passable(add(roofLining(half,lined,eave,ridge,side,skylights,depth,half-.3),m.upperPlaster,g));lining.castShadow=false;lining.name=kind+'-ceiling-'+side;}
    for(const {side,z,fraction} of skylights){
     const reveal=new T.Group();reveal.position.set(side*half*fraction,ridge-rise*fraction,z);reveal.rotation.z=-side*slope;g.add(reveal);const y=-.15-depth;
     for(const d of [-1,1]){box(reveal,0,y,d*.415,1.47,depth,.03,m.upperPlaster).castShadow=false;box(reveal,d*.735,y,0,.03,depth,.86,m.upperPlaster).castShadow=false;}
@@ -254,8 +255,13 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
     box(reveal,-side*.63,y+.02,0,.12,.1,.84,m.blind).castShadow=false;
     passable(reveal);
    }
-   box(g,0,ceiling(0)-.22,0,.16,.22,length-.3,m.spruce);
-   const rafter=(side:number,z:number)=>segment(g,[side*.12,ceiling(.12)-.08,z],[side*(half-.35),ceiling(half-.35)-.08,z],.15,m.spruce);
+   box(g,0,ceiling(0)-.22,0,.16,.22,Math.min(length-.3,lined),m.spruce);
+   // Windows sit at different heights, so one window's flanking rafter can pass another: it stops at that window's reveal.
+   const rafter=(side:number,z:number)=>{
+    // Reveals run square to the slope, so at the rafters' depth a window's edges sit nearer the ridge than on the roof.
+    const reach=.76*half/span,shift=(.125+CEILING)*half*rise/(span*span),cuts=skylights.filter(w=>w.side===side&&Math.abs(w.z-z)<.5).map(w=>[half*w.fraction-shift-reach,half*w.fraction-shift+reach]).sort((a,b)=>a[0]-b[0]);
+    let from=.12;for(const [a,b] of [...cuts,[half-.35,Infinity]]){const to=Math.min(a,half-.35);if(to>from+.2)segment(g,[side*from,ceiling(from)-.08,z],[side*to,ceiling(to)-.08,z],.15,m.spruce).name='roof-rafter';from=Math.max(from,b);}
+   };
    const clear=(side:number,z:number)=>skylights.every(w=>w.side!==side||Math.abs(w.z-z)>.55);
    // Each roof window sits between two rafters (owner photos); the regular rafters keep clear of them.
    const flanks=skylights.flatMap(w=>[-1,1].map(d=>({side:w.side,z:w.z+d*.52}))).filter(f=>Math.abs(f.z)<length/2-.3);
@@ -271,7 +277,30 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
    }
    if(kind==='guest'){const posts=[[260,650],[247,786],[240,1040]].map(([x,z])=>{const [px,pz]=p(x,z),dx=px+UPPER_PLAN_X_OFFSET-cx,dz=pz-cz;return dx*Math.sin(rotation)+dz*Math.cos(rotation);});for(const z of posts){box(g,0,3.1,z,.14,ceiling(0)-.2-3.1,.14,m.spruce);for(const d of [-1,1])segment(g,[0,ceiling(0)-1.1,z],[0,ceiling(0)-.22,z+d*.9],.08,m.spruce);}}
   }
+  for(const surface of above)keepAbove(g,surface);
   return (x:number,z:number)=>{const dx=x-cx,dz=z-cz;return ridge-rise*Math.abs(dx*Math.cos(rotation)-dz*Math.sin(rotation))/half-.045;};
+ }
+ // Cuts away every part of a group below a surface (world heights), splitting triangles where it crosses: a roof that
+ // dies into another keeps only what shows above that roof's underside. Exact where the surface is flat over the group.
+ function keepAbove(group:T.Object3D,surface:(x:number,z:number)=>number){
+  group.updateMatrixWorld(true);const meshes:T.Mesh[]=[];group.traverse(o=>{if(o instanceof T.Mesh)meshes.push(o);});
+  for(const mesh of meshes){
+   const world=mesh.geometry.index?mesh.geometry.toNonIndexed():mesh.geometry.clone();world.applyMatrix4(mesh.matrixWorld);
+   const pos=world.attributes.position,height=(i:number)=>pos.getY(i)-surface(pos.getX(i),pos.getZ(i));
+   let below=0;for(let i=0;i<pos.count;i++)if(height(i)<0)below++;
+   if(!below){world.dispose();continue;}
+   if(below===pos.count){mesh.removeFromParent();world.dispose();continue;}
+   const names=Object.keys(world.attributes),out:Record<string,number[]>=Object.fromEntries(names.map(n=>[n,[]]));
+   const vertex=(i:number,j:number,t:number)=>{for(const n of names){const a=world.attributes[n];for(let k=0;k<a.itemSize;k++)out[n].push(a.getComponent(i,k)*(1-t)+a.getComponent(j,k)*t);}};
+   for(let t=0;t<pos.count;t+=3){
+    const kept:[number,number,number][]=[];
+    for(let e=0;e<3;e++){const i=t+e,j=t+(e+1)%3,hi=height(i),hj=height(j);if(hi>=0)kept.push([i,i,0]);if((hi>=0)!==(hj>=0))kept.push([i,j,hi/(hi-hj)]);}
+    for(let k=1;k<kept.length-1;k++)for(const v of [kept[0],kept[k],kept[k+1]])vertex(...v);
+   }
+   const clipped=new T.BufferGeometry();for(const n of names)clipped.setAttribute(n,new T.Float32BufferAttribute(out[n],world.attributes[n].itemSize));
+   clipped.applyMatrix4(mesh.matrixWorld.clone().invert());world.dispose();mesh.geometry=clipped;
+   for(const child of mesh.children)if(child instanceof T.LineSegments)child.geometry=new T.EdgesGeometry(clipped,24);
+  }
  }
  const mainUnder=pitchedRoof(0,0,13.1,20.2,2.64,8);
  const guest=guestRoofFrame;const guestUnder=pitchedRoof(guest.center[0],guest.center[1],guest.width+.18,guest.length+.18,2.94,6.75,guest.rotation,'guest',guestOutline);
@@ -311,7 +340,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // The entrance roof's ridge dies into the guest and main roof slopes; its ends sit just inside them.
  const connector=p(625,663),linkRidge=4.75,meets=(under:(x:number,z:number)=>number,from:number,to:number)=>{let a=from,b=to;for(let i=0;i<40;i++){const mid=(a+b)/2;if((under(mid,connector[1])+.045>linkRidge)===(under(a,connector[1])+.045>linkRidge))a=mid;else b=mid;}return (a+b)/2;};
  const linkWest=meets(guestUnder,connector[0]-12,connector[0])-.15,linkEast=meets(mainUnder,connector[0],0)+.15;
- pitchedRoof((linkWest+linkEast)/2,connector[1],5.6,linkEast-linkWest,2.85,linkRidge,Math.PI/2,'link',linkOutline);
+ pitchedRoof((linkWest+linkEast)/2,connector[1],5.6,linkEast-linkWest,2.85,linkRidge,Math.PI/2,'link',linkOutline,[mainUnder,guestUnder]);
  q=at(1010,885);box(roofs,q[0],.15,q[1],.8,9.15,.75,m.plaster,'main').name='chimney';
  // Fine cladding rhythm, deliberately restrained in the pale model finish.
  const slats=new T.Group();ground.add(slats);for(let z=N;z<S;z+=.23){for(const x of [W-.025,E+.025]){const bar=box(slats,x,2.4,z,.035,.38,.025,m.wood);bar.castShadow=false;if(x>0)(originals.east??=[]).push(bar);else if(z<kitchenSouth)(originals.kitchen??=[]).push(bar);}}

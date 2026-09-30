@@ -61,7 +61,9 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  // Living: two facing sofas, transparent coffee table and woven chair by the garden.
  g=place(ground,1020,784);sofa(g,-2.05,0,2.9,-Math.PI/2);sofa(g,2.05,0,2.9,Math.PI/2).userData.replacedBy='east';table(group(g,0,0,0),1.45,1.05,.42,clear);
  const cane=place(ground,1190,827,-.5);chair(cane,0,0,0,m.oak);box(cane,0,.47,0,.5,.13,.48,m.cream,true);plant(place(ground,1194,700));g=place(ground,920,841);round(g,0,0,0,.22,.025,m.charcoal);rod(g,[0,0,0],[0,1.5,0],.025,m.charcoal);mesh(g,new T.ConeGeometry(.25,.2,20),m.charcoal,.13,1.53,0);
- g=place(ground,614,642);g.name="entry-storage-clear-of-courtyard-door";cabinets(g,4.65,2.35,m.pine,false);plant(place(ground,781,600));g=place(ground,1030,609);table(g,.5,1.65,.85);
+ g=place(ground,614,642);g.name="entry-storage-clear-of-courtyard-door";cabinets(g,4.65,2.35,m.pine,false);plant(place(ground,781,600));
+ // Narrow hall table along the dining-room wall, clear of the doorway at its south end.
+ g=place(ground,1030,575);g.name='hall-table-beside-dining-door';table(g,.5,1.65,.85);
  // Garage: keep the bays clear as photographed, with workbench and storage.
  // Charcoal base units with a pale worktop, sink and floating oak shelf (4DBC069B), on the south wall clear of both door positions.
  g=place(ground,415,645);cabinets(g,2.2,.87,m.charcoal,false);box(g,0,.87,0,2.24,.04,.65,m.white);sink(g,-.55,0,.88);box(g,0,1.5,.17,2.1,.035,.28,m.oak);rug(place(ground,270,580),4.1,.7,m.rust);
