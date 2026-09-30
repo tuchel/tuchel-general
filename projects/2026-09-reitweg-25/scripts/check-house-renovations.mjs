@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import {build} from 'esbuild';
 import * as T from 'three';
 fs.mkdirSync('tmp/renovation-check',{recursive:true});
-await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/solar-layout.ts','lib/house-model/renovation-data.ts','lib/house-model/site-data.ts'],outdir:'tmp/renovation-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external'});
+await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/solar-layout.ts','lib/house-model/renovation-data.ts','lib/house-model/site-data.ts','lib/house-model/renovations.ts'],outdir:'tmp/renovation-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external'});
 const {buildHouseModel}=await import('../tmp/renovation-check/build-model.mjs');
 const {solarPanels,solarRoofs,solarModule,roofSkylights}=await import('../tmp/renovation-check/solar-layout.mjs');
 const {renovationState,offered,offeredState}=await import('../tmp/renovation-check/renovation-data.mjs');
@@ -89,4 +89,13 @@ model.setRenovations(renovationState());
  const house=model.root.getObjectByName('main-roof-wall-0').material,slat=model.root.getObjectByName('arrival-wall-slats')?.material;
  assert(slat&&slat.userData.photo==='cladding'&&slat.color.equals(house.color),'arrival wall slats share the house cladding');
  model.setRenovations(renovationState());}
-console.log(`Passed: all ${1<<ids.length} renovation combinations across four floors; original scene and meadow restored; 50 panels clear skylights, perimeter and each other; finite transforms; south glazing on both sides of the fireplace, and the master bedroom gable glazed from the chimney to the knee wall; the reading nook replaces the dining alcove with bookshelves, a sofa and a desk, clear of the doorways, with or without the east façade; the arrival wall has upright slats in the house cladding; four renovations are offered, three set aside.`);
+// The garden kitchen: the island in the cabinets' sage, ending 0.85 m short of the retained pier so the way past its
+// end is open, with no stools in it.
+{const {kitchenPoint}=await import('../tmp/renovation-check/renovations.mjs');model.setRenovations({...renovationState(),kitchen:true});model.setLevel('exterior');model.root.updateMatrixWorld(true);
+ const kitchen=model.root.getObjectByName('renovation-kitchen'),island=kitchen.getObjectByName('garden-kitchen-island'),counter=kitchen.getObjectByName('garden-kitchen-counter');
+ assert.equal(island.children[0].material,counter.children[0].material,'the island matches the cabinets');
+ const probe=new T.Raycaster();for(const y of [.3,.7,1.1]){const a=kitchenPoint(345,638),b=kitchenPoint(470,638),u=new T.Vector3(a[0],y,a[1]),v=new T.Vector3(b[0],y,b[1]);probe.set(u,v.clone().sub(u).normalize());probe.far=u.distanceTo(v);
+  assert.equal(probe.intersectObject(kitchen,true).filter(h=>h.object.isMesh).length,0,`the way between the island's end and the pier is open at ${y} m`);}
+ const [,southZ]=kitchenPoint(0,600);let stools=0;kitchen.traverse(o=>{if(o.name==='garden-kitchen-chair'&&o.getWorldPosition(new T.Vector3()).z>southZ)stools++;});assert.equal(stools,0,'no stools at the island end');
+ model.setRenovations(renovationState());}
+console.log(`Passed: all ${1<<ids.length} renovation combinations across four floors; original scene and meadow restored; 50 panels clear skylights, perimeter and each other; finite transforms; south glazing on both sides of the fireplace, and the master bedroom gable glazed from the chimney to the knee wall; the reading nook replaces the dining alcove with bookshelves, a sofa and a desk, clear of the doorways, with or without the east façade; the arrival wall has upright slats in the house cladding; four renovations are offered, three set aside; the garden kitchen's sage island leaves the way past its end open.`);
