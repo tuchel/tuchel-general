@@ -11,6 +11,9 @@ import type {Grid,Shaded} from './sun-bounce-core';
  * gathered light plus its main direction, per unit of sunlight: materials scale it by the live sun's strength and
  * colour; a new sun direction re-lights the kept rays, and a new floor, renovation or level traces them again. */
 const {box:BOX,cell:CELL}=PROBE_GRID;
+// One traced bounce stands in for the rest: with walls and floors reflecting about 40%, further bounces add a geometric
+// series, 1/(1−0.4) ≈ 1.7 times the first.
+const BOUNCE_GAIN=1.7;
 const visibleIn=(o:T.Object3D)=>{for(let a:T.Object3D|null=o;a;a=a.parent)if(!a.visible)return false;return true;};
 
 export function bakeSunBounce(occluders:T.Mesh[],receivers:T.Object3D[],sun:T.DirectionalLight,rays:number){
@@ -87,7 +90,7 @@ export function bakeSunBounce(occluders:T.Mesh[],receivers:T.Object3D[],sun:T.Di
   request:()=>{pending=true;},
   /** Keeps the sun's strength live and starts waiting bakes; true when a finished result was swapped in. */
   update:()=>{
-   uniforms.uBounceSun.value.copy(sun.color).multiplyScalar(sun.visible?sun.intensity:0);
+   uniforms.uBounceSun.value.copy(sun.color).multiplyScalar(sun.visible?sun.intensity*BOUNCE_GAIN:0);
    if(pending&&!busy)send();
    if(!fresh)return false;fresh=false;return true;
   },

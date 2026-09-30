@@ -10,6 +10,8 @@ import {planPoint as p} from './site-data';
 export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,material:(pale:string,natural?:string,roughness?:number)=>T.MeshStandardMaterial){
  const m={outdoorWood:material('#c1baa7','#827e71'),oak:material('#c4b69f','#af8555'),pine:material('#d7c8ad','#c4a276'),cream:material('#ede9de','#eee6d5'),sage:material('#ced0bd','#a5ad8d'),charcoal:material('#737970','#323a35'),grey:material('#cecec3','#a2a493'),rust:material('#c3b5a5','#a35f49'),pink:material('#dacbc3','#c79992'),navy:material('#9ca7a5','#3b5260'),white:material('#f0eee5','#eeeae1'),brass:material('#c0b49b','#ad8c48'),marble:material('#9da79b','#45614f'),leaf:material('#95a382','#6e865a')};
  for(const [key,surface] of Object.entries({outdoorWood:'oak',oak:'oak',pine:'oak',cream:'linen',grey:'linen'}))m[key as keyof typeof m].userData.photo=surface;
+ // The master bedroom rug in the photographed pink (IMG_1502).
+ const rugPink=material('#e6d2d6','#dc8f9f');rugPink.userData.finish='rug';
  const nickel=material('#d5d8d6','#c3c7c6',.25);nickel.metalness=.85;const zellige=material('#aab08a','#5f6b38',.18);const clay=material('#dccdb6','#b99c7c',.95);const tile=material('#e2ddd2','#d4cbbb',.4);
  const clear=new T.MeshPhysicalMaterial({color:'#cfddda',roughness:.12,transparent:true,opacity:.4,depthWrite:false,side:T.DoubleSide});
  const unit=new T.BoxGeometry(1,1,1),soft=new RoundedBoxGeometry(1,1,1,2,.08),cyl=new T.CylinderGeometry(1,1,1,20),ball=new T.SphereGeometry(1,12,8);
@@ -99,7 +101,7 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  // The owner confirms the two mirrored north bedrooms; the east bed has its head against the dividing wall.
  g=place(upper,1020,225,-Math.PI/2);g.name='northwest-bed-against-divider';bed(g,1.6,true,false,[1]);desk(place(upper,925,337,-Math.PI/2),2.55);
  bed(place(upper,1108,225,Math.PI/2),1.6,true,false,[-1]);desk(place(upper,1203,337,Math.PI/2),2.55);
- g=place(upper,1128,766);rug(g,4,4.4,m.pink);
+ g=place(upper,1128,766);rug(g,4,4.4,rugPink);
  // The bed's headboard stands against the west wall, facing the television across the rug.
  g=place(upper,1087,760,Math.PI/2);g.name='south-bedroom-bed-against-west-wall';bed(g,1.8,false,true,[]);g=place(upper,1201,768,Math.PI/2);box(g,0,.72,0,1.15,.66,.055,m.charcoal);rod(g,[0,.72,0],[0,.22,0],.04,m.charcoal);box(g,0,.18,0,.75,.025,.42,m.charcoal);
  tub(place(upper,930,770));vanity(place(upper,1020,770,Math.PI/2),1.75);g=place(upper,1179,576,Math.PI/2);cabinets(g,4.8,2,m.pine,false);

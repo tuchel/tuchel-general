@@ -33,9 +33,11 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const material=(model:string,timber=model,roughness=.8)=>{const m=new T.MeshStandardMaterial({color:model,roughness});m.userData={model,timber};materials.push(m);return m;};
  const m={garage:material('#a6a397','#493c31'),wall:material('#e4e0d5','#6e5946'),plaster:material('#f0eee6','#e9e4d9'),roof:material('#c3c4bc','#4d5453'),edge:material('#999d92','#3c443f'),floor:material('#dfd7c6','#d5bd96'),stone:material('#d6d3c9','#b1afa4'),paving:material('#e4e0d6','#cfccc0'),soil:material('#c9c6b7','#a5a78b'),lawn:material('#acb89a','#a0b18d'),leaf:material('#899975','#798f68'),trunk:material('#b9b09b','#95836b'),wood:material('#c5b79e','#ad8d62'),fabric:material('#ece8dc','#e7e0cc'),dark:material('#707770','#4a514b'),water:material('#a8c8c7','#76abae',.14),
   // Roof timber is pale spruce (IMG_1558); upper walls and ceilings have their own plaster so the section view can cut them.
-  spruce:material('#dcc7a4','#d9b27b',.7),
+  spruce:material('#dcc7a4','#d69a5c',.7),
   // Large polished stone tiles in the hall, kitchen, dining room and entrance (owner photos).
   tile:material('#d6d3c9','#b7b0a4',.32),upperPlaster:material('#f0eee6','#ebe6db'),blind:material('#b3aca2','#a39c92'),switch:material('#2a2a2a','#161616',.35)};
+ // Spruce takes the honey-orange of the upstairs rafters in the owner's photos (IMG_1502).
+ m.spruce.userData.finish='spruce';
  for(const [key,surface] of Object.entries({garage:'cladding',wall:'cladding',roof:'roof',floor:'oak',stone:'stone',paving:'stone',lawn:'lawn',leaf:'foliage',wood:'oak',tile:'stone',fabric:'linen',blind:'linen'}))m[key as keyof typeof m].userData.photo=surface;
  const glass=new T.MeshPhysicalMaterial({color:'#bdcfcd',transparent:true,opacity:.38,roughness:.14,metalness:.12,depthWrite:false,side:T.DoubleSide});
  const lineMat=new T.LineBasicMaterial({color:'#7f897e',transparent:true,opacity:.28});

@@ -234,7 +234,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    const jitter=still&&post.accumulated>0;
    if(jitter){const i=post.accumulated,size=renderer.getDrawingBufferSize(buffer);camera.setViewOffset(size.x,size.y,halton(i,2)-.5,halton(i,3)-.5,size.x,size.y);}
    if(motion&&captures?.breezing&&tier.quality==='detailed')renderer.shadowMap.needsUpdate=true;
-   post.render(still,renderer.toneMappingExposure);
+   post.render(still,renderer.toneMappingExposure,(room-1)/3);
    if(jitter)camera.clearViewOffset();
   }else renderer.render(scene,rig.camera);
   needsFrame=false;
@@ -255,7 +255,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   const w=Math.round(cssSize.x*scale),h=Math.round(cssSize.y*scale);
   try{
    renderer.setPixelRatio(1);renderer.setSize(w,h,false);post?.setSize(w,h,1);
-   if(post){for(let i=0;i<Math.max(8,tier.refineFrames);i++){if(i)camera.setViewOffset(w,h,halton(i,2)-.5,halton(i,3)-.5,w,h);post.render(true,renderer.toneMappingExposure);camera.clearViewOffset();}}
+   if(post){for(let i=0;i<Math.max(8,tier.refineFrames);i++){if(i)camera.setViewOffset(w,h,halton(i,2)-.5,halton(i,3)-.5,w,h);post.render(true,renderer.toneMappingExposure,(room-1)/3);camera.clearViewOffset();}}
    else renderer.render(scene,rig.camera);
    const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/png'));
    if(blob){const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='reitweg-25-'+(realistic?'detailed':'model')+'.png';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
