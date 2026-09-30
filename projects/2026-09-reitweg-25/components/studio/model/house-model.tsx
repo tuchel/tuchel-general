@@ -5,7 +5,7 @@ import {Dialog} from 'radix-ui';
 import RenovationControls from './renovation-controls';
 import {WalkJoysticks} from './walk-joysticks';
 import {ViewsPanel,FloorPanel,LightPanel,MorePanel,floors,type ViewKey} from './model-panels';
-import {renovations,renovationState,type RenovationState,type RenovationId} from '@/lib/house-model/renovation-data';
+import {renovations,offeredState,type RenovationState,type RenovationId} from '@/lib/house-model/renovation-data';
 import {places,initialCapture,type Place,type CaptureState} from '@/lib/house-model/experience-data';
 import {viewpoints,regions,sourceNotes,photoChecks,planPoint,UPPER_PLAN_X_OFFSET,BASEMENT_PLAN_X_OFFSET,type Level,type Region,type Viewpoint} from '@/lib/house-model/site-data';
 import {interiorRooms} from '@/lib/house-model/interior-data';
@@ -30,8 +30,8 @@ export default function HouseModel({onNavigate}:{onNavigate:(id:string)=>void}){
  useEffect(()=>{levelRef.current=level;},[level]);
  useEffect(()=>{if(!fellBack||!ready)return;const t=setTimeout(()=>setFellBack(false),9000);return()=>clearTimeout(t);},[fellBack,ready]);
  const [changes,setChanges]=useState<RenovationState>(()=>{
-  const state=renovationState(),ids=typeof window==='undefined'?[]:new URLSearchParams(window.location.search).get('renovations')?.split(',')||[];
-  return Object.fromEntries(Object.keys(state).map(id=>[id,ids.includes(id)])) as RenovationState;
+  const ids=typeof window==='undefined'?[]:new URLSearchParams(window.location.search).get('renovations')?.split(',')||[];
+  return offeredState(ids);
  });
  const [sun,setSun]=useState(START),[capture,setCapture]=useState<CaptureState>(initialCapture);
  const [panel,setPanel]=useState<Panel|null>(null),[region,setRegion]=useState<Region|null>(null),[about,setAbout]=useState(false);

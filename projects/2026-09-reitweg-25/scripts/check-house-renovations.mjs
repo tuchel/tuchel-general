@@ -6,7 +6,12 @@ fs.mkdirSync('tmp/renovation-check',{recursive:true});
 await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/solar-layout.ts','lib/house-model/renovation-data.ts','lib/house-model/site-data.ts'],outdir:'tmp/renovation-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external'});
 const {buildHouseModel}=await import('../tmp/renovation-check/build-model.mjs');
 const {solarPanels,solarRoofs,solarModule,roofSkylights}=await import('../tmp/renovation-check/solar-layout.mjs');
-const {renovationState}=await import('../tmp/renovation-check/renovation-data.mjs');
+const {renovationState,offered,offeredState}=await import('../tmp/renovation-check/renovation-data.mjs');
+// The panel offers four renovations for now; the terrace dining, fireside lounge and solar stay in the model, set aside:
+// off with "All on" and when a link names them.
+assert.deepEqual(offered.map(r=>r.id),['kitchen','east','nook','front'],'offered renovations');
+for(const id of ['terrace','courtyard','solar'])assert.equal(offeredState()[id],false,`${id} stays off with All on`);
+assert.deepEqual(Object.entries(offeredState(['east','solar'])).filter(([,on])=>on).map(([id])=>id),['east'],'a link turns on only offered renovations');
 const realistic=process.argv.includes('--realism');
 const model=buildHouseModel(realistic),ids=Object.keys(renovationState());
 if(realistic){assert(model.root.getObjectByName('tree-leaves'),'instanced modelled-leaf trees');assert(model.root.getObjectByName('hedge-leaf-cards'),'leafy hedge');}
@@ -84,4 +89,4 @@ model.setRenovations(renovationState());
  const house=model.root.getObjectByName('main-roof-wall-0').material,slat=model.root.getObjectByName('arrival-wall-slats')?.material;
  assert(slat&&slat.userData.photo==='cladding'&&slat.color.equals(house.color),'arrival wall slats share the house cladding');
  model.setRenovations(renovationState());}
-console.log(`Passed: all ${1<<ids.length} renovation combinations across four floors; original scene and meadow restored; 50 panels clear skylights, perimeter and each other; finite transforms; south glazing on both sides of the fireplace, and the master bedroom gable glazed from the chimney to the knee wall; the reading nook replaces the dining alcove with bookshelves, a sofa and a desk, clear of the doorways, with or without the east façade; the arrival wall has upright slats in the house cladding.`);
+console.log(`Passed: all ${1<<ids.length} renovation combinations across four floors; original scene and meadow restored; 50 panels clear skylights, perimeter and each other; finite transforms; south glazing on both sides of the fireplace, and the master bedroom gable glazed from the chimney to the knee wall; the reading nook replaces the dining alcove with bookshelves, a sofa and a desk, clear of the doorways, with or without the east façade; the arrival wall has upright slats in the house cladding; four renovations are offered, three set aside.`);
