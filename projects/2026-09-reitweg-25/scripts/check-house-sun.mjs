@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import * as T from 'three';
 import {build} from 'esbuild';
 await build({entryPoints:['lib/house-model/sun-position.ts'],outfile:'tmp/sun-check.mjs',bundle:true,platform:'node',format:'esm'});
-const {solarPosition,studyInstant,sunDirection}=await import('../tmp/sun-check.mjs');
+const {solarPosition,studyInstant,sunDirection,initialSunStudy,clockLabel}=await import('../tmp/sun-check.mjs');
+assert.equal(clockLabel(initialSunStudy.minutes),'09:00','the model opens at 09:00');
 // Fixtures independently evaluated with NOAA's published calculator main.js,
 // using the address coordinates, UTC times and its apparent altitude correction.
 for(const [iso,az,el] of [

@@ -3,7 +3,7 @@
  * Address and plan rotation reuse the portal's solar feasibility study. */
 export const SUN_SITE={latitude:47.8606705,longitude:11.2919095,planNorthBearing:7.5,timeZone:'Europe/Berlin',year:2026} as const;
 export type SunStudy={enabled:boolean;day:number;minutes:number};
-export const initialSunStudy:SunStudy={enabled:false,day:172,minutes:780};
+export const initialSunStudy:SunStudy={enabled:false,day:172,minutes:9*60};
 const rad=Math.PI/180,deg=180/Math.PI,mod=(a:number,n:number)=>((a%n)+n)%n;
 export const studyDate=(day:number)=>new Date(Date.UTC(SUN_SITE.year,0,day));
 const formatter=new Intl.DateTimeFormat('en-GB',{timeZone:SUN_SITE.timeZone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
