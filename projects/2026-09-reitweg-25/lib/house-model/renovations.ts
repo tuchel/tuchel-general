@@ -1,6 +1,7 @@
 import * as T from 'three';
 import {buildSolar} from './solar';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
+import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import kitchenLayout from '../../public/assets/kitchen-refined-layout-v4.json';
 import {planPoint as p,type Level} from './site-data';
 import {buildFrontWall} from './front-wall';
@@ -76,10 +77,13 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  {const shelves=place(nook,...p(1124,533.8));shelves.name='nook-bookshelves';const w=3.82,d=.36,h=2.3,bays=4,levels=[.08,.44,.8,1.16,1.52,1.88];
   for(let i=0;i<=bays;i++)box(shelves,-w/2+.0175+i*(w-.035)/bays,0,0,.035,h,d,m.oak);
   box(shelves,0,h-.035,0,w,.035,d,m.oak);box(shelves,0,0,0,w,.08,d,m.oak);for(const y of levels.slice(1))box(shelves,0,y-.025,0,w,.025,d,m.oak);
-  // Books in runs of varied width, height and colour, with the odd gap; a fixed seed keeps every visit the same.
-  const colours=[rust,m.sage,m.linen,ink,ochre,m.white,m.clay];let seed=11;const rand=()=>(seed=seed*16807%2147483647)/2147483647;
+  // Books as single spines of varied width, height and colour, in runs with the odd gap; one merged mesh per colour.
+  // A fixed seed keeps every visit the same.
+  const colours=[rust,m.sage,m.linen,ink,ochre,m.white,m.clay],spines:T.BufferGeometry[][]=colours.map(()=>[]);let seed=11;const rand=()=>(seed=seed*16807%2147483647)/2147483647;
   for(let i=0;i<bays;i++)for(const y of levels){const bay=(w-.035)/bays;let x=-w/2+.05+i*bay;const end=x+bay-.07;
-   while(x<end-.1){const run=Math.min(end-x,.1+rand()*.4);if(rand()>.18)box(shelves,x+run/2,y,.03,run-.012,.19+rand()*.11,.24,colours[Math.floor(rand()*colours.length)]);x+=run+.012;}}
+   while(x<end-.1){const run=Math.min(end-x,.1+rand()*.4);if(rand()>.18){const tall=.2+rand()*.07;for(let b=x;b<x+run-.02;){const t=Math.min(.02+rand()*.03,x+run-b),h=tall+rand()*.04-.02,deep=.19+rand()*.05;
+    spines[Math.floor(rand()*colours.length)].push(new T.BoxGeometry(t-.003,h,deep).translate(b+t/2,y+h/2,.03+(.24-deep)/2));b+=t;}}x+=run+.012;}}
+  spines.forEach((parts,k)=>{if(!parts.length)return;const o=new T.Mesh(mergeGeometries(parts),colours[k]);parts.forEach(part=>part.dispose());o.castShadow=o.receiveShadow=true;shelves.add(o);});
  }
  {const sofa=place(nook,...p(1069.8,581),Math.PI/2);sofa.name='nook-sofa';const w=1.72;
   box(sofa,0,0,0,w-.12,.1,.78,ink);box(sofa,0,.1,.02,w,.26,.88,wool,true);box(sofa,0,.1,-.34,w,.62,.2,wool,true);
