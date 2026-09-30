@@ -5,7 +5,8 @@ import {materialsOf} from './shader-features';
 /** Walking at eye level: moves the camera over floors, up stairs and around walls and furniture.
  * Rays run against the visible static scene; bounding-volume trees are built on the first step. */
 // Collision rays start just above the step height: anything lower is climbed, like a stair tread.
-const RADIUS=.3,STEP=.45,WALK=1.4,RUN=3.4,KNEE=.5,CHEST=1.2;
+// Walking pace is 1.5× an everyday 1.4 m/s, so the rooms and garden cover quickly; Shift runs.
+const RADIUS=.3,STEP=.45,WALK=2.1,RUN=5.1,KNEE=.5,CHEST=1.2;
 export type WalkInput={forward:number;strafe:number;run:boolean};
 /** Doors, door glazing and gate leaves: drawn, but the walker passes through them. */
 export function passable<O extends T.Object3D>(o:O){o.traverse(c=>{c.userData.passable=true;});return o;}

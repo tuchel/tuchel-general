@@ -87,7 +87,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  }
 
  // One draw per material and visibility pattern.
- const batches=batchStatic({root:model.root,states:model.stateCount,apply:model.applyState,rendered:model.rendered,externalRoots:[model.trees,...(setting?[setting.vegetation]:[])]});
+ const batches=batchStatic({root:model.root,states:model.stateCount,apply:model.applyState,rendered:model.rendered,externalRoots:[model.trees,...model.toggled,...(setting?[setting.vegetation]:[])]});
  const pickables:T.Object3D[]=[...batches.meshes.filter(b=>b.userData.region)];
  model.root.traverse(o=>{if(o instanceof T.InstancedMesh&&o.userData.region)pickables.push(o);});
  let level:Level='exterior',renovations=renovationState(),place:Place|undefined;

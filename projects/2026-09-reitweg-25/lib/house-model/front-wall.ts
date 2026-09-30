@@ -1,4 +1,5 @@
 import * as T from 'three';
+import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {passable} from './walk';
 import {sitePoint as s} from './site-data';
 
@@ -12,8 +13,16 @@ export function buildFrontWall(material:(pale:string,natural?:string)=>T.MeshSta
  const grain=new Uint8Array(128*128*4);let grainSeed=433;for(let i=0;i<128*128;i++){grainSeed=(grainSeed*1664525+1013904223)>>>0;const v=210+Math.round(grainSeed/4294967296*45);grain.set([v,v,v,255],i*4);}const asphalt=new T.DataTexture(grain,128,128);asphalt.colorSpace=T.SRGBColorSpace;asphalt.wrapS=asphalt.wrapT=T.RepeatWrapping;asphalt.repeat.set(240,4);asphalt.needsUpdate=true;road.map=asphalt;road.bumpMap=asphalt;road.bumpScale=.006;
  const geo=new T.BoxGeometry(1,1,1);
  const box=(parent:T.Group,x:number,y:number,z:number,w:number,h:number,d:number,mat:T.Material)=>{const m=new T.Mesh(geo,mat);m.position.set(x,y+h/2,z);m.scale.set(w,h,d);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;};
- const timber=material('#967b59'),darkTimber=material('#52483c');
- const boards=(g:T.Group,lo:number,hi:number)=>{box(g,(lo+hi)/2,.16,0,hi-lo,1.94,.23,darkTimber);for(let y=.19;y<2.06;y+=.15)box(g,(lo+hi)/2,y,0,hi-lo,.128,.27,timber);box(g,(lo+hi)/2,2.1,0,hi-lo,.045,.3,cap);};
+ // The proposed wall takes the house's language: upright slats in the main house's cladding colour and finish, both
+ // faces, over a dark backing, under a slim dark cap. One merged mesh of slats per section.
+ const cladding=material('#8a6d57','#6e5946'),backing=material('#3d342c','#2c2520');cladding.userData.photo='cladding';
+ const boards=(g:T.Group,lo:number,hi:number)=>{
+  box(g,(lo+hi)/2,.16,0,hi-lo,1.94,.1,backing);
+  const count=Math.max(1,Math.round((hi-lo)/.12)),pitch=(hi-lo)/count,parts:T.BufferGeometry[]=[];
+  for(let i=0;i<count;i++)for(const side of [-1,1])parts.push(new T.BoxGeometry(.085,1.94,.03).translate(lo+(i+.5)*pitch,1.13,side*.065));
+  const slats=new T.Mesh(mergeGeometries(parts),cladding);parts.forEach(part=>part.dispose());slats.name='arrival-wall-slats';slats.castShadow=slats.receiveShadow=true;g.add(slats);
+  box(g,(lo+hi)/2,2.1,0,hi-lo,.045,.2,metal);
+ };
  const run=(start:[number,number],end:[number,number],height=1.25)=>{const a=s(...start),b=s(...end),len=Math.hypot(b[0]-a[0],b[1]-a[1]);const g=new T.Group();g.position.set(a[0],0,a[1]);g.rotation.y=-Math.atan2(b[1]-a[1],b[0]-a[0]);group.add(g);if(renovated){boards(g,0,len);return g;}box(g,len/2,0,0,len,.18,.3,cap);box(g,len/2,.18,0,len,height-.18,.26,render);box(g,len/2,height,0,len+.04,.045,.33,cap);return g;};
  run([441,220],[336,399]);run([336,399],[365,422]);
  // Recessed arrival frontage, north to south: pedestrian gate, service doors, vehicle gate.

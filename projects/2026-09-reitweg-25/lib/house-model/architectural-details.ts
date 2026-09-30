@@ -9,8 +9,8 @@ export function architecturalDetails(ground:T.Group,ceilings:T.Group){
  const dark=new T.MeshStandardMaterial({color:'#252824',roughness:.42,metalness:.5});
  const stone=new T.MeshStandardMaterial({color:'#c3bdaa',roughness:.78});stone.userData.photo='stone';
  const box=(g:T.Object3D,x:number,y:number,z:number,w:number,h:number,d:number,mat:T.Material)=>{const mesh=new T.Mesh(new T.BoxGeometry(w,h,d),mat);mesh.position.set(x,y+h/2,z);mesh.castShadow=true;mesh.receiveShadow=true;g.add(mesh);return mesh;};
- // Pleated curtains occupy the existing living-room window reveals (IMG_1462).
- const curtains=new T.Group();curtains.name='living-room-linen-curtains';group.add(curtains);
+ // Pleated curtains occupy the existing living-room window reveals (IMG_1462); the opened east façade has none.
+ const curtains=new T.Group();curtains.name='living-room-linen-curtains';curtains.userData.replacedBy='east';group.add(curtains);
  for(const z of [5.02,7.67]){
   const geometry=new T.PlaneGeometry(.46,2.56,32,14);const pos=geometry.attributes.position;
   for(let i=0;i<pos.count;i++){const x=pos.getX(i),y=pos.getY(i);pos.setZ(i,.055*Math.sin(x*65)+.016*Math.cos(y*3+x*4));}geometry.computeVertexNormals();

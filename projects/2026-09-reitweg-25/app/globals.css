@@ -165,6 +165,8 @@ body:has(.house-model-page) .topbar{display:none!important}
  .model-dock{left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right));bottom:calc(10px + env(safe-area-inset-bottom));transform:none;justify-content:space-around}
  .model-dock button{flex:1;min-width:0;padding:7px 4px}
  .model-panel,.model-panel-more{left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));top:auto;bottom:calc(84px + env(safe-area-inset-bottom));transform:none;width:auto;max-height:52dvh;padding:10px 14px 14px}
+ /* Every renovation shows without scrolling: this panel may rise to just below the top bar. */
+ .model-panel:has(.renovation-controls){max-height:calc(100dvh - 150px - env(safe-area-inset-bottom))}
  .model-panel .model-chips{flex-wrap:nowrap;overflow-x:auto;margin:0 -14px;padding:0 14px 4px;scroll-snap-type:x proximity;scrollbar-width:none}
  .model-panel .model-chip{scroll-snap-align:start}
  .model-status{left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));bottom:auto;top:calc(78px + env(safe-area-inset-top));max-width:none}

@@ -57,11 +57,13 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  g=place(ground,870,531,-Math.PI/2);g.name='hall-wc-toilet';box(g,0,.02,0,.39,.34,.57,m.white,true);box(g,0,.35,0,.42,.07,.6,m.white,true);box(g,0,.06,.26,.43,.75,.12,m.white,true);
  g=place(ground,881,578,-Math.PI/2);g.name='hall-wc-basin';box(g,0,.74,.02,.7,.05,.42,m.pine);box(g,0,.3,.02,.7,.03,.4,m.pine);mesh(g,ball,m.white,0,.86,0,.21,.08,.15);rod(g,[0,1.06,.23],[0,1.06,.07],.018,m.brass);box(g,0,.77,.235,.8,.9,.012,tile);
  // Dining alcove: U-shaped timber banquette, three white chairs on the open side.
- g=place(ground,1132,578);table(g,2.65,1.02);bench(g,0,-1.14,3.7,Math.PI);bench(g,-1.6,-.23,1.6,-Math.PI/2);bench(g,1.6,-.23,1.6,Math.PI/2);for(const x of [-.9,0,.9])chair(g,x,.98);
+ g=place(ground,1132,578);g.name='dining-alcove';g.userData.replacedBy='nook';table(g,2.65,1.02);bench(g,0,-1.14,3.7,Math.PI);bench(g,-1.6,-.23,1.6,-Math.PI/2);bench(g,1.6,-.23,1.6,Math.PI/2);for(const x of [-.9,0,.9])chair(g,x,.98);
  // Living: two facing sofas, transparent coffee table and woven chair by the garden.
  g=place(ground,1020,784);sofa(g,-2.05,0,2.9,-Math.PI/2);sofa(g,2.05,0,2.9,Math.PI/2).userData.replacedBy='east';table(group(g,0,0,0),1.45,1.05,.42,clear);
  const cane=place(ground,1190,827,-.5);chair(cane,0,0,0,m.oak);box(cane,0,.47,0,.5,.13,.48,m.cream,true);plant(place(ground,1194,700));g=place(ground,920,841);round(g,0,0,0,.22,.025,m.charcoal);rod(g,[0,0,0],[0,1.5,0],.025,m.charcoal);mesh(g,new T.ConeGeometry(.25,.2,20),m.charcoal,.13,1.53,0);
- g=place(ground,614,642);g.name="entry-storage-clear-of-courtyard-door";cabinets(g,4.65,2.35,m.pine,false);plant(place(ground,781,600));g=place(ground,1030,609);table(g,.5,1.65,.85);
+ g=place(ground,614,642);g.name="entry-storage-clear-of-courtyard-door";cabinets(g,4.65,2.35,m.pine,false);plant(place(ground,781,600));
+ // Narrow hall table along the dining-room wall, clear of the doorway at its south end.
+ g=place(ground,1030,575);g.name='hall-table-beside-dining-door';table(g,.5,1.65,.85);
  // Garage: keep the bays clear as photographed, with workbench and storage.
  // Charcoal base units with a pale worktop, sink and floating oak shelf (4DBC069B), on the south wall clear of both door positions.
  g=place(ground,415,645);cabinets(g,2.2,.87,m.charcoal,false);box(g,0,.87,0,2.24,.04,.65,m.white);sink(g,-.55,0,.88);box(g,0,1.5,.17,2.1,.035,.28,m.oak);rug(place(ground,270,580),4.1,.7,m.rust);
@@ -97,7 +99,9 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  // The owner confirms the two mirrored north bedrooms; the east bed has its head against the dividing wall.
  g=place(upper,1020,225,-Math.PI/2);g.name='northwest-bed-against-divider';bed(g,1.6,true,false,[1]);desk(place(upper,925,337,-Math.PI/2),2.55);
  bed(place(upper,1108,225,Math.PI/2),1.6,true,false,[-1]);desk(place(upper,1203,337,Math.PI/2),2.55);
- g=place(upper,1128,766);rug(g,4,4.4,m.pink);bed(place(upper,1082,760),1.8,false,true,[]);g=place(upper,1201,768,Math.PI/2);box(g,0,.72,0,1.15,.66,.055,m.charcoal);rod(g,[0,.72,0],[0,.22,0],.04,m.charcoal);box(g,0,.18,0,.75,.025,.42,m.charcoal);
+ g=place(upper,1128,766);rug(g,4,4.4,m.pink);
+ // The bed's headboard stands against the west wall, facing the television across the rug.
+ g=place(upper,1087,760,Math.PI/2);g.name='south-bedroom-bed-against-west-wall';bed(g,1.8,false,true,[]);g=place(upper,1201,768,Math.PI/2);box(g,0,.72,0,1.15,.66,.055,m.charcoal);rod(g,[0,.72,0],[0,.22,0],.04,m.charcoal);box(g,0,.18,0,.75,.025,.42,m.charcoal);
  tub(place(upper,930,770));vanity(place(upper,1020,770,Math.PI/2),1.75);g=place(upper,1179,576,Math.PI/2);cabinets(g,4.8,2,m.pine,false);
  // South bathroom: a separate WC and shower occupy the strip beside the atrium.
  g=place(upper,939,697,-Math.PI/2);g.name='upper-south-wc';box(g,0,.02,0,.39,.34,.57,m.white,true);box(g,0,.35,0,.42,.07,.6,m.white,true);box(g,0,.06,.26,.43,.75,.12,m.white,true);

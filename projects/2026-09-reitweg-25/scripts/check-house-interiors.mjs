@@ -17,6 +17,9 @@ const storage=model.root.getObjectByName('entry-storage-clear-of-courtyard-door'
 assert(model.root.getObjectByName('front-door-walkway'),'front door walkway present');assert(model.root.getObjectByName('kitchen-terrace-table'),'outdoor table present');
 assert.equal(crosses(point(777,630),point(920,630),[ground]).length,0,'connector to main atrium is open through both wall planes');
 assert.equal(crosses(point(850,625),point(850,580),[ground]).length,0,'hall WC south doorway is accessible');
+// The hall table stands beside the dining-room doorway, never across it: clear at table-top height over the whole opening.
+for(let z=616;z<=661;z+=5)assert.equal(crosses(point(1005,z,.97),point(1068,z,.97),[ground]).length,0,`hall to dining doorway is clear at z ${z}`);
+assert(model.root.getObjectByName('hall-table-beside-dining-door'),'hall table present');
 assert(model.root.getObjectByName('hall-wc-toilet'),'hall WC toilet exists');assert(model.root.getObjectByName('hall-wc-basin'),'hall WC basin exists');
 assert(crosses(point(170,851),point(245,851),[ground]).length>0,'yoga partition is present');
 assert.equal(crosses(point(171,910),point(231,910),[ground]).length,0,'yoga doorway remains clear');
@@ -31,6 +34,10 @@ assert(model.root.getObjectByName('guest-corner-sauna'),'corner sauna present');
 model.setLevel('upper');model.root.updateMatrixWorld(true);const slab=model.root.getObjectByName('guest-floor-with-atrium');assert(slab);const [ax,az]=p(231,860);const [bx,bz]=p(310,866);
 assert.equal(crosses([ax+UPPER_PLAN_X_OFFSET,5,az],[ax+UPPER_PLAN_X_OFFSET,2,az],[slab]).length,0,'guest atrium is a hole, not a floor patch');
 assert(crosses([bx+UPPER_PLAN_X_OFFSET,5,bz],[bx+UPPER_PLAN_X_OFFSET,2,bz],[slab]).length>0,'guest gallery floor remains beside hole');
+// The south bedroom's bed stands with its headboard against the west wall, facing the room.
+{const bed=model.root.getObjectByName('south-bedroom-bed-against-west-wall');assert(bed,'south bedroom bed present');const b=new T.Box3().setFromObject(bed),c=b.getCenter(new T.Vector3()).setY(3.7);
+ const ours=o=>{for(let a=o;a;a=a.parent)if(a===bed)return true;return false;},wall=crosses([c.x,c.y,c.z],[c.x-3,c.y,c.z],[bed.parent]).find(h=>!ours(h.object));
+ assert(wall&&b.max.z-b.min.z<b.max.x-b.min.x+.01&&b.min.x-wall.point.x<.05,`south bedroom headboard is against the west wall (gap ${wall?(b.min.x-wall.point.x).toFixed(2):'?'} m)`);}
 const mainSlab=model.root.getObjectByName('main-floor-with-atrium');assert(mainSlab);
 for(const [x,z] of [[1035,540],[1035,630],[978,530]]){const [px,pz]=p(x,z);assert.equal(crosses([px+UPPER_PLAN_X_OFFSET,5,pz],[px+UPPER_PLAN_X_OFFSET,2,pz],[mainSlab]).length,0,'full main atrium is an open slab cutout');}
 for(const [x,z] of [[930,550],[1140,550],[1050,440]]){const [px,pz]=p(x,z);assert(crosses([px+UPPER_PLAN_X_OFFSET,5,pz],[px+UPPER_PLAN_X_OFFSET,2,pz],[mainSlab]).length>0,'main gallery remains around atrium');}
@@ -106,4 +113,4 @@ if(process.argv.includes('--realism')){
  const slope=Math.atan2(5.36,6.55),glass=new T.Vector3(6.55*.68+.3*Math.cos(slope)+.05*Math.sin(slope),8-5.36*.68-.3*Math.sin(slope)+.05*Math.cos(slope),8.8),front=eye.clone().setZ(8.8),toward=new T.Raycaster(front,glass.clone().sub(front).normalize()).intersectObjects(visible,false)[0];
  assert(toward&&[toward.object.material].flat().some(m=>m.transparent),`a low east roof window is visible over the knee wall (${toward?.object.name||toward?.object.parent?.name})`);
 }
-model.dispose();console.log('Passed: dining circulation, yoga doorway, sliding door, corridor clearance, walkway, outdoor table, guest atrium, plan doorways, guest stair, basement doors and registration, roof height, upper walls to the ceiling, roof windows over the knee wall and finite model transforms.');
+model.dispose();console.log('Passed: dining circulation, the hall doorway beside its table, the south bedroom headboard against its wall, yoga doorway, sliding door, corridor clearance, walkway, outdoor table, guest atrium, plan doorways, guest stair, basement doors and registration, roof height, upper walls to the ceiling, roof windows over the knee wall and finite model transforms.');
