@@ -108,6 +108,39 @@ body:has(.house-model-page) .topbar{display:none!important}
 .model-chip{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:7px 13px;border-radius:999px;border:1px solid var(--model-line);background:#ffffffb0;color:var(--model-ink);font-size:13px;cursor:pointer;white-space:nowrap}
 .model-chip:hover{border-color:#b9c3b3}
 .model-chip[aria-pressed="true"]{background:var(--model-accent);border-color:transparent;color:#fff}
+/* Views map: sizes match MARKER in lib/house-model/view-map.ts (dot 14, arrow 24, gap 6, label 20 high with 6 padding). */
+.view-map-tabs{display:inline-flex;gap:2px;margin:8px 0 10px;padding:3px;border-radius:999px;background:#eceee6}
+.view-map-tabs button{min-height:30px;padding:0 16px;border:0;border-radius:999px;background:none;color:var(--model-muted);font-size:13px;cursor:pointer}
+.view-map-tabs button[aria-selected="true"]{background:#fff;color:var(--model-ink);box-shadow:0 1px 3px #1f302420}
+.view-map{position:relative;margin:0;border-radius:12px;overflow:hidden;border:1px solid var(--model-line);background:#fff}
+.view-map svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.view-map figcaption{position:absolute;left:6px;top:6px;padding:1px 5px;border-radius:4px;background:#ffffffd8;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--model-muted)}
+.view-map-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.view-map-marker{--reach:13px;position:absolute;width:0;height:0;padding:0;border:0;background:none;cursor:pointer;color:var(--model-ink)}
+.view-map-marker[data-kind="air"]{--reach:18px}
+.view-map-marker::after{content:'';position:absolute;left:-16px;top:-16px;width:32px;height:32px;border-radius:50%}
+.view-map-cone{position:absolute;left:-28px;top:-28px;width:56px;height:56px;border-radius:50%;background:conic-gradient(from calc(var(--heading) + 60deg),var(--model-accent) 0 60deg,transparent 0);opacity:.3;-webkit-mask:radial-gradient(closest-side,#000 25%,transparent);mask:radial-gradient(closest-side,#000 25%,transparent);pointer-events:none}
+.view-map-pin{position:absolute;left:-7px;top:-7px;width:14px;height:14px;box-sizing:border-box;border-radius:50%;border:2.5px solid var(--model-accent);background:#fff;box-shadow:0 1px 3px #1f302450}
+.view-map-marker[data-kind="air"] .view-map-pin{left:-12px;top:-12px;width:24px;height:24px;display:grid;place-items:center;border:1px solid var(--model-line)}
+.view-map-marker[data-kind="air"] .view-map-pin::before{content:'';width:13px;height:13px;background:var(--model-accent);clip-path:polygon(0 40%,50% 40%,50% 12%,100% 50%,50% 88%,50% 60%,0 60%);transform:rotate(var(--heading))}
+.view-map-label{position:absolute;height:20px;padding:0 6px;border-radius:6px;background:#fffffff2;box-shadow:0 1px 3px #1f302430;font-size:11.5px;line-height:20px;white-space:nowrap}
+.view-map-marker[data-side="right"] .view-map-label{left:var(--reach);top:-10px}
+.view-map-marker[data-side="left"] .view-map-label{right:var(--reach);top:-10px}
+.view-map-marker[data-side="above"] .view-map-label{bottom:var(--reach);left:0;transform:translateX(-50%)}
+.view-map-marker[data-side="below"] .view-map-label{top:var(--reach);left:0;transform:translateX(-50%)}
+.view-map-marker[data-side="above-left"] .view-map-label{bottom:var(--reach);right:-10px}
+.view-map-marker:hover .view-map-label{box-shadow:0 0 0 1px var(--model-accent),0 1px 3px #1f302430}
+.view-map-marker:focus-visible{outline:none}
+.view-map-marker:focus-visible .view-map-label{outline:2px solid var(--model-accent);outline-offset:1px}
+.view-map-marker[aria-pressed="true"] .view-map-pin{background:var(--model-accent);border-color:#fff}
+.view-map-marker[aria-pressed="true"] .view-map-pin::before{background:#fff}
+.view-map-marker[aria-pressed="true"] .view-map-cone{opacity:.6}
+.view-map-marker[aria-pressed="true"] .view-map-label{background:var(--model-accent);color:#fff}
+.view-map-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-top:10px}
+.view-map-key{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--model-muted)}
+.view-map-key i{width:11px;height:11px;box-sizing:border-box;border-radius:50%;border:2.5px solid var(--model-accent);background:#fff}
+.view-map-key i.air{margin-left:8px;border:0;border-radius:0;background:var(--model-accent);clip-path:polygon(0 40%,50% 40%,50% 12%,100% 50%,50% 88%,50% 60%,0 60%)}
+.view-map-whole{display:flex;gap:8px}
 .model-segments{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
 .model-segments button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:48px;padding:10px 12px;border-radius:12px;border:1px solid var(--model-line);background:#ffffffb0;color:var(--model-ink);font-size:14px;text-align:left;cursor:pointer;position:relative}
 .model-segments button[aria-checked="true"]{border-color:var(--model-accent);box-shadow:inset 0 0 0 1px var(--model-accent)}
@@ -166,7 +199,7 @@ body:has(.house-model-page) .topbar{display:none!important}
  .model-dock button{flex:1;min-width:0;padding:7px 4px}
  .model-panel,.model-panel-more{left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));top:auto;bottom:calc(84px + env(safe-area-inset-bottom));transform:none;width:auto;max-height:52dvh;padding:10px 14px 14px}
  /* Every renovation shows without scrolling: this panel may rise to just below the top bar. */
- .model-panel:has(.renovation-controls){max-height:calc(100dvh - 150px - env(safe-area-inset-bottom))}
+ .model-panel:has(.renovation-controls),.model-panel:has(.view-map){max-height:calc(100dvh - 150px - env(safe-area-inset-bottom))}
  .model-panel .model-chips{flex-wrap:nowrap;overflow-x:auto;margin:0 -14px;padding:0 14px 4px;scroll-snap-type:x proximity;scrollbar-width:none}
  .model-panel .model-chip{scroll-snap-align:start}
  .model-status{left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));bottom:auto;top:calc(78px + env(safe-area-inset-top));max-width:none}
