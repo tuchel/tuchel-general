@@ -51,12 +51,16 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  for(const [a,b] of [[[104,126],[104,716]],[[104,126],[626,126]],[[104,716],[334,716]],[[626,126],[626,275]]]){const u=kitchenPoint(...a as [number,number]),v=kitchenPoint(...b as [number,number]),g=place(kitchenRoof,(u[0]+v[0])/2,(u[1]+v[1])/2,-Math.atan2(v[1]-u[1],v[0]-u[0]),2.82);box(g,0,0,0,Math.hypot(v[0]-u[0],v[1]-u[1]),.13,.1,m.metal);}
  // The island is 2.08 m, not the layout's 2.78 m, and has no stools at its end: the way between its end and the retained
  // pier stays 0.85 m wide. It takes the cabinets' sage.
- for(const item of kitchenLayout.layouts[0].objects){
+ // The dining set (table and its chairs) sits centred in the glazed west arm, layout x 104–334 and y 126–716.
+ const objects=kitchenLayout.layouts[0].objects,diningSet=objects.filter(o=>o.kind==='table'||o.kind==='chair'&&o.x<300);
+ const middle=(lo:number[],hi:number[])=>(Math.min(...lo)+Math.max(...hi))/2;
+ const shift=[219-middle(diningSet.map(o=>o.x),diningSet.map(o=>o.x+o.w)),421-middle(diningSet.map(o=>o.y),diningSet.map(o=>o.y+o.d))];
+ for(const item of objects){
   if(item.kind==='chair'&&item.x>300&&item.y>600)continue;
-  const o=item.kind==='island'?{...item,d:142}:item;
+  const o=item.kind==='island'?{...item,d:142}:diningSet.includes(item)?{...item,x:item.x+shift[0],y:item.y+shift[1]}:item;
   const [x,z]=kitchenPoint(o.x+o.w/2,o.y+o.d/2),g=place(kitchen,x,z),w=o.w*K,d=o.d*K;g.name='garden-kitchen-'+o.kind.replaceAll(' ','-');
   if(o.kind==='table'){table(g,w,d);continue;}
-  if(o.kind==='chair'){const stool=o.x>300;chair(g,0,0,stool?(o.y<333?Math.PI:0):o.x<155?-Math.PI/2:o.x>225?Math.PI/2:o.y<320?Math.PI:0,stool);continue;}
+  if(o.kind==='chair'){const stool=item.x>300;chair(g,0,0,stool?(item.y<333?Math.PI:0):item.x<155?-Math.PI/2:item.x>225?Math.PI/2:item.y<320?Math.PI:0,stool);continue;}
   const h=o.kind==='pantry'?2.25:.9;box(g,0,0,0,w,h,d,o.kind==='pantry'?m.oak:o.kind==='cooker'||o.kind==='second oven'?m.metal:m.sage);
   if(o.kind==='pantry'){for(let i=1;i<3;i++)box(g,-w/2-.009,1.15,(i/3-.5)*d,.02,.38,.02,m.metal);continue;}
   box(g,0,h,0,w+.045,.065,d+.055,m.stone);
@@ -65,6 +69,11 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
   if(o.kind==='cooker'||o.kind==='second oven'){const eastWall=o.kind==='cooker';const oven=place(g,eastWall?-w/2-.014:0,eastWall?0:d/2+.014,eastWall?Math.PI/2:0,0);box(oven,0,.2,0,eastWall?d*.82:w*.83,.46,.025,m.metal);box(oven,0,.23,.017,eastWall?d*.7:w*.7,.33,.009,clear);box(oven,0,.66,.038,eastWall?d*.6:w*.65,.028,.035,m.oak);if(eastWall){for(const dx of [-w*.23,w*.23])for(const dz of [-d*.29,0,d*.29]){const disc=new T.Mesh(cyl,m.metal);disc.position.set(dx,.974,dz);disc.scale.set(.085,.015,.085);g.add(disc);}}}
   if(o.kind==='island'){box(g,0,.968,-d*.22,w*.62,.018,.46,m.metal,true);box(g,0,.98,-d*.22,w*.52,.014,.36,m.white,true);box(g,w*.27,.99,-d*.22,.025,.28,.025,m.metal);box(g,w*.15,1.25,-d*.22,w*.26,.025,.025,m.metal);}
  }
+ // Along the south wall, either side of the walk-in pantry's door (plan): a tall-unit run and an integrated fridge in the
+ // cabinets' sage, the fridge with a freezer drawer below and long bar handles.
+ {const run=place(kitchen,...p(917,450)),fridge=place(kitchen,...p(841,450));fridge.name='garden-kitchen-fridge';
+  box(run,0,0,0,1.8,2.2,.6,m.sage);for(const x of [-.6,0,.6]){box(run,x,.04,-.307,.58,2.12,.015,m.sage);box(run,x+.22,.9,-.33,.018,.5,.025,m.metal);}
+  box(fridge,0,0,0,.55,2.2,.6,m.sage);for(const [y,h] of [[.04,.72],[.8,1.36]])box(fridge,0,y,-.307,.53,h,.015,m.sage);box(fridge,.2,.36,-.33,.018,.34,.025,m.metal);box(fridge,.2,.86,-.33,.018,.5,.025,m.metal);}
  // Existing terrace geometry is extended out into the east lawn.
  const terrace=groups.terrace;poly(terrace,[[6,0],[11.2,0],[11.2,10.45],[6,10.45]],.06,.11,m.stone);
  box(terrace,11.38,.015,5.2,.38,.07,9.6,m.stone);dining(terrace,8.7,5.5,3.3,1.08,Math.PI/2);
