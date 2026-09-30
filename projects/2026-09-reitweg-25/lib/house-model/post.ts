@@ -61,7 +61,8 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
   composer.addPass(new DepthHandoff(ao));composer.addPass(ao);
  }
  let bloom:QuarterResolutionBloom|undefined;
- if(options.bloom){bloom=new QuarterResolutionBloom(new T.Vector2(1,1),.16,.45,1);composer.addPass(bloom);}
+ // Faint and tight: a glow at the sun, glints and sunlit glass, never a veil over the room.
+ if(options.bloom){bloom=new QuarterResolutionBloom(new T.Vector2(1,1),.06,.1,1);composer.addPass(bloom);}
  const accumulate=new AccumulatePass();composer.addPass(accumulate);
  composer.addPass(new OutputPass());
  return {
@@ -71,8 +72,8 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
   render:(refining:boolean,exposure:number)=>{
    if(ao)ao.enabled=refining;
    accumulate.enabled=refining;if(!refining)accumulate.frames=0;
-   // Bloom threshold in display terms: only highlights brighter than about white bloom.
-   if(bloom)bloom.threshold=1.4/Math.max(exposure,1e-4);
+   // Bloom threshold in display terms: only highlights two and a half times brighter than white bloom.
+   if(bloom)bloom.threshold=2.5/Math.max(exposure,1e-4);
    composer.render();
   },
   get accumulated(){return accumulate.frames;},

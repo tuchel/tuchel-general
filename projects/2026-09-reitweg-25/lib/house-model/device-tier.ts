@@ -19,21 +19,18 @@ export const tiers:Record<Quality,TierSettings>={
 export function tierFor(quality:Quality,phone=isPhone()):TierSettings{
  return quality==='detailed'&&phone?{...tiers.detailed,shadowSize:2048,samples:2}:tiers[quality];
 }
-const weakGPU=/SwiftShader|llvmpipe|softpipe|Microsoft Basic Render|Mali-(4|T[678])|Adreno \(TM\) [345]\d\d|PowerVR SGX|Intel\(R\) (HD|UHD) Graphics( [2-6]\d\d)?\b/i;
 export function isPhone(){
  if(typeof window==='undefined')return false;
  const coarse=window.matchMedia('(pointer: coarse)').matches,small=Math.min(screen.width,screen.height)<820;
  return coarse&&small||/iPhone|Android.+Mobile/i.test(navigator.userAgent);
 }
-/** Picks a preset from the device class and GPU; a URL or menu choice always wins. */
+/** Computers start in Detailed and phones in Balanced, since Detailed stutters every few seconds on a phone (Detailed
+ * stays in the menu, with a lighter shadow map and multisampling, tierFor); a URL or menu choice wins. A browser without
+ * WebGL2 gets the plain model; if Detailed cannot run, the viewer drops to Balanced and says so. */
 export function detectQuality():Quality{
  if(typeof window==='undefined')return 'model';
- let renderer='';
- try{const gl=document.createElement('canvas').getContext('webgl2');const info=gl?.getExtension('WEBGL_debug_renderer_info');renderer=info&&gl?String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)):'';gl?.getExtension('WEBGL_lose_context')?.loseContext();if(!gl)return 'model';}catch{return 'model';}
- if(weakGPU.test(renderer))return 'model';
- const memory=(navigator as Navigator&{deviceMemory?:number}).deviceMemory;
- if(isPhone()||(memory!==undefined&&memory<8)||navigator.hardwareConcurrency<6)return 'balanced';
- return 'detailed';
+ try{const gl=document.createElement('canvas').getContext('webgl2');gl?.getExtension('WEBGL_lose_context')?.loseContext();if(!gl)return 'model';}catch{return 'model';}
+ return isPhone()?'balanced':'detailed';
 }
 export function qualityFromParam(value:string|null):Quality|undefined{
  if(value==='detailed'||value==='realism')return 'detailed';
