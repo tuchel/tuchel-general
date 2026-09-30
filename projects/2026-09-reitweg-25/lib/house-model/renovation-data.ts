@@ -5,7 +5,7 @@ export const renovations = [
  {id:'nook',title:'A reading & office nook',detail:'The dining alcove becomes a library corner: bookshelves along the north wall, a deep sofa facing the garden and a desk at the east window.',view:'east',center:[3.4,1.8],span:8},
  {id:'terrace',title:'Dining on the east terrace',detail:'A generous stone terrace, long oak table and a little shade.',view:'east',center:[7.5,5.8],span:14},
  {id:'courtyard',title:'Lounge by the fire',detail:'The fireside lounge, long table under the eaves and a wall-side serving counter.',view:'courtyard',center:[-13.7,7],span:20},
- {id:'front',title:'A timber arrival wall',detail:'A taller boundary with horizontal timber and matching gates.',view:'arrival',center:[-35,0],span:35},
+ {id:'front',title:'A timber arrival wall',detail:'A taller boundary in the house’s upright timber cladding, with matching gates.',view:'arrival',center:[-35,0],span:35},
  {id:'solar',title:'Solar & battery storage',detail:'50 panels on the main roof · 22.5 kWp, with two battery placeholders. Gas heating retained; annual electricity balance, with winter grid support.',view:'east',center:[-7,2],span:38},
 ] as const;
 export type RenovationId=typeof renovations[number]['id'];

@@ -74,4 +74,14 @@ model.setRenovations(renovationState());
   for(const y of [.3,.8])assert.equal(across(p(1040,641),p(1150,641),y).length,0,`hall doorway into the nook is clear at ${y} m`);
   for(const y of [.3,.8])assert.equal(across(p(1140,600),p(1140,700),y).length,0,`opening to the family room is clear at ${y} m`);}
  model.setRenovations(renovationState());}
-console.log(`Passed: all ${1<<ids.length} renovation combinations across four floors; original scene and meadow restored; 50 panels clear skylights, perimeter and each other; finite transforms; south glazing on both sides of the fireplace, and the master bedroom gable glazed from the chimney to the knee wall; the reading nook replaces the dining alcove with bookshelves, a sofa and a desk, clear of the doorways, with or without the east façade.`);
+// The timber arrival wall follows the house: upright slats (a ray skimming the face crosses one every ~12 cm) in the
+// main house's own cladding colour and photographed finish.
+{const {sitePoint}=await import('../tmp/renovation-check/site-data.mjs');model.setRenovations({...renovationState(),front:true});model.setLevel('exterior');model.root.updateMatrixWorld(true);
+ const wall=model.root.getObjectByName('proposed-timber-roadside-wall');assert(wall&&visible(wall),'timber arrival wall shows');
+ const a=sitePoint(441,220),b=sitePoint(336,399),len=Math.hypot(b[0]-a[0],b[1]-a[1]),u=[(b[0]-a[0])/len,(b[1]-a[1])/len],n=[-u[1],u[0]];
+ for(const side of [1,-1]){const start=new T.Vector3(a[0]+u[0]*.5+n[0]*side*.065,1.2,a[1]+u[1]*.5+n[1]*side*.065);southRay.set(start,new T.Vector3(u[0],0,u[1]));southRay.far=len-1;
+  const crossings=southRay.intersectObject(wall,true).filter(h=>h.object.isMesh).length;assert(crossings>(len-1)/.3,`arrival wall slats are upright on both faces (${crossings} crossings over ${(len-1).toFixed(1)} m)`);}
+ const house=model.root.getObjectByName('main-roof-wall-0').material,slat=model.root.getObjectByName('arrival-wall-slats')?.material;
+ assert(slat&&slat.userData.photo==='cladding'&&slat.color.equals(house.color),'arrival wall slats share the house cladding');
+ model.setRenovations(renovationState());}
+console.log(`Passed: all ${1<<ids.length} renovation combinations across four floors; original scene and meadow restored; 50 panels clear skylights, perimeter and each other; finite transforms; south glazing on both sides of the fireplace, and the master bedroom gable glazed from the chimney to the knee wall; the reading nook replaces the dining alcove with bookshelves, a sofa and a desk, clear of the doorways, with or without the east façade; the arrival wall has upright slats in the house cladding.`);
