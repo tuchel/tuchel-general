@@ -12,6 +12,8 @@ import {createPost} from './post';
 import {createCameraRig,type Framing} from './camera-rig';
 import {createCaptures} from './experience';
 import {createLiveTrace,traceBlend} from './live-trace';
+import {createPoolReflection} from './pool-reflection';
+import {hasShaderFeature,materialsOf} from './shader-features';
 import {createClouds} from './clouds';
 import {places,type Place,type CaptureState} from './experience-data';
 import {foliageMaterials,finishFoliage} from './foliage';
@@ -112,6 +114,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const walkAnchor=new T.Vector3(),skyAnchor=new T.Vector3();let joystick=false,room=1,roomTarget=1;
 
  const post=realistic?createPost(renderer,scene,camera,{samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined}):undefined;
+ // Extreme: the pool mirrors the scene (pool-reflection.ts).
+ const mirror=tier.poolMirror&&camera instanceof T.PerspectiveCamera?createPoolReflection(renderer,scene,camera,batches.meshes.filter(b=>materialsOf(b).some(m=>hasShaderFeature(m,'pool-water')))):undefined;
  // Extreme: path tracing takes over the view while the camera rests.
  live=tier.liveTrace&&lighting&&post&&camera instanceof T.PerspectiveCamera?createLiveTrace({renderer,scene,camera,lighting}):undefined;
  const captures=lighting?createCaptures({
@@ -131,7 +135,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   const {width,height}=host.getBoundingClientRect();if(!width||!height)return;
   // A running path trace keeps its own resolution; only the canvas's CSS size follows.
   if(captures?.tracing){canvas.style.width=width+'px';canvas.style.height=height+'px';return;}
-  renderer.setSize(width,height);post?.setSize(width,height,renderer.getPixelRatio());rig.resize(width,height);changed();
+  renderer.setSize(width,height);post?.setSize(width,height,renderer.getPixelRatio());mirror?.setSize(width*renderer.getPixelRatio(),height*renderer.getPixelRatio());rig.resize(width,height);changed();
  };
  const observer=new ResizeObserver(size);observer.observe(host);
  const visibility=new IntersectionObserver(([entry])=>{visible=entry.isIntersecting;if(visible)changed();});visibility.observe(host);
@@ -253,7 +257,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    const jitter=still&&post.accumulated>0;
    if(jitter){const i=post.accumulated,size=renderer.getDrawingBufferSize(buffer);camera.setViewOffset(size.x,size.y,halton(i,2)-.5,halton(i,3)-.5,size.x,size.y);}
    if(motion&&captures?.breezing&&tier.photographic)renderer.shadowMap.needsUpdate=true;
-   post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel});
+   mirror?.render();post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel});
    if(jitter)camera.clearViewOffset();
   }else renderer.render(scene,rig.camera);
   needsFrame=false;
@@ -274,7 +278,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   const w=Math.round(cssSize.x*scale),h=Math.round(cssSize.y*scale);
   try{
    renderer.setPixelRatio(1);renderer.setSize(w,h,false);post?.setSize(w,h,1);
-   if(post){for(let i=0;i<Math.max(8,tier.refineFrames);i++){if(i)camera.setViewOffset(w,h,halton(i,2)-.5,halton(i,3)-.5,w,h);post.render(true,lighting?lighting.exposure:.9,indoorOf(room),{eyeLevel:rig.eyeLevel});camera.clearViewOffset();}}
+   if(post){for(let i=0;i<Math.max(8,tier.refineFrames);i++){if(i)camera.setViewOffset(w,h,halton(i,2)-.5,halton(i,3)-.5,w,h);mirror?.render();post.render(true,lighting?lighting.exposure:.9,indoorOf(room),{eyeLevel:rig.eyeLevel});camera.clearViewOffset();}}
    else renderer.render(scene,rig.camera);
    const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/png'));
    if(blob){const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='reitweg-25-'+(realistic?'detailed':'model')+'.png';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
@@ -295,7 +299,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   snapshot:rig.snapshot,
   restore:(s:Parameters<typeof rig.restore>[0])=>{rig.restore(s);changed();},
   dispose:()=>{
-   disposed=true;cancelAnimationFrame(frame);window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);captures?.dispose();live?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
+   disposed=true;cancelAnimationFrame(frame);window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
    canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('wheel',wheel);canvas.removeEventListener('keydown',key);
    bake?.dispose();bounce?.dispose();clouds?.dispose();grass?.dispose();post?.dispose();lighting?.dispose();textures?.dispose();environment?.dispose();
    const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
