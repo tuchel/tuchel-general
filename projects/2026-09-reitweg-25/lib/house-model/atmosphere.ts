@@ -1,5 +1,6 @@
 import * as T from 'three';
 import {addShaderFeature,after,materialsOf} from './shader-features';
+import {springMorning} from './garden-sound';
 
 /** Optional motion and sound. Leaves and grass sway in the vertex shader; the same
  * displacement drives their shadow depth so shadows move with them. */
@@ -28,23 +29,17 @@ export function atmosphere(root:T.Object3D){
   if(!sway)return;
   for(const m of [...materialsOf(o),...(o instanceof T.Mesh&&o.customDepthMaterial?[o.customDepthMaterial]:[])])if(!m.userData.shaderFeatures?.some((f:{key:string})=>f.key==='breeze'))addShaderFeature(m,feature(sway));
  });
- let audio:AudioContext|undefined,source:AudioBufferSourceNode|undefined;
+ let audio:AudioContext|undefined,garden:ReturnType<typeof springMorning>|undefined;
  return {
   tick:(seconds:number)=>{clock.value=seconds;},
   breeze:(on:boolean)=>{strength.value=on?1:0;},
   get breezing(){return strength.value>0;},
   sound:async(on:boolean)=>{
    if(!on){if(audio?.state==='running')await audio.suspend();return;}
-   if(!audio){
-    // Designed garden ambience: filtered brown noise, not a site recording.
-    audio=new AudioContext();const buffer=audio.createBuffer(1,audio.sampleRate*8,audio.sampleRate),data=buffer.getChannelData(0);let last=0;
-    for(let i=0;i<data.length;i++){last=(last+Math.random()*.035-.0175)*.995;data[i]=last;}
-    source=audio.createBufferSource();source.buffer=buffer;source.loop=true;
-    const filter=audio.createBiquadFilter();filter.type='lowpass';filter.frequency.value=650;const gain=audio.createGain();gain.gain.value=.16;
-    source.connect(filter).connect(gain).connect(audio.destination);source.start();
-   }
+   // A designed spring morning (garden-sound.ts): wind, bees and birdsong, not a site recording.
+   if(!audio){audio=new AudioContext();garden=springMorning(audio);garden.start();}
    await audio.resume();
   },
-  dispose:()=>{source?.stop();void audio?.close();},
+  dispose:()=>{garden?.stop();void audio?.close();},
  };
 }
