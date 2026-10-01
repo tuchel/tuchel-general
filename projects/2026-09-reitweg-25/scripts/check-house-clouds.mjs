@@ -33,6 +33,9 @@ for(const [x,z] of [[0,0],[-60,0],[60,0],[0,-60],[0,60]])assert(shade(x,z,sun)>.
 let near=0,nearN=0;for(let x=-450;x<=450;x+=75)for(let z=-450;z<=450;z+=75){if(Math.hypot(x,z)>450)continue;nearN++;if(shade(x,z,sun)<.5)near++;}
 assert(near/nearN>.1,`cloud shadows within 450 m (${(near/nearN*100).toFixed(0)}%)`);
 const speed=Math.hypot(...CLOUDS.wind);assert(speed>=5&&speed<=10,`wind ${speed.toFixed(1)} m/s`);
+assert(CLOUDS.wind[0]>0&&CLOUDS.wind[1]<0,'clouds travel east-north-east');
+const clouds=fs.readFileSync('lib/house-model/clouds.ts','utf8');
+assert(/wind\.value\.set\(CLOUDS\.start\[0\]-CLOUDS\.wind\[0\]\*seconds/.test(clouds),'the sampling offset moves against the wind, so the clouds move with it');
 // The sky texture gives the horizon most of its rows (rows follow the square root of the sine of elevation): the lowest
 // 10° get two fifths, and at 5° elevation a row spans under 0.1°.
 const row=e=>Math.sqrt(Math.sin(e*Math.PI/180));

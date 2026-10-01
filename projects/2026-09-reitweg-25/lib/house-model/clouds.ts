@@ -11,6 +11,7 @@ import {addShaderFeature,materialsOf} from './shader-features';
  * with three orders of scattering approximated after Wrenninge (2013). A second texture, 3 km across, holds how much
  * sunlight reaches each point of the ground through the clouds; every lit surface reads it, so cloud shadows cross the
  * fields. */
+/** `wind`: the clouds' velocity in metres a second, x east and −z north (from the west-south-west, as on a westerly day). */
 export const CLOUDS={base:1400,top:2600,coverage:.36,extinction:.045,wind:[7.4,-3.1] as const,
  sky:{width:4096,height:1024,band:64},shadow:{size:512,span:3000},
  /** Where the cloud field starts: the house sits in sunshine. */
@@ -127,7 +128,8 @@ export function createClouds(renderer:T.WebGLRenderer){
   /** Moves the clouds to where the wind has taken them after `seconds` of Breeze. */
   drift:(seconds:number)=>{
    if(Math.abs(seconds-lastWind)<1/30)return;lastWind=seconds;
-   wind.value.set(CLOUDS.start[0]+CLOUDS.wind[0]*seconds,CLOUDS.start[1]+CLOUDS.wind[1]*seconds);dirty=true;
+   // The field is sampled at position + offset, so the clouds travel opposite to the offset's change: with the wind.
+   wind.value.set(CLOUDS.start[0]-CLOUDS.wind[0]*seconds,CLOUDS.start[1]-CLOUDS.wind[1]*seconds);dirty=true;
   },
   /** Draws one band of the sky texture (all of it after a new sun) and the shadow texture; true when anything changed. */
   update:(all=false)=>{
