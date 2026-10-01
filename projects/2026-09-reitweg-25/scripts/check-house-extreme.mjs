@@ -20,4 +20,8 @@ assert(/const changed=\(\)=>\{[^}]*live\?\.reset\(\)/.test(viewer),'moving drops
 assert(/const applyState=\(\)=>\{[^]*?live\?\.invalidate\(\)[^]*?\};/.test(viewer),'a new floor or renovation rebuilds');
 assert(/setSun:[^\n]*live\?\.relight\(\)/.test(viewer),'a new sun re-lights');
 assert(/still&&!refine&&!needsFrame&&level!=='upper'&&!captures\?\.active/.test(viewer),'traces only a settled view, never the upper-floor section or during a photograph');
+// The eye-level grass is placed around the walker; wherever it moves, the traced scene is rebuilt with it.
+assert.equal((viewer.match(/grass\.(showAround\(rig\.lens\.position\)|hide\(\));live\?\.invalidate\(\)/g)||[]).length,3,'grass moves rebuild the traced scene');
+// Tests read what the view shows from the canvas: preparing, a sample count, or live.
+assert(/canvas\.dataset\.trace=shown/.test(viewer)&&/canvas\.dataset\.trace='live'/.test(viewer),'the canvas reports what it shows');
 console.log(`Passed: a resting view blends to path tracing from ${LIVE_TRACE.show[0]} to ${LIVE_TRACE.show[1]} samples, smoothed until ${LIVE_TRACE.filter.until}, up to ${LIVE_TRACE.samples}; moving returns to the live view.`);

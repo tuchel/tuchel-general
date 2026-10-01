@@ -95,7 +95,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const bake=realistic&&tier.skyBake?bakeSkyVisibility(renderer,batches.meshes.filter(b=>[b.material].flat().every(m=>!m.transparent&&m.userData.photo!=='lawn')),[model.root,stage],tier.sunBounce?.55:.7):undefined;
  // Sunlight bounced indoors: the house itself, without trees and planting.
  const bounce=realistic&&tier.sunBounce?bakeSunBounce(batches.meshes.filter(b=>b.parent===model.root&&[b.material].flat().every(m=>!m.transparent&&!m.alphaTest&&m.userData.photo!=='lawn')),[model.root,stage],sun,tier.sunBounce):undefined;
- let live:ReturnType<typeof createLiveTrace>|undefined;
+ let live:ReturnType<typeof createLiveTrace>|undefined=undefined;
  const applyState=()=>{
   model.setLevel(level);model.setRenovations(renovations);batches.sync(model.stateOf(level,renovations));
   stage.visible=level!=='basement';renderer.shadowMap.needsUpdate=true;
@@ -146,13 +146,13 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(level==='basement')target.y=-2;
   return {target,direction:position.sub(target),span:v.span,exterior:level==='exterior',reach:'reach' in v?v.reach:undefined};
  };
- const leaveEyeLevel=()=>{if(!place)return;place=undefined;pressed.clear();Object.assign(walkInput,{forward:0,strafe:0,run:false});lookRate.x=lookRate.y=0;room=roomTarget=1;lighting?.setRoom(1);grass?.hide();fitShadowToView();};
+ const leaveEyeLevel=()=>{if(!place)return;place=undefined;pressed.clear();Object.assign(walkInput,{forward:0,strafe:0,run:false});lookRate.x=lookRate.y=0;room=roomTarget=1;lighting?.setRoom(1);if(grass){grass.hide();live?.invalidate();}fitShadowToView();};
  const view=(key:Viewpoint|Place,instant=false)=>{
   captures?.stop();
   if(key in places){
    const p=places[key as Place];place=key as Place;
    rig.enterEyeLevel(new T.Vector3(...p.position),new T.Vector3(...p.target));walker.reset();walkAnchor.copy(rig.lens.position);
-   room=roomTarget=roomExposure(walker.openness());skyAnchor.copy(rig.lens.position);lighting?.setRoom(room);fitShadowToView();grass?.showAround(rig.lens.position);fadeIn();
+   room=roomTarget=roomExposure(walker.openness());skyAnchor.copy(rig.lens.position);lighting?.setRoom(room);fitShadowToView();if(grass){grass.showAround(rig.lens.position);live?.invalidate();}fadeIn();
    canvas.setAttribute('aria-label','Eye-level view. W, A, S and D walk; Shift runs. Drag or use arrow keys to look around. Pinch or scroll to zoom. Escape returns to the overview.');
   }else{
    const wasEye=!!place;leaveEyeLevel();
@@ -220,7 +220,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    if(lookRate.x||lookRate.y){rig.lookBy(lookRate.x*delta*1.9,lookRate.y*delta*1.3);moving=true;}
    if(walker.step(delta,walkInput)){moving=true;
     // Keep shadows and near grass centred on the walker, refreshed every few metres.
-    if(rig.lens.position.distanceTo(walkAnchor)>4){walkAnchor.copy(rig.lens.position);fitShadowToView();grass?.showAround(rig.lens.position);}
+    if(rig.lens.position.distanceTo(walkAnchor)>4){walkAnchor.copy(rig.lens.position);fitShadowToView();if(grass){grass.showAround(rig.lens.position);live?.invalidate();}}
     if(rig.lens.position.distanceTo(skyAnchor)>.5){skyAnchor.copy(rig.lens.position);roomTarget=roomExposure(walker.openness());}}
    // Exposure eases to the new surroundings over about a second, as eyes adjust walking in or out.
    if(Math.abs(roomTarget-room)>.005){room+=(roomTarget-room)*Math.min(1,delta*3);lighting?.setRoom(room);moving=true;}
@@ -239,9 +239,12 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    renderer.toneMappingExposure=lighting!.exposure;
    const traced=live.step();
    if(traced){const {amount,radius}=traceBlend(traced.samples);post.present(traced.texture,amount,radius,indoorOf(room));}
+   // What the view shows, for tests: 'preparing', the traced sample count, or 'live'.
+   const shown=traced?String(Math.floor(traced.samples)):'preparing';if(canvas.dataset.trace!==shown)canvas.dataset.trace=shown;
    return;
   }
   if(!needsFrame&&!refine&&!motion)return;
+  if(live&&canvas.dataset.trace!=='live')canvas.dataset.trace='live';
   renderer.toneMappingExposure=lighting?lighting.exposure:.9;
   if(post){
    const jitter=still&&post.accumulated>0;
