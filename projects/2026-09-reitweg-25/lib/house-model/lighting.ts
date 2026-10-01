@@ -2,6 +2,7 @@ import * as T from 'three';
 import {Sky} from 'three/addons/objects/Sky.js';
 import {FullScreenQuad} from 'three/addons/postprocessing/Pass.js';
 import {sunStudyReading,sunDirection,type SunStudy} from './sun-position';
+import type {Clouds} from './clouds';
 
 /** One sky drives everything: the visible sky, image-based light and reflections,
  * sun colour and strength, haze and exposure. Sky scattering follows three's
@@ -59,7 +60,10 @@ export const roomExposure=(openness:number)=>1+ROOM_BOOST*(1-T.MathUtils.smooths
 /** How far indoors a room exposure puts the camera: 0 outdoors, 1 in a closed room (the interior finish, look.ts). */
 export const indoorOf=(room:number)=>T.MathUtils.clamp((room-1)/ROOM_BOOST,0,1);
 export type LightReading=ReturnType<typeof sunStudyReading>&{exposure:number;dusk:number;daylight:number;key:number};
-export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Object3D,options:{shadowSize:number}){
+/** `clouds` (Extreme) replaces the sky's flat cloud layer with ray-marched cumulus (clouds.ts), in the visible sky and in
+ * the sky light. */
+export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Object3D,options:{shadowSize:number;clouds?:Clouds}){
+ const clouds=options.clouds;
  const sky=new Sky();sky.name='calculated-sun-sky';sky.userData.skipPhotographic=true;sky.scale.setScalar(20000);sky.frustumCulled=false;scene.add(sky);
  const envSky=new Sky();envSky.scale.setScalar(20000);const envScene=new T.Scene();envScene.add(envSky);
  // Image light: skylight is less saturated than the visible sky, and the ground below the
@@ -69,10 +73,11 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
   const env=disc===0;
   s.material.onBeforeCompile=shader=>{
    if(env){shader.uniforms.uGround=ground;shader.uniforms.uEnvSaturation=saturation;shader.fragmentShader='uniform vec3 uGround;uniform float uEnvSaturation;\n'+shader.fragmentShader;}
-   shader.fragmentShader=shader.fragmentShader.replace('gl_FragColor = vec4( texColor, 1.0 );',nightSky+(env?'\ntexColor=mix(vec3(dot(texColor,vec3(0.2126,0.7152,0.0722))),texColor,uEnvSaturation);texColor=mix(texColor,uGround,smoothstep(0.0,-0.06,direction.y));':'')+'\ngl_FragColor = vec4( texColor, 1.0 );');
+   if(clouds){shader.uniforms.uClouds={value:clouds.sky};shader.fragmentShader=shader.fragmentShader.replace('void main() {','uniform sampler2D uClouds;\n'+clouds.sample+'\nvoid main() {');}
+   shader.fragmentShader=shader.fragmentShader.replace('gl_FragColor = vec4( texColor, 1.0 );',nightSky+(clouds?'\n{vec4 cloud=cloudsToward(direction);texColor=texColor*cloud.a+cloud.rgb;}':'')+(env?'\ntexColor=mix(vec3(dot(texColor,vec3(0.2126,0.7152,0.0722))),texColor,uEnvSaturation);texColor=mix(texColor,uGround,smoothstep(0.0,-0.06,direction.y));':'')+'\ngl_FragColor = vec4( texColor, 1.0 );');
   };
-  s.material.customProgramCacheKey=()=>env?'reitweg-env-sky':'reitweg-sky';
-  const u=s.material.uniforms;u.turbidity.value=SKY.turbidity;u.rayleigh.value=SKY.rayleigh;u.mieCoefficient.value=SKY.mie;u.mieDirectionalG.value=SKY.g;u.showSunDisc.value=disc;u.cloudCoverage.value=SKY.clouds;u.cloudDensity.value=.35;}
+  s.material.customProgramCacheKey=()=>(env?'reitweg-env-sky':'reitweg-sky')+(clouds?'-clouds':'');
+  const u=s.material.uniforms;u.turbidity.value=SKY.turbidity;u.rayleigh.value=SKY.rayleigh;u.mieCoefficient.value=SKY.mie;u.mieDirectionalG.value=SKY.g;u.showSunDisc.value=disc;u.cloudCoverage.value=clouds?0:SKY.clouds;u.cloudDensity.value=.35;}
  const cubeTarget=new T.WebGLCubeRenderTarget(128,{type:T.HalfFloatType}),cubeCamera=new T.CubeCamera(.1,40000,cubeTarget);
  const pmrem=new T.PMREMGenerator(renderer);let envTarget:T.WebGLRenderTarget|null=null,envDirty=true,envAt=0;
  const sun=new T.DirectionalLight('#fff4de',3);sun.name='sun';sun.castShadow=true;
@@ -95,7 +100,7 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
   }
  });
  const sunVector=new T.Vector3(),horizon=new T.Color(),view=new T.Vector3(),probe=new T.Vector3();
- let reading:LightReading|undefined,room=1,viewAzimuth=NaN;
+ let reading:LightReading|undefined,room=1,viewAzimuth=NaN,cloudsAll=false;
  const updateFog=(azimuth:number)=>{
   if(!scene.fog)return;viewAzimuth=azimuth;
   probe.set(Math.cos(azimuth),.035,Math.sin(azimuth)).normalize();
@@ -126,6 +131,7 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
   for(const m of lampMaterials){m.emissiveIntensity=dusk*3;}
   for(const {material,base} of lines)material.color.copy(base).multiplyScalar(clamp(Math.pow(key/NOON_KEY,.3),.03,1)*NOON_EXPOSURE/exposure);
   reading={...r,exposure,dusk,daylight,key};
+  clouds?.setSun(sunVector,sun.color.clone().multiplyScalar(sun.intensity),skyIrradiance(sunVector));cloudsAll=true;
   envDirty=true;renderer.shadowMap.needsUpdate=true;
   updateFog(Number.isFinite(viewAzimuth)?viewAzimuth:0);
   return reading;
@@ -152,11 +158,19 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
   update:(camera:T.Camera,now:number)=>{
    camera.getWorldDirection(view);const azimuth=Math.atan2(view.z,view.x);
    let changed=false;
+   // A new sun bakes the whole cloud sky before the sky light is regenerated; drifting clouds rebake a band a frame
+   // and refresh the sky light every two seconds.
+   if(clouds?.update(cloudsAll)){changed=true;if(cloudsAll)envDirty=true;else if(now-envAt>2000)envDirty=true;}
+   cloudsAll=false;
    if(!Number.isFinite(viewAzimuth)||Math.abs(Math.atan2(Math.sin(azimuth-viewAzimuth),Math.cos(azimuth-viewAzimuth)))>.03){updateFog(azimuth);changed=true;}
    if(envDirty&&now-envAt>140){envAt=now;refreshEnvironment();changed=true;}
    return changed;
   },
   get envPending(){return envDirty;},
+  /** Moves the clouds with the breeze (clouds.ts). */
+  drift:(seconds:number)=>clouds?.drift(seconds),
+  /** Sunlight reaching the house through the clouds (0–1). */
+  get sunThroughClouds(){return clouds?clouds.atHouse():1;},
   /** The sky without its sun disc as a float equirectangular texture, for the path tracer. */
   equirect:(width=1024)=>{
    cubeCamera.update(renderer,envScene);

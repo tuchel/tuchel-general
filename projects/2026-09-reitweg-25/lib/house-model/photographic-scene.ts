@@ -25,18 +25,20 @@ function standardMaps(color:T.Texture,normal:T.Texture):Omit<Standard,'metres'|'
  return {map:make(rgb,true),roughness:make(rough,false),normal:make(nrm,false)};
 }
 
-/** The sun and the lit lamps, in world space, as the path tracer reads them; replaces the lights `target` had. */
-export function copyLights(source:T.Scene,target:T.Scene){
+/** The sun and the lit lamps, in world space, as the path tracer reads them; replaces the lights `target` had.
+ * `sunScale` dims the sun, for clouds over the house (clouds.ts). */
+export function copyLights(source:T.Scene,target:T.Scene,sunScale=1){
  for(const o of target.children.filter(c=>c.userData.copiedLight))o.removeFromParent();
  source.updateMatrixWorld(true);
  source.traverseVisible(o=>{
   if(!o.layers.isEnabled(0)||o.userData.skipPhotographic)return;
   if(!(o instanceof T.DirectionalLight||(o instanceof T.SpotLight&&o.intensity>0)))return;
   const light=o.clone();o.getWorldPosition(light.position);light.target=new T.Object3D();o.target.getWorldPosition(light.target.position);
+  if(light instanceof T.DirectionalLight)light.intensity*=sunScale;
   light.userData.copiedLight=light.target.userData.copiedLight=true;target.add(light.target,light);
  });
 }
-export async function photographicScene(source:T.Scene,environment:T.Texture,signal:AbortSignal,progress:(text:string)=>void,options:{maxDistance?:number;origin?:T.Vector3}={}){
+export async function photographicScene(source:T.Scene,environment:T.Texture,signal:AbortSignal,progress:(text:string)=>void,options:{maxDistance?:number;origin?:T.Vector3;sunScale?:number}={}){
  const scene=new T.Scene(),geometries:T.BufferGeometry[]=[],materials=new Map<T.Material,T.Material>(),converted=new Map<T.Texture,ReturnType<typeof standardMaps>>(),textures:T.Texture[]=[];
  scene.environment=environment;scene.background=environment;
  const cleanup=()=>{geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());};
@@ -64,7 +66,7 @@ export async function photographicScene(source:T.Scene,environment:T.Texture,sig
  source.updateMatrixWorld(true);
  const meshes:T.Mesh[]=[];
  source.traverseVisible(o=>{if(o.layers.isEnabled(0)&&!o.userData.skipPhotographic&&o instanceof T.Mesh)meshes.push(o);});
- copyLights(source,scene);
+ copyLights(source,scene,options.sunScale);
  const v=new T.Vector3(),n=new T.Vector3(),nm=new T.Matrix3(),color=new T.Color(),matrix=new T.Matrix4(),instance=new T.Matrix4(),tu=new T.Vector3(),tv=new T.Vector3(),up=new T.Vector3(0,1,0);
  let counter=0;
  try{
