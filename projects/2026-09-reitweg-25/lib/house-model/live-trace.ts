@@ -1,6 +1,7 @@
 import * as T from 'three';
 import type {WebGLPathTracer} from 'three-gpu-pathtracer';
 import type {Lighting} from './lighting';
+import type {WebGPUTracer} from './live-trace-webgpu';
 
 /** How a resting view hands over to path tracing (Extreme). The traced image replaces the live one as it gathers
  * samples: hidden for the first two, fully shown from 48. Until it settles, an edge-aware filter guided by the live image
@@ -15,15 +16,17 @@ const ORIGIN=new T.Vector3(-5,0,8),REACH=120;
 
 /** Path tracing in the viewport while the camera rests. The scene is converted and its ray-tracing tree built once, in
  * the background, the first time the view rests; a new sun only re-lights it, a new floor or renovation rebuilds it.
+ * Where the browser has WebGPU, the WebGPU tracer and its denoiser do the tracing (live-trace-webgpu.ts); anywhere else,
+ * or if it fails, the WebGL tracer.
  * The tracer samples at the screen's CSS resolution, a quarter of a Retina screen's pixels, so it settles four times
  * sooner; the viewer blends its image in through the same finish as the live view (post.ts). */
 export function createLiveTrace(options:{renderer:T.WebGLRenderer;scene:T.Scene;camera:T.PerspectiveCamera;lighting:Lighting}){
  const {renderer,scene,camera,lighting}=options;
- type Prepared={tracer:WebGLPathTracer;local:{scene:T.Scene;dispose:()=>void};worker:{dispose:()=>void};environment:T.Texture};
- let prepared:Prepared|undefined,abort:AbortController|undefined,lightStale=false,cameraStale=true,disposed=false;
+ type Prepared={tracer?:WebGLPathTracer;gpu?:WebGPUTracer;local:{scene:T.Scene;dispose:()=>void};worker?:{dispose:()=>void};environment:T.Texture};
+ let prepared:Prepared|undefined,abort:AbortController|undefined,lightStale=false,cameraStale=true,disposed=false,webgpu=true;
  const release=()=>{
   abort?.abort();abort=undefined;
-  if(prepared){prepared.tracer.dispose();prepared.worker.dispose();prepared.local.dispose();prepared.environment.dispose();prepared=undefined;}
+  if(prepared){prepared.tracer?.dispose();prepared.gpu?.dispose();prepared.worker?.dispose();prepared.local.dispose();prepared.environment.dispose();prepared=undefined;}
  };
  const prepare=async()=>{
   const controller=new AbortController();abort=controller;
@@ -34,6 +37,12 @@ export function createLiveTrace(options:{renderer:T.WebGLRenderer;scene:T.Scene;
    environment=lighting.equirect();
    local=await photographicScene(scene,environment,controller.signal,()=>{},{maxDistance:REACH,origin:ORIGIN,sunScale:lighting.sunThroughClouds});
    if(controller.signal.aborted)throw new DOMException('Cancelled','AbortError');
+   if(webgpu){
+    const gpu=await import('./live-trace-webgpu').then(m=>m.createWebGPUTracer(local!.scene,camera)).catch(error=>{console.warn('WebGPU path tracing unavailable',error);return undefined;});
+    if(controller.signal.aborted){gpu?.dispose();throw new DOMException('Cancelled','AbortError');}
+    if(gpu){prepared={gpu,local,environment};lightStale=false;cameraStale=true;abort=undefined;return;}
+    webgpu=false;
+   }
    tracer=new WebGLPathTracer(renderer);
    Object.assign(tracer,{bounces:5,transmissiveBounces:8,renderDelay:0,minSamples:0,fadeDuration:0,filterGlossyFactor:.5,rasterizeScene:false,renderToCanvas:false,dynamicLowRes:false});
    tracer.tiles.set(2,2);tracer.textureSize.set(1024,1024);
@@ -52,7 +61,7 @@ export function createLiveTrace(options:{renderer:T.WebGLRenderer;scene:T.Scene;
   const {copyLights}=await import('./photographic-scene'),p=prepared;if(!p||p!==prepared)return;
   const environment=lighting.equirect();
   copyLights(scene,p.local.scene,lighting.sunThroughClouds);p.local.scene.environment=p.local.scene.background=environment;
-  p.tracer.updateLights();p.tracer.updateEnvironment();p.environment.dispose();p.environment=environment;
+  p.tracer?.updateLights();p.tracer?.updateEnvironment();p.gpu?.relight();p.environment.dispose();p.environment=environment;
  };
  let relighting=false;
  return {
@@ -63,7 +72,14 @@ export function createLiveTrace(options:{renderer:T.WebGLRenderer;scene:T.Scene;
    if(!prepared){if(!abort)void prepare();return;}
    if(lightStale){if(!relighting){relighting=true;lightStale=false;void relight().finally(()=>{relighting=false;});}return;}
    if(relighting)return;
-   const {tracer}=prepared;
+   const {tracer,gpu}=prepared;
+   if(gpu){
+    // A lost WebGPU device hands over to the WebGL tracer on the next rest.
+    if(gpu.failed){webgpu=false;release();return;}
+    if(cameraStale){const size=renderer.getSize(new T.Vector2());gpu.reset(Math.max(1,Math.round(size.x)),Math.max(1,Math.round(size.y)));cameraStale=false;}
+    return gpu.step(performance.now());
+   }
+   if(!tracer)return;
    if(cameraStale){camera.updateMatrixWorld();tracer.renderScale=1/renderer.getPixelRatio();tracer.setCamera(camera);cameraStale=false;}
    if(tracer.samples<LIVE_TRACE.samples){
     const previous=renderer.getRenderTarget();tracer.renderSample();renderer.setRenderTarget(previous);
@@ -71,7 +87,7 @@ export function createLiveTrace(options:{renderer:T.WebGLRenderer;scene:T.Scene;
    return {texture:tracer.target.texture,samples:tracer.samples};
   },
   /** True while resting should keep drawing: preparing, or still gathering samples. */
-  get wanted(){return !prepared||lightStale||relighting||prepared.tracer.samples<LIVE_TRACE.samples;},
+  get wanted(){return !prepared||lightStale||relighting||(prepared.gpu?!prepared.gpu.done:(prepared.tracer?.samples??0)<LIVE_TRACE.samples);},
   get ready(){return !!prepared;},
   /** The camera moved: the next rest starts afresh. */
   reset:()=>{cameraStale=true;},
