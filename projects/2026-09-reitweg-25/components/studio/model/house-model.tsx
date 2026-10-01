@@ -18,7 +18,8 @@ const panelTitles:Record<Panel,string>={views:'Views',floor:'Floor',changes:'Ren
 /** A June morning: the sun in the east, over the east lawn. */
 const START={day:initialSunStudy.day,minutes:initialSunStudy.minutes};
 
-export default function HouseModel({onNavigate}:{onNavigate:(id:string)=>void}){
+/** Within the design studio `onNavigate` leads to its other pages; on its own (the public site) the model is the whole site. */
+export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void}){
  const host=useRef<HTMLDivElement>(null),compass=useRef<HTMLSpanElement>(null),api=useRef<HouseViewer|null>(null),saved=useRef<ReturnType<HouseViewer['snapshot']>|null>(null);
  // The model page renders only in the browser, so presets and URL choices are read at mount.
  const [detected]=useState<Quality>(()=>typeof window==='undefined'?'model':detectQuality());
@@ -114,16 +115,16 @@ export default function HouseModel({onNavigate}:{onNavigate:(id:string)=>void}){
   <div className="model-stage">
    <div ref={host} className="model-canvas"/>
    {!ready&&!failed&&<div className="model-loading" role="status"><Box size={30} aria-hidden/><span>{realistic?'Building the house and its setting…':'Assembling the house…'}</span></div>}
-   {failed&&<div className="model-error" role="alert"><h3>The 3D view couldn’t start.</h3><p>Reload the model, or open the original plans.</p><button className="btn" onClick={reloadPage}>Reload model</button><button className="text-btn" onClick={()=>onNavigate('plans')}>Open the plans</button></div>}
+   {failed&&<div className="model-error" role="alert"><h3>The 3D view couldn’t start.</h3><p>Reload the model, or open the original plans.</p><button className="btn" onClick={reloadPage}>Reload model</button>{onNavigate&&<button className="text-btn" onClick={()=>onNavigate('plans')}>Open the plans</button>}</div>}
    <div className="model-top">
-    <button className="model-round model-back" aria-label="Back to the design studio" onClick={()=>onNavigate('studio')}><ArrowLeft size={20}/></button>
+    {onNavigate&&<button className="model-round model-back" aria-label="Back to the design studio" onClick={()=>onNavigate('studio')}><ArrowLeft size={20}/></button>}
     {caption&&!selected&&<div className="model-caption" aria-live="polite"><strong>{caption.title}</strong>{caption.detail&&<span>{caption.detail}</span>}
      {place&&!touch&&<small className="model-walk-hint">Walk with W A S D · Shift to run · drag to look</small>}
      {place&&<a href={'/assets/'+place.photo} target="_blank" rel="noreferrer">Reference photograph <ArrowUpRight size={13}/></a>}
      {room&&<div className="model-caption-photos">{room.photos.map((src,i)=><a key={src} href={src} target="_blank" rel="noreferrer"><img src={src} alt={`${room.label}, reference ${i+1}`} loading="lazy"/></a>)}</div>}
     </div>}
     {selected&&<div className="model-caption" aria-live="polite"><strong>{selected.title}</strong><span>{selected.detail}</span>
-     <div className="model-caption-links"><a href={'/assets/'+selected.source} target="_blank" rel="noreferrer">Source plan <ArrowUpRight size={13}/></a>{selected.renovation&&<button className="model-link" onClick={()=>onNavigate(selected.renovation!)}>The renovation <ArrowUpRight size={13}/></button>}</div>
+     <div className="model-caption-links"><a href={'/assets/'+selected.source} target="_blank" rel="noreferrer">Source plan <ArrowUpRight size={13}/></a>{onNavigate&&selected.renovation&&<button className="model-link" onClick={()=>onNavigate(selected.renovation!)}>The renovation <ArrowUpRight size={13}/></button>}</div>
      <button className="model-caption-close" aria-label="Close" onClick={()=>setRegion(null)}><X size={16}/></button>
     </div>}
     <div className="model-top-right">
