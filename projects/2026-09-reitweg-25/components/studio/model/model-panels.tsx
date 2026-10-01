@@ -80,6 +80,8 @@ export function LightPanel({day,minutes,onChange}:{day:number;minutes:number;onC
 
 export type MoreActions={
  quality:Quality;detected:Quality;onQuality:(q:Quality)=>void;
+ /** Extreme is offered on computers only. */
+ computer:boolean;
  capture:CaptureState;heavy:boolean;eyeLevel:boolean;
  onSave:()=>void;onPhotograph:(panorama:boolean)=>void;onFilm:()=>void;onExport:()=>void;onBreeze:(on:boolean)=>void;onSound:(on:boolean)=>void;onAbout:()=>void;
 };
@@ -96,7 +98,7 @@ export function MorePanel(p:MoreActions){
    <button aria-pressed={p.capture.sound} title="Designed ambience, not a recording" onClick={()=>p.onSound(!p.capture.sound)}>Garden sound</button>
   </div>}
   <div className="model-segments" role="radiogroup" aria-label="Detail">
-   {([['detailed','Detailed'],['balanced','Balanced'],['model','Model']] as const).map(([id,label])=><button key={id} role="radio" aria-checked={p.quality===id} title={p.detected===id?'Suits this device':undefined} onClick={()=>p.onQuality(id)}>{label}{p.detected===id&&<small aria-label="suits this device"/>}</button>)}
+   {([...(p.computer?[['extreme','Extreme']] as const:[]),['detailed','Detailed'],['balanced','Balanced'],['model','Model']] as const).map(([id,label])=><button key={id} role="radio" aria-checked={p.quality===id} title={id==='extreme'?'Path-traced whenever the camera rests; asks a lot of the graphics card':p.detected===id?'Suits this device':undefined} onClick={()=>p.onQuality(id)}>{label}{p.detected===id&&<small aria-label="suits this device"/>}</button>)}
   </div>
   <button className="model-link" onClick={p.onAbout}>About this model</button>
  </div>;

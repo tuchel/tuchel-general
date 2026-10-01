@@ -11,6 +11,7 @@ import {createLighting,roomExposure,indoorOf,type LightReading} from './lighting
 import {createPost} from './post';
 import {createCameraRig,type Framing} from './camera-rig';
 import {createCaptures} from './experience';
+import {createLiveTrace,traceBlend} from './live-trace';
 import {places,type Place,type CaptureState} from './experience-data';
 import {foliageMaterials,finishFoliage} from './foliage';
 import {loadSurfaceTextures,finishSurfaces} from './surface-materials';
@@ -94,10 +95,11 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const bake=realistic&&tier.skyBake?bakeSkyVisibility(renderer,batches.meshes.filter(b=>[b.material].flat().every(m=>!m.transparent&&m.userData.photo!=='lawn')),[model.root,stage],tier.sunBounce?.55:.7):undefined;
  // Sunlight bounced indoors: the house itself, without trees and planting.
  const bounce=realistic&&tier.sunBounce?bakeSunBounce(batches.meshes.filter(b=>b.parent===model.root&&[b.material].flat().every(m=>!m.transparent&&!m.alphaTest&&m.userData.photo!=='lawn')),[model.root,stage],sun,tier.sunBounce):undefined;
+ let live:ReturnType<typeof createLiveTrace>|undefined;
  const applyState=()=>{
   model.setLevel(level);model.setRenovations(renovations);batches.sync(model.stateOf(level,renovations));
   stage.visible=level!=='basement';renderer.shadowMap.needsUpdate=true;
-  bake?.request();bounce?.request();invalidate();
+  bake?.request();bounce?.request();live?.invalidate();invalidate();
  };
  applyState();
  const grass=realistic&&tier.grass?eyeLevelGrass(scene,[...batches.meshes,stage]):undefined;
@@ -106,6 +108,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const walkAnchor=new T.Vector3(),skyAnchor=new T.Vector3();let joystick=false,room=1,roomTarget=1;
 
  const post=realistic?createPost(renderer,scene,camera,{samples:tier.samples,ao:tier.ao,bloom:tier.bloom}):undefined;
+ // Extreme: path tracing takes over the view while the camera rests.
+ live=tier.liveTrace&&lighting&&post&&camera instanceof T.PerspectiveCamera?createLiveTrace({renderer,scene,camera,lighting}):undefined;
  const captures=lighting?createCaptures({
   scene,camera:camera as T.PerspectiveCamera,renderer,root:scene,lighting,heavy:tier.photographic,
   invalidate:()=>invalidate(),onState:s=>options.onCapture?.(s),
@@ -117,7 +121,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
 
  // Frame scheduling: moving frames are fast; still frames refine, then rendering stops.
  let lastChange=performance.now(),needsFrame=true,visible=true,disposed=false,frame=0,ready=false,previous=performance.now(),heading=NaN;
- const changed=()=>{lastChange=performance.now();post?.reset();needsFrame=true;};
+ const changed=()=>{lastChange=performance.now();post?.reset();live?.reset();needsFrame=true;};
  invalidate=changed;
  const size=()=>{
   const {width,height}=host.getBoundingClientRect();if(!width||!height)return;
@@ -228,12 +232,21 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(bounce?.update())changed();
   const motion=!!(captures?.breezing||captures?.recording||film);
   const still=!motion&&!moving&&now-lastChange>110,refine=!!post&&still&&post.accumulated<tier.refineFrames;
+  // A settled view hands over to path tracing; the floor-plan section of the upper floor cuts roofs with clipping
+  // planes, which the tracer cannot, so it stays live.
+  if(captures?.active)live?.release();
+  if(live&&post&&still&&!refine&&!needsFrame&&level!=='upper'&&!captures?.active&&live.wanted){
+   renderer.toneMappingExposure=lighting!.exposure;
+   const traced=live.step();
+   if(traced){const {amount,radius}=traceBlend(traced.samples);post.present(traced.texture,amount,radius,indoorOf(room));}
+   return;
+  }
   if(!needsFrame&&!refine&&!motion)return;
   renderer.toneMappingExposure=lighting?lighting.exposure:.9;
   if(post){
    const jitter=still&&post.accumulated>0;
    if(jitter){const i=post.accumulated,size=renderer.getDrawingBufferSize(buffer);camera.setViewOffset(size.x,size.y,halton(i,2)-.5,halton(i,3)-.5,size.x,size.y);}
-   if(motion&&captures?.breezing&&tier.quality==='detailed')renderer.shadowMap.needsUpdate=true;
+   if(motion&&captures?.breezing&&tier.photographic)renderer.shadowMap.needsUpdate=true;
    post.render(still,renderer.toneMappingExposure,indoorOf(room));
    if(jitter)camera.clearViewOffset();
   }else renderer.render(scene,rig.camera);
@@ -251,7 +264,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   captures?.stop();
   const cssSize=renderer.getSize(new T.Vector2()),ratio=renderer.getPixelRatio();
   // Four thousand pixels on computers; about twice the screen on phones, within their memory.
-  const longest=Math.max(cssSize.x,cssSize.y),scale=Math.min(3840,tier.quality==='detailed'?3840:2560)/longest;
+  const longest=Math.max(cssSize.x,cssSize.y),scale=Math.min(3840,tier.photographic?3840:2560)/longest;
   const w=Math.round(cssSize.x*scale),h=Math.round(cssSize.y*scale);
   try{
    renderer.setPixelRatio(1);renderer.setSize(w,h,false);post?.setSize(w,h,1);
@@ -267,7 +280,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   zoom:(factor:number)=>{captures?.stop();rig.zoomBy(factor);changed();},
   setLevel:(l:Level)=>{captures?.stop();leaveEyeLevel();const floorChanged=l!==level;level=l;applyState();if(floorChanged)controls.target.y=l==='basement'?-2:l==='upper'?3.1:1;rig.project();changed();},
   setRenovations:(state:RenovationState)=>{captures?.stop();renovations={...state};applyState();},
-  setSun:(study:SunStudy):LightReading|undefined=>{if(!lighting)return;const r=lighting.apply(study);fitShadowToView();bounce?.request();changed();return r;},
+  setSun:(study:SunStudy):LightReading|undefined=>{if(!lighting)return;const r=lighting.apply(study);fitShadowToView();bounce?.request();live?.relight();changed();return r;},
   get lightReading(){return lighting?.reading;},
   captures,
   get eyeLevel(){return rig.eyeLevel;},
@@ -276,7 +289,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   snapshot:rig.snapshot,
   restore:(s:Parameters<typeof rig.restore>[0])=>{rig.restore(s);changed();},
   dispose:()=>{
-   disposed=true;cancelAnimationFrame(frame);window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);captures?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
+   disposed=true;cancelAnimationFrame(frame);window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);captures?.dispose();live?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
    canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('wheel',wheel);canvas.removeEventListener('keydown',key);
    bake?.dispose();bounce?.dispose();grass?.dispose();post?.dispose();lighting?.dispose();textures?.dispose();environment?.dispose();
    const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();

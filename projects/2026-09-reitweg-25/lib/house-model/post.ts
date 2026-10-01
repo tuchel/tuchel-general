@@ -46,7 +46,37 @@ class AccumulatePass extends Pass{
   this.targets=[next,history];this.frames++;
   u.current.value=next.texture;u.weight.value=1;renderer.setRenderTarget(this.renderToScreen?null:write);this.quad.render(renderer);
  }
+ /** The settled image, before the finish. */
+ get latest(){return this.targets[0].texture;}
  dispose(){for(const t of this.targets)t.dispose();this.material.dispose();this.quad.dispose();}
+}
+/** Blends a path-traced image over the settled live one. While the traced image is grainy, an edge-aware filter smooths
+ * it within surfaces the live image shows as one: taps whose live colour differs by more than about half a stop count
+ * for little, so edges stay sharp. */
+class TracedBlend{
+ target=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false});
+ material=new T.ShaderMaterial({
+  uniforms:{raster:{value:null},traced:{value:null},amount:{value:0},radius:{value:0},texel:{value:new T.Vector2()}},
+  vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}',
+  fragmentShader:`uniform sampler2D raster;uniform sampler2D traced;uniform float amount;uniform float radius;uniform vec2 texel;varying vec2 vUv;
+   vec3 guide(vec2 uv){vec3 c=max(texture2D(raster,uv).rgb,vec3(0.0));float s=c.r+c.g+c.b+1e-4;return vec3(log2(s/3.0+1e-4)*2.0,c.r/s*6.0,c.g/s*6.0);}
+   void main(){
+    vec3 live=texture2D(raster,vUv).rgb,t;
+    if(radius<0.05)t=texture2D(traced,vUv).rgb;
+    else{
+     vec3 g0=guide(vUv),sum=vec3(0.0);float w=0.0;
+     for(int y=-2;y<=2;y++)for(int x=-2;x<=2;x++){
+      vec2 o=vec2(float(x),float(y))*radius*0.5*texel;vec3 d=guide(vUv+o)-g0;
+      float k=exp(-dot(d,d)-float(x*x+y*y)/4.5);sum+=k*texture2D(traced,vUv+o).rgb;w+=k;
+     }
+     t=sum/w;
+    }
+    gl_FragColor=vec4(mix(live,t,amount),1.0);
+   }`,
+  depthTest:false,depthWrite:false,
+ });
+ quad=new FullScreenQuad(this.material);
+ dispose(){this.target.dispose();this.material.dispose();this.quad.dispose();}
 }
 
 /** Tone mapping with the finish of a photograph (look.ts): white balance on the scene's light before tone mapping, then
@@ -84,6 +114,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
  if(options.bloom){bloom=new QuarterResolutionBloom(new T.Vector2(1,1),.06,.1,1);composer.addPass(bloom);}
  const accumulate=new AccumulatePass();composer.addPass(accumulate);
  const output=new FinishedOutput();composer.addPass(output);
+ let traced:TracedBlend|undefined;
  return {
   composer,
   setSize:(width:number,height:number,ratio:number)=>{composer.setPixelRatio(ratio);composer.setSize(width,height);},
@@ -98,8 +129,19 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
    composer.render();
   },
   get accumulated(){return accumulate.frames;},
+  /** Shows a path-traced image (linear, before exposure) over the settled live image, through the same finish. `amount`
+   * 0–1 blends it in; `radius` (traced pixels) smooths its grain (TracedBlend). */
+  present:(image:T.Texture,amount:number,radius:number,indoor=0)=>{
+   output.set(indoor);
+   traced??=new TracedBlend();
+   const size=renderer.getDrawingBufferSize(new T.Vector2()),u=traced.material.uniforms,source=image.image as {width:number;height:number};
+   if(traced.target.width!==size.x||traced.target.height!==size.y)traced.target.setSize(size.x,size.y);
+   u.raster.value=accumulate.latest;u.traced.value=image;u.amount.value=amount;u.radius.value=radius;u.texel.value.set(1/source.width,1/source.height);
+   renderer.setRenderTarget(traced.target);traced.quad.render(renderer);
+   output.renderToScreen=true;output.render(renderer,null as unknown as T.WebGLRenderTarget,traced.target,0,false);
+  },
   reset:()=>{accumulate.frames=0;},
-  dispose:()=>{for(const p of composer.passes)(p as Pass&{dispose?:()=>void}).dispose?.();composer.dispose();target.dispose();},
+  dispose:()=>{traced?.dispose();for(const p of composer.passes)(p as Pass&{dispose?:()=>void}).dispose?.();composer.dispose();target.dispose();},
  };
 }
 export type Post=ReturnType<typeof createPost>;
