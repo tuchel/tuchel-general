@@ -136,7 +136,7 @@ export default function HouseModel({onNavigate}:{onNavigate:(id:string)=>void}){
     <button onClick={()=>capture.recording?api.current?.captures?.film():api.current?.captures?.stop()}>{capture.busy?'Cancel':capture.recording?'Finish':'Close'}</button>
    </div>}
    {panel&&<section className={'model-panel model-panel-'+panel} role="dialog" aria-label={panelTitles[panel]}>
-    <header><h2>{panelTitles[panel]}</h2><button className="model-panel-close" aria-label="Close" onClick={()=>setPanel(null)}><X size={18}/></button></header>
+    <button className="model-panel-close" aria-label="Close" onClick={()=>setPanel(null)}><X size={16}/></button>
     {panel==='views'&&<ViewsPanel level={level} view={view} onView={chooseView}/>}
     {panel==='floor'&&<FloorPanel level={level} onLevel={chooseLevel}/>}
     {panel==='changes'&&<div className="model-panel-body"><RenovationControls value={changes} onChange={setChanges} onFocus={focusRenovation} level={level} ready={ready&&!failed}/></div>}
