@@ -140,7 +140,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   const v=viewpoints[key],narrow=host.getBoundingClientRect().width<768;
   const position=new T.Vector3(...(key==='courtyard'&&narrow&&!realistic?[9,43,61] as const:v.position)),target=new T.Vector3(...(key==='courtyard'&&narrow&&!realistic?[-10,1,8] as const:v.target));
   if(level==='basement')target.y=-2;
-  return {target,direction:position.sub(target),span:v.span,exterior:level==='exterior'};
+  return {target,direction:position.sub(target),span:v.span,exterior:level==='exterior',reach:'reach' in v?v.reach:undefined};
  };
  const leaveEyeLevel=()=>{if(!place)return;place=undefined;pressed.clear();Object.assign(walkInput,{forward:0,strafe:0,run:false});lookRate.x=lookRate.y=0;room=roomTarget=1;lighting?.setRoom(1);grass?.hide();fitShadowToView();};
  const view=(key:Viewpoint|Place,instant=false)=>{

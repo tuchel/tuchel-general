@@ -2,7 +2,8 @@ import * as T from 'three';
 import type {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 
 /** A framing names what the camera looks at, from which direction, and how much must fit. */
-export type Framing={target:T.Vector3;direction:T.Vector3;span:number;exterior:boolean};
+/** `reach` caps the distance a framing may back away to fit its span (on a narrow screen). */
+export type Framing={target:T.Vector3;direction:T.Vector3;span:number;exterior:boolean;reach?:number};
 type Pose={target:T.Vector3;offset:T.Spherical;span:number};
 const ease=(t:number)=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 const angle=(a:number,b:number,t:number)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*t;
@@ -39,7 +40,7 @@ export function createCameraRig(camera:T.PerspectiveCamera|T.OrthographicCamera,
   camera.updateProjectionMatrix();
  };
  const poseFor=(f:Framing):Pose=>{
-  const aspect=width/height,distance=perspective?fitDistance(f.span,aspect,overviewFov(aspect),f.exterior,narrow()):f.direction.length()||60;
+  const aspect=width/height,distance=perspective?Math.min(f.reach??Infinity,fitDistance(f.span,aspect,overviewFov(aspect),f.exterior,narrow())):f.direction.length()||60;
   return {target:f.target.clone(),offset:new T.Spherical().setFromVector3(f.direction.clone().normalize().multiplyScalar(distance)),span:f.span};
  };
  const place=(p:Pose)=>{controls.target.copy(p.target);camera.position.copy(p.target).add(new T.Vector3().setFromSpherical(p.offset));span=p.span;camera.lookAt(controls.target);project();};

@@ -38,7 +38,10 @@ export const viewpoints = {
  estate:{label:'Whole lot',position:[65,62,89],target:[8,0,8],span:115},
  garden:{label:'By the garden',position:[24,4.5,15],target:[0,2.5,0],span:19},
  poolside:{label:'By the pool',position:[-5,4,25],target:[-17,2,10],span:22},
- top:{label:'Plan view',position:[-5,85,6.01],target:[-5,0,6],span:45}
+ top:{label:'Plan view',position:[-5,85,6.01],target:[-5,0,6],span:45},
+ // Low over the far verge of the road, between two avenue trees, the arrival wall in front; `reach` keeps narrow screens
+ // this close, clear of the trees beyond.
+ wall:{label:'Arrival wall',position:[-45,2.8,2.5],target:[-34.4,1.2,-1],span:8,reach:16}
 } as const;
 export type Viewpoint = keyof typeof viewpoints;
 export type Level = 'exterior'|'ground'|'upper'|'basement';

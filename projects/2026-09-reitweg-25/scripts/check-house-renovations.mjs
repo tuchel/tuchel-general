@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import {build} from 'esbuild';
 import * as T from 'three';
 fs.mkdirSync('tmp/renovation-check',{recursive:true});
-await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/solar-layout.ts','lib/house-model/renovation-data.ts','lib/house-model/site-data.ts','lib/house-model/renovations.ts','lib/house-model/experience-data.ts'],outdir:'tmp/renovation-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external'});
+await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/solar-layout.ts','lib/house-model/renovation-data.ts','lib/house-model/site-data.ts','lib/house-model/renovations.ts','lib/house-model/landscape-context.ts'],outdir:'tmp/renovation-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external'});
 const {buildHouseModel}=await import('../tmp/renovation-check/build-model.mjs');
 const {solarPanels,solarRoofs,solarModule,roofSkylights}=await import('../tmp/renovation-check/solar-layout.mjs');
 const {renovations,renovationState,offered,offeredState}=await import('../tmp/renovation-check/renovation-data.mjs');
@@ -12,8 +12,10 @@ const {renovations,renovationState,offered,offeredState}=await import('../tmp/re
 assert.deepEqual(offered.map(r=>r.id),['kitchen','east','nook','front'],'offered renovations');
 assert.deepEqual(offered.map(r=>r.title),['Winter Garden','East Façade Windows','Office Nook','Arrival Wall'],'short names in the Changes panel');
 for(const id of ['terrace','courtyard','solar'])assert.equal(offeredState()[id],false,`${id} stays off with All on`);
-// Looking closer at the arrival wall stands you across the road at the curbside, the wall square in front of you.
-{const {places}=await import('../tmp/renovation-check/experience-data.mjs'),wall=renovations.find(r=>r.id==='front');assert.equal(wall.view,'lane','the arrival wall is seen from the curbside');}
+// Looking closer at the arrival wall flies low over the far verge of the road, the wall square in front: an overview,
+// not an eye-level place, held close enough on a narrow screen to stay clear of the trees beyond the road.
+{const {viewpoints}=await import('../tmp/renovation-check/site-data.mjs'),wall=renovations.find(r=>r.id==='front'),v=viewpoints[wall.view];
+ assert.equal(wall.view,'wall','the arrival wall has its own overview');assert(v.position[1]>2.5&&v.position[1]<6,'a low flying view');assert(v.reach&&v.reach<=20,'held close on narrow screens');}
 assert.deepEqual(Object.entries(offeredState(['east','solar'])).filter(([,on])=>on).map(([id])=>id),['east'],'a link turns on only offered renovations');
 const realistic=process.argv.includes('--realism');
 const model=buildHouseModel(realistic),ids=Object.keys(renovationState());
@@ -96,11 +98,15 @@ model.setRenovations(renovationState());
   const crossings=southRay.intersectObject(wall,true).filter(h=>h.object.isMesh).length;assert(crossings>(len-1)/.3,`arrival wall slats are upright on both faces (${crossings} crossings over ${(len-1).toFixed(1)} m)`);}
  const house=model.root.getObjectByName('main-roof-wall-0').material,slat=model.root.getObjectByName('arrival-wall-slats')?.material;
  assert(slat&&slat.userData.photo==='cladding'&&slat.color.equals(house.color),'arrival wall slats share the house cladding');
- // From the curbside, where its look-closer goes, the wall is in clear view across the road.
- {const {places}=await import('../tmp/renovation-check/experience-data.mjs'),eye=new T.Vector3(...places.lane.position);
-  for(const z of [-5,-2.5,0,2.5]){const to=new T.Vector3(-34.5,1.2,z);southRay.set(eye,to.clone().sub(eye).normalize());southRay.far=eye.distanceTo(to)+2;
-   const hit=southRay.intersectObject(model.root,true).find(h=>h.object.isMesh&&visible(h.object));let o=hit?.object;while(o&&o!==wall)o=o.parent;
-   assert(o===wall,`the arrival wall is in clear view from the curbside toward z ${z} (${hit?.object.name||hit?.object.parent?.name})`);}}
+ // From its look-closer camera, wherever it stops between a wide screen (about 10 m out) and a narrow one (its reach),
+ // the wall is in clear view: no roadside tree trunk or crown, nor anything of the house's, stands in front of it.
+ {const {viewpoints}=await import('../tmp/renovation-check/site-data.mjs'),{landscapeContext}=await import('../tmp/renovation-check/landscape-context.mjs');
+  const roadside=landscapeContext({}).group;roadside.updateMatrixWorld(true);const v=viewpoints.wall,target=new T.Vector3(...v.target),away=new T.Vector3(...v.position).sub(target);
+  for(const reach of [10,12,14,v.reach]){const eye=target.clone().add(away.clone().setLength(reach));
+   for(const z of [-5,-2.5,0,2.5]){const to=new T.Vector3(-34.5,1.2,z);southRay.set(eye,to.clone().sub(eye).normalize());southRay.far=eye.distanceTo(to)+2;
+    const hit=[...southRay.intersectObject(model.root,true),...southRay.intersectObject(roadside,true)].filter(h=>h.object.isMesh&&visible(h.object)&&h.object.name!=='meadow-grass').sort((a,b)=>a.distance-b.distance)[0];
+    let o=hit?.object;while(o&&o!==wall)o=o.parent;
+    assert(o===wall,`the arrival wall is in clear view from ${reach} m out toward z ${z} (${hit?.object.name||hit?.object.parent?.name} at ${hit?.distance.toFixed(1)} m)`);}}}
  model.setRenovations(renovationState());}
 // The garden kitchen: the island in the cabinets' sage, ending 0.85 m short of the retained pier so the way past its
 // end is open, with no stools in it.

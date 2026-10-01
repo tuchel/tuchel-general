@@ -92,9 +92,8 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
  const focusRenovation=(id:RenovationId)=>{
   setChanges(previous=>({...previous,[id]:true}));setPanel(null);setRegion(null);
   const r=renovations.find(item=>item.id===id)!;
-  // The arrival wall is seen square-on from across the road, at the curbside.
-  if(r.view in places){chooseView(r.view as Place);return;}
-  if(id==='solar'){chooseLevel('exterior');setView('east');apply('east');return;}
+  // The arrival wall and the roof's solar array are seen from outside, each from its own overview.
+  if(id==='front'||id==='solar'){chooseLevel('exterior');setView(r.view);apply(r.view);return;}
   setLevel('ground');api.current?.setLevel('ground');setView(null);api.current?.focus(r.center[0],r.center[1],.5,r.span);
  };
  const chooseQuality=(q:Quality)=>{
