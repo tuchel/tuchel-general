@@ -10,7 +10,7 @@ import {places,initialCapture,type Place,type CaptureState} from '@/lib/house-mo
 import {viewpoints,regions,sourceNotes,photoChecks,planPoint,UPPER_PLAN_X_OFFSET,BASEMENT_PLAN_X_OFFSET,type Level,type Region,type Viewpoint} from '@/lib/house-model/site-data';
 import {interiorRooms} from '@/lib/house-model/interior-data';
 import {clockLabel,initialSunStudy,sunStudyReading} from '@/lib/house-model/sun-position';
-import {detectQuality,qualityFromParam,tiers,type Quality} from '@/lib/house-model/device-tier';
+import {detectQuality,qualityFromParam,isPhone,tiers,type Quality} from '@/lib/house-model/device-tier';
 import type {HouseViewer} from '@/lib/house-model/viewer';
 
 type Panel='views'|'floor'|'changes'|'light'|'more';
@@ -23,10 +23,16 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
  const host=useRef<HTMLDivElement>(null),compass=useRef<HTMLSpanElement>(null),api=useRef<HouseViewer|null>(null),saved=useRef<ReturnType<HouseViewer['snapshot']>|null>(null);
  // The model page renders only in the browser, so presets and URL choices are read at mount.
  const [detected]=useState<Quality>(()=>typeof window==='undefined'?'model':detectQuality());
- const [quality,setQuality]=useState<Quality>(()=>typeof window==='undefined'?'model':qualityFromParam(new URLSearchParams(window.location.search).get('quality'))??detected);
+ // Extreme is for computers; a phone given it runs Detailed.
+ const [computer]=useState(()=>typeof window!=='undefined'&&!isPhone());
+ const [quality,setQuality]=useState<Quality>(()=>{
+  if(typeof window==='undefined')return 'model';
+  const q=qualityFromParam(new URLSearchParams(window.location.search).get('quality'))??detected;
+  return q==='extreme'&&isPhone()?'detailed':q;
+ });
  const [ready,setReady]=useState(false),[failed,setFailed]=useState(false),[materials,setMaterials]=useState<'loading'|'ready'>('ready');
- // Set when Detailed could not run here and the model dropped to Balanced.
- const [fellBack,setFellBack]=useState(false);
+ // The preset that could not run here, when the model dropped to a lighter one.
+ const [fellBack,setFellBack]=useState<Quality|false>(false);
  const [level,setLevel]=useState<Level>('exterior'),[view,setView]=useState<ViewKey|null>('courtyard'),levelRef=useRef<Level>('exterior');
  useEffect(()=>{levelRef.current=level;},[level]);
  useEffect(()=>{if(!fellBack||!ready)return;const t=setTimeout(()=>setFellBack(false),9000);return()=>clearTimeout(t);},[fellBack,ready]);
@@ -50,10 +56,12 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
  useEffect(()=>{
   let cancelled=false;
   // Detailed can ask more of the graphics memory than a phone browser gives a page; Balanced is the same scene, lighter.
+  // Extreme drops to Detailed the same way.
   const fail=()=>{
-   if(quality!=='detailed'){setFailed(true);return;}
-   setFellBack(true);setReady(false);setQuality('balanced');
-   const url=new URL(window.location.href);url.searchParams.set('quality','balanced');window.history.replaceState(null,'',url);
+   const lighter:Quality|undefined=quality==='extreme'?'detailed':quality==='detailed'?'balanced':undefined;
+   if(!lighter){setFailed(true);return;}
+   setFellBack(quality);setReady(false);setQuality(lighter);
+   const url=new URL(window.location.href);url.searchParams.set('quality',lighter);window.history.replaceState(null,'',url);
   };
   import('@/lib/house-model/viewer').then(({createHouseViewer})=>{
    if(cancelled||!host.current)return;
@@ -143,7 +151,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
     {panel==='floor'&&<FloorPanel level={level} onLevel={chooseLevel}/>}
     {panel==='changes'&&<div className="model-panel-body"><RenovationControls value={changes} onChange={setChanges} onFocus={focusRenovation} level={level} ready={ready&&!failed}/></div>}
     {panel==='light'&&<LightPanel day={sun.day} minutes={sun.minutes} onChange={(day,minutes)=>setSun({day,minutes})}/>}
-    {panel==='more'&&<MorePanel quality={quality} detected={detected} onQuality={chooseQuality} capture={capture} heavy={tiers[quality].photographic} eyeLevel={!!place}
+    {panel==='more'&&<MorePanel quality={quality} detected={detected} computer={computer} onQuality={chooseQuality} capture={capture} heavy={tiers[quality].photographic} eyeLevel={!!place}
      onSave={()=>{setPanel(null);void api.current?.saveImage();}} onPhotograph={pano=>{setPanel(null);void api.current?.captures?.photograph(pano);}} onFilm={()=>{setPanel(null);if(place)chooseView('courtyard');api.current?.captures?.film();}}
      onExport={()=>{setPanel(null);void api.current?.captures?.exportModel();}} onBreeze={on=>api.current?.captures?.breeze(on)} onSound={on=>void api.current?.captures?.sound(on)} onAbout={()=>{setPanel(null);setAbout(true);}}/>}
    </section>}
@@ -154,7 +162,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
     <button aria-expanded={panel==='changes'} onClick={()=>toggle('changes')} disabled={!ready}><Layers size={19} aria-hidden/><span>Changes</span>{activeCount>0&&<b aria-label={`${activeCount} on`}>{activeCount}</b>}</button>
     {realistic&&<button aria-expanded={panel==='light'} onClick={()=>toggle('light')} disabled={!ready}><Sun size={19} aria-hidden/><span>{clockLabel(reading.minutes)}</span></button>}
    </nav>
-   {ready&&realistic&&(fellBack?<div className="model-hint" role="status">Detailed couldn’t run on this device, so the model is showing Balanced.</div>:materials==='loading'&&<div className="model-hint" role="status">Loading surface detail…</div>)}
+   {ready&&realistic&&(fellBack?<div className="model-hint" role="status">{fellBack==='extreme'?'Extreme couldn’t run on this device, so the model is showing Detailed.':'Detailed couldn’t run on this device, so the model is showing Balanced.'}</div>:materials==='loading'&&<div className="model-hint" role="status">Loading surface detail…</div>)}
   </div>
   <Dialog.Root open={about} onOpenChange={setAbout}><Dialog.Portal><Dialog.Overlay className="model-about-scrim"/><Dialog.Content className="model-about">
    <Dialog.Title>About this model</Dialog.Title>

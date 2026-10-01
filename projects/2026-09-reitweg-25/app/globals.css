@@ -142,7 +142,7 @@ body:has(.house-model-page) .topbar{display:none!important}
 .model-floors{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin-right:30px}
 .model-floors button{min-height:34px;padding:0 4px;border-radius:10px;border:1px solid var(--model-line);background:#ffffffb0;color:var(--model-ink);font-size:13px;cursor:pointer}
 .model-floors button[aria-checked="true"]{background:var(--model-accent);border-color:transparent;color:#fff}
-.model-segments{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin:6px 0}
+.model-segments{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:4px;margin:6px 0}
 .model-segments button{display:flex;align-items:center;justify-content:center;gap:5px;min-height:32px;padding:0 6px;border-radius:10px;border:1px solid var(--model-line);background:#ffffffb0;color:var(--model-ink);font-size:13px;cursor:pointer}
 .model-segments button[aria-checked="true"]{border-color:var(--model-accent);box-shadow:inset 0 0 0 1px var(--model-accent)}
 .model-segments small{width:6px;height:6px;border-radius:50%;background:var(--model-accent)}
