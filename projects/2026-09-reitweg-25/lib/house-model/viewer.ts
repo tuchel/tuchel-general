@@ -107,7 +107,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const walker=createWalker(rig.lens,()=>[...batches.meshes,stage]),walkInput:WalkInput={forward:0,strafe:0,run:false},lookRate={x:0,y:0};
  const walkAnchor=new T.Vector3(),skyAnchor=new T.Vector3();let joystick=false,room=1,roomTarget=1;
 
- const post=realistic?createPost(renderer,scene,camera,{samples:tier.samples,ao:tier.ao,bloom:tier.bloom}):undefined;
+ const post=realistic?createPost(renderer,scene,camera,{samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined}):undefined;
  // Extreme: path tracing takes over the view while the camera rests.
  live=tier.liveTrace&&lighting&&post&&camera instanceof T.PerspectiveCamera?createLiveTrace({renderer,scene,camera,lighting}):undefined;
  const captures=lighting?createCaptures({
@@ -236,9 +236,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   // planes, which the tracer cannot, so it stays live.
   if(captures?.active)live?.release();
   if(live&&post&&still&&!refine&&!needsFrame&&level!=='upper'&&!captures?.active&&live.wanted){
-   renderer.toneMappingExposure=lighting!.exposure;
    const traced=live.step();
-   if(traced){const {amount,radius}=traceBlend(traced.samples);post.present(traced.texture,amount,radius,indoorOf(room));}
+   if(traced){const {amount,radius}=traceBlend(traced.samples);post.present(traced.texture,amount,radius,lighting!.exposure,indoorOf(room));}
    // What the view shows, for tests: 'preparing', the traced sample count, or 'live'.
    const shown=traced?String(Math.floor(traced.samples)):'preparing';if(canvas.dataset.trace!==shown)canvas.dataset.trace=shown;
    return;
@@ -250,7 +249,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    const jitter=still&&post.accumulated>0;
    if(jitter){const i=post.accumulated,size=renderer.getDrawingBufferSize(buffer);camera.setViewOffset(size.x,size.y,halton(i,2)-.5,halton(i,3)-.5,size.x,size.y);}
    if(motion&&captures?.breezing&&tier.photographic)renderer.shadowMap.needsUpdate=true;
-   post.render(still,renderer.toneMappingExposure,indoorOf(room));
+   post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel});
    if(jitter)camera.clearViewOffset();
   }else renderer.render(scene,rig.camera);
   needsFrame=false;
@@ -271,7 +270,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   const w=Math.round(cssSize.x*scale),h=Math.round(cssSize.y*scale);
   try{
    renderer.setPixelRatio(1);renderer.setSize(w,h,false);post?.setSize(w,h,1);
-   if(post){for(let i=0;i<Math.max(8,tier.refineFrames);i++){if(i)camera.setViewOffset(w,h,halton(i,2)-.5,halton(i,3)-.5,w,h);post.render(true,renderer.toneMappingExposure,indoorOf(room));camera.clearViewOffset();}}
+   if(post){for(let i=0;i<Math.max(8,tier.refineFrames);i++){if(i)camera.setViewOffset(w,h,halton(i,2)-.5,halton(i,3)-.5,w,h);post.render(true,lighting?lighting.exposure:.9,indoorOf(room),{eyeLevel:rig.eyeLevel});camera.clearViewOffset();}}
    else renderer.render(scene,rig.camera);
    const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/png'));
    if(blob){const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='reitweg-25-'+(realistic?'detailed':'model')+'.png';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
