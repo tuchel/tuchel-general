@@ -12,6 +12,7 @@ import {createPost} from './post';
 import {createCameraRig,type Framing} from './camera-rig';
 import {createCaptures} from './experience';
 import {createLiveTrace,traceBlend} from './live-trace';
+import {createClouds} from './clouds';
 import {places,type Place,type CaptureState} from './experience-data';
 import {foliageMaterials,finishFoliage} from './foliage';
 import {loadSurfaceTextures,finishSurfaces} from './surface-materials';
@@ -66,7 +67,9 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
 
  // Light.
  let invalidate=()=>{};
- const lighting=realistic?createLighting(renderer,scene,model.root,{shadowSize:tier.shadowSize}):undefined;
+ // Extreme: ray-marched cumulus and their shadows (clouds.ts).
+ const clouds=realistic&&tier.clouds?createClouds(renderer):undefined;
+ const lighting=realistic?createLighting(renderer,scene,model.root,{shadowSize:tier.shadowSize,clouds}):undefined;
  let sun:T.DirectionalLight,environment:T.WebGLRenderTarget|undefined;
  if(lighting){sun=lighting.sun;lighting.apply(initialSunStudy);lighting.fitShadow(SITE_CENTER,SITE_RADIUS);}
  else{
@@ -103,6 +106,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  };
  applyState();
  const grass=realistic&&tier.grass?eyeLevelGrass(scene,[...batches.meshes,stage]):undefined;
+ clouds?.shade([scene]);
  // Walking at eye level: W A S D (Shift to run) on computers, the joysticks on phones.
  const walker=createWalker(rig.lens,()=>[...batches.meshes,stage]),walkInput:WalkInput={forward:0,strafe:0,run:false},lookRate={x:0,y:0};
  const walkAnchor=new T.Vector3(),skyAnchor=new T.Vector3();let joystick=false,room=1,roomTarget=1;
@@ -212,7 +216,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(!visible||document.hidden){previous=now;return;}
   const delta=Math.min((now-previous)/1000,.05);previous=now;
   if(captures?.tick(now))return;
-  if(captures?.breezing)waterTime.value=captures.waterSeconds;
+  if(captures?.breezing){waterTime.value=captures.waterSeconds;lighting?.drift(captures.waterSeconds);}
   // A finished or cancelled film hands the camera back.
   if(film&&!captures?.recording){film=undefined;controls.enabled=!rig.eyeLevel;}
   let moving=rig.update(now);
@@ -293,7 +297,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   dispose:()=>{
    disposed=true;cancelAnimationFrame(frame);window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);captures?.dispose();live?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
    canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('wheel',wheel);canvas.removeEventListener('keydown',key);
-   bake?.dispose();bounce?.dispose();grass?.dispose();post?.dispose();lighting?.dispose();textures?.dispose();environment?.dispose();
+   bake?.dispose();bounce?.dispose();clouds?.dispose();grass?.dispose();post?.dispose();lighting?.dispose();textures?.dispose();environment?.dispose();
    const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
    scene.traverse(o=>{if(o instanceof T.Mesh||o instanceof T.Line){geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);}if(o instanceof T.Mesh&&o.customDepthMaterial)materials.add(o.customDepthMaterial);});
    geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());

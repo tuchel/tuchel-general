@@ -45,7 +45,7 @@ export function createCaptures(options:{
    const [{photographicScene},{WebGLPathTracer,EquirectCamera},{GenerateMeshBVHWorker}]=await Promise.all([import('./photographic-scene'),import('three-gpu-pathtracer'),import('three-mesh-bvh/src/workers/GenerateMeshBVHWorker.js')]);
    // The same sky that lights the live view, so the photograph matches it.
    env=lighting.equirect();
-   local=await photographicScene(scene,env,controller.signal,text=>send({message:text}),{maxDistance:90,origin:camera.position.clone()});
+   local=await photographicScene(scene,env,controller.signal,text=>send({message:text}),{maxDistance:90,origin:camera.position.clone(),sunScale:lighting.sunThroughClouds});
    if(controller.signal.aborted){local.dispose();env.dispose();return;}
    send({message:'Building the light transport model…'});
    pt=new WebGLPathTracer(renderer);
