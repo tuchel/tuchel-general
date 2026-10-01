@@ -37,13 +37,16 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  // The south wall is glazed on both sides of the retained fireplace; build-model keeps the piers beside it solid.
  for(const [from,to] of [[-6,-.93],[.82,6]])glazing(east,[from,9.61],[to,9.61]);
  const farDining=dining(east,...p(1132,739),2.7,1.02,Math.PI/2);farDining.name='east-family-dining';
- // Light oak frames the opened façade, as in the portal render: a head along the top of the glass, under the ceiling,
- // and a post wherever the glass meets a wall, the fireplace or the other glass wall at the south-east corner.
- const oakHead=(a:number[],b:number[])=>{const g=place(east,(a[0]+b[0])/2,(a[1]+b[1])/2,-Math.atan2(b[1]-a[1],b[0]-a[0]),2.63);box(g,0,0,0,Math.hypot(b[0]-a[0],b[1]-a[1])+.24,.16,.24,m.oak);};
- oakHead(p(1229,182),p(1229,877));for(const [from,to] of [[-6,-.93],[.82,6]])oakHead([from,9.61],[to,9.61]);
- for(const z of [182,388,524,669]){const [x,pz]=p(1229,z);box(east,x,.16,pz,.24,2.47,.14,m.oak);}
- for(const x of [-6,-.93,.82])box(east,x,.16,9.61,.14,2.47,.24,m.oak);
- box(east,6,.16,9.61,.24,2.47,.24,m.oak);
+ // A frame lines the opened façade, as in the portal render: a head along the top of the glass, under the ceiling,
+ // and a post wherever the glass meets a wall, the fireplace or the other glass wall at the south-east corner. Each
+ // piece is split at the glass: light oak inside, the house's cladding outside.
+ const skin=material('#8a6d57','#6e5946');skin.userData.photo='cladding';
+ const head=(a:number[],b:number[],inside:number)=>{const g=place(east,(a[0]+b[0])/2,(a[1]+b[1])/2,-Math.atan2(b[1]-a[1],b[0]-a[0]),2.63),len=Math.hypot(b[0]-a[0],b[1]-a[1])+.24;box(g,0,0,.06*inside,len,.16,.12,m.oak);box(g,0,0,-.06*inside,len,.16,.12,skin);};
+ // The east run's inside lies to the west (its local +z); the south runs' inside lies to the north (local -z).
+ head(p(1229,182),p(1229,877),1);for(const [from,to] of [[-6,-.93],[.82,6]])head([from,9.61],[to,9.61],-1);
+ for(const z of [182,388,524,669]){const [x,pz]=p(1229,z);box(east,x-.06,.16,pz,.12,2.47,.14,m.oak);box(east,x+.06,.16,pz,.12,2.47,.14,skin);}
+ for(const x of [-6,-.93,.82]){box(east,x,.16,9.55,.14,2.47,.12,m.oak);box(east,x,.16,9.67,.14,2.47,.12,skin);}
+ box(east,5.94,.16,9.55,.12,2.47,.12,m.oak);box(east,6.06,.16,9.61,.12,2.47,.24,skin);box(east,5.94,.16,9.67,.12,2.47,.12,skin);
  // Kitchen: the complete A+B+C footprint, with the original cooking wall to the east.
  const kitchen=groups.kitchen,outline=kitchenLayout.envelope.map(([x,z])=>kitchenPoint(x,z));
  poly(kitchen,outline,.125,.035,m.stone).name='confirmed-abc-kitchen-floor';
