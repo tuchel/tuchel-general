@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {build} from 'esbuild';
 await build({entryPoints:['lib/house-model/view-map.ts','lib/house-model/site-data.ts','lib/house-model/experience-data.ts'],outdir:'tmp/view-map-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm'});
 const {sheets,mapMarkers,MARKER,wholeViews}=await import('../tmp/view-map-check/view-map.mjs');
-const {planPoint,UPPER_PLAN_X_OFFSET}=await import('../tmp/view-map-check/site-data.mjs');
+const {planPoint,UPPER_PLAN_X_OFFSET,viewpoints}=await import('../tmp/view-map-check/site-data.mjs');
 const places=Object.keys((await import('../tmp/view-map-check/experience-data.mjs')).places);
 
 // Every eye-level place appears once, on the sheet for where it stands.
@@ -39,6 +39,8 @@ for(const width of [331,384,434]){
    const label=m.side==='right'?[cx+g,cy-lh/2,lw,lh]:m.side==='left'?[cx-g-lw,cy-lh/2,lw,lh]:m.side==='above'?[cx-lw/2,cy-g-lh,lw,lh]:m.side==='above-left'?[cx+MARKER.overhang-lw,cy-g-lh,lw,lh]:[cx-lw/2,cy+g,lw,lh];
    boxes.push({name:`${m.id} dot`,b:[cx-r,cy-r,2*r,2*r]},{name:`${m.id} label`,b:label});
   }
+  // The whole-lot and plan-view buttons sit in the map's top-right corner (12 px labels, about 6.7 px a character).
+  if(sheet==='grounds'){let right=w-MARKER.whole.inset;for(const id of [...wholeViews].reverse()){const bw=viewpoints[id].label.length*6.7+2*MARKER.whole.pad;boxes.push({name:`${id} button`,b:[right-bw,MARKER.whole.inset,bw,MARKER.whole.height]});right-=bw+MARKER.whole.gap;}}
   for(const {name,b:[x,y,bw,bh]} of boxes)assert(x>=0&&y>=0&&x+bw<=w&&y+bh<=h,`${name} fits the ${sheet} map at ${width}px`);
   for(let i=0;i<boxes.length;i++)for(let j=i+1;j<boxes.length;j++){
    const [a,b]=[boxes[i].b,boxes[j].b];

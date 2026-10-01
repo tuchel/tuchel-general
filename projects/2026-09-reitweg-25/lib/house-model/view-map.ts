@@ -21,10 +21,10 @@ const placeSheets:Record<Place,[Sheet,Side]>={
  bedroom:['upper','above-left'],
 };
 /** Overviews that look across the house from one side; the whole lot and the plan view look at everything. */
-const overviews:Partial<Record<Viewpoint,Side>>={courtyard:'left',east:'left',arrival:'right'};
+const overviews:Partial<Record<Viewpoint,Side>>={courtyard:'left',east:'left',arrival:'left'};
 export const wholeViews:Viewpoint[]=['estate','top'];
-/** Sizes in CSS pixels, shared with globals.css (.view-map-*). */
-export const MARKER={dot:14,air:24,gap:6,pad:6,labelHeight:20,pair:8,overhang:10};
+/** Sizes in CSS pixels, shared with globals.css (.view-map-*); `whole` is the corner holding the whole-lot and plan views. */
+export const MARKER={dot:14,air:24,gap:6,pad:6,labelHeight:20,pair:8,overhang:10,whole:{inset:6,gap:4,height:24,pad:10}};
 export type MapMarker={id:Place|Viewpoint;label:string;kind:'eye'|'air';x:number;y:number;heading:number;side:Side};
 
 /** Markers on one sheet, as fractions of its crop. Overviews are offered with the whole house, not in floor cutaways. */

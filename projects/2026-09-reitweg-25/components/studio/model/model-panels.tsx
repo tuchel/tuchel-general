@@ -1,6 +1,6 @@
 'use client';
 import {useMemo,useState,type CSSProperties} from 'react';
-import {Sun,Sunrise,Sunset,Moon,Check} from 'lucide-react';
+import {Sun,Sunrise,Sunset,Moon} from 'lucide-react';
 import {Slider} from '@/components/ui/slider';
 import {viewpoints,type Level,type Viewpoint} from '@/lib/house-model/site-data';
 import type {Place,CaptureState} from '@/lib/house-model/experience-data';
@@ -17,36 +17,33 @@ export function ViewsPanel({level,view,onView}:{level:Level;view:ViewKey|null;on
  const [inside,setInside]=useState(()=>{const sheet=view?sheetOf(view):undefined;return sheet==='ground'||sheet==='upper';});
  const chip=(id:ViewKey,label:string)=><button key={id} className="model-chip" aria-pressed={view===id} onClick={()=>onView(id)}>{label}</button>;
  return <div className="model-panel-body">
-  {!whole&&<><span className="model-panel-label">This floor</span><div className="model-chips">{[chip('top','Whole floor'),...rooms.map(r=>chip(`room:${r.id}`,r.label))]}</div></>}
+  {!whole&&<div className="model-chips">{[chip('top','Whole floor'),...rooms.map(r=>chip(`room:${r.id}`,r.label))]}</div>}
   <div className="view-map-tabs" role="tablist" aria-label="Map">
    <button role="tab" aria-selected={!inside} onClick={()=>setInside(false)}>Outside</button>
    <button role="tab" aria-selected={inside} onClick={()=>setInside(true)}>Inside</button>
   </div>
   {inside?<div className="view-map-pair">{(['ground','upper'] as const).map(sheet=><ViewMap key={sheet} sheet={sheet} overviews={false} view={view} onView={onView}/>)}</div>
-   :<ViewMap sheet="grounds" overviews={whole} view={view} onView={onView}/>}
-  <div className="view-map-foot">
-   <span className="view-map-key"><i aria-hidden/>Eye level{whole&&!inside&&<><i className="air" aria-hidden/>From above</>}</span>
-   {whole&&!inside&&<div className="view-map-whole">{wholeViews.map(id=>chip(id,viewpoints[id].label))}</div>}
-  </div>
+   :<ViewMap sheet="grounds" overviews={whole} view={view} onView={onView}>{whole&&<div className="view-map-whole">{wholeViews.map(id=>chip(id,viewpoints[id].label))}</div>}</ViewMap>}
  </div>;
 }
 
 /** An exposé plan with a dot where each eye-level view stands, its cone the way it looks, and overview arrows on the frame. */
-function ViewMap({sheet,overviews,view,onView}:{sheet:Sheet;overviews:boolean;view:ViewKey|null;onView:(v:ViewKey)=>void}){
+function ViewMap({sheet,overviews,view,onView,children}:{sheet:Sheet;overviews:boolean;view:ViewKey|null;onView:(v:ViewKey)=>void;children?:React.ReactNode}){
  const {src,title,crop}=sheets[sheet];
  return <figure className="view-map" style={{aspectRatio:`${crop[2]} / ${crop[3]}`}}>
   <svg viewBox={crop.join(' ')} aria-hidden><image href={'/assets/'+src} width="2200" height="1556"/></svg>
   {sheet!=='grounds'&&<figcaption>{title}</figcaption>}
   {mapMarkers(sheet,overviews).map(m=><button key={m.id} className="view-map-marker" data-kind={m.kind} data-side={m.side} aria-pressed={view===m.id} onClick={()=>onView(m.id)}
    style={{left:`${m.x*100}%`,top:`${m.y*100}%`,'--heading':`${m.heading}deg`} as CSSProperties}>
-   {m.kind==='eye'&&<span className="view-map-cone" aria-hidden/>}<span className="view-map-pin" aria-hidden/><span className="view-map-label">{m.label}</span>
+   {m.kind==='eye'&&<span className="view-map-cone" aria-hidden/>}<span className="view-map-pin" aria-hidden/><span className="view-map-label">{m.label}<span className="sr-only">{m.kind==='eye'?', eye level':', from above'}</span></span>
   </button>)}
+  {children}
  </figure>;
 }
 
 export function FloorPanel({level,onLevel}:{level:Level;onLevel:(l:Level)=>void}){
- return <div className="model-panel-body"><div className="model-segments" role="radiogroup" aria-label="Floor">
-  {floors.map(f=><button key={f.id} role="radio" aria-checked={level===f.id} onClick={()=>onLevel(f.id)}>{f.label}{level===f.id&&<Check size={15} aria-hidden/>}</button>)}
+ return <div className="model-panel-body"><div className="model-floors" role="radiogroup" aria-label="Floor">
+  {floors.map(f=><button key={f.id} role="radio" aria-checked={level===f.id} title={f.label} onClick={()=>onLevel(f.id)}>{f.short}</button>)}
  </div></div>;
 }
 
@@ -66,16 +63,18 @@ export function LightPanel({day,minutes,onChange}:{day:number;minutes:number;onC
   const dayOfYear=Math.min(365,Math.round((Date.UTC(SUN_SITE.year,+parts.month-1,+parts.day)-Date.UTC(SUN_SITE.year,0,1))/864e5)+1);
   onChange(dayOfYear,+parts.hour*60+ +parts.minute);
  };
+ const sun=reading.apparentElevation< -.833?'Sun below the horizon':`Sun ${reading.apparentElevation.toFixed(0)}°, ${direction}`;
+ // The presets sit on the time band where the thumb's centre lands for their time (the thumb is 8 px wide).
+ const at=(m:number)=>`calc(${m/1435*100}% + ${(.5-m/1435)*8}px)`;
  return <div className="model-panel-body model-light">
-  <div className="model-light-heading"><strong>{clockLabel(reading.minutes)} <small>{reading.zone}</small></strong><span>{date}</span><button className="model-link" onClick={now}>Now</button></div>
-  <div className="model-light-slider" style={{'--sunrise':`${events.sunrise.minutes/1435*100}%`,'--sunset':`${events.sunset.minutes/1435*100}%`} as React.CSSProperties}>
+  <div className="model-light-heading"><span>{date}</span><span>{sun}</span><button className="model-link" onClick={now}>Now</button></div>
+  <div className="model-light-time" style={{'--sunrise':`${events.sunrise.minutes/1435*100}%`,'--sunset':`${events.sunset.minutes/1435*100}%`} as React.CSSProperties}>
    <Slider aria-label="Time of day" min={0} max={1435} step={5} value={[minutes]} onValueChange={v=>onChange(day,v[0])}/>
+   {presets(events).map(p=><button key={p.label} className="model-light-mark" data-night={p.minutes<events.sunrise.minutes||p.minutes>events.sunset.minutes||undefined} style={{left:at(p.minutes)}}
+    aria-label={`${p.label}, ${clockLabel(p.minutes)}`} title={`${p.label} · ${clockLabel(p.minutes)}`} aria-pressed={Math.abs(minutes-p.minutes)<6} onClick={()=>onChange(day,p.minutes)}><p.icon size={12} aria-hidden/></button>)}
   </div>
-  <div className="model-light-presets">{presets(events).map(p=><button key={p.label} className="model-chip" aria-pressed={Math.abs(minutes-p.minutes)<6} onClick={()=>onChange(day,p.minutes)}><p.icon size={15} aria-hidden/>{p.label}</button>)}</div>
-  <label className="model-panel-label" htmlFor="model-day">Time of year · {date}</label>
-  <Slider id="model-day" aria-label="Day of the year" min={1} max={365} step={1} value={[day]} onValueChange={v=>onChange(v[0],minutes)}/>
+  <Slider className="model-light-year" aria-label="Day of the year" min={1} max={365} step={1} value={[day]} onValueChange={v=>onChange(v[0],minutes)}/>
   <div className="model-light-months"><span>Jan</span><span>Apr</span><span>Jul</span><span>Oct</span><span>Dec</span></div>
-  <p className="model-light-reading">{reading.apparentElevation< -.833?`Sun ${Math.abs(reading.apparentElevation).toFixed(0)}° below the horizon`:`Sun ${reading.apparentElevation.toFixed(0)}° high in the ${direction}`} · sunrise {clockLabel(events.sunrise.minutes)}, sunset {clockLabel(events.sunset.minutes)}</p>
  </div>;
 }
 
@@ -87,21 +86,18 @@ export type MoreActions={
 export function MorePanel(p:MoreActions){
  const realistic=p.quality!=='model',busy=p.capture.busy||p.capture.recording;
  return <div className="model-panel-body model-more">
-  <span className="model-panel-label">Keep this view</span>
-  <button className="model-row" onClick={p.onSave}>Save image<small>{p.heavy?'3840 px PNG':'About twice the screen'}</small></button>
-  {realistic&&p.heavy&&<button className="model-row" disabled={busy} onClick={()=>p.onPhotograph(false)}>Photograph<small>Path-traced light; refines while the view stays still</small></button>}
-  {realistic&&p.heavy&&<button className="model-row" disabled={busy||!p.eyeLevel} onClick={()=>p.onPhotograph(true)}>360° panorama<small>{p.eyeLevel?'From this eye-level view':'Choose an eye-level view first'}</small></button>}
+  <button className="model-row" onClick={p.onSave}>Save image<small>{p.heavy?'3840 px PNG':'twice the screen'}</small></button>
+  {realistic&&p.heavy&&<button className="model-row" disabled={busy} onClick={()=>p.onPhotograph(false)}>Photograph<small>path-traced light</small></button>}
+  {realistic&&p.heavy&&<button className="model-row" disabled={busy||!p.eyeLevel} onClick={()=>p.onPhotograph(true)}>360° panorama<small>{p.eyeLevel?'from this view':'eye-level views only'}</small></button>}
   {realistic&&<button className="model-row" disabled={p.capture.busy} onClick={p.onFilm}>{p.capture.recording?'Finish film':'Film'}<small>20-second orbit</small></button>}
-  {realistic&&p.heavy&&<button className="model-row" disabled={busy} onClick={p.onExport}>Export 3D model<small>Textured GLB for Blender</small></button>}
-  {realistic&&<>
-   <span className="model-panel-label">Atmosphere</span>
-   <button className="model-row model-toggle" aria-pressed={p.capture.breeze} onClick={()=>p.onBreeze(!p.capture.breeze)}>Breeze<small>Leaves, grass and water move</small><i>{p.capture.breeze?'On':'Off'}</i></button>
-   <button className="model-row model-toggle" aria-pressed={p.capture.sound} onClick={()=>p.onSound(!p.capture.sound)}>Garden sound<small>Designed ambience, not a recording</small><i>{p.capture.sound?'On':'Off'}</i></button>
-  </>}
-  <span className="model-panel-label">Detail</span>
+  {realistic&&p.heavy&&<button className="model-row" disabled={busy} onClick={p.onExport}>Export 3D model<small>textured GLB for Blender</small></button>}
+  {realistic&&<div className="model-more-toggles">
+   <button aria-pressed={p.capture.breeze} title="Leaves, grass and water move" onClick={()=>p.onBreeze(!p.capture.breeze)}>Breeze</button>
+   <button aria-pressed={p.capture.sound} title="Designed ambience, not a recording" onClick={()=>p.onSound(!p.capture.sound)}>Garden sound</button>
+  </div>}
   <div className="model-segments" role="radiogroup" aria-label="Detail">
-   {([['detailed','Detailed'],['balanced','Balanced'],['model','Model']] as const).map(([id,label])=><button key={id} role="radio" aria-checked={p.quality===id} onClick={()=>p.onQuality(id)}>{label}{p.detected===id&&<small>suits this device</small>}</button>)}
+   {([['detailed','Detailed'],['balanced','Balanced'],['model','Model']] as const).map(([id,label])=><button key={id} role="radio" aria-checked={p.quality===id} title={p.detected===id?'Suits this device':undefined} onClick={()=>p.onQuality(id)}>{label}{p.detected===id&&<small aria-label="suits this device"/>}</button>)}
   </div>
-  <button className="model-row" onClick={p.onAbout}>About this model<small>Sources, photographs and limits</small></button>
+  <button className="model-link" onClick={p.onAbout}>About this model</button>
  </div>;
 }
