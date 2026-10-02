@@ -24,5 +24,5 @@ const uv=new T.Vector4(through.x,through.y,through.z,1).applyMatrix4(matrix),r=n
 assert(Math.hypot(uv.x/uv.w-r.x/r.w,uv.y/uv.w-r.y/r.w)<1e-6,'the water samples the reflected roof at the right place');
 assert.equal(tiers.extreme.poolMirror,true);for(const q of ['detailed','balanced','model'])assert.equal(tiers[q].poolMirror,false,`${q} reflects the sky light only`);
 const viewer=fs.readFileSync('lib/house-model/viewer.ts','utf8');
-assert(/mirror\?\.render\(\);[^\n]*post\.render\(still/.test(viewer),'the mirror image is drawn before each live frame');
+assert(/if\(mirror\)timed\('mirror',\(\)=>mirror\.render\(\)\);post\.render\(still/.test(viewer),'the mirror image is drawn before each live frame');
 console.log(`Passed: the pool mirrors the scene at its water line (${POOL_MIRROR.level} m), clipping everything below it, sampled where the reflection falls; Extreme only.`);

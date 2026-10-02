@@ -23,6 +23,7 @@ import {bakeSunBounce} from './sun-bounce';
 import {eyeLevelGrass} from './grass';
 import {createWalker,type WalkInput} from './walk';
 import {tierFor,type Quality} from './device-tier';
+import {createPerfReadout} from './perf-readout';
 import {renovationState,type RenovationState} from './renovation-data';
 import {viewpoints,type Level,type Region,type Viewpoint} from './site-data';
 
@@ -51,6 +52,10 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const canvas=renderer.domElement;
  canvas.setAttribute('aria-label','Interactive 3D model of Reitweg 25. Drag to orbit, pinch or scroll to zoom. Arrow keys rotate, plus and minus zoom, Home resets.');
  canvas.setAttribute('role','img');canvas.tabIndex=0;host.appendChild(canvas);
+ // `?debug=perf`: what each pass costs the graphics card, what a frame costs the processor, how a trace progresses.
+ const perf=new URLSearchParams(location.search).get('debug')==='perf'?createPerfReadout(renderer,host,{quality:tier.quality,motionScale:tier.motionScale}):undefined;
+ const timed=<R,>(label:string,work:()=>R):R=>perf?perf.time(label,work):work();
+ const baked=(label:string,work:()=>boolean|undefined)=>perf?perf.baked(label,work):work();
  const scene=new T.Scene();scene.background=realistic?null:new T.Color('#edece5');
  const camera=realistic?new T.PerspectiveCamera(36,1,.1,3000):new T.OrthographicCamera(-35,35,25,-25,.1,450);
  camera.position.set(34,32,47);
@@ -118,6 +123,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const post=realistic?createPost(renderer,scene,camera,{samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined}):undefined;
  // Extreme: the pool mirrors the scene (pool-reflection.ts).
  const mirror=tier.poolMirror&&camera instanceof T.PerspectiveCamera?createPoolReflection(renderer,scene,camera,batches.meshes.filter(b=>materialsOf(b).some(m=>hasShaderFeature(m,'pool-water')))):undefined;
+ if(post)perf?.watch(post.passes);
  // Extreme: path tracing takes over the view while the camera rests.
  live=tier.liveTrace&&lighting&&post&&camera instanceof T.PerspectiveCamera?createLiveTrace({renderer,scene,camera,lighting}):undefined;
  const captures=lighting?createCaptures({
@@ -130,7 +136,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  let film:{position:T.Vector3;target:T.Vector3}|undefined;
 
  // Frame scheduling: moving frames are fast; still frames refine, then rendering stops.
- let lastChange=performance.now(),needsFrame=true,visible=true,disposed=false,frame=0,ready=false,previous=performance.now(),heading=NaN;
+ let lastChange=performance.now(),needsFrame=true,visible=true,disposed=false,frame=0,ready=false,previous=performance.now(),heading=NaN,resting=false;
  // A panel or dialog over the view: path tracing waits until it closes, so the interface keeps the graphics card.
  let interfaceOpen=false,presented=0;
  // Another app in front: tracing and the background bakes wait, so the rest of the computer keeps the processor and
@@ -140,7 +146,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // Moving frames draw at the tier's motion scale; the first still frame is back at full resolution.
  let drawnLow=false,sunSettle:ReturnType<typeof setTimeout>|undefined;const scaleFor=(moving:boolean)=>moving?tier.motionScale:1;
  const sizePost=(moving:boolean)=>{const {width,height}=host.getBoundingClientRect();if(!width||!height)return;drawnLow=moving;post?.setSize(width,height,renderer.getPixelRatio()*scaleFor(moving));};
- const changed=()=>{lastChange=performance.now();post?.reset();live?.reset();needsFrame=true;};
+ const changed=()=>{lastChange=performance.now();post?.reset();live?.reset();needsFrame=true;resting=false;};
  invalidate=changed;
  const size=()=>{
   const {width,height}=host.getBoundingClientRect();if(!width||!height)return;
@@ -228,6 +234,10 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  };
  const render=(now:number)=>{
   if(disposed)return;frame=requestAnimationFrame(render);
+  if(!perf){draw(now);return;}
+  perf.begin();try{draw(now);}finally{perf.end(drawnLow);}
+ };
+ const draw=(now:number)=>{
   if(!visible||document.hidden){previous=now;return;}
   const delta=Math.min((now-previous)/1000,.05);previous=now;
   if(captures?.tick(now))return;
@@ -246,18 +256,20 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   }
   if(controls.enabled&&controls.update(delta))moving=true;
   if(moving)changed();
-  if(lighting?.update(camera,now)){post?.reset();needsFrame=true;}
-  if(!elsewhere){if(bake?.update())changed();if(bounce?.update())changed();}
+  if(lighting&&baked('sky',()=>lighting.update(camera,now))){post?.reset();needsFrame=true;}
+  if(!elsewhere){if(bake&&baked('sky bake',()=>bake.update()))changed();if(bounce&&baked('bounce bake',()=>bounce.update()))changed();}
   const motion=!!(captures?.breezing||captures?.recording||film);
   const still=!motion&&!moving&&now-lastChange>110,refine=!!post&&still&&post.accumulated<tier.refineFrames;
   // A settled view hands over to path tracing; the floor-plan section of the upper floor cuts roofs with clipping
   // planes, which the tracer cannot, so it stays live.
   if(captures?.active)live?.release();
   if(live&&post&&still&&!refine&&!needsFrame&&level!=='upper'&&!captures?.active&&!interfaceOpen&&!elsewhere&&now-lastChange>LIVE_TRACE.rest&&live.wanted){
+   if(!resting){resting=true;perf?.rest(now);}
    const traced=live.step();
+   perf?.trace(now,traced,{ready:live.ready,finished:!live.wanted});
    // Drawn a few times a second, and once more when tracing finishes.
    // A denoised image is shown whole, without the grain filter.
-   if(traced&&(now-presented>=LIVE_TRACE.present||!live.wanted)){presented=now;const {amount,radius}=traceBlend(traced.denoised?LIVE_TRACE.filter.until:traced.samples);post.present(traced.texture,amount,radius,lighting!.exposure,indoorOf(room));}
+   if(traced&&(now-presented>=LIVE_TRACE.present||!live.wanted)){presented=now;const {amount,radius}=traceBlend(traced.denoised?LIVE_TRACE.filter.until:traced.samples);timed('trace blend',()=>post.present(traced.texture,amount,radius,lighting!.exposure,indoorOf(room)));}
    // What the view shows, for tests: 'preparing', the traced sample count, or 'live'; and the samples behind the denoised
    // image on show.
    const shown=traced?String(Math.floor(traced.samples)):'preparing';if(canvas.dataset.trace!==shown)canvas.dataset.trace=shown;
@@ -274,9 +286,9 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    if(jitter){const i=post.accumulated,size=renderer.getDrawingBufferSize(buffer);camera.setViewOffset(size.x,size.y,halton(i,2)-.5,halton(i,3)-.5,size.x,size.y);}
    if(motion&&captures?.breezing&&tier.photographic)renderer.shadowMap.needsUpdate=true;
    cullTrees(low);
-   mirror?.render();post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel});
+   if(mirror)timed('mirror',()=>mirror.render());post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel});
    if(jitter)camera.clearViewOffset();
-  }else renderer.render(scene,rig.camera);
+  }else timed('scene',()=>renderer.render(scene,rig.camera));
   needsFrame=false;
   reportHeading();
   const programs=String(renderer.info.programs?.length??0);if(canvas.dataset.programs!==programs)canvas.dataset.programs=programs;
@@ -340,7 +352,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   snapshot:rig.snapshot,
   restore:(s:Parameters<typeof rig.restore>[0])=>{rig.restore(s);changed();},
   dispose:()=>{
-   disposed=true;cancelAnimationFrame(frame);window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
+   disposed=true;cancelAnimationFrame(frame);perf?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
    canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('wheel',wheel);canvas.removeEventListener('keydown',key);
    bake?.dispose();bounce?.dispose();clouds?.dispose();grass?.dispose();post?.dispose();lighting?.dispose();textures?.dispose();environment?.dispose();
    const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
