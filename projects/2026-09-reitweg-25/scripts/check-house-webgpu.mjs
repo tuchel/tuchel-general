@@ -41,4 +41,7 @@ assert(/if\(denoised&&!settled\)/.test(gpu),'between stages the denoised image s
 // The tracer copies the sky's filtering. Its environment shader samples the sky with a sampler, which three leaves out
 // for a nearest-filtered texture (a DataTexture's default): the shader would not compile and nothing would be traced.
 assert(/equirect:[^]*?const texture=new T\.DataTexture\([^\n]*texture\.minFilter=texture\.magFilter=T\.LinearFilter/.test(fs.readFileSync('lib/house-model/lighting.ts','utf8')),'the sky handed to the tracer is filtered');
-console.log(`Passed: a filtered sky; WebGPU path tracing denoised at ${GPU_TRACE.stages.join(', ')} samples, copied to the WebGL view every ${GPU_TRACE.copyEvery} ms with rows flipped and unpadded; instances traced as instances with their trees built in workers; the tracer and conversions kept across rebuilds; no tracing without WebGPU.`);
+// The house's scene buffers pass WebGPU's default 128 MB per storage binding (one is 144 MB); the device asks for the
+// graphics card's own limits, or the first sample fails validation.
+assert(/const \{maxStorageBufferBindingSize,maxBufferSize\}=adapter\.limits/.test(gpu)&&/new W\.WebGPURenderer\(\{canvas,antialias:false,requiredLimits:\{maxStorageBufferBindingSize,maxBufferSize\}\}\)/.test(gpu),'the device has the graphics card\'s buffer limits');
+console.log(`Passed: a filtered sky and the graphics card's buffer limits; WebGPU path tracing denoised at ${GPU_TRACE.stages.join(', ')} samples, copied to the WebGL view every ${GPU_TRACE.copyEvery} ms with rows flipped and unpadded; instances traced as instances with their trees built in workers; the tracer and conversions kept across rebuilds; no tracing without WebGPU.`);

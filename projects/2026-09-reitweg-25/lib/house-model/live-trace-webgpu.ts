@@ -53,11 +53,14 @@ export type Tracer={
 };
 /** `weights`: where the denoiser's weights are (a worker is handed the page's address). */
 export async function createWebGPUTracer(scene:T.Scene,camera:T.PerspectiveCamera,signal?:AbortSignal,options:{weights?:string}={}):Promise<Tracer|undefined>{
- const gpu=(navigator as Navigator&{gpu?:{requestAdapter:()=>Promise<unknown>}}).gpu;
- if(!gpu||!await gpu.requestAdapter().catch(()=>null))return undefined;
+ const gpu=(navigator as Navigator&{gpu?:{requestAdapter:()=>Promise<{limits:Record<string,number>}|null>}}).gpu;
+ const adapter=gpu&&await gpu.requestAdapter().catch(()=>null);
+ if(!adapter)return undefined;
+ // The house's scene buffers pass WebGPU's default 128 MB per storage binding; the device asks for the card's own limits.
+ const {maxStorageBufferBindingSize,maxBufferSize}=adapter.limits;
  const [W,{WebGPUPathTracer,OIDNDenoiser},{initUNetFromURL}]=await Promise.all([import('three/webgpu'),import('three-gpu-pathtracer/webgpu'),import('oidn-web')]);
  const canvas=typeof document!=='undefined'?document.createElement('canvas'):new OffscreenCanvas(1,1);canvas.width=canvas.height=1;
- const renderer=new W.WebGPURenderer({canvas,antialias:false});
+ const renderer=new W.WebGPURenderer({canvas,antialias:false,requiredLimits:{maxStorageBufferBindingSize,maxBufferSize}});
  await renderer.init();
  // Without WebGPU, WebGPURenderer quietly runs on WebGL 2; the WebGL tracer is the better choice then.
  if(!(renderer.backend as {isWebGPUBackend?:boolean}).isWebGPUBackend){renderer.dispose();return undefined;}
