@@ -8,6 +8,7 @@ import {Pass,FullScreenQuad} from 'three/addons/postprocessing/Pass.js';
 import {DisplayP3ColorSpace} from 'three/addons/math/ColorSpaces.js';
 import {finish} from './look';
 import {LENS,DepthCapture,SunShafts,Meter,DepthOfField,focalLength,meterCorrection} from './lens';
+import {renderAlbedo,SHARP} from './albedo-pass';
 
 /** Ambient occlusion at half resolution, with normals reconstructed from the main pass's
  * depth; no second scene render. */
@@ -54,14 +55,15 @@ class AccumulatePass extends Pass{
 }
 /** Blends a path-traced image over the settled live one. While the traced image is grainy, an edge-aware filter smooths
  * it within surfaces the live image shows as one: taps whose live colour differs by more than about half a stop count
- * for little, so edges stay sharp. */
+ * for little, so edges stay sharp. A denoised image arrives divided by its surface colours (live-trace-webgpu.ts) and is
+ * multiplied by the live view's, drawn at full resolution (albedo-pass.ts), for the texture detail its pixels lack. */
 class TracedBlend{
  target=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false});
  material=new T.ShaderMaterial({
-  uniforms:{raster:{value:null},traced:{value:null},amount:{value:0},radius:{value:0},texel:{value:new T.Vector2()},shafts:{value:null},shafted:{value:0},
+  uniforms:{raster:{value:null},traced:{value:null},amount:{value:0},radius:{value:0},texel:{value:new T.Vector2()},shafts:{value:null},shafted:{value:0},albedo:{value:null},demodulated:{value:0},
    depth:{value:null},hasDepth:{value:0},far:{value:3000},fogColor:{value:new T.Color()},fogRange:{value:new T.Vector2(1e9,1e9)}},
   vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}',
-  fragmentShader:`uniform sampler2D raster;uniform sampler2D traced;uniform float amount;uniform float radius;uniform vec2 texel;uniform sampler2D shafts;uniform float shafted;
+  fragmentShader:`uniform sampler2D raster;uniform sampler2D traced;uniform float amount;uniform float radius;uniform vec2 texel;uniform sampler2D shafts;uniform float shafted;uniform sampler2D albedo;uniform float demodulated;
    uniform sampler2D depth;uniform float hasDepth;uniform float far;uniform vec3 fogColor;uniform vec2 fogRange;varying vec2 vUv;
    vec3 guide(vec2 uv){vec3 c=max(texture2D(raster,uv).rgb,vec3(0.0));float s=c.r+c.g+c.b+1e-4;return vec3(log2(s/3.0+1e-4)*2.0,c.r/s*6.0,c.g/s*6.0);}
    void main(){
@@ -75,6 +77,7 @@ class TracedBlend{
      }
      t=sum/w;
     }
+    if(demodulated>0.5)t*=max(texture2D(albedo,vUv).rgb,vec3(${SHARP.floor}));
     // The traced scene has no air: the live view's haze and sun shafts are added to it, and where no surface is hit
     // the live view's sky shows (the tracer sees the softer sky that lights the scene).
     if(hasDepth>0.5){
@@ -87,7 +90,9 @@ class TracedBlend{
   depthTest:false,depthWrite:false,
  });
  quad=new FullScreenQuad(this.material);
- dispose(){this.target.dispose();this.material.dispose();this.quad.dispose();}
+ /** The live view's surface colours, multisampled like its edges; drawn once a rest, freed when the view moves. */
+ colours:T.WebGLRenderTarget|undefined;
+ dispose(){this.target.dispose();this.colours?.dispose();this.material.dispose();this.quad.dispose();}
 }
 
 /** Tone mapping with the finish of a photograph (look.ts): white balance on the scene's light before tone mapping, then
@@ -199,12 +204,16 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
   get accumulated(){return accumulate.frames;},
   /** Shows a path-traced image (linear, before exposure) over the settled live image, through the same finish. `amount`
    * 0–1 blends it in; `radius` (traced pixels) smooths its grain (TracedBlend). */
-  present:(image:T.Texture,amount:number,radius:number,exposure:number,indoor=0)=>{
+  present:(image:T.Texture,amount:number,radius:number,exposure:number,indoor=0,demodulated=false)=>{
    output.set(indoor);output.uniforms.uP3.value=renderer.outputColorSpace===DisplayP3ColorSpace?1:0;
    traced??=new TracedBlend();
    const size=renderer.getDrawingBufferSize(new T.Vector2()),u=traced.material.uniforms,source=image.image as {width:number;height:number};
    if(traced.target.width!==size.x||traced.target.height!==size.y)traced.target.setSize(size.x,size.y);
    u.raster.value=accumulate.latest;u.traced.value=image;u.amount.value=amount;u.radius.value=radius;u.texel.value.set(1/source.width,1/source.height);
+   if(demodulated&&(traced.colours?.width!==size.x||traced.colours.height!==size.y)){
+    traced.colours?.dispose();traced.colours=new T.WebGLRenderTarget(size.x,size.y,{samples:4,colorSpace:T.SRGBColorSpace});renderAlbedo(renderer,scene,camera,traced.colours);
+   }
+   u.albedo.value=traced.colours?.texture??null;u.demodulated.value=demodulated&&traced.colours?1:0;
    u.shafts.value=shafts?.active?shafts.texture:null;u.shafted.value=shafts?.active?1:0;
    u.depth.value=depth?.target.texture??null;u.hasDepth.value=depth?1:0;u.far.value=lensCamera?.far??3000;
    if(scene.fog instanceof T.Fog){u.fogColor.value.copy(scene.fog.color);u.fogRange.value.set(scene.fog.near,scene.fog.far);}
@@ -219,7 +228,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
    }
    output.renderToScreen=true;output.render(renderer,null as unknown as T.WebGLRenderTarget,finished,0,false);
   },
-  reset:()=>{accumulate.frames=0;},
+  reset:()=>{accumulate.frames=0;traced?.colours?.dispose();if(traced)traced.colours=undefined;},
   dispose:()=>{traced?.dispose();focused?.dispose();for(const p of composer.passes)(p as Pass&{dispose?:()=>void}).dispose?.();composer.dispose();target.dispose();},
  };
 }
