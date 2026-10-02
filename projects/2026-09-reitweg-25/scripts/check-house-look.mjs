@@ -16,7 +16,7 @@ for(const f of [out,inside]){for(const x of [0,.5**2.2,1])assert(Math.abs(sCurve
 assert(inside.contrast>out.contrast&&inside.saturation>out.saturation,'interiors get more contrast and colour');
 assert(inside.occlusion<out.occlusion-.2,`corner shading is lighter indoors (${inside.occlusion} vs ${out.occlusion})`);
 const post=fs.readFileSync('lib/house-model/post.ts','utf8');assert(/finish\(/.test(post)&&/uBalance/.test(post)&&/uLook/.test(post),'the output pass applies the finish');
-const bounce=fs.readFileSync('lib/house-model/sun-bounce.ts','utf8'),gain=+(/BOUNCE_GAIN=([\d.]+)/.exec(bounce)?.[1]??0);assert(gain>1.4&&gain<2.2,`bounced sunlight stands in for further bounces (gain ${gain})`);
+const bounce=fs.readFileSync('lib/house-model/sun-bounce-core.ts','utf8'),reflectance=+(/REFLECTANCE=([\d.]+)/.exec(bounce)?.[1]??0),gain=1/(1-reflectance);assert(gain>1.4&&gain<2.2,`bounced sunlight stands in for further bounces (gain ${gain})`);
 // Extreme on a wide-gamut display draws in Display P3. three's output pass applies only the transfer curve, so the finish
 // converts the graded linear sRGB to linear P3 itself, before clamping: colours the grade saturates past sRGB stay
 // saturated instead of clipping, and white stays white.
