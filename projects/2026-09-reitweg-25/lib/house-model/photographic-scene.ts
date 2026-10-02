@@ -133,7 +133,10 @@ export async function photographicScene(source:T.Scene,environment:T.Texture,sig
      shared=g.made;archetypes.set(mesh.geometry,shared);
     }
     const copy=new T.InstancedMesh(shared,material(mats[0]),valid.length);
-    valid.forEach((j,k)=>{mesh.getMatrixAt(j,instance);copy.setMatrixAt(k,matrix.multiplyMatrices(mesh.matrixWorld,instance));if(mesh.instanceColor){mesh.getColorAt(j,color);copy.setColorAt(k,color);}});
+    for(let k=0;k<valid.length;k++){
+     mesh.getMatrixAt(valid[k],instance);copy.setMatrixAt(k,matrix.multiplyMatrices(mesh.matrixWorld,instance));if(mesh.instanceColor){mesh.getColorAt(valid[k],color);copy.setColorAt(k,color);}
+     if(k%2048===2047)await pause();
+    }
     baked=copy;
    }else{
     const g=geometry(pos.count*valid.length);
