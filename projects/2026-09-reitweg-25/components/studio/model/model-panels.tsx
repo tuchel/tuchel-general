@@ -98,7 +98,7 @@ export function MorePanel(p:MoreActions){
    <button aria-pressed={p.capture.sound} title="Designed ambience, not a recording" onClick={()=>p.onSound(!p.capture.sound)}>Garden sound</button>
   </div>}
   <div className="model-segments" role="radiogroup" aria-label="Detail">
-   {([...(p.computer?[['extreme','Extreme']] as const:[]),['detailed','Detailed'],['balanced','Balanced'],['model','Model']] as const).map(([id,label])=><button key={id} role="radio" aria-checked={p.quality===id} title={id==='extreme'?'Path-traced whenever the camera rests; asks a lot of the graphics card':p.detected===id?'Suits this device':undefined} onClick={()=>p.onQuality(id)}>{label}{p.detected===id&&<small aria-label="suits this device"/>}</button>)}
+   {([...(p.computer?[['extreme','Extreme']] as const:[]),['detailed','Detailed'],['balanced','Balanced'],['model','Model']] as const).map(([id,label])=><button key={id} role="radio" aria-checked={p.quality===id} title={id==='extreme'?'Path-traced when the camera rests, where the browser has WebGPU; asks a lot of the graphics card':p.detected===id?'Suits this device':undefined} onClick={()=>p.onQuality(id)}>{label}{p.detected===id&&<small aria-label="suits this device"/>}</button>)}
   </div>
   <button className="model-link" onClick={p.onAbout}>About this model</button>
  </div>;

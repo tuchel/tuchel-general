@@ -1,11 +1,11 @@
 import * as T from 'three';
 
-/** The path tracer on WebGPU (Extreme, where the browser has it): three-gpu-pathtracer's wavefront tracer, which
- * converges several times faster than the WebGL one, and, once it has gathered its samples, Open Image Denoise's
- * neural network (Intel's weights, Apache 2.0) cleans the last grain, guided by the scene's colours and facings.
+/** The path tracer on WebGPU (Extreme, where the browser has it): three-gpu-pathtracer's wavefront tracer and Open
+ * Image Denoise's neural network (Intel's weights, Apache 2.0), guided by the scene's colours and facings.
  * It renders in its own graphics context; a few times a second its image is copied into the WebGL view, which blends and
- * finishes it like any traced image (post.ts). */
-export const GPU_TRACE={samples:512,copyEvery:250,bounces:6,weights:'/assets/oidn/rt_hdr_alb_nrm_small.tza'};
+ * finishes it like any traced image (post.ts). The grainy image shows until the first stage's samples are in; from then
+ * on only denoised images are shown, each stage's replacing the last, and tracing stops after the last stage. */
+export const GPU_TRACE={stages:[64,128,256,512],copyEvery:250,bounces:6,weights:'/assets/oidn/rt_hdr_alb_nrm_small.tza'};
 
 type Copy={data:Uint16Array;width:number;height:number};
 /** WebGPU rows run top down and are padded to 256 bytes; WebGL textures run bottom up, unpadded. */
@@ -49,7 +49,8 @@ export async function createWebGPUTracer(scene:T.Scene,camera:T.PerspectiveCamer
  renderer.toneMapping=W.NoToneMapping;
  const view=new T.PerspectiveCamera();view.copy(camera);
  const tracer=new WebGPUPathTracer(renderer);
- Object.assign(tracer,{maxBounces:GPU_TRACE.bounces,maxTransparentBounces:8,renderDelay:0,minSamples:0,fadeDuration:0,dynamicLowRes:false,synchronizeRenderSize:false,maxSamples:GPU_TRACE.samples,filterGlossyFactor:.5});
+ const {stages}=GPU_TRACE,last=stages.length-1;
+ Object.assign(tracer,{maxBounces:GPU_TRACE.bounces,maxTransparentBounces:8,renderDelay:0,minSamples:0,fadeDuration:0,dynamicLowRes:false,synchronizeRenderSize:false,maxSamples:stages[0],filterGlossyFactor:.5});
  let denoiser:InstanceType<typeof OIDNDenoiser>|undefined;
  try{denoiser=new OIDNDenoiser({initUNetFromURL,auxWeightsUrl:GPU_TRACE.weights});tracer.setDenoiser(denoiser);}catch(error){console.warn('Denoiser unavailable',error);}
  await treesInBackground(scene,signal);
@@ -57,22 +58,31 @@ export async function createWebGPUTracer(scene:T.Scene,camera:T.PerspectiveCamer
  tracer.setScene(scene,view);
  const target=new W.RenderTarget(1,1,{type:W.HalfFloatType,depthBuffer:false});
  const texture=new T.DataTexture(new Uint16Array(4),1,1,T.RGBAFormat,T.HalfFloatType);texture.minFilter=texture.magFilter=T.LinearFilter;
- // `final`: the last image (denoised where the denoiser ran) has reached the WebGL view.
- let copying=false,lastCopy=0,samples=0,shown=0,lost=false,final=false,gathered=0;
+ // `stage`: the stage being gathered; `denoised`: the samples of the denoised image on show (0 before the first).
+ // `final`: the last stage's image has reached the WebGL view.
+ let copying=false,lastCopy=0,samples=0,shown=0,lost=false,final=false,gathered=0,stage=0,denoised=0;
  // Any validation error, a lost device, a throw or an image with no light in it counts as failure; the WebGL tracer
  // takes over (live-trace.ts).
  const device=(renderer.backend as {device?:{lost?:Promise<unknown>;addEventListener?:(type:string,listener:()=>void)=>void}}).device;
  void device?.lost?.then(()=>{lost=true;});
  device?.addEventListener?.('uncapturederror',()=>{lost=true;});
  const copy=async()=>{
-  // A denoiser that has not finished 15 s after the samples are in (weights unavailable, say) is not waited for.
-  if(samples>=GPU_TRACE.samples&&!gathered)gathered=performance.now();
-  copying=true;const finished=samples>=GPU_TRACE.samples&&(!denoiser||denoiser.complete||performance.now()-gathered>15000);
+  // A denoiser that has not finished 15 s after a stage's samples are in (weights unavailable, say) is not waited for.
+  if(samples>=stages[stage]&&!gathered)gathered=performance.now();
+  const settled=samples>=stages[stage]&&(!denoiser||denoiser.complete||performance.now()-gathered>15000);
+  // Once a denoised image is on show, the grainy ones in between stages are not.
+  if(denoised&&!settled){const counts=await tracer.getSampleCountsAsync() as {avg:number};samples=counts.avg;return;}
+  copying=true;
   try{
    const [counts,data]=await Promise.all([tracer.getSampleCountsAsync(),renderer.readRenderTargetPixelsAsync(target,0,0,target.width,target.height)]) as [{avg:number},Uint16Array];
    const c:Copy={data:unpadRows(data,target.width,target.height),width:target.width,height:target.height};
    if(counts.avg>0&&!plausible(c.data))throw new Error('the traced image is empty or not a number');
-   texture.image={data:c.data,width:c.width,height:c.height};texture.needsUpdate=true;samples=shown=counts.avg;if(finished)final=true;
+   texture.image={data:c.data,width:c.width,height:c.height};texture.needsUpdate=true;samples=shown=counts.avg;
+   if(settled){
+    denoised=stages[stage];gathered=0;
+    // The next stage carries on from these samples; the denoiser runs again when it is in.
+    if(stage<last){stage++;tracer.maxSamples=stages[stage];}else final=true;
+   }
   }catch(error){console.warn('WebGPU trace copy',error);lost=true;}
   finally{copying=false;}
  };
@@ -81,16 +91,22 @@ export async function createWebGPUTracer(scene:T.Scene,camera:T.PerspectiveCamer
   reset:(width:number,height:number)=>{
    view.copy(camera);view.updateMatrixWorld();tracer.setCamera(view);
    if(target.width!==width||target.height!==height){target.setSize(width,height);tracer.setSize(width,height);}
-   tracer.reset();denoiser?.reset();samples=shown=0;lastCopy=0;final=false;gathered=0;
+   stage=0;tracer.maxSamples=stages[0];tracer.reset();denoiser?.reset();samples=shown=0;lastCopy=0;final=false;gathered=0;denoised=0;
+  },
+  /** Takes a new scene (a changed floor, renovation or walk): trees still missing are built in workers first; meshes
+   * kept from the last scene keep theirs. False when `signal` cancelled it first. */
+  rescene:async(next:T.Scene,signal?:AbortSignal)=>{
+   await treesInBackground(next,signal);if(signal?.aborted)return false;
+   tracer.setScene(next,view);final=false;return true;
   },
   relight:()=>{tracer.updateLights();tracer.updateEnvironment();},
   /** One round of samples; the WebGL copy of the image refreshes a few times a second. */
   step:(now:number)=>{
    if(lost)return;
-   if(final)return {texture,samples:shown};
+   if(final)return {texture,samples:shown,denoised};
    try{renderer.setRenderTarget(target);tracer.renderSample();renderer.setRenderTarget(null);}catch(error){console.warn('WebGPU trace',error);lost=true;return;}
    if(!copying&&now-lastCopy>GPU_TRACE.copyEvery){lastCopy=now;void copy();}
-   return shown>0||samples>0?{texture,samples:shown}:undefined;
+   return shown>0||samples>0?{texture,samples:shown,denoised}:undefined;
   },
   get failed(){return lost;},
   get done(){return final;},
