@@ -12,7 +12,7 @@ const viewer=fs.readFileSync('lib/house-model/viewer.ts','utf8');
 // wait while away.
 assert(/addEventListener\('blur',away\)/.test(viewer)&&/addEventListener\('focus',back\)/.test(viewer),'focus is followed');
 assert(/!interfaceOpen&&!elsewhere&&now-lastChange>LIVE_TRACE\.rest/.test(viewer),'tracing waits while away');
-assert(/if\(!elsewhere\)\{if\(bake\?\.update\(\)\)changed\(\);if\(bounce\?\.update\(\)\)changed\(\);\}/.test(viewer),'bakes wait while away');
+assert(/if\(!elsewhere\)\{if\(bake&&baked\('sky bake',\(\)=>bake\.update\(\)\)\)changed\(\);if\(bounce&&baked\('bounce bake',\(\)=>bounce\.update\(\)\)\)changed\(\);\}/.test(viewer),'bakes wait while away');
 
 // 6. Motion: a lower resolution while the view moves, full resolution the moment it rests; computers only.
 for(const q of ['extreme','detailed'])assert(tiers[q].motionScale>=.6&&tiers[q].motionScale<1,`${q} draws moving frames at ${tiers[q].motionScale}×`);

@@ -174,6 +174,8 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
  };
  return {
   composer,
+  /** The chain's passes by name, for the performance readout (perf-readout.ts). */
+  passes:([['scene',scenePass],['depth',depth],['ao',ao],['bloom',bloom],['shafts',shafts],['meter',meter],['accumulate',accumulate],['focus',focusPass],['output',output]] as [string,Pass|undefined][]).filter((p):p is [string,Pass]=>!!p[1]),
   setSize:(width:number,height:number,ratio:number)=>{composer.setPixelRatio(ratio);composer.setSize(width,height);},
   /** Moving frames skip AO and accumulation; still frames refine towards a clean image. `indoor` (0–1) eases in the
    * interior finish (look.ts). With the lens, exposure follows the meter while the view moves and for the first frames
