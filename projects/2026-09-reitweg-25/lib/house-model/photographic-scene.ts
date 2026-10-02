@@ -38,22 +38,40 @@ export function copyLights(source:T.Scene,target:T.Scene,sunScale=1){
   light.userData.copiedLight=light.target.userData.copiedLight=true;target.add(light.target,light);
  });
 }
+type Maps=ReturnType<typeof standardMaps>;
+/** What a resting path trace keeps between rebuilds (live-trace.ts): converted meshes by source mesh, materials, texture
+ * sets and instanced archetypes, so a new floor, renovation or walk converts only what changed and the tracer reuses
+ * those meshes' ray-tracing trees. */
+export type SceneCache=ReturnType<typeof sceneCache>;
+export function sceneCache(){
+ const meshes=new Map<T.Object3D,{key:string;mesh:T.Mesh}>(),materials=new Map<T.Material,{material:T.Material;ready:boolean}>(),textures=new Map<T.Texture,Maps>(),archetypes=new Map<T.BufferGeometry,T.BufferGeometry>();
+ return {meshes,materials,textures,archetypes,dispose:()=>{
+  for(const {mesh} of meshes.values())if(!(mesh as T.InstancedMesh).isInstancedMesh)mesh.geometry.dispose();
+  archetypes.forEach(g=>g.dispose());materials.forEach(m=>m.material.dispose());textures.forEach(t=>{t.map.dispose();t.roughness.dispose();t.normal.dispose();});
+  meshes.clear();archetypes.clear();materials.clear();textures.clear();
+ }};
+}
 /** `instances`: instanced meshes without a projected surface stay instanced (the WebGPU tracer traces instances; the
- * WebGL tracer and GLB export need them flattened). */
-export async function photographicScene(source:T.Scene,environment:T.Texture,signal:AbortSignal,progress:(text:string)=>void,options:{maxDistance?:number;origin?:T.Vector3;sunScale?:number;instances?:boolean}={}){
- const scene=new T.Scene(),geometries:T.BufferGeometry[]=[],materials=new Map<T.Material,T.Material>(),converted=new Map<T.Texture,ReturnType<typeof standardMaps>>(),textures:T.Texture[]=[];
+ * WebGL tracer and GLB export need them flattened). `cache`: keep conversions for the next call (sceneCache); the
+ * returned dispose then frees only the scene, and the cache its contents. */
+export async function photographicScene(source:T.Scene,environment:T.Texture,signal:AbortSignal,progress:(text:string)=>void,options:{maxDistance?:number;origin?:T.Vector3;sunScale?:number;instances?:boolean;cache?:SceneCache}={}){
+ const cache=options.cache,scene=new T.Scene(),geometries:T.BufferGeometry[]=[],textures:T.Texture[]=[];
+ const materials=cache?.materials??new Map<T.Material,{material:T.Material;ready:boolean}>(),converted=cache?.textures??new Map<T.Texture,Maps>();
  scene.environment=environment;scene.background=environment;
- const cleanup=()=>{geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());};
+ const cleanup=()=>{if(cache){scene.clear();return;}geometries.forEach(g=>g.dispose());materials.forEach(m=>m.material.dispose());textures.forEach(t=>t.dispose());};
  const surfaceOf=(m:T.Material):Standard|undefined=>{
   if(!hasShaderFeature(m,'surface-v1'))return;
   const u=(m.userData.surfaceUniforms||{}) as Record<string,{value:unknown}>;
   const color=u.uSurfaceColor?.value as T.Texture|undefined,normal=u.uSurfaceNormal?.value as T.Texture|undefined;
   if(!color?.image||!normal?.image)return;
-  let maps=converted.get(color);if(!maps){maps=standardMaps(color,normal);converted.set(color,maps);textures.push(maps.map,maps.roughness,maps.normal);}
+  let maps=converted.get(color);if(!maps){maps=standardMaps(color,normal);converted.set(color,maps);if(!cache)textures.push(maps.map,maps.roughness,maps.normal);}
   return {...maps,metres:u.uSurfaceMetres.value as T.Vector2,slope:(u.uSurfaceSlope.value as number)>.5};
  };
+ // A surface whose textures have not loaded yet is converted again once they have.
+ const ready=(m:T.Material)=>!hasShaderFeature(m,'surface-v1')||!!surfaceOf(m);
  const material=(m:T.Material)=>{
-  if(materials.has(m))return materials.get(m)!;
+  const known=materials.get(m);if(known&&(known.ready||!ready(m)))return known.material;
+  known?.material.dispose();
   const c=m.clone() as T.MeshPhysicalMaterial;c.onBeforeCompile=()=>{};c.customProgramCacheKey=()=>'';c.userData={};
   const surface=surfaceOf(m);
   if(surface&&c instanceof T.MeshStandardMaterial){
@@ -63,7 +81,7 @@ export async function photographicScene(source:T.Scene,environment:T.Texture,sig
   if(hasShaderFeature(m,'fresnel-glass')){Object.assign(c,{transparent:false,opacity:1,transmission:1,ior:1.5,thickness:.02,roughness:.01,side:T.DoubleSide});c.color.set('#ffffff');}
   if(hasShaderFeature(m,'pool-water')){Object.assign(c,{transparent:false,opacity:1,transmission:.9,ior:1.33,thickness:1.4,roughness:.03});c.color.set('#7fc6c9');}
   if(c instanceof T.MeshStandardMaterial&&(c.map||hasShaderFeature(m,'surface-v1')))c.vertexColors=!!(m as T.MeshStandardMaterial).vertexColors||!!m.userData.instanceTint;
-  materials.set(m,c);return c;
+  materials.set(m,{material:c,ready:ready(m)});return c;
  };
  source.updateMatrixWorld(true);
  const meshes:T.Mesh[]=[];
@@ -96,14 +114,25 @@ export async function photographicScene(source:T.Scene,environment:T.Texture,sig
   const g={position:new Float32Array(count*3),normal:new Float32Array(count*3),uv:new Float32Array(count*2),color:new Float32Array(count*4),tangent:new Float32Array(count*4)};
   const made=new T.BufferGeometry();
   made.setAttribute('position',new T.BufferAttribute(g.position,3));made.setAttribute('normal',new T.BufferAttribute(g.normal,3));made.setAttribute('uv',new T.BufferAttribute(g.uv,2));
-  made.setAttribute('color',new T.BufferAttribute(g.color,4));made.setAttribute('tangent',new T.BufferAttribute(g.tangent,4));geometries.push(made);
+  made.setAttribute('color',new T.BufferAttribute(g.color,4));made.setAttribute('tangent',new T.BufferAttribute(g.tangent,4));if(!cache)geometries.push(made);
   return {...g,made};
  };
  // Instanced geometry kept as instances (options.instances) is converted once per source geometry.
- const archetypes=new Map<T.BufferGeometry,T.BufferGeometry>();
+ const archetypes=cache?.archetypes??new Map<T.BufferGeometry,T.BufferGeometry>();
+ // What makes a converted mesh still right: its geometry, materials (and whether their textures had loaded), place, and
+ // instances. Trees reorder their instances for drawing (drawTrees) but always hold the same ones.
+ const keyOf=(mesh:T.Mesh)=>{
+  const inst=mesh as T.InstancedMesh;
+  let key=`${mesh.geometry.uuid}|${materialsOf(mesh).map(m=>m.uuid+(ready(m)?'':'~')).join(',')}|${mesh.matrixWorld.elements.map(e=>e.toFixed(4)).join(',')}`;
+  if(inst.isInstancedMesh)key+=mesh.userData.instances!==undefined?`|trees ${mesh.userData.instances}`:`|${inst.count} ${inst.instanceMatrix.version} ${inst.instanceColor?.version??0}`;
+  return key;
+ };
+ const used=new Set<T.Object3D>();
  try{
   for(const mesh of meshes){
    if(signal.aborted)throw new DOMException('Cancelled','AbortError');
+   const key=cache?keyOf(mesh):'',known=cache?.meshes.get(mesh);
+   if(known&&known.key===key){scene.add(known.mesh);used.add(mesh);continue;}
    const base=mesh.geometry.index?mesh.geometry.toNonIndexed():mesh.geometry,pos=base.attributes.position,nor=base.attributes.normal,uv0=base.attributes.uv,vc=base.attributes.color;
    if(!pos){if(base!==mesh.geometry)base.dispose();continue;}
    const mats=materialsOf(mesh),instanced=mesh instanceof T.InstancedMesh,surface=surfaceOf(mats[0]);
@@ -169,10 +198,13 @@ export async function photographicScene(source:T.Scene,environment:T.Texture,sig
    baked.name=mesh.name;baked.castShadow=mesh.castShadow;baked.receiveShadow=true;
    if(baked.material instanceof T.MeshStandardMaterial)baked.material.vertexColors=true;
    scene.add(baked);
+   if(cache){if(known&&!(known.mesh as T.InstancedMesh).isInstancedMesh)known.mesh.geometry.dispose();cache.meshes.set(mesh,{key,mesh:baked});used.add(mesh);}
    if(base!==mesh.geometry)base.dispose();
    if(++counter%40===0)progress('Preparing geometry · '+Math.round(counter/meshes.length*100)+'%');
    await pause();
   }
  }catch(error){cleanup();throw error;}
+ // Conversions nothing showed this time are let go.
+ if(cache)for(const [mesh,entry] of cache.meshes)if(!used.has(mesh)){if(!(entry.mesh as T.InstancedMesh).isInstancedMesh)entry.mesh.geometry.dispose();cache.meshes.delete(mesh);}
  return {scene,dispose:cleanup};
 }

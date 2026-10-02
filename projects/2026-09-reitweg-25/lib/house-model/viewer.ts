@@ -256,9 +256,12 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(live&&post&&still&&!refine&&!needsFrame&&level!=='upper'&&!captures?.active&&!interfaceOpen&&!elsewhere&&now-lastChange>LIVE_TRACE.rest&&live.wanted){
    const traced=live.step();
    // Drawn a few times a second, and once more when tracing finishes.
-   if(traced&&(now-presented>=LIVE_TRACE.present||!live.wanted)){presented=now;const {amount,radius}=traceBlend(traced.samples);post.present(traced.texture,amount,radius,lighting!.exposure,indoorOf(room));}
-   // What the view shows, for tests: 'preparing', the traced sample count, or 'live'.
+   // A denoised image is shown whole, without the grain filter.
+   if(traced&&(now-presented>=LIVE_TRACE.present||!live.wanted)){presented=now;const {amount,radius}=traceBlend(traced.denoised?LIVE_TRACE.filter.until:traced.samples);post.present(traced.texture,amount,radius,lighting!.exposure,indoorOf(room));}
+   // What the view shows, for tests: 'preparing', the traced sample count, or 'live'; and the samples behind the denoised
+   // image on show.
    const shown=traced?String(Math.floor(traced.samples)):'preparing';if(canvas.dataset.trace!==shown)canvas.dataset.trace=shown;
+   const clean=String(traced?.denoised??0);if(canvas.dataset.denoised!==clean)canvas.dataset.denoised=clean;
    return;
   }
   if(!needsFrame&&!refine&&!motion)return;

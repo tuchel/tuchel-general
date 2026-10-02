@@ -23,17 +23,25 @@ assert(/addEventListener\?\.\('uncapturederror'/.test(fs.readFileSync('lib/house
 const weights='public'+GPU_TRACE.weights;
 assert(fs.existsSync(weights)&&fs.statSync(weights).size>500000,`${weights} is present`);
 assert(/Apache License/.test(fs.readFileSync('public/assets/oidn/LICENSE.txt','utf8')),'the weights carry their licence');
-assert(GPU_TRACE.samples>=256&&GPU_TRACE.copyEvery<=500,'enough samples before denoising; a few copies a second');
+const {stages}=GPU_TRACE;assert(stages.every((n,i)=>!i||n>stages[i-1])&&stages[0]>=32&&stages.at(-1)<=512&&GPU_TRACE.copyEvery<=500,'stages rise, the first denoised early, a few copies a second');
 assert(JSON.parse(fs.readFileSync('package.json','utf8')).dependencies['oidn-web'],'oidn-web is a dependency');
-// The live tracer tries WebGPU first, falls back to WebGL when it is missing or its device is lost.
+// Extreme traces on WebGPU only: without it, or once its device fails, the live view stays.
 const live=fs.readFileSync('lib/house-model/live-trace.ts','utf8');
-assert(/if\(webgpu&&'gpu' in navigator\)\{[^]*createWebGPUTracer[^]*\n   \}\n   webgpu=false;/.test(live),'WebGPU first, WebGL when it is unavailable');
-// The WebGPU tracer traces instances, so trees and planting stay instanced; their ray-tracing trees are built in
-// background workers before the tracer sees the scene, so it builds none on the page's thread.
-assert(/convert\(true\)[^]*createWebGPUTracer/.test(live)&&/convert\(false\)/.test(live),'instanced for WebGPU, flattened for WebGL');
-const before=gpuSource=>gpuSource.indexOf('await treesInBackground(scene,signal)')>0&&gpuSource.indexOf('await treesInBackground(scene,signal)')<gpuSource.indexOf('tracer.setScene(');
-assert(/if\(gpu\.failed\)\{webgpu=false;release\(\);return;\}/.test(live),'a lost WebGPU device hands over to WebGL');
+assert(!/WebGLPathTracer/.test(live),'no WebGL tracer');
+assert(/if\(!\('gpu' in navigator\)\)\{unavailable=true;return;\}/.test(live)&&/if\(gpu\.failed\)\{unavailable=true;release\(\);return;\}/.test(live),'no WebGPU, or a failed device: no tracing');
+// The tracer is kept: a rebuild hands it the new scene, converted with the kept cache.
+assert(/instances:true,cache\}/.test(live)&&/p\.gpu\.rescene\(local\.scene,controller\.signal\)/.test(live),'a rebuild reuses the tracer and the conversions');
+assert(/invalidate:\(\)=>\{abort\?\.abort\(\);abort=undefined;sceneStale=true;cameraStale=true;\}/.test(live),'invalidating keeps the tracer');
 const gpu=fs.readFileSync('lib/house-model/live-trace-webgpu.ts','utf8');
+const before=source=>source.indexOf('await treesInBackground(scene,signal)')>0&&source.indexOf('await treesInBackground(scene,signal)')<source.indexOf('tracer.setScene(');
 assert(/isWebGPUBackend/.test(gpu),'a WebGPURenderer quietly running on WebGL 2 is not used');
 assert(before(gpu)&&/new GenerateMeshBVHWorker\(\)/.test(gpu),'trees are built in workers before the tracer sees the scene');
-console.log(`Passed: WebGPU path tracing with Open Image Denoise after ${GPU_TRACE.samples} samples, copied to the WebGL view every ${GPU_TRACE.copyEvery} ms with rows flipped and unpadded; instances traced as instances with their trees built in workers; WebGL tracing wherever WebGPU is missing or lost.`);
+// Only denoised images follow the first: none of the grainy ones in between stages are copied.
+assert(/if\(denoised&&!settled\)/.test(gpu),'between stages the denoised image stays');
+// The tracer copies the sky's filtering. Its environment shader samples the sky with a sampler, which three leaves out
+// for a nearest-filtered texture (a DataTexture's default): the shader would not compile and nothing would be traced.
+assert(/equirect:[^]*?const texture=new T\.DataTexture\([^\n]*texture\.minFilter=texture\.magFilter=T\.LinearFilter/.test(fs.readFileSync('lib/house-model/lighting.ts','utf8')),'the sky handed to the tracer is filtered');
+// The house's scene buffers pass WebGPU's default 128 MB per storage binding (one is 144 MB); the device asks for the
+// graphics card's own limits, or the first sample fails validation.
+assert(/const \{maxStorageBufferBindingSize,maxBufferSize\}=adapter\.limits/.test(gpu)&&/new W\.WebGPURenderer\(\{canvas,antialias:false,requiredLimits:\{maxStorageBufferBindingSize,maxBufferSize\}\}\)/.test(gpu),'the device has the graphics card\'s buffer limits');
+console.log(`Passed: a filtered sky and the graphics card's buffer limits; WebGPU path tracing denoised at ${GPU_TRACE.stages.join(', ')} samples, copied to the WebGL view every ${GPU_TRACE.copyEvery} ms with rows flipped and unpadded; instances traced as instances with their trees built in workers; the tracer and conversions kept across rebuilds; no tracing without WebGPU.`);

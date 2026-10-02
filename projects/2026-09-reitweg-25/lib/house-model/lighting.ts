@@ -170,7 +170,8 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
   drift:(seconds:number)=>clouds?.drift(seconds),
   /** Sunlight reaching the house through the clouds (0–1). */
   get sunThroughClouds(){return clouds?clouds.atHouse():1;},
-  /** The sky without its sun disc as a float equirectangular texture, for the path tracer. */
+  /** The sky without its sun disc as a float equirectangular texture, for the path tracer. Filtered: the WebGPU tracer
+   * keeps the sky's filtering, and its shader cannot sample a nearest-filtered sky. */
   equirect:(width=1024)=>{
    cubeCamera.update(renderer,envScene);
    const height=width/2,target=new T.WebGLRenderTarget(width,height,{type:T.FloatType,depthBuffer:false});
@@ -179,7 +180,7 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
    renderer.setRenderTarget(target);quad.render(renderer);renderer.setRenderTarget(previous);
    const data=new Float32Array(width*height*4);renderer.readRenderTargetPixels(target,0,0,width,height,data);
    target.dispose();material.dispose();quad.dispose();
-   const texture=new T.DataTexture(data,width,height,T.RGBAFormat,T.FloatType);texture.mapping=T.EquirectangularReflectionMapping;texture.needsUpdate=true;
+   const texture=new T.DataTexture(data,width,height,T.RGBAFormat,T.FloatType);texture.mapping=T.EquirectangularReflectionMapping;texture.minFilter=texture.magFilter=T.LinearFilter;texture.needsUpdate=true;
    return texture;
   },
   dispose:()=>{sky.geometry.dispose();sky.material.dispose();envSky.geometry.dispose();envSky.material.dispose();sky.removeFromParent();cubeTarget.dispose();envTarget?.dispose();pmrem.dispose();lamps.removeFromParent();scene.remove(sun,sun.target);},

@@ -8,9 +8,8 @@ const {traceBlend,LIVE_TRACE}=await import('../tmp/extreme-check/live-trace.mjs'
 // all traced from 48; grain is smoothed at first and not at all once the image has settled.
 assert.equal(traceBlend(0).amount,0);assert.equal(traceBlend(2).amount,0,'hidden for the first samples');
 assert(traceBlend(16).amount>0&&traceBlend(16).amount<1,'blends in');assert.equal(traceBlend(48).amount,1,'all traced from 48 samples');
-for(let n=0;n<LIVE_TRACE.samples;n+=7){assert(traceBlend(n+7).amount>=traceBlend(n).amount);assert(traceBlend(n+7).radius<=traceBlend(n).radius);}
+for(let n=0;n<512;n+=7){assert(traceBlend(n+7).amount>=traceBlend(n).amount);assert(traceBlend(n+7).radius<=traceBlend(n).radius);}
 assert(traceBlend(1).radius>2,'grainy samples are smoothed');assert.equal(traceBlend(256).radius,0,'a settled image is shown as traced');
-assert(LIVE_TRACE.samples>=512,'tracing runs long enough to settle');
 
 // The viewer: any change of view (camera, size, walking) drops back to the live image; a new floor or renovation
 // rebuilds the traced scene, a new sun re-lights it; it never runs over the upper-floor section (clipping planes) or a
@@ -30,4 +29,4 @@ assert(/now-presented>=LIVE_TRACE\.present\|\|!live\.wanted/.test(viewer),'the t
 assert(/setInterface\(!!panel\|\|about\)/.test(fs.readFileSync('components/studio/model/house-model.tsx','utf8')),'panels and the About dialog pause tracing');
 // Tests read what the view shows from the canvas: preparing, a sample count, or live.
 assert(/canvas\.dataset\.trace=shown/.test(viewer)&&/canvas\.dataset\.trace='live'/.test(viewer),'the canvas reports what it shows');
-console.log(`Passed: after ${LIVE_TRACE.rest} ms at rest with no panel open, the view blends to path tracing (drawn every ${LIVE_TRACE.present} ms) from ${LIVE_TRACE.show[0]} to ${LIVE_TRACE.show[1]} samples, smoothed until ${LIVE_TRACE.filter.until}, up to ${LIVE_TRACE.samples}; moving returns to the live view.`);
+console.log(`Passed: after ${LIVE_TRACE.rest} ms at rest with no panel open, the view blends to path tracing (drawn every ${LIVE_TRACE.present} ms) from ${LIVE_TRACE.show[0]} to ${LIVE_TRACE.show[1]} samples, smoothed until ${LIVE_TRACE.filter.until}; moving returns to the live view.`);

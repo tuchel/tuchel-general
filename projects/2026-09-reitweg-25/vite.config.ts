@@ -55,6 +55,8 @@ export default defineConfig(async () => {
       ...(managedLinux ? { host: "0.0.0.0", allowedHosts: ["terminal.local"] } : {}),
       ...(isCodexSeatbeltSandbox ? { watch: { useFsEvents: false, usePolling: true } } : {}),
     },
+    // The model's path-tracing worker loads its renderer, tracer and denoiser on demand, which needs module workers.
+    worker: { format: "es" as const },
     plugins: [
       vinext(),
       sites({ mockAuth: !managedLinux }),
