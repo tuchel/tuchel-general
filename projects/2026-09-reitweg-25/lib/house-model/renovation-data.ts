@@ -2,7 +2,7 @@ import type {Level,Viewpoint} from './site-data';
 export const renovations = [
  {id:'kitchen',title:'Winter Garden',detail:'The full west + north volume, garden dining, breakfast bar and wider cooking aisle.',view:'arrival',center:[-5.7,-7.5],span:16},
  {id:'east',title:'East Façade Windows',detail:'Floor-to-ceiling glass, a private bathroom band and a south wall glazed on both sides of the fireplace.',view:'east',center:[1,1],span:25},
- {id:'nook',title:'Office Nook',detail:'The dining alcove becomes a library corner: bookshelves along the north wall, a deep sofa facing the garden and a desk at the east window.',view:'east',center:[3.4,1.8],span:8},
+ {id:'nook',title:'Layout Updates',detail:'The garden bedroom becomes a family room with an 85-inch television, an L-shaped couch and an armchair. The dining alcove becomes a library with a desk on the hall wall and a lounge chair at the window. The living room gets a corner L-shaped couch around the glass table, a second lounge chair, a rug before the fire and a centered dining table.',view:'east',center:[.4,1.4],span:23},
  {id:'terrace',title:'Dining on the east terrace',detail:'A generous stone terrace, long oak table and a little shade.',view:'east',center:[7.5,5.8],span:14},
  {id:'courtyard',title:'Lounge by the fire',detail:'The fireside lounge, long table under the eaves and a wall-side serving counter.',view:'courtyard',center:[-13.7,7],span:20},
  {id:'front',title:'Arrival Wall',detail:'A taller boundary in the house’s upright timber cladding, with matching gates.',view:'wall',center:[-35,0],span:35},

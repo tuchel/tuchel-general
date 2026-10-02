@@ -26,7 +26,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const originals:Partial<Record<RenovationId,T.Object3D[]>>={};
  // Parts built with the house but shown only while a renovation is on (the opened east gable upstairs).
  const additions:Partial<Record<RenovationId,T.Object3D[]>>={};
- const capture=(id:RenovationId,parent:T.Group,build:()=>void)=>{const start=parent.children.length;build();const objects=parent.children.slice(start);const group=new T.Group();group.name='original-'+id;parent.add(group);for(const o of objects)group.add(o);(originals[id]??=[]).push(group);};
+ // Parts built here go into one group, an original replaced by `id` or (into `additions`) a part it adds.
+ const capture=(id:RenovationId,parent:T.Group,build:()=>void,into=originals)=>{const start=parent.children.length;build();const objects=parent.children.slice(start);const group=new T.Group();group.name=(into===originals?'original-':'added-')+id;parent.add(group);for(const o of objects)group.add(o);(into[id]??=[]).push(group);};
  upper.position.x=UPPER_PLAN_X_OFFSET;basement.position.x=BASEMENT_PLAN_X_OFFSET;
  const garden=buildGarden(realistic);site.add(garden.group);
  const pickables:T.Object3D[]=[];const materials:T.MeshStandardMaterial[]=[];const edges:T.LineSegments[]=[];const cutWalls:T.Mesh[]=[];
@@ -130,7 +131,12 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  capture('kitchen',ground,()=>facade(ground,[W,N],[W,kitchenSouth],[{from:2.75,to:5.74,sill:0,head:2.3,kind:'sliding'}],'kitchen'));
  facade(ground,[W,kitchenSouth],[W,S],[{from:8.95-westSplit,to:9.95-westSplit,sill:.8,head:2.1},{from:11.86-westSplit,to:12.96-westSplit,sill:0,head:2.3,kind:'passage'},{from:14.86-westSplit,to:15.94-westSplit,sill:0,head:2.2}],'main');
  capture('kitchen',ground,()=>facade(ground,[W,N],[kitchenEast,N],[{from:1.8,to:3,sill:.7,head:2.15}],'kitchen'));
- facade(ground,[kitchenEast,N],[E,N],[{from:5.5-northSplit,to:6.7-northSplit,sill:0,head:2.2},{from:8.2-northSplit,to:9.4-northSplit,sill:.7,head:2.15}],'main');
+ // The garden bedroom's north window, behind the bed, has a run of its own: Layout Updates walls it up.
+ const bedroomWindow=[kitchenEast+8.05-northSplit,kitchenEast+9.55-northSplit] as const;
+ facade(ground,[kitchenEast,N],[bedroomWindow[0],N],[{from:5.5-northSplit,to:6.7-northSplit,sill:0,head:2.2}],'main');
+ capture('nook',ground,()=>facade(ground,[bedroomWindow[0],N],[bedroomWindow[1],N],[{from:.15,to:1.35,sill:.7,head:2.15}],'main'));
+ capture('nook',ground,()=>facade(ground,[bedroomWindow[0],N],[bedroomWindow[1],N],[],'main'),additions);
+ facade(ground,[bedroomWindow[1],N],[E,N],[],'main');
  capture('east',ground,()=>facade(ground,[W,S],[E,S],[{from:1.6,to:4.2,sill:.9,head:2.2},{from:7.83,to:10.26,sill:.9,head:2.2}],'main'));
  for(const [a,b,c,d] of [[965,194,965,382],[964,386,1003,386],[1030,388,1043,388],[988,389,988,464],[814,464,850,464],[877,464,952,464],[980,464,1001,464],[1029,464,1043,464],[1043,388,1126,388],[1175,388,1218,388],[1050,388,1050,462],[1114,428,1114,462],[1050,462,1114,462],[1050,470,1050,613],[1050,524,1215,524],[1037,669,1078,669],[814,669,959,669],[893,464,893,609],[893,652,893,669],[829,507,893,507],[869,559,893,559],[869,559,869,598],[869,598,893,598],[829,598,833,598]])wall(ground,a,b,c,d);
  // The walk-in pantry's west side is solid down to its wall with the WC: the thick wall drawn between it and the facade.
@@ -411,6 +417,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // The retained fireplace and a pier either side of it, between the two runs of south glazing (renovations.ts).
  facade(renovation.groups.east,[-.93,S],[.82,S],[],'main');
  ground.traverse(o=>{const id=o.userData.replacedBy as RenovationId|undefined;if(id)(originals[id]??=[]).push(o);});
+ // Furniture a renovation adds outside its own group (Layout Updates' family room and living room) is shown with it.
+ ground.traverse(o=>{const id=o.userData.addedBy as RenovationId|undefined;if(id)(additions[id]??=[]).push(o);});
  // Ground-floor ceilings over the whole footprint, open above the two stairs. They close the ground floor
  // under the upper floor in the whole-house and upper-floor views, and lift off for the ground-floor cutaway.
  const ceilings=new T.Group();ceilings.name='interior-ceilings';ground.add(ceilings);
@@ -444,11 +452,12 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const setLevel=(level:Level)=>{currentLevel=level;if(setting)setting.visible=level==='exterior';ceilings.visible=level==='exterior'||level==='upper';slats.visible=level==='exterior'||level==='upper';site.visible=level!=='basement';trees.visible=level==='exterior';roofs.visible=level==='exterior'||level==='upper';for(const mat of roofMaterials){mat.clippingPlanes=level==='upper'?[sectionCut]:null;mat.clipShadows=true;}ground.visible=level!=='basement';upper.visible=level==='upper';basement.visible=level==='basement';for(const mesh of cutWalls){const h=mesh.userData.height as number,y=mesh.userData.base as number;const cap=mesh.parent===upper?4.12:mesh.parent===basement?-1:1.17;const full=level==='exterior'||(level==='upper'&&mesh.parent!==upper),shown=full?h:Math.max(0,Math.min(h,cap-y));mesh.visible=shown>0;mesh.scale.y=Math.max(.001,shown);mesh.position.y=y+shown/2;}applyRenovations();};
  const dispose=()=>{const gs=new Set<T.BufferGeometry>(),ms=new Set<T.Material>();root.traverse(o=>{if(o instanceof T.Mesh||o instanceof T.Line){gs.add(o.geometry);(Array.isArray(o.material)?o.material:[o.material]).forEach(a=>ms.add(a));}});gs.forEach(g=>g.dispose());ms.forEach(m=>{if(m instanceof T.MeshStandardMaterial)m.map?.dispose();m.dispose();});};
  // Every floor × renovation combination, for static batching: state = floor*combinations + renovation bits.
- // A renovation whose parts all sit in its own group, and whose originals sit in one group, toggles outside the states:
- // both groups stay shown while states are enumerated, and the batches parented to them follow their visibility.
+ // A renovation whose parts each sit in a group of their own (its group and its additions), as do its originals, toggles
+ // outside the states: all those groups stay shown while states are enumerated, and the batches parented to them follow
+ // their visibility, on top of the states of any group around them (the east façade's centred dining table).
  const renovationIds=Object.keys(renovationState()) as RenovationId[],grouped=new Set<RenovationId>(['nook']);
  const stateIds=renovationIds.filter(id=>!grouped.has(id)),combinations=1<<stateIds.length;
- const toggled=[...grouped].flatMap(id=>[renovation.groups[id],...(originals[id]??[])]);
+ const toggled=[...grouped].flatMap(id=>[renovation.groups[id],...(originals[id]??[]),...(additions[id]??[])]);
  const stateOf=(level:Level,state:RenovationState)=>levels.indexOf(level)*combinations+stateIds.reduce((bits,id,i)=>bits|(state[id]?1<<i:0),0);
  const applyState=(index:number)=>{setLevel(levels[Math.floor(index/combinations)]);setRenovations({...renovationState(),...Object.fromEntries(stateIds.map((id,i)=>[id,!!(index&(1<<i))]))});for(const o of toggled)o.visible=true;};
  // Upper-floor rooms stay visible behind the roofs in the whole-house view.
