@@ -17,6 +17,26 @@ assert(inside.contrast>out.contrast&&inside.saturation>out.saturation,'interiors
 assert(inside.occlusion<out.occlusion-.2,`corner shading is lighter indoors (${inside.occlusion} vs ${out.occlusion})`);
 const post=fs.readFileSync('lib/house-model/post.ts','utf8');assert(/finish\(/.test(post)&&/uBalance/.test(post)&&/uLook/.test(post),'the output pass applies the finish');
 const bounce=fs.readFileSync('lib/house-model/sun-bounce.ts','utf8'),gain=+(/BOUNCE_GAIN=([\d.]+)/.exec(bounce)?.[1]??0);assert(gain>1.4&&gain<2.2,`bounced sunlight stands in for further bounces (gain ${gain})`);
+// Extreme on a wide-gamut display draws in Display P3. three's output pass applies only the transfer curve, so the finish
+// converts the graded linear sRGB to linear P3 itself, before clamping: colours the grade saturates past sRGB stay
+// saturated instead of clipping, and white stays white.
+{const {DisplayP3ColorSpaceImpl}=await import('three/addons/math/ColorSpaces.js');
+ const toXYZ=new T.Matrix3().set(0.4124564,0.3575761,0.1804375,0.2126729,0.7151522,0.0721750,0.0193339,0.1191920,0.9503041);
+ const expected=new T.Matrix3().multiplyMatrices(DisplayP3ColorSpaceImpl.fromXYZ,toXYZ).elements;
+ const found=/const mat3 P3_FROM_SRGB=mat3\(([^)]*)\)/.exec(post)?.[1].split(',').map(Number);
+ assert(found&&found.every((v,i)=>Math.abs(v-expected[i])<1e-6),'the sRGB-to-P3 matrix (column by column)');
+ const m=new T.Matrix3().fromArray(found),white=new T.Vector3(1,1,1).applyMatrix3(m),green=new T.Vector3(-.08,.9,-.04).applyMatrix3(m);
+ assert(Math.abs(white.x-1)<1e-3&&Math.abs(white.y-1)<1e-3&&Math.abs(white.z-1)<1e-3,'white stays white');
+ assert(green.x>0&&green.y>0&&green.z>0,'a green past sRGB lies inside P3');
+ assert(/vec3 g=l\+uLook\.y\*\(c-l\);if\(uP3>0\.5\)g=P3_FROM_SRGB\*g;gl_FragColor\.rgb=max\(vec3\(0\.0\),g\);/.test(post),'converted before the clamp');
+ assert(/output\.uniforms\.uP3\.value=renderer\.outputColorSpace===DisplayP3ColorSpace\?1:0/.test(post),'when the canvas is P3');
+ const viewer=fs.readFileSync('lib/house-model/viewer.ts','utf8');
+ assert(/const wide=tier\.quality==='extreme'&&window\.matchMedia\('\(color-gamut: p3\)'\)\.matches/.test(viewer),'Extreme on a P3 display only');
+ assert(/ColorManagement\.define\(\{\[DisplayP3ColorSpace\]:DisplayP3ColorSpaceImpl\}\)/.test(viewer)&&/renderer\.outputColorSpace=wide\?DisplayP3ColorSpace:T\.SRGBColorSpace/.test(viewer),'the canvas draws in P3');
+ // Photographs, recordings and saved images leave the canvas as files and video: they draw in sRGB.
+ assert(/const space=wide&&!captures\?\.active&&!captures\?\.recording\?DisplayP3ColorSpace:T\.SRGBColorSpace;[^\n]*\n[^\n]*if\(captures\?\.tick\(now\)\)return;/.test(viewer),'captures draw in sRGB');
+ assert(/const saveImage=async\(\)=>\{[^]*?renderer\.outputColorSpace=T\.SRGBColorSpace;/.test(viewer),'a saved image draws in sRGB');
+ assert((post.match(/output\.uniforms\.uP3\.value=renderer\.outputColorSpace===DisplayP3ColorSpace\?1:0/g)??[]).length===2,'the live and the traced image alike');}
 // Timber and rug take the photographed hue and saturation (IMG_1502): honey-orange spruce, a pink rug.
 const {buildHouseModel}=await import('../tmp/look-check/build-model.mjs');const model=buildHouseModel(true),hsl=c=>c.getHSL({h:0,s:0,l:0},T.SRGBColorSpace);
 const colour=name=>{let found;model.root.traverse(o=>{if(!found&&o.isMesh&&[o.material].flat().some(m=>m.userData?.finish===name))found=[o.material].flat().find(m=>m.userData.finish===name);});assert(found,`${name} material`);return found.color;};

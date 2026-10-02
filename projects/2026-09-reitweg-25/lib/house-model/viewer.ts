@@ -1,5 +1,6 @@
 import * as T from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {DisplayP3ColorSpace,DisplayP3ColorSpaceImpl} from 'three/addons/math/ColorSpaces.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {sunDirection,initialSunStudy,type SunStudy} from './sun-position';
 import {terrainWithPoolOpening} from './pool';
@@ -48,7 +49,12 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  renderer.localClippingEnabled=true;
  renderer.setPixelRatio(Math.min(window.devicePixelRatio,tier.pixelRatio));
  renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFShadowMap;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
- renderer.toneMapping=realistic?T.AgXToneMapping:T.ACESFilmicToneMapping;renderer.toneMappingExposure=.9;renderer.outputColorSpace=T.SRGBColorSpace;
+ renderer.toneMapping=realistic?T.AgXToneMapping:T.ACESFilmicToneMapping;renderer.toneMappingExposure=.9;
+ // Extreme on a wide-gamut screen draws in Display P3: colours the photographic grade saturates past sRGB stay saturated
+ // instead of clipping (post.ts).
+ const wide=tier.quality==='extreme'&&window.matchMedia('(color-gamut: p3)').matches;
+ if(wide)T.ColorManagement.define({[DisplayP3ColorSpace]:DisplayP3ColorSpaceImpl});
+ renderer.outputColorSpace=wide?DisplayP3ColorSpace:T.SRGBColorSpace;
  const canvas=renderer.domElement;
  canvas.setAttribute('aria-label','Interactive 3D model of Reitweg 25. Drag to orbit, pinch or scroll to zoom. Arrow keys rotate, plus and minus zoom, Home resets.');
  canvas.setAttribute('role','img');canvas.tabIndex=0;host.appendChild(canvas);
@@ -240,6 +246,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const draw=(now:number)=>{
   if(!visible||document.hidden){previous=now;return;}
   const delta=Math.min((now-previous)/1000,.05);previous=now;
+  // Photographs and recordings leave the canvas as files and video, in sRGB; the live view uses the wide gamut.
+  const space=wide&&!captures?.active&&!captures?.recording?DisplayP3ColorSpace:T.SRGBColorSpace;if(renderer.outputColorSpace!==space){renderer.outputColorSpace=space;needsFrame=true;}
   if(captures?.tick(now))return;
   if(captures?.breezing){waterTime.value=captures.waterSeconds;lighting?.drift(captures.waterSeconds);}
   // A finished or cancelled film hands the camera back.
@@ -327,7 +335,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   const longest=Math.max(cssSize.x,cssSize.y),scale=Math.min(3840,tier.photographic?3840:2560)/longest;
   const w=Math.round(cssSize.x*scale),h=Math.round(cssSize.y*scale);
   try{
-   renderer.setPixelRatio(1);renderer.setSize(w,h,false);post?.setSize(w,h,1);
+   renderer.outputColorSpace=T.SRGBColorSpace;renderer.setPixelRatio(1);renderer.setSize(w,h,false);post?.setSize(w,h,1);
    cullTrees(false);
    if(post){for(let i=0;i<Math.max(8,tier.refineFrames);i++){if(i)camera.setViewOffset(w,h,halton(i,2)-.5,halton(i,3)-.5,w,h);mirror?.render();post.render(true,lighting?lighting.exposure:.9,indoorOf(room),{eyeLevel:rig.eyeLevel});camera.clearViewOffset();}}
    else renderer.render(scene,rig.camera);
