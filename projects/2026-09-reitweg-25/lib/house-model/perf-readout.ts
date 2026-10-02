@@ -47,7 +47,12 @@ const s=(ms:number)=>Number.isFinite(ms)?`${(ms/1000).toFixed(1)} s`:'–';
 export function readoutText(r:ReadoutState){
  const lines=[`${r.quality} · ${r.pixelRatio}× pixels${r.motionScale<1?`, ${r.motionScale}× while moving`:''} · ${Math.round(r.fps)} fps · ${n(r.cpu)} ms processor a frame${r.moving?' · moving':''}`];
  if(!r.gpuAvailable)lines.push('graphics-card timers unavailable in this browser');
- else{let total=0;const parts:string[]=[];for(const [label,ms] of r.gpu){parts.push(`${label} ${n(ms)}`);total+=ms;}lines.push(`graphics card ms · ${parts.join(' · ')}${parts.length?` · total ${n(total)}`:''}`);}
+ else{
+  // Four passes a line, in the order they run, under the total.
+  let total=0;const parts:string[]=[];for(const [label,ms] of r.gpu){parts.push(`${label} ${n(ms)}`);total+=ms;}
+  lines.push(`graphics card ms${parts.length?` · total ${n(total)}`:''}`);
+  for(let i=0;i<parts.length;i+=4)lines.push('  '+parts.slice(i,i+4).join(' · '));
+ }
  lines.push(`${r.draws} draws · ${(r.triangles/1e6).toFixed(2)} M triangles · ${r.programs} programs`);
  if(r.trace){
   const c=r.trace.clock;
@@ -92,7 +97,8 @@ export function createPerfReadout(renderer:T.WebGLRenderer,host:HTMLElement,view
  const baked=(label:string,work:()=>boolean|undefined)=>measure(label,work,done=>!!done);
  const panel=document.createElement('pre');
  panel.className='perf-readout';panel.setAttribute('aria-hidden','true');
- Object.assign(panel.style,{position:'absolute',left:'8px',top:'8px',zIndex:'5',margin:'0',padding:'6px 8px',pointerEvents:'none',font:'11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace',color:'#f4f2ea',background:'rgba(20,20,18,.72)',borderRadius:'4px',whiteSpace:'pre'});
+ // Below the top bar's buttons, never wider than the view.
+ Object.assign(panel.style,{position:'absolute',left:'8px',top:'64px',maxWidth:'calc(100% - 16px)',overflow:'hidden',zIndex:'5',margin:'0',padding:'6px 8px',pointerEvents:'none',font:'11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace',color:'#f4f2ea',background:'rgba(20,20,18,.72)',borderRadius:'4px',whiteSpace:'pre'});
  host.appendChild(panel);
  const show=()=>{
   poll();
