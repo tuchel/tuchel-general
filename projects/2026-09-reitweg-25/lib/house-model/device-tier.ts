@@ -6,6 +6,8 @@ import type {TreeStyle} from './foliage';
 export type Quality='extreme'|'detailed'|'balanced'|'model';
 export type TierSettings={
  quality:Quality;pixelRatio:number;samples:number;shadowSize:number;ao:boolean;bloom:boolean;
+ /** Sunlight bounces traced indoors (sun-bounce.ts); a factor stands in for the rest. */
+ bounces:number;
  refineFrames:number;textureSize:512|1024;farWoodland:number;grass:boolean;skyBake:boolean;photographic:boolean;
  /** Rays per grid point for sunlight bounced indoors, traced on the processor; 0 turns it off. */
  sunBounce:number;trees:TreeStyle;
@@ -23,10 +25,10 @@ export type TierSettings={
  motionScale:number;
 };
 export const tiers:Record<Quality,TierSettings>={
- extreme:{quality:'extreme',pixelRatio:3,samples:4,shadowSize:4096,ao:true,bloom:true,refineFrames:32,textureSize:1024,farWoodland:1,grass:true,skyBake:true,photographic:true,sunBounce:32,trees:'leaves',liveTrace:true,lens:true,clouds:true,poolMirror:true,scanned:true,motionScale:.7},
- detailed:{quality:'detailed',pixelRatio:2,samples:4,shadowSize:4096,ao:true,bloom:true,refineFrames:24,textureSize:1024,farWoodland:1,grass:true,skyBake:true,photographic:true,sunBounce:32,trees:'leaves',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,motionScale:.7},
- balanced:{quality:'balanced',pixelRatio:1.5,samples:2,shadowSize:2048,ao:true,bloom:false,refineFrames:8,textureSize:512,farWoodland:.45,grass:false,skyBake:true,photographic:false,sunBounce:24,trees:'hybrid',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,motionScale:1},
- model:{quality:'model',pixelRatio:1.75,samples:4,shadowSize:2048,ao:false,bloom:false,refineFrames:0,textureSize:512,farWoodland:0,grass:false,skyBake:false,photographic:false,sunBounce:0,trees:'hybrid',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,motionScale:1},
+ extreme:{quality:'extreme',bounces:4,pixelRatio:3,samples:4,shadowSize:4096,ao:true,bloom:true,refineFrames:32,textureSize:1024,farWoodland:1,grass:true,skyBake:true,photographic:true,sunBounce:32,trees:'leaves',liveTrace:true,lens:true,clouds:true,poolMirror:true,scanned:true,motionScale:.7},
+ detailed:{quality:'detailed',bounces:1,pixelRatio:2,samples:4,shadowSize:4096,ao:true,bloom:true,refineFrames:24,textureSize:1024,farWoodland:1,grass:true,skyBake:true,photographic:true,sunBounce:32,trees:'leaves',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,motionScale:.7},
+ balanced:{quality:'balanced',bounces:1,pixelRatio:1.5,samples:2,shadowSize:2048,ao:true,bloom:false,refineFrames:8,textureSize:512,farWoodland:.45,grass:false,skyBake:true,photographic:false,sunBounce:24,trees:'hybrid',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,motionScale:1},
+ model:{quality:'model',bounces:1,pixelRatio:1.75,samples:4,shadowSize:2048,ao:false,bloom:false,refineFrames:0,textureSize:512,farWoodland:0,grass:false,skyBake:false,photographic:false,sunBounce:0,trees:'hybrid',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,motionScale:1},
 };
 /** The settings a viewer runs with. Detailed on a phone keeps the scene, materials and light, but fits a phone
  * browser's graphics memory: a 2048 shadow map and 2× multisampling need about 160 MB less at phone size. Extreme is

@@ -1,7 +1,7 @@
 import * as T from 'three';
 import {addShaderFeature,before,materialsOf} from './shader-features';
 import {PROBE_GRID} from './sky-visibility';
-import type {Grid,Shaded} from './sun-bounce-core';
+import {bounceGain,type Grid} from './sun-bounce-core';
 
 /** Sunlight that enters a room lands on a floor or wall and lights the rest of the room from there.
  * Every point of the sky-light grid under a roof casts rays against the house; where a ray lands on a sunlit surface,
@@ -9,14 +9,13 @@ import type {Grid,Shaded} from './sun-bounce-core';
  * background workers (sun-bounce-core.ts): the graphics card only reads the finished result, since Safari on Apple
  * silicon drops the WebGL context when a shader runs as long as tracing takes. Each point keeps the colour of the
  * gathered light plus its main direction, per unit of sunlight: materials scale it by the live sun's strength and
- * colour; a new sun direction re-lights the kept rays, and a new floor, renovation or level traces them again. */
+ * colour; a new sun direction re-lights the kept rays, and a new floor, renovation or level traces them again.
+ * `bounces` beyond the first are traced through the grid itself, each landing lit by the bounce before (Extreme traces
+ * four); a factor stands in for the rest (bounceGain). */
 const {box:BOX,cell:CELL}=PROBE_GRID;
-// One traced bounce stands in for the rest: with walls and floors reflecting about 40%, further bounces add a geometric
-// series, 1/(1−0.4) ≈ 1.7 times the first.
-const BOUNCE_GAIN=1.7;
 const visibleIn=(o:T.Object3D)=>{for(let a:T.Object3D|null=o;a;a=a.parent)if(!a.visible)return false;return true;};
 
-export function bakeSunBounce(occluders:T.Mesh[],receivers:T.Object3D[],sun:T.DirectionalLight,rays:number){
+export function bakeSunBounce(occluders:T.Mesh[],receivers:T.Object3D[],sun:T.DirectionalLight,rays:number,bounces=1){
  const size=BOX.getSize(new T.Vector3()),nx=Math.round(size.x/CELL),ny=Math.round(size.y/CELL),nz=Math.round(size.z/CELL);
  const grid:Grid={min:BOX.min.toArray() as [number,number,number],cell:CELL,nx,ny,nz};
  // The atlases the materials read: half floats filter on every WebGL2 device, including iOS.
@@ -53,7 +52,7 @@ export function bakeSunBounce(occluders:T.Mesh[],receivers:T.Object3D[],sun:T.Di
  }});
 
  // Workers start on the first request: each gets the house once, in world space, tagged with its batch.
- let workers:Worker[]=[],results:Shaded[]=[],job=0,busy=false,pending=false,fresh=false,sent='';
+ let workers:Worker[]=[],job=0,busy=false,pending=false,fresh=false,sent='';
  const start=()=>{
   let count=0;for(const o of occluders)count+=o.geometry.attributes.position.count;
   const positions=new Float32Array(count*3),batch=new Uint16Array(count),albedo=new Float32Array(occluders.length*3),v=new T.Vector3();
@@ -65,12 +64,14 @@ export function bakeSunBounce(occluders:T.Mesh[],receivers:T.Object3D[],sun:T.Di
   });
   // Two cores stay free for the page; a phone's six cores give it four workers at most.
   const parts=Math.max(1,Math.min(4,(navigator.hardwareConcurrency||4)-2));
+  // The first worker gathers each bounce from the others over message ports, so bounces never pass through the page.
+  const channels=Array.from({length:parts-1},()=>new MessageChannel());
   workers=Array.from({length:parts},(_,part)=>{
    const w=new Worker(new URL('./sun-bounce.worker.ts',import.meta.url),{type:'module'});
-   w.postMessage({kind:'init',positions,batch,albedo,grid,rays,part,parts});
-   w.onmessage=({data}:MessageEvent<(Shaded&{kind:'shaded';job:number})|{kind:'atlas';job:number;light:Uint16Array;direction:Uint16Array}>)=>{
+   const peers=part===0?channels.map(c=>c.port1):[channels[part-1].port2];
+   w.postMessage({kind:'init',positions,batch,albedo,grid,rays,part,parts,bounces,peers},peers);
+   if(part===0)w.onmessage=({data}:MessageEvent<{kind:'atlas';job:number;light:Uint16Array;direction:Uint16Array}>)=>{
     if(data.job!==job)return;
-    if(data.kind==='shaded'){results.push(data);if(results.length===workers.length)workers[0].postMessage({kind:'smooth',parts:results,job});return;}
     lightTexture.image.data=data.light;directionTexture.image.data=data.direction;lightTexture.needsUpdate=directionTexture.needsUpdate=true;
     uniforms.uBounceReady.value=1;busy=false;fresh=true;
    };
@@ -82,7 +83,7 @@ export function bakeSunBounce(occluders:T.Mesh[],receivers:T.Object3D[],sun:T.Di
   const visible=Uint8Array.from(occluders,o=>visibleIn(o)?1:0),key=visible.join('');
   if(key!==sent){sent=key;for(const w of workers)w.postMessage({kind:'geometry',visible});}
   const s=sun.position.clone().sub(sun.target.position).normalize();
-  job++;results=[];busy=true;pending=false;
+  job++;busy=true;pending=false;
   for(const w of workers)w.postMessage({kind:'sun',sun:s.toArray(),job});
  };
  return {
@@ -90,7 +91,7 @@ export function bakeSunBounce(occluders:T.Mesh[],receivers:T.Object3D[],sun:T.Di
   request:()=>{pending=true;},
   /** Keeps the sun's strength live and starts waiting bakes; true when a finished result was swapped in. */
   update:()=>{
-   uniforms.uBounceSun.value.copy(sun.color).multiplyScalar(sun.visible?sun.intensity*BOUNCE_GAIN:0);
+   uniforms.uBounceSun.value.copy(sun.color).multiplyScalar(sun.visible?sun.intensity*bounceGain(bounces):0);
    if(pending&&!busy)send();
    if(!fresh)return false;fresh=false;return true;
   },
