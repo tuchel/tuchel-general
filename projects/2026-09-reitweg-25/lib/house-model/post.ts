@@ -5,6 +5,7 @@ import {GTAOPass} from 'three/addons/postprocessing/GTAOPass.js';
 import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
 import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
 import {Pass,FullScreenQuad} from 'three/addons/postprocessing/Pass.js';
+import {DisplayP3ColorSpace} from 'three/addons/math/ColorSpaces.js';
 import {finish} from './look';
 import {LENS,DepthCapture,SunShafts,Meter,DepthOfField,focalLength,meterCorrection} from './lens';
 
@@ -91,17 +92,20 @@ class TracedBlend{
 
 /** Tone mapping with the finish of a photograph (look.ts): white balance on the scene's light before tone mapping, then
  * the S-curve and colour on display values, before the sRGB encoding. Extreme adds film grain (lens.ts), strongest in
- * the mid-tones, different every frame. */
+ * the mid-tones, different every frame. On a Display P3 canvas (Extreme on a wide-gamut screen) the graded colour moves
+ * to P3's primaries before it is clamped, so what the grade saturates past sRGB is kept; three's output pass applies
+ * only the transfer curve. */
 class FinishedOutput extends OutputPass{
  constructor(){
   super();
-  Object.assign(this.uniforms,{uBalance:{value:new T.Vector3(1,1,1)},uLook:{value:new T.Vector2(1,1)},uGrain:{value:0},uSeed:{value:0}});
+  Object.assign(this.uniforms,{uBalance:{value:new T.Vector3(1,1,1)},uLook:{value:new T.Vector2(1,1)},uGrain:{value:0},uSeed:{value:0},uP3:{value:0}});
   const patch=(shader:string,anchor:string,code:string)=>{if(!shader.includes(anchor))throw new Error(`output shader has no ${anchor}`);return shader.replace(anchor,code);};
   let shader=this.material.fragmentShader;
-  shader=patch(shader,'uniform sampler2D tDiffuse;','uniform sampler2D tDiffuse;uniform vec3 uBalance;uniform vec2 uLook;uniform float uGrain;uniform float uSeed;');
+  // Linear sRGB to linear Display P3 (three's XYZ matrices), column by column.
+  shader=patch(shader,'uniform sampler2D tDiffuse;','uniform sampler2D tDiffuse;uniform vec3 uBalance;uniform vec2 uLook;uniform float uGrain;uniform float uSeed;uniform float uP3;const mat3 P3_FROM_SRGB=mat3(0.8225927,0.0331996,0.0170853,0.1775340,0.9667835,0.0723957,0.0000000,0.0000000,0.9103014);');
   shader=patch(shader,'gl_FragColor = texture2D( tDiffuse, vUv );','gl_FragColor = texture2D( tDiffuse, vUv );gl_FragColor.rgb*=uBalance;');
   shader=patch(shader,'#ifdef SRGB_TRANSFER',`{vec3 e=pow(clamp(gl_FragColor.rgb,0.0,1.0),vec3(1.0/2.2)),p=pow(e,vec3(uLook.x)),q=pow(1.0-e,vec3(uLook.x));
-   vec3 c=pow(p/max(p+q,vec3(1e-5)),vec3(2.2));float l=dot(c,vec3(0.2126,0.7152,0.0722));gl_FragColor.rgb=max(vec3(0.0),l+uLook.y*(c-l));}
+   vec3 c=pow(p/max(p+q,vec3(1e-5)),vec3(2.2));float l=dot(c,vec3(0.2126,0.7152,0.0722));vec3 g=l+uLook.y*(c-l);if(uP3>0.5)g=P3_FROM_SRGB*g;gl_FragColor.rgb=max(vec3(0.0),g);}
   if(uGrain>0.0){
    // Two hashes summed: triangular noise in −1…1 (float only; the output pass compiles as GLSL ES 1.0).
    vec3 h=fract(vec3(gl_FragCoord.xyx+uSeed*vec3(17.0,59.0,23.0))*0.1031);h+=dot(h,h.yzx+33.33);
@@ -181,7 +185,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
    * interior finish (look.ts). With the lens, exposure follows the meter while the view moves and for the first frames
    * of a rest, then holds, so a settling image never changes brightness. */
   render:(refining:boolean,exposure:number,indoor=0,view:PostView={eyeLevel:false})=>{
-   const f=output.set(indoor);
+   const f=output.set(indoor);output.uniforms.uP3.value=renderer.outputColorSpace===DisplayP3ColorSpace?1:0;
    if(ao){ao.enabled=refining;ao.blendIntensity=f.occlusion;}
    if(!refining){accumulate.frames=0;shafts?.reset();}
    accumulate.enabled=refining;
@@ -196,7 +200,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
   /** Shows a path-traced image (linear, before exposure) over the settled live image, through the same finish. `amount`
    * 0–1 blends it in; `radius` (traced pixels) smooths its grain (TracedBlend). */
   present:(image:T.Texture,amount:number,radius:number,exposure:number,indoor=0)=>{
-   output.set(indoor);
+   output.set(indoor);output.uniforms.uP3.value=renderer.outputColorSpace===DisplayP3ColorSpace?1:0;
    traced??=new TracedBlend();
    const size=renderer.getDrawingBufferSize(new T.Vector2()),u=traced.material.uniforms,source=image.image as {width:number;height:number};
    if(traced.target.width!==size.x||traced.target.height!==size.y)traced.target.setSize(size.x,size.y);
