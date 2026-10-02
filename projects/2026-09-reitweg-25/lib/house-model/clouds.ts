@@ -13,7 +13,9 @@ import {addShaderFeature,materialsOf} from './shader-features';
  * fields. */
 /** `wind`: the clouds' velocity in metres a second, x east and −z north (from the west-south-west, as on a westerly day). */
 export const CLOUDS={base:1400,top:2600,coverage:.36,extinction:.045,wind:[7.4,-3.1] as const,
- sky:{width:4096,height:1024,band:64},shadow:{size:512,span:3000},
+ /** The sky texture is baked in bands of 64 rows; a new sun re-bakes `perFrame` of them a frame, round the sky in four
+  * frames, so dragging the time of day stays smooth. */
+ sky:{width:4096,height:1024,band:64,perFrame:4},shadow:{size:512,span:3000},
  /** Where the cloud field starts: the house sits in sunshine. */
  start:[1500,2000] as const};
 
@@ -105,8 +107,9 @@ export function createClouds(renderer:T.WebGLRenderer){
     gl_FragColor=vec4(vec3(exp(-tau*uExtinction)),1.0);
    }`,depthTest:false,depthWrite:false});
  const skyQuad=new FullScreenQuad(skyMaterial),shadowQuad=new FullScreenQuad(shadowMaterial);
- let band=0,dirty=true,lastWind=0;
  const bands=Math.ceil(S.height/S.band);
+ // `owed`: bands still to re-bake for a new sun; `drifting`: the wind moved the clouds since the last full round.
+ let band=0,owed=bands,drifting=false,lastWind=0;
  const shadowUniforms={uCloudShadow:{value:shadowTarget.texture},uCloudSpan:{value:H.span}};
  const drawBand=()=>{
   const y=band*S.band,h=Math.min(S.band,S.height-y),previous=renderer.getRenderTarget();
@@ -123,20 +126,23 @@ export function createClouds(renderer:T.WebGLRenderer){
   sample:`vec4 cloudsToward(vec3 d){if(d.y<=0.0)return vec4(0.0,0.0,0.0,1.0);return texture2D(uClouds,vec2(atan(d.z,d.x)/6.2831853+0.5,sqrt(d.y)));}`,
   /** New sun: direction, irradiance on a surface facing it, and the sky's irradiance (lighting.ts units). */
   setSun:(direction:T.Vector3,sunLight:T.Color,ambient:T.Color)=>{
-   common.uSun.value.copy(direction);common.uSunLight.value.set(sunLight.r,sunLight.g,sunLight.b);common.uAmbient.value.set(ambient.r,ambient.g,ambient.b);dirty=true;band=0;
+   common.uSun.value.copy(direction);common.uSunLight.value.set(sunLight.r,sunLight.g,sunLight.b);common.uAmbient.value.set(ambient.r,ambient.g,ambient.b);owed=bands;
   },
   /** Moves the clouds to where the wind has taken them after `seconds` of Breeze. */
   drift:(seconds:number)=>{
    if(Math.abs(seconds-lastWind)<1/30)return;lastWind=seconds;
    // The field is sampled at position + offset, so the clouds travel opposite to the offset's change: with the wind.
-   wind.value.set(CLOUDS.start[0]-CLOUDS.wind[0]*seconds,CLOUDS.start[1]-CLOUDS.wind[1]*seconds);dirty=true;
+   wind.value.set(CLOUDS.start[0]-CLOUDS.wind[0]*seconds,CLOUDS.start[1]-CLOUDS.wind[1]*seconds);drifting=true;
   },
-  /** Draws one band of the sky texture (all of it after a new sun) and the shadow texture; true when anything changed. */
-  update:(all=false)=>{
-   if(!dirty)return false;
-   if(all){band=0;for(let i=0;i<bands;i++)drawBand();}else drawBand();
-   drawShadow();if(band===0)dirty=false;return true;
+  /** Draws up to `count` bands of the sky texture after a new sun (one while the clouds drift) and the shadow texture;
+   * true when anything changed. */
+  update:(count=1)=>{
+   if(!owed&&!drifting)return false;
+   for(let i=Math.min(Math.max(1,count),owed||1);i>0;i--){drawBand();owed=Math.max(0,owed-1);}
+   drawShadow();if(!owed&&band===0)drifting=false;return true;
   },
+  /** A new sun's sky is still being baked. */
+  get baking(){return owed>0;},
   /** Sunlight reaching the house through the clouds (0–1), for the path tracer's sun. */
   atHouse:()=>{
    // One byte-format pixel at the centre of the square: readable on every device, unlike half floats.

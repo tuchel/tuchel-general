@@ -11,7 +11,7 @@ import {createLighting,roomExposure,indoorOf,type LightReading} from './lighting
 import {createPost} from './post';
 import {createCameraRig,type Framing} from './camera-rig';
 import {createCaptures} from './experience';
-import {createLiveTrace,traceBlend} from './live-trace';
+import {createLiveTrace,traceBlend,LIVE_TRACE} from './live-trace';
 import {createPoolReflection} from './pool-reflection';
 import {hasShaderFeature,materialsOf} from './shader-features';
 import {createClouds} from './clouds';
@@ -129,6 +129,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
 
  // Frame scheduling: moving frames are fast; still frames refine, then rendering stops.
  let lastChange=performance.now(),needsFrame=true,visible=true,disposed=false,frame=0,ready=false,previous=performance.now(),heading=NaN;
+ // A panel or dialog over the view: path tracing waits until it closes, so the interface keeps the graphics card.
+ let interfaceOpen=false,presented=0;
  const changed=()=>{lastChange=performance.now();post?.reset();live?.reset();needsFrame=true;};
  invalidate=changed;
  const size=()=>{
@@ -243,9 +245,10 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   // A settled view hands over to path tracing; the floor-plan section of the upper floor cuts roofs with clipping
   // planes, which the tracer cannot, so it stays live.
   if(captures?.active)live?.release();
-  if(live&&post&&still&&!refine&&!needsFrame&&level!=='upper'&&!captures?.active&&live.wanted){
+  if(live&&post&&still&&!refine&&!needsFrame&&level!=='upper'&&!captures?.active&&!interfaceOpen&&now-lastChange>LIVE_TRACE.rest&&live.wanted){
    const traced=live.step();
-   if(traced){const {amount,radius}=traceBlend(traced.samples);post.present(traced.texture,amount,radius,lighting!.exposure,indoorOf(room));}
+   // Drawn a few times a second, and once more when tracing finishes.
+   if(traced&&(now-presented>=LIVE_TRACE.present||!live.wanted)){presented=now;const {amount,radius}=traceBlend(traced.samples);post.present(traced.texture,amount,radius,lighting!.exposure,indoorOf(room));}
    // What the view shows, for tests: 'preparing', the traced sample count, or 'live'.
    const shown=traced?String(Math.floor(traced.samples)):'preparing';if(canvas.dataset.trace!==shown)canvas.dataset.trace=shown;
    return;
@@ -292,6 +295,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   setRenovations:(state:RenovationState)=>{captures?.stop();renovations={...state};applyState();},
   setSun:(study:SunStudy):LightReading|undefined=>{if(!lighting)return;const r=lighting.apply(study);fitShadowToView();bounce?.request();live?.relight();changed();return r;},
   get lightReading(){return lighting?.reading;},
+  /** A panel or dialog is open over the view (path tracing waits for it to close). */
+  setInterface:(open:boolean)=>{interfaceOpen=open;},
   captures,
   get eyeLevel(){return rig.eyeLevel;},
   /** Joystick input: move (forward, strafe) and look rates, each −1…1; zero releases. */

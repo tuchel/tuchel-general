@@ -24,7 +24,20 @@ export function plausible(data:Uint16Array){
  }
  return light;
 }
-export async function createWebGPUTracer(scene:T.Scene,camera:T.PerspectiveCamera){
+/** Builds every geometry's ray-tracing tree in background workers (the tracer's own options), so the tracer, which
+ * builds only what is missing, does none of it on the page's thread. Instanced trees share one tree per archetype. */
+async function treesInBackground(scene:T.Scene,signal?:AbortSignal){
+ const [{GenerateMeshBVHWorker},{SAH}]=await Promise.all([import('three-mesh-bvh/src/workers/GenerateMeshBVHWorker.js'),import('three-mesh-bvh')]);
+ const found=new Set<T.BufferGeometry>();
+ scene.traverse(o=>{const g=(o as T.Mesh).isMesh?(o as T.Mesh).geometry:undefined;if(g&&!g.boundsTree)found.add(g);});
+ const queue=[...found].sort((a,b)=>b.attributes.position.count-a.attributes.position.count);
+ // Two cores stay free for the page, as for the bounce bake.
+ const workers=Array.from({length:Math.max(1,Math.min(3,(navigator.hardwareConcurrency||4)-2))},()=>new GenerateMeshBVHWorker());
+ try{await Promise.all(workers.map(async worker=>{for(let g=queue.shift();g&&!signal?.aborted;g=queue.shift())g.boundsTree=await worker.generate(g,{strategy:SAH,targetLeafSize:5});}));}
+ finally{workers.forEach(w=>w.dispose());}
+}
+/** `signal`: a newer scene replaced this one; nothing more is built for it. */
+export async function createWebGPUTracer(scene:T.Scene,camera:T.PerspectiveCamera,signal?:AbortSignal){
  const gpu=(navigator as Navigator&{gpu?:{requestAdapter:()=>Promise<unknown>}}).gpu;
  if(!gpu||!await gpu.requestAdapter().catch(()=>null))return undefined;
  const [W,{WebGPUPathTracer,OIDNDenoiser},{initUNetFromURL}]=await Promise.all([import('three/webgpu'),import('three-gpu-pathtracer/webgpu'),import('oidn-web')]);
@@ -39,6 +52,8 @@ export async function createWebGPUTracer(scene:T.Scene,camera:T.PerspectiveCamer
  Object.assign(tracer,{maxBounces:GPU_TRACE.bounces,maxTransparentBounces:8,renderDelay:0,minSamples:0,fadeDuration:0,dynamicLowRes:false,synchronizeRenderSize:false,maxSamples:GPU_TRACE.samples,filterGlossyFactor:.5});
  let denoiser:InstanceType<typeof OIDNDenoiser>|undefined;
  try{denoiser=new OIDNDenoiser({initUNetFromURL,auxWeightsUrl:GPU_TRACE.weights});tracer.setDenoiser(denoiser);}catch(error){console.warn('Denoiser unavailable',error);}
+ await treesInBackground(scene,signal);
+ if(signal?.aborted){tracer.dispose?.();renderer.dispose();return undefined;}
  tracer.setScene(scene,view);
  const target=new W.RenderTarget(1,1,{type:W.HalfFloatType,depthBuffer:false});
  const texture=new T.DataTexture(new Uint16Array(4),1,1,T.RGBAFormat,T.HalfFloatType);texture.minFilter=texture.magFilter=T.LinearFilter;

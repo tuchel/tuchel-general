@@ -46,6 +46,9 @@ const texel=CLOUDS.shadow.span/CLOUDS.shadow.size;assert(CLOUDS.shadow.span>=200
 // Extreme only; the sky and the sky light both read the clouds, which replace the flat layer; every lit surface takes
 // their shadow, the breeze moves them and the path tracer's sun is dimmed by what is over the house.
 assert.equal(tiers.extreme.clouds,true);for(const q of ['detailed','balanced','model'])assert.equal(tiers[q].clouds,false,`${q} keeps the flat layer`);
+// A new sun re-bakes the sky a few bands a frame, round the sky in a few frames, so dragging the time stays smooth.
+const bands=CLOUDS.sky.height/CLOUDS.sky.band;assert(CLOUDS.sky.perFrame>=1&&bands/CLOUDS.sky.perFrame<=4,`${CLOUDS.sky.perFrame} of ${bands} bands a frame`);
+assert(!/for\(let i=0;i<bands;i\+\+\)drawBand\(\)/.test(clouds),'no frame bakes the whole sky');
 // GLSL cannot be compiled here; at least every shader string in clouds.ts balances its braces.
 const source=fs.readFileSync('lib/house-model/clouds.ts','utf8');
 for(const [,glsl] of source.matchAll(/(?:NOISE=|fragmentShader:)`([^`]*)`/g)){const body=glsl.replace(/\$\{[^}]*\}/g,'0');assert.equal((body.match(/\{/g)||[]).length,(body.match(/\}/g)||[]).length,'balanced braces in a cloud shader');}

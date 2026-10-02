@@ -3,10 +3,12 @@ import type {WebGLPathTracer} from 'three-gpu-pathtracer';
 import type {Lighting} from './lighting';
 import type {WebGPUTracer} from './live-trace-webgpu';
 
-/** How a resting view hands over to path tracing (Extreme). The traced image replaces the live one as it gathers
- * samples: hidden for the first two, fully shown from 48. Until it settles, an edge-aware filter guided by the live image
- * smooths its grain, about three pixels across at first, gone by 256 samples. Tracing stops at 1024 samples. */
-export const LIVE_TRACE={show:[2,48] as const,filter:{radius:3,until:256},samples:1024};
+/** How a resting view hands over to path tracing (Extreme). Tracing, and preparing its scene, starts once the view has
+ * rested `rest` ms with no panel open, so passing clicks never set it off. The traced image replaces the live one as it
+ * gathers samples: hidden for the first two, fully shown from 48, drawn every `present` ms. Until it settles, an
+ * edge-aware filter guided by the live image smooths its grain, about three pixels across at first, gone by 256 samples.
+ * Tracing stops at 1024 samples. */
+export const LIVE_TRACE={show:[2,48] as const,filter:{radius:3,until:256},samples:1024,rest:1000,present:100};
 export function traceBlend(samples:number){
  const [a,b]=LIVE_TRACE.show,{radius,until}=LIVE_TRACE.filter;
  return {amount:T.MathUtils.smoothstep(samples,a,b),radius:radius*(1-T.MathUtils.smoothstep(samples,4,until))};
@@ -35,14 +37,21 @@ export function createLiveTrace(options:{renderer:T.WebGLRenderer;scene:T.Scene;
    const [{photographicScene},{WebGLPathTracer},{GenerateMeshBVHWorker}]=await Promise.all([import('./photographic-scene'),import('three-gpu-pathtracer'),import('three-mesh-bvh/src/workers/GenerateMeshBVHWorker.js')]);
    if(controller.signal.aborted)return;
    environment=lighting.equirect();
-   local=await photographicScene(scene,environment,controller.signal,()=>{},{maxDistance:REACH,origin:ORIGIN,sunScale:lighting.sunThroughClouds});
-   if(controller.signal.aborted)throw new DOMException('Cancelled','AbortError');
-   if(webgpu){
-    const gpu=await import('./live-trace-webgpu').then(m=>m.createWebGPUTracer(local!.scene,camera)).catch(error=>{console.warn('WebGPU path tracing unavailable',error);return undefined;});
+   const env=environment,convert=async(instances:boolean)=>{
+    const made=await photographicScene(scene,env,controller.signal,()=>{},{maxDistance:REACH,origin:ORIGIN,sunScale:lighting.sunThroughClouds,instances});
+    if(controller.signal.aborted){made.dispose();throw new DOMException('Cancelled','AbortError');}
+    return made;
+   };
+   // The WebGPU tracer traces instances directly, so trees stay instanced for it; the WebGL tracer needs them flattened.
+   if(webgpu&&'gpu' in navigator){
+    local=await convert(true);
+    const gpu=await import('./live-trace-webgpu').then(m=>m.createWebGPUTracer(local!.scene,camera,controller.signal)).catch(error=>{console.warn('WebGPU path tracing unavailable',error);return undefined;});
     if(controller.signal.aborted){gpu?.dispose();throw new DOMException('Cancelled','AbortError');}
     if(gpu){prepared={gpu,local,environment};lightStale=false;cameraStale=true;abort=undefined;return;}
-    webgpu=false;
+    local.dispose();local=undefined;
    }
+   webgpu=false;
+   local=await convert(false);
    tracer=new WebGLPathTracer(renderer);
    Object.assign(tracer,{bounces:5,transmissiveBounces:8,renderDelay:0,minSamples:0,fadeDuration:0,filterGlossyFactor:.5,rasterizeScene:false,renderToCanvas:false,dynamicLowRes:false});
    tracer.tiles.set(2,2);tracer.textureSize.set(1024,1024);

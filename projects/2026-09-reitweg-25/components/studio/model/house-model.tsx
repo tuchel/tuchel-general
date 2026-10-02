@@ -83,6 +83,8 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
  },[ready]);
  useEffect(()=>{if(ready)api.current?.setRenovations(changes);},[ready,changes]);
  useEffect(()=>{if(ready)api.current?.setSun({enabled:true,...sun});},[ready,sun]);
+ // Extreme's path tracing waits while a panel or the About dialog is open, so menus stay quick.
+ useEffect(()=>{if(ready)api.current?.setInterface(!!panel||about);},[ready,panel,about]);
  useEffect(()=>{
   const key=(e:KeyboardEvent)=>{if(e.key==='Escape'&&panel)setPanel(null);};
   window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);
