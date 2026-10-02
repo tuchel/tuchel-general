@@ -19,6 +19,34 @@ for(const [name,target] of Object.entries(targets)){
  for(let c=0;c<3;c++){const ratio=mean[c]/n/goal[c];assert(ratio>.6&&ratio<1.35,`${name} channel ${c} mean within reach of the photographed colour (ratio ${ratio.toFixed(2)})`);}
 }
 for(const f of ['leaves-1024-color.webp','leaves-512-color.webp','water-512-normal.webp'])assert(fs.existsSync('public/assets/materials/'+f),f);
+// Scanned sets (Extreme): every surface has one, CC0 with its source page, square with four channels, at its real size,
+// and its mean colour near the same photographed surface (scripts/build-scanned-materials.mjs).
+const scanned=JSON.parse(fs.readFileSync('public/assets/materials/scanned/manifest.json','utf8'));
+assert.equal(scanned.licence,'CC0 1.0');
+for(const [name,target] of Object.entries(targets)){
+ const set=scanned.sets[name];assert(set,`a scanned ${name} set`);
+ assert(/^https:\/\/(polyhaven\.com|ambientcg\.com)\//.test(set.page)&&set.asset&&set.source,`${name} credits its source`);
+ assert(set.metres[0]>.05&&set.metres[0]<10,`${name} tile size in metres`);
+ for(const kind of ['color','normal']){
+  const file=`public/assets/materials/scanned/${name}-${set.size}-${kind}.webp`;assert(fs.existsSync(file),file);
+  const meta=await sharp(file).metadata();assert.equal(meta.width,set.size);assert.equal(meta.height,set.size);assert.equal(meta.channels,4,`${file} alpha carries roughness or height`);
+ }
+ const {data,info}=await sharp(`public/assets/materials/scanned/${name}-${set.size}-color.webp`).removeAlpha().raw().toBuffer({resolveWithObject:true});
+ const mean=[0,0,0];for(let i=0;i<data.length;i+=3)for(let c=0;c<3;c++)mean[c]+=lin('#'+data[i+c].toString(16).padStart(2,'0').repeat(3))[0];
+ const n=info.width*info.height,goal=lin(target);
+ for(let c=0;c<3;c++){const ratio=mean[c]/n/goal[c];assert(ratio>.6&&ratio<1.35,`scanned ${name} channel ${c} mean within reach of the photographed colour (ratio ${ratio.toFixed(2)})`);}
+}
+// Extreme loads them, at their real size; other presets keep the generated sets.
+{
+ await build({entryPoints:['lib/house-model/surface-materials.ts','lib/house-model/device-tier.ts'],outdir:'tmp/scanned-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
+ const {surfaceSet}=await import('../tmp/scanned-check/surface-materials.mjs'),{tiers}=await import('../tmp/scanned-check/device-tier.mjs');
+ assert.equal(tiers.extreme.scanned,true);for(const q of ['detailed','balanced','model'])assert.equal(tiers[q].scanned,false,`${q} keeps the generated sets`);
+ for(const name of Object.keys(targets)){
+  const set=scanned.sets[name],on=surfaceSet(name,1024,true),off=surfaceSet(name,1024,false);
+  assert.equal(on.color,`/assets/materials/scanned/${name}-${set.size}-color.webp`);assert.equal(on.metres,set.metres[0],`${name} tiles at the scan's size`);
+  assert(!off.color.includes('/scanned/'),`${name} generated otherwise`);
+ }
+}
 // Shader patches find their chunks in this three.js version.
 await build({entryPoints:['lib/house-model/surface-materials.ts'],outfile:'tmp/materials-check.mjs',bundle:true,platform:'node',format:'esm',packages:'external'});
 const {finishSurfaces}=await import('../tmp/materials-check.mjs');
@@ -39,4 +67,4 @@ assert(compile(oak).fragmentShader.includes('uBounceLight'),'bounced sunlight re
 assert.equal(glass.transmission,0,'glass has no transmission pass');assert(compile(glass).fragmentShader.includes('pow(1.0-abs(dot(normal'));
 assert(compile(water).fragmentShader.includes('uWaterNormal'));
 assert(root.children.every(m=>!m.material.transparent||!m.castShadow),'transparent surfaces cast no shadow');
-console.log('Passed: all generated surface sets present and square, mean colours near the photographed surfaces, surface/glass/water/bounce patches compile against three\'s chunks.');
+console.log('Passed: all generated and scanned (CC0, Extreme) surface sets present and square, mean colours near the photographed surfaces, surface/glass/water/bounce patches compile against three\'s chunks.');
