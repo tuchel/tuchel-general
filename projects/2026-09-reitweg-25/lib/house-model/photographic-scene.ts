@@ -39,6 +39,15 @@ export function copyLights(source:T.Scene,target:T.Scene,sunScale=1){
  });
 }
 type Maps=ReturnType<typeof standardMaps>;
+/** Leaves pass light, as the live view's leaf translucency shows (foliage.ts): in the traced scene each leaf material is
+ * a thin wall passing a share `transmission` of the light it scatters, tinted by its colour, and its colour is raised so
+ * the leaf reflects as before. Two thirds as much light passes through as is reflected, as in real leaves. */
+export const LEAF={transmission:.4,ior:1.4};
+function leafForTracer(m:T.MeshStandardMaterial){
+ const leaf=new T.MeshPhysicalMaterial();T.MeshStandardMaterial.prototype.copy.call(leaf,m);leaf.defines={STANDARD:'',PHYSICAL:''};
+ Object.assign(leaf,{transmission:LEAF.transmission,thickness:0,ior:LEAF.ior});leaf.color.multiplyScalar(1/(1-LEAF.transmission));
+ return leaf;
+}
 /** What a resting path trace keeps between rebuilds (live-trace.ts): converted meshes by source mesh, materials, texture
  * sets and instanced archetypes, so a new floor, renovation or walk converts only what changed and the tracer reuses
  * those meshes' ray-tracing trees. */
@@ -72,7 +81,7 @@ export async function photographicScene(source:T.Scene,environment:T.Texture,sig
  const material=(m:T.Material)=>{
   const known=materials.get(m);if(known&&(known.ready||!ready(m)))return known.material;
   known?.material.dispose();
-  const c=m.clone() as T.MeshPhysicalMaterial;c.onBeforeCompile=()=>{};c.customProgramCacheKey=()=>'';c.userData={};
+  const c=(hasShaderFeature(m,'leaf-translucency')?leafForTracer(m as T.MeshStandardMaterial):m.clone()) as T.MeshPhysicalMaterial;c.onBeforeCompile=()=>{};c.customProgramCacheKey=()=>'';c.userData={};
   const surface=surfaceOf(m);
   if(surface&&c instanceof T.MeshStandardMaterial){
    c.map=surface.map;c.roughnessMap=surface.roughness;c.normalMap=surface.normal;c.roughness=1;
