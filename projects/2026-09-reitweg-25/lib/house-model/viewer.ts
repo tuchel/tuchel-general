@@ -13,6 +13,7 @@ import {createPost} from './post';
 import {createCameraRig,type Framing} from './camera-rig';
 import {createCaptures} from './experience';
 import {createLiveTrace,traceBlend,LIVE_TRACE} from './live-trace';
+import {addAlbedoOutput} from './albedo-pass';
 import {createPoolReflection} from './pool-reflection';
 import {hasShaderFeature,materialsOf} from './shader-features';
 import {createClouds} from './clouds';
@@ -132,6 +133,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  if(post)perf?.watch(post.passes);
  // Extreme: path tracing takes over the view while the camera rests.
  live=tier.liveTrace&&lighting&&post&&camera instanceof T.PerspectiveCamera?createLiveTrace({renderer,scene,camera,lighting}):undefined;
+ // Its surface colours sharpen the traced image (albedo-pass.ts); added before the shaders are compiled ahead.
+ if(live)addAlbedoOutput(scene);
  const captures=lighting?createCaptures({
   scene,camera:camera as T.PerspectiveCamera,renderer,root:scene,lighting,heavy:tier.photographic,
   invalidate:()=>invalidate(),onState:s=>options.onCapture?.(s),
@@ -277,7 +280,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    perf?.trace(now,traced,{ready:live.ready,finished:!live.wanted});
    // Drawn a few times a second, and once more when tracing finishes.
    // A denoised image is shown whole, without the grain filter.
-   if(traced&&(now-presented>=LIVE_TRACE.present||!live.wanted)){presented=now;const {amount,radius}=traceBlend(traced.denoised?LIVE_TRACE.filter.until:traced.samples);timed('trace blend',()=>post.present(traced.texture,amount,radius,lighting!.exposure,indoorOf(room)));}
+   if(traced&&(now-presented>=LIVE_TRACE.present||!live.wanted)){presented=now;const {amount,radius}=traceBlend(traced.denoised?LIVE_TRACE.filter.until:traced.samples);timed('trace blend',()=>post.present(traced.texture,amount,radius,lighting!.exposure,indoorOf(room),traced.demodulated));}
    // What the view shows, for tests: 'preparing', the traced sample count, or 'live'; and the samples behind the denoised
    // image on show.
    const shown=traced?String(Math.floor(traced.samples)):'preparing';if(canvas.dataset.trace!==shown)canvas.dataset.trace=shown;

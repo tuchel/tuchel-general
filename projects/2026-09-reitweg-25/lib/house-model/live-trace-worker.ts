@@ -17,7 +17,7 @@ export type ToWorker=
  {kind:'tick'}|{kind:'dispose'};
 export type FromWorker=
  {kind:'ready'}|{kind:'unavailable'}|{kind:'failed'}|{kind:'scened';id:number;ok:boolean}|
- {kind:'image';view:number;data:Uint16Array;width:number;height:number;samples:number;denoised:number;done:boolean};
+ {kind:'image';view:number;data:Uint16Array;width:number;height:number;samples:number;denoised:number;demodulated:boolean;done:boolean};
 
 const worker=self as unknown as DedicatedWorkerGlobalScope&{window?:unknown};
 // three-gpu-pathtracer reads window.devicePixelRatio in a material the tracer never builds; give it something to find.
@@ -36,7 +36,7 @@ const loop=(now:number)=>{
  if(tracer.failed){post({kind:'failed'});running=false;return;}
  if(result&&result.texture.version!==sent){
   sent=result.texture.version;const image=result.texture.image as {data:Uint16Array;width:number;height:number},data=image.data.slice();
-  post({kind:'image',view,data,width:image.width,height:image.height,samples:result.samples,denoised:result.denoised,done:tracer.done},[data.buffer]);
+  post({kind:'image',view,data,width:image.width,height:image.height,samples:result.samples,denoised:result.denoised,demodulated:result.demodulated,done:tracer.done},[data.buffer]);
  }
  frame(loop);
 };
