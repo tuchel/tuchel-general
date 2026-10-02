@@ -19,6 +19,7 @@ import {hasShaderFeature,materialsOf} from './shader-features';
 import {createClouds} from './clouds';
 import {places,type Place,type CaptureState} from './experience-data';
 import {foliageMaterials,finishFoliage,drawTrees} from './foliage';
+import {createTreeOcclusion} from './tree-occlusion';
 import {loadSurfaceTextures,finishSurfaces} from './surface-materials';
 import {bakeSkyVisibility} from './sky-visibility';
 import {bakeSunBounce} from './sun-bounce';
@@ -127,7 +128,9 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const walker=createWalker(rig.lens,()=>[...batches.meshes,stage]),walkInput:WalkInput={forward:0,strafe:0,run:false},lookRate={x:0,y:0};
  const walkAnchor=new T.Vector3(),skyAnchor=new T.Vector3();let joystick=false,room=1,roomTarget=1;
 
- const post=realistic?createPost(renderer,scene,camera,{samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined}):undefined;
+ // Extreme: trees the house hides are counted right after the scene is drawn, and left out of the next frames.
+ const occlusion=realistic&&tier.treeOcclusion?createTreeOcclusion(renderer.getContext() as WebGL2RenderingContext,scene):undefined;
+ const post=realistic?createPost(renderer,scene,camera,{samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
  // Extreme: the pool mirrors the scene (pool-reflection.ts).
  const mirror=tier.poolMirror&&camera instanceof T.PerspectiveCamera?createPoolReflection(renderer,scene,camera,batches.meshes.filter(b=>materialsOf(b).some(m=>hasShaderFeature(m,'pool-water')))):undefined;
  if(post)perf?.watch(post.passes);
@@ -308,12 +311,13 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    setTimeout(()=>void precompile(),1500);
   }
  };
- // Only trees the view or the pool's mirror can see are drawn; trees too far for single leaves to show are drawn as
- // their leaf-card crowns (drawTrees).
+ // Only trees the view or the pool's mirror can see are drawn, and in Extreme not those the house hides; trees too far
+ // for single leaves to show are drawn as their leaf-card crowns (drawTrees).
  const cullTrees=(low:boolean)=>{
   if(!(rig.camera instanceof T.PerspectiveCamera))return;
   const height=renderer.getDrawingBufferSize(buffer).y*scaleFor(low),pixel=2*Math.tan(T.MathUtils.degToRad(rig.camera.fov/2))/Math.max(1,height)/rig.camera.zoom;
-  const reflected=mirror?.prepare();drawTrees(scene,reflected?[rig.camera,reflected]:[rig.camera],pixel,rig.camera);
+  occlusion?.poll(rig.camera);
+  const reflected=mirror?.prepare();const counts=drawTrees(scene,reflected?[rig.camera,reflected]:[rig.camera],pixel,rig.camera,occlusion?.hidden);perf?.trees(counts);
  };
  // Shaders for the upper floor's section cut, every renovation, eye-level grass and dusk lamps compile in the
  // background after the first frame, so the first visit to each has no stall. Everything is shown for the moment the
@@ -363,7 +367,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   snapshot:rig.snapshot,
   restore:(s:Parameters<typeof rig.restore>[0])=>{rig.restore(s);changed();},
   dispose:()=>{
-   disposed=true;cancelAnimationFrame(frame);perf?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
+   disposed=true;cancelAnimationFrame(frame);perf?.dispose();occlusion?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
    canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('wheel',wheel);canvas.removeEventListener('keydown',key);
    bake?.dispose();bounce?.dispose();clouds?.dispose();grass?.dispose();post?.dispose();lighting?.dispose();textures?.dispose();environment?.dispose();
    const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
