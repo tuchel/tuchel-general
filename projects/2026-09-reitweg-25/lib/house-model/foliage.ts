@@ -47,12 +47,14 @@ function card(center:T.Vector3,normal:T.Vector3,size:number,spin:number,cell:[nu
   out.uv.push(uv0+(flip?1-(a+1)/2:(a+1)/2)*.5,v0+(b+1)/2*.5);out.c.push(tint.r,tint.g,tint.b);
  }
 }
+/** Bark texture coordinates run one unit per this many metres around and along a limb. */
+const BARK_TILE=.6;
 function limb(a:T.Vector3,b:T.Vector3,r0:number,r1:number,segments:number){
  const g=new T.CylinderGeometry(r1,r0,a.distanceTo(b),segments,1,true);
  const q=new T.Quaternion().setFromUnitVectors(new T.Vector3(0,1,0),b.clone().sub(a).normalize());
  g.applyMatrix4(new T.Matrix4().compose(a.clone().add(b).multiplyScalar(.5),q,new T.Vector3(1,1,1)));
  // Bark tiles every 0.6 m around and along the limb.
- const uv=g.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*Math.max(1,Math.round(r0*2*Math.PI/.6)),uv.getY(i)*a.distanceTo(b)/.6);
+ const uv=g.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*Math.max(1,Math.round(r0*2*Math.PI/BARK_TILE)),uv.getY(i)*a.distanceTo(b)/BARK_TILE);
  return g;
 }
 /** One archetype at reference size (10 m tall, 3.5 m crown radius); instances scale it. */
@@ -201,7 +203,9 @@ export function buildHedge(runs:[T.Vector2Like,T.Vector2Like][],options:{width:n
 }
 
 /** Applies the leaf atlas and bark set once textures exist. */
-export function finishFoliage(root:T.Object3D,leaf:{color:T.Texture;normal:T.Texture},bark:{color:T.Texture;normal:T.Texture}){
+export function finishFoliage(root:T.Object3D,leaf:{color:T.Texture;normal:T.Texture},bark:{color:T.Texture;normal:T.Texture;metres?:number}){
+ // A scanned bark set covers its own real size rather than one tile.
+ if(bark.metres)for(const t of [bark.color,bark.normal])t.repeat.setScalar(BARK_TILE/bark.metres);
  const done=new Set<T.Material>();
  root.traverse(o=>{
   const mesh=o as T.Mesh;if(!mesh.isMesh)return;

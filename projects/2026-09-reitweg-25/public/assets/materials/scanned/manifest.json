@@ -1,0 +1,96 @@
+{
+ "packer": "scripts/build-scanned-materials.mjs",
+ "licence": "CC0 1.0",
+ "sets": {
+  "cladding": {
+   "metres": [
+    1.57,
+    1.57
+   ],
+   "size": 1024,
+   "source": "Poly Haven",
+   "asset": "weathered_plank_siding",
+   "page": "https://polyhaven.com/a/weathered_plank_siding"
+  },
+  "roof": {
+   "metres": [
+    1.5,
+    1.5
+   ],
+   "size": 1024,
+   "source": "Poly Haven",
+   "asset": "grey_roof_tiles_02",
+   "page": "https://polyhaven.com/a/grey_roof_tiles_02"
+  },
+  "oak": {
+   "metres": [
+    1.2,
+    1.2
+   ],
+   "size": 1024,
+   "source": "Poly Haven",
+   "asset": "oak_wood_planks",
+   "page": "https://polyhaven.com/a/oak_wood_planks"
+  },
+  "stone": {
+   "metres": [
+    3,
+    3
+   ],
+   "size": 1024,
+   "source": "Poly Haven",
+   "asset": "sandstone_blocks_08",
+   "page": "https://polyhaven.com/a/sandstone_blocks_08"
+  },
+  "lawn": {
+   "metres": [
+    1.4,
+    1.4
+   ],
+   "size": 1024,
+   "source": "ambientCG",
+   "asset": "Grass004",
+   "page": "https://ambientcg.com/view?id=Grass004"
+  },
+  "deck": {
+   "metres": [
+    1.5,
+    1.5
+   ],
+   "size": 1024,
+   "source": "Poly Haven",
+   "asset": "wood_planks_grey",
+   "page": "https://polyhaven.com/a/wood_planks_grey"
+  },
+  "linen": {
+   "metres": [
+    0.271,
+    0.271
+   ],
+   "size": 1024,
+   "source": "Poly Haven",
+   "asset": "rough_linen",
+   "page": "https://polyhaven.com/a/rough_linen"
+  },
+  "plaster": {
+   "metres": [
+    2,
+    2
+   ],
+   "size": 1024,
+   "source": "Poly Haven",
+   "asset": "plastered_wall",
+   "page": "https://polyhaven.com/a/plastered_wall"
+  },
+  "bark": {
+   "metres": [
+    1,
+    1
+   ],
+   "size": 1024,
+   "source": "Poly Haven",
+   "asset": "bark_brown_02",
+   "page": "https://polyhaven.com/a/bark_brown_02"
+  }
+ }
+}

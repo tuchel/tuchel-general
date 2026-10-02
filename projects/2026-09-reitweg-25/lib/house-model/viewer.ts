@@ -84,7 +84,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // Materials: generated texture sets load after the first frame; the model is usable before.
  const waterTime={value:0};
  // Leaf cutouts shape shadows, so the static shadow map refreshes as each texture arrives.
- const textures=realistic?loadSurfaceTextures(tier.textureSize,renderer,()=>{renderer.shadowMap.needsUpdate=true;invalidate();}):undefined;
+ const textures=realistic?loadSurfaceTextures(tier.textureSize,renderer,()=>{renderer.shadowMap.needsUpdate=true;invalidate();},tier.scanned):undefined;
  if(textures){
   options.onMaterials?.('loading');
   finishSurfaces(model.root,textures,waterTime);finishSurfaces(stage,textures,waterTime);
