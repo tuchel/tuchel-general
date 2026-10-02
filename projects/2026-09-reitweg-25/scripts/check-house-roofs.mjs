@@ -50,6 +50,15 @@ for(const realism of [false,true]){
    for(const u of [-.55,-.3,0,.3,.55])for(const w of [-.28,0,.28]){const pane=new T.Vector3(u,.05,w).applyMatrix4(o.matrixWorld),normal=new T.Vector3(0,1,0).transformDirection(o.matrixWorld);
     ray.set(pane.clone().addScaledVector(normal,-1.5),normal);ray.far=1.5;const h=ray.intersectObjects(rafters,false)[0];if(h)crossing.push(`window at x ${pane.x.toFixed(1)}, z ${pane.z.toFixed(1)}`);}});
   assert.equal(crossing.length,0,`a rafter crosses ${[...new Set(crossing)].slice(0,4).join('; ')}`);
+  // Rafters belong to the rooms under the roof: none dips below its upper floor (into a ground-floor room, past the
+  // glass) or reaches past the outer walls (under the eaves).
+  const {guestRoofFrame:frame}=await import('../tmp/roof-check/site-data.mjs'),guestWalls=[[116,535],[475,573],[461,668],[367,671],[316,1228],[49,1208]].map(([x,z])=>p(x,z));
+  const exposed=[];for(const o of rafters){
+   const guest=!!o.parent&&o.parent.name==='guest-roof',floor=guest?3.1:3.07,pos=o.geometry.attributes.position,v=new T.Vector3();
+   for(let i=0;i<pos.count;i++){v.fromBufferAttribute(pos,i).applyMatrix4(o.matrixWorld);
+    const out=guest?!within(v.x,v.z,guestWalls):Math.abs(v.x)>5.88||Math.abs(v.z)>9.5;
+    if(v.y<floor-.005||out){exposed.push(`${guest?'guest':'main'} rafter at x ${v.x.toFixed(2)}, z ${v.z.toFixed(2)}, ${v.y.toFixed(2)} m`);break;}}}
+  void frame;assert.equal(exposed.length,0,`${exposed.length} rafters show below the upper floor or under the eaves: ${exposed.slice(0,4).join('; ')}`);
   // Gable windows show whole: from the garden and from the room, nothing of the roof or its ceiling covers a top corner.
   const gables=[];model.root.traverse(o=>{if(o.name==='gable-window'&&o.parent?.parent?.name==='main-roof')gables.push(o);});assert(gables.length>=4,'main gable windows exist');
   const hidden=[];for(const pane of gables){const b=new T.Box3().setFromObject(pane),out=Math.sign(b.min.z);
@@ -64,4 +73,4 @@ for(const realism of [false,true]){
  model.root.traverse(o=>{if(o.name!=='downpipe')return;const v=o.getWorldPosition(new T.Vector3());assert(!(v.x>w&&v.x<e&&v.z>n&&v.z<s)&&!within(v.x,v.z,guest),`downpipe indoors at x ${v.x.toFixed(1)}, z ${v.z.toFixed(1)}`);});
  model.dispose();
 }
-console.log('Passed: no wall, window or beam breaks through a roof, the entrance roof stops at the main and guest roofs, rafters keep clear of roof windows, gable windows show whole, and no downpipe stands indoors, in either detail mode.');
+console.log('Passed: no wall, window or beam breaks through a roof, the entrance roof stops at the main and guest roofs, rafters keep clear of roof windows and stay above the upper floors inside the walls, gable windows show whole, and no downpipe stands indoors, in either detail mode.');

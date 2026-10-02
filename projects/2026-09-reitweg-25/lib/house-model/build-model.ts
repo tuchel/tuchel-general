@@ -298,10 +298,16 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
    }
    box(g,0,ceiling(0)-.22,0,.16,.22,Math.min(length-.3,lined),m.spruce);
    // Windows sit at different heights, so one window's flanking rafter can pass another: it stops at that window's reveal.
+   // Rafters run down into the knee walls and end behind them, before the upper floor and inside the outer walls: none
+   // shows in a ground-floor room or out under the eaves (the guest wing's reach 2.8 m past its courtyard wall).
+   const floor=kind==='guest'?3.1:3.07,low=(ridge-.045-CEILING-.16-floor)*half/rise;
+   const outerWall=(side:number,z:number)=>{let near=Infinity;for(let i=0;i<local.length;i++){const [ax,az]=local[i],[bx,bz]=local[(i+1)%local.length];if((az>z)!==(bz>z)){const x=ax+(z-az)*(bx-ax)/(bz-az);if(x*side>0)near=Math.min(near,Math.abs(x));}}return near;};
    const rafter=(side:number,z:number)=>{
+    if(Math.abs(z)>lined/2-.08)return;
+    const foot=Math.min(half-.35,low,outerWall(side,z)-.25);
     // Reveals run square to the slope, so at the rafters' depth a window's edges sit nearer the ridge than on the roof.
     const reach=.76*half/span,shift=(.125+CEILING)*half*rise/(span*span),cuts=skylights.filter(w=>w.side===side&&Math.abs(w.z-z)<.5).map(w=>[half*w.fraction-shift-reach,half*w.fraction-shift+reach]).sort((a,b)=>a[0]-b[0]);
-    let from=.12;for(const [a,b] of [...cuts,[half-.35,Infinity]]){const to=Math.min(a,half-.35);if(to>from+.2)segment(g,[side*from,ceiling(from)-.08,z],[side*to,ceiling(to)-.08,z],.15,m.spruce).name='roof-rafter';from=Math.max(from,b);}
+    let from=.12;for(const [a,b] of [...cuts,[foot,Infinity]]){const to=Math.min(a,foot);if(to>from+.2)segment(g,[side*from,ceiling(from)-.08,z],[side*to,ceiling(to)-.08,z],.15,m.spruce).name='roof-rafter';from=Math.max(from,b);}
    };
    const clear=(side:number,z:number)=>skylights.every(w=>w.side!==side||Math.abs(w.z-z)>.55);
    // Each roof window sits between two rafters (owner photos); the regular rafters keep clear of them.
