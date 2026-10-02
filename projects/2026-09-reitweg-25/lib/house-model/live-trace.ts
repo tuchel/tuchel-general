@@ -16,8 +16,9 @@ export function traceBlend(samples:number){
 /** The lot around the house, and how far from it trees are kept. */
 const ORIGIN=new T.Vector3(-5,0,8),REACH=120;
 
-/** Path tracing in the viewport while the camera rests, on WebGPU with its denoiser (live-trace-webgpu.ts); where the
- * browser has no WebGPU, or its device fails, Extreme keeps its live view. The scene is converted in the background the
+/** Path tracing in the viewport while the camera rests, on WebGPU with its denoiser (live-trace-webgpu.ts), in a worker
+ * where the browser offers WebGPU there and on the page otherwise; where the browser has no WebGPU, or its device fails,
+ * Extreme keeps its live view. The scene is converted in the background the
  * first time the view rests, and kept: a new sun re-lights it; a new floor, renovation or walk converts again only what
  * changed (photographic-scene.ts) and hands the same tracer the new scene, whose unchanged meshes keep their
  * ray-tracing trees. The tracer samples at the screen's CSS resolution, a quarter of a Retina screen's pixels; the
@@ -48,7 +49,11 @@ export function createLiveTrace(options:{renderer:T.WebGLRenderer;scene:T.Scene;
     if(!await p.gpu.rescene(local.scene,controller.signal))throw cancelled();
     p.local.dispose();p.environment.dispose();p.local=local;p.environment=environment;
    }else{
-    const scene=local.scene,gpu=await import('./live-trace-webgpu').then(m=>m.createWebGPUTracer(scene,camera,controller.signal)).catch(error=>{console.warn('WebGPU path tracing unavailable',error);return undefined;});
+    // In a worker where the browser allows WebGPU there, so none of it holds the page; on the page otherwise.
+    const scene=local.scene,m=await import('./live-trace-webgpu');
+    const failed=(where:string)=>(error:unknown)=>{console.warn(`WebGPU path tracing ${where} unavailable`,error);return undefined;};
+    let gpu=await m.createWorkerTracer(scene,camera,controller.signal).catch(failed('in a worker'));
+    if(!gpu&&!controller.signal.aborted)gpu=await m.createWebGPUTracer(scene,camera,controller.signal).catch(failed('on the page'));
     if(controller.signal.aborted){gpu?.dispose();throw cancelled();}
     if(!gpu){unavailable=true;throw new Error('no WebGPU tracer');}
     prepared={gpu,local,environment};

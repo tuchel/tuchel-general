@@ -1,4 +1,6 @@
 import * as T from 'three';
+import {cameraData,pieces,sceneSender,type SceneData} from './trace-transfer';
+import type {FromWorker,ToWorker} from './live-trace-worker';
 
 /** The path tracer on WebGPU (Extreme, where the browser has it): three-gpu-pathtracer's wavefront tracer and Open
  * Image Denoise's neural network (Intel's weights, Apache 2.0), guided by the scene's colours and facings.
@@ -37,11 +39,24 @@ async function treesInBackground(scene:T.Scene,signal?:AbortSignal){
  finally{workers.forEach(w=>w.dispose());}
 }
 /** `signal`: a newer scene replaced this one; nothing more is built for it. */
-export async function createWebGPUTracer(scene:T.Scene,camera:T.PerspectiveCamera,signal?:AbortSignal){
+/** What the resting view drives: the tracer on the page (createWebGPUTracer) or in a worker (createWorkerTracer). */
+export type Tracer={
+ /** Starts again from the camera's current view, at `width` × `height`. */
+ reset:(width:number,height:number)=>void;
+ /** Takes a new scene; false when `signal` cancelled it first. */
+ rescene:(scene:T.Scene,signal?:AbortSignal)=>Promise<boolean>;
+ relight:()=>void;
+ /** One round of samples; the latest image (the denoised one once a stage is in), or undefined before the first. */
+ step:(now:number)=>{texture:T.DataTexture;samples:number;denoised:number}|undefined;
+ readonly failed:boolean;readonly done:boolean;
+ dispose:()=>void;
+};
+/** `weights`: where the denoiser's weights are (a worker is handed the page's address). */
+export async function createWebGPUTracer(scene:T.Scene,camera:T.PerspectiveCamera,signal?:AbortSignal,options:{weights?:string}={}):Promise<Tracer|undefined>{
  const gpu=(navigator as Navigator&{gpu?:{requestAdapter:()=>Promise<unknown>}}).gpu;
  if(!gpu||!await gpu.requestAdapter().catch(()=>null))return undefined;
  const [W,{WebGPUPathTracer,OIDNDenoiser},{initUNetFromURL}]=await Promise.all([import('three/webgpu'),import('three-gpu-pathtracer/webgpu'),import('oidn-web')]);
- const canvas=document.createElement('canvas');canvas.width=canvas.height=1;
+ const canvas=typeof document!=='undefined'?document.createElement('canvas'):new OffscreenCanvas(1,1);canvas.width=canvas.height=1;
  const renderer=new W.WebGPURenderer({canvas,antialias:false});
  await renderer.init();
  // Without WebGPU, WebGPURenderer quietly runs on WebGL 2; the WebGL tracer is the better choice then.
@@ -52,7 +67,7 @@ export async function createWebGPUTracer(scene:T.Scene,camera:T.PerspectiveCamer
  const {stages}=GPU_TRACE,last=stages.length-1;
  Object.assign(tracer,{maxBounces:GPU_TRACE.bounces,maxTransparentBounces:8,renderDelay:0,minSamples:0,fadeDuration:0,dynamicLowRes:false,synchronizeRenderSize:false,maxSamples:stages[0],filterGlossyFactor:.5});
  let denoiser:InstanceType<typeof OIDNDenoiser>|undefined;
- try{denoiser=new OIDNDenoiser({initUNetFromURL,auxWeightsUrl:GPU_TRACE.weights});tracer.setDenoiser(denoiser);}catch(error){console.warn('Denoiser unavailable',error);}
+ try{denoiser=new OIDNDenoiser({initUNetFromURL,auxWeightsUrl:options.weights??GPU_TRACE.weights});tracer.setDenoiser(denoiser);}catch(error){console.warn('Denoiser unavailable',error);}
  await treesInBackground(scene,signal);
  if(signal?.aborted){tracer.dispose?.();renderer.dispose();return undefined;}
  tracer.setScene(scene,view);
@@ -113,4 +128,56 @@ export async function createWebGPUTracer(scene:T.Scene,camera:T.PerspectiveCamer
   dispose:()=>{tracer.dispose?.();target.dispose();texture.dispose();renderer.dispose();},
  };
 }
-export type WebGPUTracer=NonNullable<Awaited<ReturnType<typeof createWebGPUTracer>>>;
+export type WebGPUTracer=Tracer;
+/** The WebGPU tracer in a worker (live-trace-worker.ts), seen from the page through the same interface as
+ * createWebGPUTracer: preparing, ray-tracing trees, packing, sampling, denoising and reading back all happen off the
+ * page's thread. The page sends the scene's new parts as data, a tick each frame it wants samples, and shows each image
+ * the worker sends back. Undefined when the worker cannot run WebGPU (the page's own tracer is tried next). */
+export async function createWorkerTracer(scene:T.Scene,camera:T.PerspectiveCamera,signal?:AbortSignal):Promise<Tracer|undefined>{
+ if(typeof Worker==='undefined')return undefined;
+ const worker=new Worker(new URL('./live-trace-worker.ts',import.meta.url),{type:'module'});
+ const sender=sceneSender(),texture=new T.DataTexture(new Uint16Array(4),1,1,T.RGBAFormat,T.HalfFloatType);texture.minFilter=texture.magFilter=T.LinearFilter;
+ // `view`: counts resets; images traced for an earlier view are not shown.
+ let failed=false,done=false,shown=0,denoised=0,have=false,current=scene,next=0,view=0;
+ const waiting=new Map<number,(ok:boolean)=>void>();
+ let started:((ok:boolean)=>void)|undefined;
+ const send=(message:ToWorker)=>worker.postMessage(message);
+ // Geometry and textures go ahead in pieces, the page's thread handed back between them: cloning the first scene's
+ // 100 MB into one message would hold it about a fifth of a second.
+ const deliver=async(data:SceneData)=>{const {parts,rest}=pieces(data);for(const part of parts){send({kind:'parts',parts:part});await new Promise(r=>setTimeout(r,0));}return rest;};
+ worker.onmessage=({data}:MessageEvent<FromWorker>)=>{
+  switch(data.kind){
+   case 'ready':started?.(true);break;
+   case 'unavailable':started?.(false);break;
+   case 'failed':failed=true;started?.(false);for(const r of waiting.values())r(false);waiting.clear();break;
+   case 'scened':waiting.get(data.id)?.(data.ok);waiting.delete(data.id);break;
+   case 'image':if(data.view!==view)break;texture.image={data:data.data,width:data.width,height:data.height};texture.needsUpdate=true;shown=data.samples;denoised=data.denoised;done=data.done;have=true;break;
+  }
+ };
+ worker.onerror=error=>{console.warn('Tracing worker',error.message);failed=true;started?.(false);};
+ const first=await deliver(sender.scene(scene));
+ const ok=!signal?.aborted&&await new Promise<boolean>(resolve=>{
+  started=resolve;if(failed)resolve(false);signal?.addEventListener('abort',()=>resolve(false),{once:true});
+  send({kind:'init',scene:first,camera:cameraData(camera),weights:GPU_TRACE.weights});
+ });
+ started=undefined;
+ if(!ok||signal?.aborted){worker.terminate();texture.dispose();return undefined;}
+ return {
+  reset:(width:number,height:number)=>{have=false;done=false;shown=0;denoised=0;send({kind:'reset',camera:cameraData(camera),width,height,view:++view});},
+  rescene:async(scene:T.Scene,signal?:AbortSignal)=>{
+   const rest=await deliver(sender.scene(scene));
+   if(signal?.aborted||failed)return false;
+   return new Promise<boolean>(resolve=>{
+    const id=++next;waiting.set(id,ok=>{if(ok)current=scene;resolve(ok);});
+    signal?.addEventListener('abort',()=>{waiting.delete(id);resolve(false);},{once:true});
+    send({kind:'scene',id,scene:rest});
+   });
+  },
+  relight:()=>send({kind:'lights',scene:sender.lights(current)}),
+  step:()=>{send({kind:'tick'});return have?{texture,samples:shown,denoised}:undefined;},
+  get failed(){return failed;},
+  get done(){return done;},
+  dispose:()=>{send({kind:'dispose'});setTimeout(()=>worker.terminate(),1000);texture.dispose();},
+ };
+}
+

@@ -20,4 +20,6 @@ export default defineConfig({
   },
  },react()],
  build:{outDir:'dist-pages',emptyOutDir:true},
+ // The path-tracing worker loads its renderer, tracer and denoiser on demand, which needs module workers.
+ worker:{format:'es'},
 });
