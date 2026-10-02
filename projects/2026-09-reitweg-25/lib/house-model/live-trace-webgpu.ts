@@ -6,7 +6,8 @@ import type {FromWorker,ToWorker} from './live-trace-worker';
  * Image Denoise's neural network (Intel's weights, Apache 2.0), guided by the scene's colours and facings.
  * It renders in its own graphics context; a few times a second its image is copied into the WebGL view, which blends and
  * finishes it like any traced image (post.ts). The grainy image shows until the first stage's samples are in; from then
- * on only denoised images are shown, each stage's replacing the last, and tracing stops after the last stage. */
+ * on only denoised images are shown, each stage's replacing the last. Tracing stops after the last stage, or sooner once a
+ * stage looks like the one before it (converged). */
 export const GPU_TRACE={stages:[64,128,256,512],copyEvery:250,bounces:6,weights:'/assets/oidn/rt_hdr_alb_nrm_small.tza'};
 
 type Copy={data:Uint16Array;width:number;height:number};
@@ -26,6 +27,21 @@ export function plausible(data:Uint16Array){
  }
  return light;
 }
+/** How much a denoised stage differs from the one before it, in display steps of 255: both are exposed so the earlier
+ * image's mean luminance sits at mid-grey, given a simple tone curve and gamma 2.2, and compared channel by channel at
+ * 4096 pixels spread over the image. The mean difference, and its 99th percentile. */
+export function stageChange(a:Uint16Array,b:Uint16Array){
+ const n=4096,pixels=a.length/4,at=(i:number)=>Math.floor((i+.5)/n*pixels)*4,half=T.DataUtils.fromHalfFloat;
+ let sum=0;for(let i=0;i<n;i++){const p=at(i);sum+=.2126*half(a[p])+.7152*half(a[p+1])+.0722*half(a[p+2]);}
+ const k=.18/Math.max(sum/n,1e-6),display=(v:number)=>{const x=Math.max(0,v)*k;return Math.pow(x/(1+x),1/2.2)*255;};
+ const diffs=new Float32Array(n);let total=0;
+ for(let i=0;i<n;i++){const p=at(i);let d=0;for(let c=0;c<3;c++)d=Math.max(d,Math.abs(display(half(a[p+c]))-display(half(b[p+c]))));diffs[i]=d;total+=d;}
+ diffs.sort();
+ return {mean:total/n,p99:diffs[Math.floor(n*.99)]};
+}
+/** No visible change: under 1 display step on average and under 4 at the 99th percentile. */
+export const CONVERGED={mean:1,p99:4};
+export const converged=(change:{mean:number;p99:number})=>change.mean<CONVERGED.mean&&change.p99<CONVERGED.p99;
 /** Builds every geometry's ray-tracing tree in background workers (the tracer's own options), so the tracer, which
  * builds only what is missing, does none of it on the page's thread. Instanced trees share one tree per archetype. */
 async function treesInBackground(scene:T.Scene,signal?:AbortSignal){
@@ -77,8 +93,8 @@ export async function createWebGPUTracer(scene:T.Scene,camera:T.PerspectiveCamer
  const target=new W.RenderTarget(1,1,{type:W.HalfFloatType,depthBuffer:false});
  const texture=new T.DataTexture(new Uint16Array(4),1,1,T.RGBAFormat,T.HalfFloatType);texture.minFilter=texture.magFilter=T.LinearFilter;
  // `stage`: the stage being gathered; `denoised`: the samples of the denoised image on show (0 before the first).
- // `final`: the last stage's image has reached the WebGL view.
- let copying=false,lastCopy=0,samples=0,shown=0,lost=false,final=false,gathered=0,stage=0,denoised=0;
+ // `final`: the last stage's image has reached the WebGL view. `previous`: the denoised image before it, to compare.
+ let copying=false,lastCopy=0,samples=0,shown=0,lost=false,final=false,gathered=0,stage=0,denoised=0,previous:Uint16Array|undefined;
  // Any validation error, a lost device, a throw or an image with no light in it counts as failure; the WebGL tracer
  // takes over (live-trace.ts).
  const device=(renderer.backend as {device?:{lost?:Promise<unknown>;addEventListener?:(type:string,listener:()=>void)=>void}}).device;
@@ -98,8 +114,11 @@ export async function createWebGPUTracer(scene:T.Scene,camera:T.PerspectiveCamer
    texture.image={data:c.data,width:c.width,height:c.height};texture.needsUpdate=true;samples=shown=counts.avg;
    if(settled){
     denoised=stages[stage];gathered=0;
-    // The next stage carries on from these samples; the denoiser runs again when it is in.
-    if(stage<last){stage++;tracer.maxSamples=stages[stage];}else final=true;
+    // A stage that looks like the one before ends the trace. Otherwise the next carries on from these samples, and the
+    // denoiser runs again when it is in.
+    if(previous&&converged(stageChange(previous,c.data)))final=true;
+    else if(stage<last){stage++;tracer.maxSamples=stages[stage];}else final=true;
+    previous=c.data;
    }
   }catch(error){console.warn('WebGPU trace copy',error);lost=true;}
   finally{copying=false;}
@@ -109,7 +128,7 @@ export async function createWebGPUTracer(scene:T.Scene,camera:T.PerspectiveCamer
   reset:(width:number,height:number)=>{
    view.copy(camera);view.updateMatrixWorld();tracer.setCamera(view);
    if(target.width!==width||target.height!==height){target.setSize(width,height);tracer.setSize(width,height);}
-   stage=0;tracer.maxSamples=stages[0];tracer.reset();denoiser?.reset();samples=shown=0;lastCopy=0;final=false;gathered=0;denoised=0;
+   stage=0;tracer.maxSamples=stages[0];tracer.reset();denoiser?.reset();samples=shown=0;lastCopy=0;final=false;gathered=0;denoised=0;previous=undefined;
   },
   /** Takes a new scene (a changed floor, renovation or walk): trees still missing are built in workers first; meshes
    * kept from the last scene keep theirs. False when `signal` cancelled it first. */
