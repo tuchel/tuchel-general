@@ -2,7 +2,7 @@ import * as T from 'three';
 import {Sky} from 'three/addons/objects/Sky.js';
 import {FullScreenQuad} from 'three/addons/postprocessing/Pass.js';
 import {sunStudyReading,sunDirection,type SunStudy} from './sun-position';
-import type {Clouds} from './clouds';
+import {CLOUDS,type Clouds} from './clouds';
 
 /** One sky drives everything: the visible sky, image-based light and reflections,
  * sun colour and strength, haze and exposure. Sky scattering follows three's
@@ -158,10 +158,9 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
   update:(camera:T.Camera,now:number)=>{
    camera.getWorldDirection(view);const azimuth=Math.atan2(view.z,view.x);
    let changed=false;
-   // A new sun bakes the whole cloud sky before the sky light is regenerated; drifting clouds rebake a band a frame
-   // and refresh the sky light every two seconds.
-   if(clouds?.update(cloudsAll)){changed=true;if(cloudsAll)envDirty=true;else if(now-envAt>2000)envDirty=true;}
-   cloudsAll=false;
+   // A new sun re-bakes the cloud sky a few bands a frame, then the sky light is regenerated; drifting clouds re-bake a
+   // band a frame and refresh the sky light every two seconds.
+   if(clouds?.update(CLOUDS.sky.perFrame)){changed=true;if(cloudsAll){if(!clouds.baking){envDirty=true;cloudsAll=false;}}else if(now-envAt>2000)envDirty=true;}
    if(!Number.isFinite(viewAzimuth)||Math.abs(Math.atan2(Math.sin(azimuth-viewAzimuth),Math.cos(azimuth-viewAzimuth)))>.03){updateFog(azimuth);changed=true;}
    if(envDirty&&now-envAt>140){envAt=now;refreshEnvironment();changed=true;}
    return changed;

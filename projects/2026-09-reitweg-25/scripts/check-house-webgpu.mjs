@@ -27,8 +27,13 @@ assert(GPU_TRACE.samples>=256&&GPU_TRACE.copyEvery<=500,'enough samples before d
 assert(JSON.parse(fs.readFileSync('package.json','utf8')).dependencies['oidn-web'],'oidn-web is a dependency');
 // The live tracer tries WebGPU first, falls back to WebGL when it is missing or its device is lost.
 const live=fs.readFileSync('lib/house-model/live-trace.ts','utf8');
-assert(/if\(webgpu\)\{[^]*createWebGPUTracer[^]*webgpu=false;\n   \}/.test(live),'WebGPU first, WebGL when it is unavailable');
+assert(/if\(webgpu&&'gpu' in navigator\)\{[^]*createWebGPUTracer[^]*\n   \}\n   webgpu=false;/.test(live),'WebGPU first, WebGL when it is unavailable');
+// The WebGPU tracer traces instances, so trees and planting stay instanced; their ray-tracing trees are built in
+// background workers before the tracer sees the scene, so it builds none on the page's thread.
+assert(/convert\(true\)[^]*createWebGPUTracer/.test(live)&&/convert\(false\)/.test(live),'instanced for WebGPU, flattened for WebGL');
+const before=gpuSource=>gpuSource.indexOf('await treesInBackground(scene,signal)')>0&&gpuSource.indexOf('await treesInBackground(scene,signal)')<gpuSource.indexOf('tracer.setScene(');
 assert(/if\(gpu\.failed\)\{webgpu=false;release\(\);return;\}/.test(live),'a lost WebGPU device hands over to WebGL');
 const gpu=fs.readFileSync('lib/house-model/live-trace-webgpu.ts','utf8');
 assert(/isWebGPUBackend/.test(gpu),'a WebGPURenderer quietly running on WebGL 2 is not used');
-console.log(`Passed: WebGPU path tracing with Open Image Denoise after ${GPU_TRACE.samples} samples, copied to the WebGL view every ${GPU_TRACE.copyEvery} ms with rows flipped and unpadded; WebGL tracing wherever WebGPU is missing or lost.`);
+assert(before(gpu)&&/new GenerateMeshBVHWorker\(\)/.test(gpu),'trees are built in workers before the tracer sees the scene');
+console.log(`Passed: WebGPU path tracing with Open Image Denoise after ${GPU_TRACE.samples} samples, copied to the WebGL view every ${GPU_TRACE.copyEvery} ms with rows flipped and unpadded; instances traced as instances with their trees built in workers; WebGL tracing wherever WebGPU is missing or lost.`);

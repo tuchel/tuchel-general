@@ -118,7 +118,8 @@ export function finishSurfaces(root:T.Object3D,textures:SurfaceTextures,waterTim
    if(!(m instanceof T.MeshStandardMaterial))continue;
    if(m.userData.water){poolWater(m,textures.water,waterTime);continue;}
    let surface=m.userData.photo as string|undefined;
-   if(surface==='foliage')continue;
+   // Bark and leaves take their own textures (finishFoliage); white bark would otherwise read as plaster below.
+   if(surface==='foliage'||m.userData.foliage)continue;
    // Pale, matte paints read as lime plaster; everything else keeps its flat colour.
    if(!surface&&!m.map&&m.roughness>=.7&&m.metalness<.2&&m.color.getHSL({h:0,s:0,l:0}).l>.72&&!m.emissive.getHex())surface='plaster';
    if(surface&&surface in metres)surfaceFeature(m,surface as Surface,textures);

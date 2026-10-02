@@ -14,7 +14,10 @@ for(const q of ['balanced','model'])assert.deepEqual(tierFor(q,true),tiers[q],`$
 // map, a longer settle and more bounce rays, and path tracing in the viewport whenever the camera rests.
 const extreme=tierFor('extreme',false);
 assert.equal(extreme.quality,'extreme');assert.equal(extreme.liveTrace,true,'Extreme path-traces when still');
-for(const key of ['pixelRatio','shadowSize','refineFrames','sunBounce'])assert(extreme[key]>tiers.detailed[key],`Extreme raises ${key}`);
+for(const key of ['pixelRatio','refineFrames'])assert(extreme[key]>tiers.detailed[key],`Extreme raises ${key}`);
+// The resting path trace gives shadows and bounced light in full, so the live view keeps Detailed's shadow map and
+// bounce bake rather than spend graphics memory and processor time on them.
+for(const key of ['shadowSize','sunBounce'])assert.equal(extreme[key],tiers.detailed[key],`Extreme keeps Detailed's ${key}`);
 for(const q of ['detailed','balanced','model'])assert.equal(tiers[q].liveTrace,false,`${q} keeps the raster view`);
 // A phone never runs Extreme, even from a link: it gets phone Detailed.
 assert.deepEqual(tierFor('extreme',true),tierFor('detailed',true),'Extreme on a phone is phone Detailed');
