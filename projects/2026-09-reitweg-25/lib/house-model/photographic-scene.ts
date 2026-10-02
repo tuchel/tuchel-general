@@ -106,7 +106,9 @@ export async function photographicScene(source:T.Scene,environment:T.Texture,sig
    if(signal.aborted)throw new DOMException('Cancelled','AbortError');
    const base=mesh.geometry.index?mesh.geometry.toNonIndexed():mesh.geometry,pos=base.attributes.position,nor=base.attributes.normal,uv0=base.attributes.uv,vc=base.attributes.color;
    if(!pos){if(base!==mesh.geometry)base.dispose();continue;}
-   const mats=materialsOf(mesh),instanced=mesh instanceof T.InstancedMesh,count=instanced?mesh.count:1,surface=surfaceOf(mats[0]);
+   const mats=materialsOf(mesh),instanced=mesh instanceof T.InstancedMesh,surface=surfaceOf(mats[0]);
+   // Trees draw only what the view sees (drawTrees); the tracer takes every one.
+   const count=instanced?(mesh.userData.instances as number|undefined)??mesh.count:1;
    const valid:number[]=[];
    for(let j=0;j<count;j++){
     if(instanced){mesh.getMatrixAt(j,instance);if(Math.abs(instance.determinant())<1e-12)continue;}

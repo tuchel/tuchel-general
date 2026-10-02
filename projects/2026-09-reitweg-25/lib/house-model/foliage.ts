@@ -133,33 +133,96 @@ function modelledLeaves(kind:TreeKind,context:boolean,r:()=>number,clusters:T.Ve
  const g=new T.BufferGeometry();g.setAttribute('position',new T.BufferAttribute(pos,3));g.setAttribute('normal',new T.BufferAttribute(nor,3));g.setAttribute('color',new T.BufferAttribute(col,3));return g;
 }
 
-/** Instances trees by archetype. Returns a group with one leaf and one bark draw per archetype. */
+/** A modelled leaf blade's length at reference size (modelledLeaves: 0.1–0.2 m). */
+const LEAF=.15;
+/** A modelled tree whose leaves would each cover fewer pixels than this is drawn as its leaf-card crown (drawTrees). */
+export const LEAF_PIXELS=1.5;
+/** One archetype's trees: where each stands, and the draws that show them (drawTrees). */
+type TreeSet={matrices:T.Matrix4[];colors:T.Color[];origins:T.Vector3[];centres:T.Vector3[];radii:number[];leaf:number[];crowns:T.InstancedMesh[];bark:T.InstancedMesh;lod?:T.InstancedMesh[];order:Map<T.InstancedMesh,string>};
+/** Draws `count` but casts shadows from every instance. */
+function drawnCount(mesh:T.InstancedMesh,total:number,casts:boolean){
+ mesh.userData.instances=total;mesh.userData.drawn=total;
+ mesh.onBeforeRender=()=>{mesh.count=mesh.userData.drawn as number;};
+ if(casts)mesh.onBeforeShadow=()=>{mesh.count=total;};
+}
+
+/** Instances trees by archetype. Returns a group with one leaf and one bark draw per archetype; near modelled trees also
+ * get a leaf-card crown for when they are too far away for single leaves to show (drawTrees). */
 export function buildTrees(specs:TreeSpec[],materials:FoliageMaterials,name:string){
  const group=new T.Group();group.name=name;
  const context=name!=='garden-trees';
  const byKey=new Map<string,TreeSpec[]>();
  for(const s of specs){const key=`${s.kind}-${s.far?'far':'near'}-${s.seed%3}`;(byKey.get(key)??byKey.set(key,[]).get(key)!).push(s);}
- const m=new T.Matrix4(),q=new T.Quaternion(),color=new T.Color();
+ const q=new T.Quaternion(),sets:TreeSet[]=[];
  for(const [key,list] of byKey){
   const [kind,detail,variant]=key.split('-') as [TreeKind,string,string];
-  const arch=archetype(kind,detail==='far',9173+Number(variant)*7919+kind.length*31,materials.style,context);
+  const seed=9173+Number(variant)*7919+kind.length*31,arch=archetype(kind,detail==='far',seed,materials.style,context);
   const bark=new T.InstancedMesh(arch.bark,materials.bark,list.length);bark.name='tree-bark';
   const crowns:T.InstancedMesh[]=[];
   if(arch.leaves){const leaves=new T.InstancedMesh(arch.leaves,materials.leaves,list.length);leaves.name='tree-leaf-cards';leaves.customDepthMaterial=materials.depth;crowns.push(leaves);}
   if(arch.core){const core=new T.InstancedMesh(arch.core,materials.core,list.length);core.name='tree-crown-core';crowns.push(core);}
   if(arch.solid){const solid=new T.InstancedMesh(arch.solid,materials.solid,list.length);solid.name='tree-leaves';crowns.push(solid);}
-  for(const c of crowns)c.userData.sway='leaf';
-  list.forEach((s,i)=>{
+  // Modelled trees keep a leaf-card crown of the same archetype for distance; it casts no shadow (the modelled tree
+  // does) and the path tracer never sees it.
+  let lod:T.InstancedMesh[]|undefined;
+  if(arch.solid){
+   const crown=archetype(kind,false,seed,'hybrid',context);crown.bark.dispose();lod=[];
+   if(crown.core){const core=new T.InstancedMesh(crown.core,materials.core,list.length);core.name='tree-lod-core';lod.push(core);}
+   if(crown.leaves){const cards=new T.InstancedMesh(crown.leaves,materials.leaves,list.length);cards.name='tree-lod-cards';cards.customDepthMaterial=materials.depth;lod.push(cards);}
+  }
+  const set:TreeSet={matrices:[],colors:[],origins:[],centres:[],radii:[],leaf:[],crowns,bark,lod,order:new Map()};
+  for(const s of list){
    const r=random(s.seed);
    q.setFromAxisAngle(new T.Vector3(0,1,0),r()*Math.PI*2);
-   m.compose(new T.Vector3(s.x,s.base??0,s.z),q,new T.Vector3(s.r/REF_R,s.height/REF_H,s.r/REF_R));
-   bark.setMatrixAt(i,m);
-   const hue=kind==='pine'?.9:.85+r()*.3;color.setRGB(hue,hue*(.97+r()*.06),hue*(.85+r()*.2));
-   for(const c of crowns){c.setMatrixAt(i,m);c.setColorAt(i,color);}
-  });
-  for(const mesh of [...crowns,bark]){mesh.castShadow=true;mesh.receiveShadow=true;mesh.computeBoundingSphere();group.add(mesh);}
+   const origin=new T.Vector3(s.x,s.base??0,s.z),scale=new T.Vector3(s.r/REF_R,s.height/REF_H,s.r/REF_R);
+   set.matrices.push(new T.Matrix4().compose(origin,q,scale));set.origins.push(origin);
+   set.centres.push(new T.Vector3(s.x,(s.base??0)+s.height*.55,s.z));set.radii.push(Math.max(s.height,s.r*2)*.62);set.leaf.push(LEAF*Math.max(scale.x,scale.y));
+   const hue=kind==='pine'?.9:.85+r()*.3;set.colors.push(new T.Color().setRGB(hue,hue*(.97+r()*.06),hue*(.85+r()*.2)));
+  }
+  for(const c of [...crowns,...lod??[]])c.userData.sway='leaf';
+  for(const mesh of [...crowns,bark,...lod??[]]){
+   const casts=!lod?.includes(mesh);
+   set.matrices.forEach((m,i)=>{mesh.setMatrixAt(i,m);if(mesh!==bark)mesh.setColorAt(i,set.colors[i]);});
+   mesh.castShadow=casts;mesh.receiveShadow=true;mesh.computeBoundingSphere();drawnCount(mesh,list.length,casts);
+   if(!casts){mesh.userData.skipPhotographic=true;mesh.userData.drawn=0;mesh.count=0;}
+   group.add(mesh);
+  }
+  sets.push(set);
  }
+ group.userData.treeSets=sets;
  return group;
+}
+
+/** Writes each draw's instances in `order`, the drawn ones first; uploads only when the order changed. */
+function arrange(set:TreeSet,mesh:T.InstancedMesh,order:number[],drawn:number){
+ const key=order.slice(0,drawn).join(',');mesh.userData.drawn=drawn;mesh.count=drawn;
+ if(set.order.get(mesh)===key)return;set.order.set(mesh,key);
+ order.forEach((j,i)=>{mesh.setMatrixAt(i,set.matrices[j]);if(mesh.instanceColor)mesh.setColorAt(i,set.colors[j]);});
+ mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+}
+const sphere=new T.Sphere(),viewProjection=new T.Matrix4();
+/** Draws only the trees some camera in `cameras` can see; near modelled trees whose leaves would cover under LEAF_PIXELS
+ * pixels, seen from `eye`'s camera with `pixel` radians a pixel, are drawn as their leaf-card crowns. Shadows still come
+ * from every tree (drawnCount). Returns how many trees are drawn, and how. */
+export function drawTrees(root:T.Object3D,cameras:T.Camera[],pixel:number,eye:T.Camera){
+ const frusta=cameras.map(c=>{c.updateMatrixWorld();return new T.Frustum().setFromProjectionMatrix(viewProjection.multiplyMatrices(c.projectionMatrix,c.matrixWorldInverse));});
+ const from=eye.getWorldPosition(new T.Vector3());
+ let drawn=0,farDrawn=0,lodDrawn=0;
+ root.traverse(o=>{
+  for(const set of (o.userData.treeSets??[]) as TreeSet[]){
+   const near:number[]=[],far:number[]=[],rest:number[]=[];
+   for(let i=0;i<set.matrices.length;i++){
+    sphere.set(set.centres[i],set.radii[i]);
+    if(!frusta.some(f=>f.intersectsSphere(sphere))){rest.push(i);continue;}
+    if(set.lod&&set.leaf[i]/(set.origins[i].distanceTo(from)*pixel)<LEAF_PIXELS)far.push(i);else near.push(i);
+   }
+   for(const c of set.crowns)arrange(set,c,[...near,...far,...rest],near.length);
+   arrange(set,set.bark,[...near,...far,...rest],near.length+far.length);
+   for(const c of set.lod??[])arrange(set,c,[...far,...near,...rest],far.length);
+   drawn+=near.length+far.length;lodDrawn+=far.length;if(!set.lod)farDrawn+=near.length;
+  }
+ });
+ return {drawn,farDrawn,lod:lodDrawn};
 }
 
 /** A clipped garden hedge: a solid, gently lumpy body, with leaf cards in the detailed model. */
