@@ -16,7 +16,7 @@ import {createPoolReflection} from './pool-reflection';
 import {hasShaderFeature,materialsOf} from './shader-features';
 import {createClouds} from './clouds';
 import {places,type Place,type CaptureState} from './experience-data';
-import {foliageMaterials,finishFoliage} from './foliage';
+import {foliageMaterials,finishFoliage,drawTrees} from './foliage';
 import {loadSurfaceTextures,finishSurfaces} from './surface-materials';
 import {bakeSkyVisibility} from './sky-visibility';
 import {bakeSunBounce} from './sun-bounce';
@@ -35,6 +35,8 @@ export type ViewerOptions={
  onHeading?:(degrees:number)=>void;
  onMaterials?:(status:'loading'|'ready')=>void;
 };
+/** A dragged sun re-traces bounced light and the traced scene once it has been still this long (ms). */
+const SUN_SETTLE=150;
 const halton=(i:number,b:number)=>{let f=1,r=0;while(i>0){f/=b;r+=f*(i%b);i=Math.floor(i/b);}return r;};
 const SITE_CENTER=new T.Vector3(-5,0,8),SITE_RADIUS=70;
 
@@ -131,13 +133,20 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  let lastChange=performance.now(),needsFrame=true,visible=true,disposed=false,frame=0,ready=false,previous=performance.now(),heading=NaN;
  // A panel or dialog over the view: path tracing waits until it closes, so the interface keeps the graphics card.
  let interfaceOpen=false,presented=0;
+ // Another app in front: tracing and the background bakes wait, so the rest of the computer keeps the processor and
+ // graphics card. Returning carries on where they left off.
+ let elsewhere=false;const away=()=>{elsewhere=true;},back=()=>{elsewhere=false;};
+ window.addEventListener('blur',away);window.addEventListener('focus',back);
+ // Moving frames draw at the tier's motion scale; the first still frame is back at full resolution.
+ let drawnLow=false,sunSettle:ReturnType<typeof setTimeout>|undefined;const scaleFor=(moving:boolean)=>moving?tier.motionScale:1;
+ const sizePost=(moving:boolean)=>{const {width,height}=host.getBoundingClientRect();if(!width||!height)return;drawnLow=moving;post?.setSize(width,height,renderer.getPixelRatio()*scaleFor(moving));};
  const changed=()=>{lastChange=performance.now();post?.reset();live?.reset();needsFrame=true;};
  invalidate=changed;
  const size=()=>{
   const {width,height}=host.getBoundingClientRect();if(!width||!height)return;
   // A running path trace keeps its own resolution; only the canvas's CSS size follows.
   if(captures?.tracing){canvas.style.width=width+'px';canvas.style.height=height+'px';return;}
-  renderer.setSize(width,height);post?.setSize(width,height,renderer.getPixelRatio());mirror?.setSize(width*renderer.getPixelRatio(),height*renderer.getPixelRatio());rig.resize(width,height);changed();
+  renderer.setSize(width,height);post?.setSize(width,height,renderer.getPixelRatio()*scaleFor(drawnLow));mirror?.setSize(width*renderer.getPixelRatio(),height*renderer.getPixelRatio());rig.resize(width,height);changed();
  };
  const observer=new ResizeObserver(size);observer.observe(host);
  const visibility=new IntersectionObserver(([entry])=>{visible=entry.isIntersecting;if(visible)changed();});visibility.observe(host);
@@ -238,14 +247,13 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(controls.enabled&&controls.update(delta))moving=true;
   if(moving)changed();
   if(lighting?.update(camera,now)){post?.reset();needsFrame=true;}
-  if(bake?.update())changed();
-  if(bounce?.update())changed();
+  if(!elsewhere){if(bake?.update())changed();if(bounce?.update())changed();}
   const motion=!!(captures?.breezing||captures?.recording||film);
   const still=!motion&&!moving&&now-lastChange>110,refine=!!post&&still&&post.accumulated<tier.refineFrames;
   // A settled view hands over to path tracing; the floor-plan section of the upper floor cuts roofs with clipping
   // planes, which the tracer cannot, so it stays live.
   if(captures?.active)live?.release();
-  if(live&&post&&still&&!refine&&!needsFrame&&level!=='upper'&&!captures?.active&&!interfaceOpen&&now-lastChange>LIVE_TRACE.rest&&live.wanted){
+  if(live&&post&&still&&!refine&&!needsFrame&&level!=='upper'&&!captures?.active&&!interfaceOpen&&!elsewhere&&now-lastChange>LIVE_TRACE.rest&&live.wanted){
    const traced=live.step();
    // Drawn a few times a second, and once more when tracing finishes.
    if(traced&&(now-presented>=LIVE_TRACE.present||!live.wanted)){presented=now;const {amount,radius}=traceBlend(traced.samples);post.present(traced.texture,amount,radius,lighting!.exposure,indoorOf(room));}
@@ -257,18 +265,42 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(live&&canvas.dataset.trace!=='live')canvas.dataset.trace='live';
   renderer.toneMappingExposure=lighting?lighting.exposure:.9;
   if(post){
+   // A film or recording keeps full resolution throughout.
+   const low=tier.motionScale<1&&!still&&!captures?.recording&&!film;if(low!==drawnLow)sizePost(low);
    const jitter=still&&post.accumulated>0;
    if(jitter){const i=post.accumulated,size=renderer.getDrawingBufferSize(buffer);camera.setViewOffset(size.x,size.y,halton(i,2)-.5,halton(i,3)-.5,size.x,size.y);}
    if(motion&&captures?.breezing&&tier.photographic)renderer.shadowMap.needsUpdate=true;
+   cullTrees(low);
    mirror?.render();post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel});
    if(jitter)camera.clearViewOffset();
   }else renderer.render(scene,rig.camera);
   needsFrame=false;
   reportHeading();
+  const programs=String(renderer.info.programs?.length??0);if(canvas.dataset.programs!==programs)canvas.dataset.programs=programs;
   if(!ready){
    ready=true;canvas.dataset.modelReady='true';options.onReady();
-   // Compile the dusk variant (lamps on) in the background so the first sunset has no stall.
-   if(lighting){lighting.lamps.visible=true;void renderer.compileAsync(scene,camera).finally(()=>{if(lighting.reading)lighting.lamps.visible=lighting.reading.dusk>.02;});}
+   setTimeout(()=>void precompile(),1500);
+  }
+ };
+ // Only trees the view or the pool's mirror can see are drawn; trees too far for single leaves to show are drawn as
+ // their leaf-card crowns (drawTrees).
+ const cullTrees=(low:boolean)=>{
+  if(!(rig.camera instanceof T.PerspectiveCamera))return;
+  const height=renderer.getDrawingBufferSize(buffer).y*scaleFor(low),pixel=2*Math.tan(T.MathUtils.degToRad(rig.camera.fov/2))/Math.max(1,height)/rig.camera.zoom;
+  const reflected=mirror?.prepare();drawTrees(scene,reflected?[rig.camera,reflected]:[rig.camera],pixel,rig.camera);
+ };
+ // Shaders for the upper floor's section cut, every renovation, eye-level grass and dusk lamps compile in the
+ // background after the first frame, so the first visit to each has no stall. Everything is shown for the moment the
+ // materials are gathered, then put back exactly as it was.
+ const precompile=async()=>{
+  if(!lighting)return;
+  for(const [floor,lamps] of [['upper',false],['upper',true],['exterior',true]] as const){
+   if(disposed)return;
+   const shown=new Map<T.Object3D,boolean>();scene.traverse(o=>shown.set(o,o.visible));
+   model.setLevel(floor);scene.traverse(o=>{o.visible=true;});lighting.lamps.visible=lamps;
+   const done=renderer.compileAsync(scene,camera);
+   model.setLevel(level);for(const [o,v] of shown)o.visible=v;
+   await done.catch(()=>{});
   }
  };
  size();view('courtyard',true);frame=requestAnimationFrame(render);
@@ -281,6 +313,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   const w=Math.round(cssSize.x*scale),h=Math.round(cssSize.y*scale);
   try{
    renderer.setPixelRatio(1);renderer.setSize(w,h,false);post?.setSize(w,h,1);
+   cullTrees(false);
    if(post){for(let i=0;i<Math.max(8,tier.refineFrames);i++){if(i)camera.setViewOffset(w,h,halton(i,2)-.5,halton(i,3)-.5,w,h);mirror?.render();post.render(true,lighting?lighting.exposure:.9,indoorOf(room),{eyeLevel:rig.eyeLevel});camera.clearViewOffset();}}
    else renderer.render(scene,rig.camera);
    const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/png'));
@@ -293,7 +326,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   zoom:(factor:number)=>{captures?.stop();rig.zoomBy(factor);changed();},
   setLevel:(l:Level)=>{captures?.stop();leaveEyeLevel();const floorChanged=l!==level;level=l;applyState();if(floorChanged)controls.target.y=l==='basement'?-2:l==='upper'?3.1:1;rig.project();changed();},
   setRenovations:(state:RenovationState)=>{captures?.stop();renovations={...state};applyState();},
-  setSun:(study:SunStudy):LightReading|undefined=>{if(!lighting)return;const r=lighting.apply(study);fitShadowToView();bounce?.request();live?.relight();changed();return r;},
+  setSun:(study:SunStudy):LightReading|undefined=>{if(!lighting)return;const r=lighting.apply(study);fitShadowToView();clearTimeout(sunSettle);sunSettle=setTimeout(()=>{bounce?.request();live?.relight();changed();},SUN_SETTLE);changed();return r;},
   get lightReading(){return lighting?.reading;},
   /** A panel or dialog is open over the view (path tracing waits for it to close). */
   setInterface:(open:boolean)=>{interfaceOpen=open;},
@@ -304,7 +337,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   snapshot:rig.snapshot,
   restore:(s:Parameters<typeof rig.restore>[0])=>{rig.restore(s);changed();},
   dispose:()=>{
-   disposed=true;cancelAnimationFrame(frame);window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
+   disposed=true;cancelAnimationFrame(frame);window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
    canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('wheel',wheel);canvas.removeEventListener('keydown',key);
    bake?.dispose();bounce?.dispose();clouds?.dispose();grass?.dispose();post?.dispose();lighting?.dispose();textures?.dispose();environment?.dispose();
    const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();

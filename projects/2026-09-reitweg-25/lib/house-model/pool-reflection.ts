@@ -48,6 +48,8 @@ export function createPoolReflection(renderer:T.WebGLRenderer,scene:T.Scene,came
  };
  return {
   setSize:(width:number,height:number)=>target.setSize(Math.max(1,Math.round(width*POOL_MIRROR.scale)),Math.max(1,Math.round(height*POOL_MIRROR.scale))),
+  /** The mirror's camera for this frame, or undefined when the pool is out of view (draws only what it can see use it). */
+  prepare:()=>{if(!visible())return undefined;mirrorView(camera,POOL_MIRROR.level,mirror,textureMatrix);return mirror;},
   /** Draws the mirror image for the current camera; call before the frame. */
   render:()=>{
    if(!visible()){uniforms.uMirrorReady.value=0;return;}

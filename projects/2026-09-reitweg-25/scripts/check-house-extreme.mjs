@@ -25,7 +25,7 @@ assert.equal((viewer.match(/grass\.(showAround\(rig\.lens\.position\)|hide\(\));
 // The interface comes first: tracing, and preparing its scene, waits until the view has rested a second with no panel
 // or dialog open, and the traced image is drawn a few times a second rather than every frame.
 assert(LIVE_TRACE.rest>=800&&LIVE_TRACE.present>=80,'a real rest before tracing; a few draws a second');
-assert(/!interfaceOpen&&now-lastChange>LIVE_TRACE\.rest/.test(viewer),'tracing waits for a rest with no panel open');
+assert(/!interfaceOpen&&!elsewhere&&now-lastChange>LIVE_TRACE\.rest/.test(viewer),'tracing waits for a rest with no panel open');
 assert(/now-presented>=LIVE_TRACE\.present\|\|!live\.wanted/.test(viewer),'the traced image is drawn a few times a second, and once more when it is finished');
 assert(/setInterface\(!!panel\|\|about\)/.test(fs.readFileSync('components/studio/model/house-model.tsx','utf8')),'panels and the About dialog pause tracing');
 // Tests read what the view shows from the canvas: preparing, a sample count, or live.
