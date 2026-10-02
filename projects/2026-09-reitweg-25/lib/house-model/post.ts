@@ -28,6 +28,13 @@ class DepthHandoff extends Pass{
   this.ao.depthTexture=depth;this.ao.gtaoMaterial.uniforms.tDepth.value=depth;this.ao.pdMaterial.uniforms.tDepth.value=depth;
  }
 }
+/** The scene, then whatever must see its depth before anything else draws over it (tree-occlusion.ts). */
+class ScenePass extends RenderPass{
+ afterScene?:(renderer:T.WebGLRenderer,camera:T.Camera)=>void;
+ render(renderer:T.WebGLRenderer,writeBuffer:T.WebGLRenderTarget,readBuffer:T.WebGLRenderTarget,deltaTime:number,maskActive:boolean){
+  super.render(renderer,writeBuffer,readBuffer,deltaTime,maskActive);this.afterScene?.(renderer,this.camera);
+ }
+}
 /** Averages sub-pixel-jittered frames while the camera is still: clean edges and settled AO. */
 class AccumulatePass extends Pass{
  private targets:[T.WebGLRenderTarget,T.WebGLRenderTarget];
@@ -135,12 +142,13 @@ class FocusPass extends Pass{
 
 /** `lens` (Extreme) adds the camera of lens.ts: metered exposure, autofocus depth of field at eye level, sun shafts and
  * grain. */
-export type PostOptions={samples:number;ao:boolean;bloom:boolean;lens?:{sun:T.DirectionalLight}};
+/** `afterScene`: runs right after the scene is drawn, its target still bound. */
+export type PostOptions={samples:number;ao:boolean;bloom:boolean;lens?:{sun:T.DirectionalLight};afterScene?:(renderer:T.WebGLRenderer,camera:T.Camera)=>void};
 export type PostView={eyeLevel:boolean};
 export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions){
  const target=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,samples:options.samples,depthTexture:new T.DepthTexture(1,1)});
  const composer=new EffectComposer(renderer,target);
- const scenePass=new RenderPass(scene,camera);composer.addPass(scenePass);
+ const scenePass=new ScenePass(scene,camera);scenePass.afterScene=options.afterScene;composer.addPass(scenePass);
  let ao:HalfResolutionGTAO|undefined;
  if(options.ao){
   ao=new HalfResolutionGTAO(scene,camera,1,1,{depthTexture:composer.readBuffer.depthTexture??undefined});

@@ -40,6 +40,8 @@ export type TraceClock=ReturnType<typeof traceClock>;
 export type ReadoutState={
  quality:string;pixelRatio:number;motionScale:number;moving:boolean;fps:number;cpu:number;
  gpu:Map<string,number>;gpuAvailable:boolean;draws:number;triangles:number;programs:number;
+ /** Trees drawn in the frame, and those left out as hidden by the house (tree-occlusion.ts). */
+ trees?:{drawn:number;hidden:number};
  trace?:{phase:string;clock:TraceClock};
 };
 const n=(v:number,digits=1)=>Number.isFinite(v)?v.toFixed(digits):'–';
@@ -53,7 +55,7 @@ export function readoutText(r:ReadoutState){
   lines.push(`graphics card ms${parts.length?` · total ${n(total)}`:''}`);
   for(let i=0;i<parts.length;i+=4)lines.push('  '+parts.slice(i,i+4).join(' · '));
  }
- lines.push(`${r.draws} draws · ${(r.triangles/1e6).toFixed(2)} M triangles · ${r.programs} programs`);
+ lines.push(`${r.draws} draws · ${(r.triangles/1e6).toFixed(2)} M triangles · ${r.programs} programs${r.trees?` · ${r.trees.drawn} trees, ${r.trees.hidden} hidden by the house`:''}`);
  if(r.trace){
   const c=r.trace.clock;
   lines.push(`trace ${r.trace.phase} · scene ${s(c.sceneReady)} · first image ${s(c.firstImage)} · denoised ${c.stage?`${c.stage} at ${s(c.firstDenoised)}`:'–'} · finished ${s(c.finished)} · ${n(c.samplesPerSecond,0)} samples/s`);
@@ -71,7 +73,7 @@ export function createPerfReadout(renderer:T.WebGLRenderer,host:HTMLElement,view
  // Draws and triangles over the whole frame, not the last of its renders.
  renderer.info.autoReset=false;
  const pending:{label:string;query:WebGLQuery}[]=[],gpu=new Map<string,ReturnType<typeof rolling>>(),cpu=rolling(60),frames:number[]=[],clock=traceClock();
- let active=false,drew=false,started=0,draws=0,triangles=0,moving=false,phase='',tracing=false;
+ let active=false,drew=false,started=0,draws=0,triangles=0,moving=false,phase='',tracing=false,trees:{drawn:number;hidden:number}|undefined;
  const poll=()=>{
   if(!ext)return;
   const disjoint=gl.getParameter(ext.GPU_DISJOINT_EXT);
@@ -104,7 +106,7 @@ export function createPerfReadout(renderer:T.WebGLRenderer,host:HTMLElement,view
   poll();
   const now=performance.now();while(frames.length&&now-frames[0]>1000)frames.shift();
   const means=new Map<string,number>();for(const [label,r] of gpu)means.set(label,r.mean);
-  panel.textContent=readoutText({quality:view.quality,pixelRatio:renderer.getPixelRatio(),motionScale:view.motionScale,moving,fps:frames.length,cpu:cpu.mean,gpu:means,gpuAvailable:!!ext,draws,triangles,programs:renderer.info.programs?.length??0,trace:tracing?{phase,clock}:undefined});
+  panel.textContent=readoutText({quality:view.quality,pixelRatio:renderer.getPixelRatio(),motionScale:view.motionScale,moving,fps:frames.length,cpu:cpu.mean,gpu:means,gpuAvailable:!!ext,draws,triangles,trees,programs:renderer.info.programs?.length??0,trace:tracing?{phase,clock}:undefined});
  };
  const interval=setInterval(show,250);
  return {
@@ -117,6 +119,8 @@ export function createPerfReadout(renderer:T.WebGLRenderer,host:HTMLElement,view
    const now=performance.now();cpu.add(now-started);frames.push(now);moving=isMoving;draws=renderer.info.render.calls;triangles=renderer.info.render.triangles;
   },
   rest(now:number){tracing=true;clock.rest(now);},
+  /** The frame's trees (drawTrees). */
+  trees(counts:{drawn:number;hidden:number}){trees=counts;},
   trace(now:number,result:{samples:number;denoised:number}|undefined,state:{ready:boolean;finished:boolean}){
    if(state.ready)clock.ready(now);
    clock.step(now,result,state.finished);

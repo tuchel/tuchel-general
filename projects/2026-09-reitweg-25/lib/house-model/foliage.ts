@@ -201,19 +201,38 @@ function arrange(set:TreeSet,mesh:T.InstancedMesh,order:number[],drawn:number){
  mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
 }
 const sphere=new T.Sphere(),viewProjection=new T.Matrix4();
+/** Each tree under `root` with a world box holding its trunk, crown and leaf-card crown, a little grown for the breeze;
+ * `set` and `index` name it to drawTrees' `hidden`. */
+export function treeBoxes(root:T.Object3D){
+ const out:{set:object;index:number;box:T.Box3}[]=[];
+ root.updateMatrixWorld(true);
+ root.traverse(o=>{
+  for(const set of (o.userData.treeSets??[]) as TreeSet[]){
+   const local=new T.Box3();
+   for(const mesh of [set.bark,...set.crowns,...set.lod??[]]){mesh.geometry.computeBoundingBox();local.union(mesh.geometry.boundingBox!);}
+   local.expandByVector(local.getSize(new T.Vector3()).multiplyScalar(.03));
+   const world=new T.Matrix4();
+   set.matrices.forEach((m,index)=>out.push({set,index,box:local.clone().applyMatrix4(world.multiplyMatrices(o.matrixWorld,m))}));
+  }
+ });
+ return out;
+}
 /** Draws only the trees some camera in `cameras` can see; near modelled trees whose leaves would cover under LEAF_PIXELS
- * pixels, seen from `eye`'s camera with `pixel` radians a pixel, are drawn as their leaf-card crowns. Shadows still come
- * from every tree (drawnCount). Returns how many trees are drawn, and how. */
-export function drawTrees(root:T.Object3D,cameras:T.Camera[],pixel:number,eye:T.Camera){
+ * pixels, seen from `eye`'s camera with `pixel` radians a pixel, are drawn as their leaf-card crowns. `hidden`: trees
+ * known to be out of the first camera's sight (tree-occlusion.ts) are left out unless another camera sees them. Shadows
+ * still come from every tree (drawnCount). Returns how many trees are drawn, and how, and how many `hidden` left out. */
+export function drawTrees(root:T.Object3D,cameras:T.Camera[],pixel:number,eye:T.Camera,hidden?:(set:object,index:number)=>boolean){
  const frusta=cameras.map(c=>{c.updateMatrixWorld();return new T.Frustum().setFromProjectionMatrix(viewProjection.multiplyMatrices(c.projectionMatrix,c.matrixWorldInverse));});
  const from=eye.getWorldPosition(new T.Vector3());
- let drawn=0,farDrawn=0,lodDrawn=0;
+ let drawn=0,farDrawn=0,lodDrawn=0,left=0;
  root.traverse(o=>{
   for(const set of (o.userData.treeSets??[]) as TreeSet[]){
    const near:number[]=[],far:number[]=[],rest:number[]=[];
    for(let i=0;i<set.matrices.length;i++){
     sphere.set(set.centres[i],set.radii[i]);
-    if(!frusta.some(f=>f.intersectsSphere(sphere))){rest.push(i);continue;}
+    const others=frusta.slice(1).some(f=>f.intersectsSphere(sphere));
+    if(!others&&!frusta[0].intersectsSphere(sphere)){rest.push(i);continue;}
+    if(!others&&hidden?.(set,i)){rest.push(i);left++;continue;}
     if(set.lod&&set.leaf[i]/(set.origins[i].distanceTo(from)*pixel)<LEAF_PIXELS)far.push(i);else near.push(i);
    }
    for(const c of set.crowns)arrange(set,c,[...near,...far,...rest],near.length);
@@ -222,7 +241,7 @@ export function drawTrees(root:T.Object3D,cameras:T.Camera[],pixel:number,eye:T.
    drawn+=near.length+far.length;lodDrawn+=far.length;if(!set.lod)farDrawn+=near.length;
   }
  });
- return {drawn,farDrawn,lod:lodDrawn};
+ return {drawn,farDrawn,lod:lodDrawn,hidden:left};
 }
 
 /** A clipped garden hedge: a solid, gently lumpy body, with leaf cards in the detailed model. */
