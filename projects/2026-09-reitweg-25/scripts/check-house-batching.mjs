@@ -24,7 +24,7 @@ for(const realistic of [false,true]){
   for(const [uuid,count] of expected[s])assert.equal(Math.round(by.get(uuid)||0),Math.round(count),`state ${s}: batched triangles match source for each material`);
   for(const uuid of by.keys())assert(expected[s].has(uuid),`state ${s}: no batch shows a hidden material`);
  }
- // Renovations toggled outside the states (the reading nook): batches follow their groups, on and off, on every floor.
+ // Renovations toggled outside the states (Layout Updates): batches follow their groups, on and off, on every floor.
  const {renovationState}=await import('../tmp/batch-check/renovation-data.mjs');
  const count=()=>{const source=new Map(),merged=new Map(),add=(map,uuid,n)=>map.set(uuid,(map.get(uuid)||0)+n);
   model.root.traverse(o=>{if(!(o instanceof T.Mesh)||o instanceof T.InstancedMesh||o.userData.batch||!model.rendered(o))return;const mats=[o.material].flat();
@@ -36,6 +36,6 @@ for(const realistic of [false,true]){
  let sources=0;model.root.traverse(o=>{if(o instanceof T.Mesh&&!(o instanceof T.InstancedMesh)&&!o.userData.batch){sources++;assert(!o.layers.isEnabled(0),'source meshes leave the render layer');}});
  for(const b of batches.meshes){assert(b.layers.isEnabled(0));for(const n of b.matrixWorld.elements)assert(Number.isFinite(n));}
  assert(batches.meshes.length*5<sources,`${batches.meshes.length} batches replace ${sources} meshes`);
- console.log(`Passed (${realistic?'realism':'natural'}): ${sources} meshes → ${batches.meshes.length} batches; triangles per material match in all ${model.stateCount} floor × renovation states and with the reading nook on or off.`);
+ console.log(`Passed (${realistic?'realism':'natural'}): ${sources} meshes → ${batches.meshes.length} batches; triangles per material match in all ${model.stateCount} floor × renovation states and with Layout Updates on or off.`);
  model.dispose();
 }

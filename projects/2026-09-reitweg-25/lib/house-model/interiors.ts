@@ -2,6 +2,7 @@ import * as T from 'three';
 import {passable} from './walk';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {planPoint as p} from './site-data';
+import {loungeChair} from './lounge-chair';
 
 /** Recognizable existing pieces reconstructed from the original photo library.
  * Room registration follows the exposé. Furniture dimensions are visual estimates.
@@ -32,6 +33,27 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  function tub(g:T.Group){const shape=new T.Shape();shape.absellipse(0,0,.43,.9,0,Math.PI*2,false,0);const hole=new T.Path();hole.absellipse(0,0,.35,.78,0,Math.PI*2,true,0);shape.holes.push(hole);const geo=new T.ExtrudeGeometry(shape,{depth:.45,bevelEnabled:true,bevelSegments:2,steps:1,bevelSize:.035,bevelThickness:.035,curveSegments:32});geo.rotateX(-Math.PI/2);mesh(g,geo,m.white,0,.12,0);mesh(g,cyl,m.white,0,.12,0,.35,.05,.78);rod(g,[-.58,0,0],[-.58,.78,0],.025,m.brass);rod(g,[-.58,.78,0],[-.27,.78,0],.025,m.brass);}
  function vanity(g:T.Group,w=1.8,double=true){box(g,0,.79,0,w,.075,.52,m.oak);box(g,0,.16,0,w,.05,.46,m.oak);for(const x of [-w/2+.035,w/2-.035])for(const z of [-.22,.22])box(g,x,0,z,.03,.83,.03,m.charcoal);for(const x of double?[-w*.25,w*.25]:[0]){box(g,x,.865,0,double?.5:.45,.12,.4,m.white,true);box(g,x,.97,0,.34,.008,.26,m.grey);rod(g,[x,.89,.24],[x,1.13,.24],.018,m.brass);rod(g,[x,1.13,.24],[x,1.13,.05],.018,m.brass);}}
  function desk(g:T.Group,w=2.6){box(g,0,.73,0,w,.07,.62,m.oak);for(const x of [-w/2+.28,w/2-.28]){box(g,x,0,0,.45,.73,.52,m.white);for(const y of [.15,.32,.49])box(g,x,y,-.267,.39,.009,.015,m.grey);}chair(g,0,-.75,Math.PI,m.charcoal);box(g,.35,.8,0,.48,.04,.3,m.charcoal);box(g,.35,.84,.19,.48,.29,.025,m.charcoal);}
+ /** An L-shaped couch with its outer corner at the origin: the long leg runs along +x with its back at z = 0 (seats
+  * facing −z), the short leg along −z with its back at x = 0 (seats facing +x); 0.95 m deep, an arm at each open end. */
+ function lCouch(g:T.Group,long:number,short:number,mat:T.Material,accents:T.Material[]){
+  const D=.95,back=.22,arm=.16,seat=.37;
+  for(const [x0,x1,z0,z1] of [[0,long,-D,0],[0,D,-short,-D]]){box(g,(x0+x1)/2,0,(z0+z1)/2,x1-x0-.1,.07,z1-z0-.06,m.charcoal);box(g,(x0+x1)/2,.07,(z0+z1)/2,x1-x0,.3,z1-z0,mat,true);}
+  box(g,long/2,seat,-back/2,long,.43,back,mat,true);box(g,back/2,seat,-(short+back)/2,back,.43,short-back,mat,true);
+  box(g,long-arm/2,.07,-D/2,arm,.55,D,mat,true);box(g,D/2,.07,-short+arm/2,D,.55,arm,mat,true);
+  // Seat cushions about 0.8 m wide along each leg; the corner square belongs to the long leg.
+  const run=(from:number,to:number,put:(a:number,b:number)=>void)=>{const n=Math.max(1,Math.round((to-from)/.8));for(let i=0;i<n;i++)put(from+(to-from)*i/n+.01,from+(to-from)*(i+1)/n-.01);};
+  run(back,long-arm,(a,b)=>box(g,(a+b)/2,seat,-(D+back)/2-.01,b-a,.13,D-back-.02,mat,true));
+  run(D,short-arm,(a,b)=>box(g,(back+D)/2+.01,seat,-(a+b)/2,D-back-.02,.13,b-a,mat,true));
+  // Loose pillows against the back, one turned into the corner.
+  [[long*.42,-back-.07,0],[long*.7,-back-.07,0],[back+.2,-back-.2,Math.PI/4]].forEach(([x,z,turn],i)=>{const o=box(g,x,.47,z,.42,.4,.13,accents[i%accents.length],true);o.rotation.set(-.18,turn,0);});
+ }
+ /** A deep club armchair facing −z: thick arms, a loose seat cushion and a pillow. */
+ function armchair(g:T.Group,mat:T.Material,accent:T.Material){
+  for(const x of [-.36,.36])for(const z of [-.36,.36])box(g,x,0,z,.05,.08,.05,m.oak);
+  box(g,0,.08,0,.9,.3,.88,mat,true);box(g,0,.38,.33,.9,.42,.22,mat,true);
+  for(const x of [-.37,.37])box(g,x,.38,-.02,.16,.22,.84,mat,true);
+  box(g,0,.38,-.08,.58,.13,.66,mat,true);box(g,0,.5,.17,.4,.34,.12,accent,true).rotation.x=-.25;
+ }
  function plant(g:T.Group){round(g,0,0,0,.24,.43,m.rust);for(let i=0;i<7;i++){const a=i*2.4,x=Math.cos(a)*.35,z=Math.sin(a)*.35;rod(g,[0,.35,0],[x,1+i*.07,z],.018,m.leaf);const leaf=mesh(g,ball,m.leaf,x,1+i*.07,z,.16,.26,.08);leaf.rotation.z=a;}}
  const kitchenStart=ground.children.length;
  // Ground: sage kitchen, butcher-block island, Lacanche-style range and breakfast banquette.
@@ -51,7 +73,8 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  rod(g,[0,0,0],[0,2.3,0],.045,m.white);mesh(g,new T.ConeGeometry(1.4,.38,16),m.cream,0,2.2,0);
  for(const o of ground.children.slice(kitchenStart))o.userData.replacedBy='kitchen';
  // Four-poster bedroom and twin-basin bathroom.
- bed(place(ground,1124,236),1.85,true);rug(place(ground,1124,330),2.5,1.15,m.cream,true);
+ g=place(ground,1124,236);g.name='garden-bedroom-bed';g.userData.replacedBy='nook';bed(g,1.85,true);
+ g=place(ground,1124,330);g.name='garden-bedroom-rug';g.userData.replacedBy='nook';rug(g,2.5,1.15,m.cream,true);
  // Linen-panelled pine wardrobes against the kitchen wall, either side of a service shaft (800A78C1).
  cabinets(place(ground,980,245,-Math.PI/2),2.68,2.05,m.pine,false);cabinets(place(ground,980,346,-Math.PI/2),2,2.05,m.pine,false);box(place(ground,980,301.5),0,0,0,.6,2.6,.42,m.white);
  tub(place(ground,1190,464));vanity(place(ground,1128,455,-Math.PI/2),1.85);g=place(ground,1086,487);box(g,0,0,0,.42,.43,.63,m.white,true);box(g,0,.43,-.22,.43,.5,.14,m.white,true);
@@ -61,8 +84,41 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  // Dining alcove: U-shaped timber banquette, three white chairs on the open side.
  g=place(ground,1132,578);g.name='dining-alcove';g.userData.replacedBy='nook';table(g,2.65,1.02);bench(g,0,-1.14,3.7,Math.PI);bench(g,-1.6,-.23,1.6,-Math.PI/2);bench(g,1.6,-.23,1.6,Math.PI/2);for(const x of [-.9,0,.9])chair(g,x,.98);
  // Living: two facing sofas, transparent coffee table and woven chair by the garden.
- g=place(ground,1020,784);sofa(g,-2.05,0,2.9,-Math.PI/2);sofa(g,2.05,0,2.9,Math.PI/2).userData.replacedBy='east';table(group(g,0,0,0),1.45,1.05,.42,clear);
+ g=place(ground,1020,784);
+ {const west=sofa(g,-2.05,0,2.9,-Math.PI/2);west.name='living-west-sofa';west.userData.replacedBy='nook';}
+ sofa(g,2.05,0,2.9,Math.PI/2).userData.replacedBy='east';
+ {const glassTable=group(g,0,0,0);glassTable.name='living-glass-table';glassTable.userData.replacedBy='nook';table(glassTable,1.45,1.05,.42,clear);}
  const cane=place(ground,1190,827,-.5);chair(cane,0,0,0,m.oak);box(cane,0,.47,0,.5,.13,.48,m.cream,true);plant(place(ground,1194,700));g=place(ground,920,841);round(g,0,0,0,.22,.025,m.charcoal);rod(g,[0,0,0],[0,1.5,0],.025,m.charcoal);mesh(g,new T.ConeGeometry(.25,.2,20),m.charcoal,.13,1.53,0);
+ // Layout Updates (renovation-data.ts), shown only with it. The garden bedroom becomes a family room: its north window is
+ // walled up (build-model.ts), a television hangs low where the bed stood, just over an oak console, an L-shaped couch faces it
+ // with a club armchair by the east wall, and the striped rug lies between them.
+ const screen=material('#2b2e30','#14171a',.28),walnut=material('#8a6a4f','#5e4130',.5),leather=material('#3b3532','#26201d',.42);
+ const darkMetal=material('#4a4d4c','#2e3131',.35);darkMetal.metalness=.6;
+ const oatmeal=material('#e2d9c9','#cdbfa5');oatmeal.userData.photo='linen';
+ const wool=material('#ece4d4','#e6dac3'),terracotta=material('#d9b6a0','#b4664b'),ochreWool=material('#e2cfa6','#c7994e');
+ const northFace=-9.61+.12+.225,southFace=9.61-.12-.225,westFace=-6+.12+.225;
+ {const family=group(ground,0,.16,0);family.name='family-room';family.userData.addedBy='nook';const [bx]=p(1124,0);
+  // An 85-inch screen (1.885 × 1.06 m) over a console a little wider.
+  const media=group(family,bx,0,northFace+.21);media.name='family-room-console';box(media,0,0,0,2.1,.08,.36,m.charcoal);box(media,0,.08,0,2.2,.38,.42,m.oak);for(const x of [-.55,.55])box(media,x,.11,.212,1.07,.32,.008,m.oak);
+  const tv=group(family,bx,0,northFace+.025);tv.name='family-room-tv';box(tv,0,.58,0,1.905,1.08,.035,m.charcoal);box(tv,0,.59,.019,1.885,1.06,.004,screen).name='family-room-tv-screen';
+  const couch=group(family,1.25,0,-5.4);couch.name='family-room-l-couch';lCouch(couch,2.9,2.6,oatmeal,[m.rust,m.sage,m.navy]);
+  box(couch,.57,.5,-1.75,.5,.05,.62,m.rust,true);// a folded throw on the chaise
+  const club=group(family,4.95,0,-6.45,.59);club.name='family-room-armchair';armchair(club,m.rust,m.cream);
+  const mat=group(family,3,0,-7.45);mat.name='family-room-rug';rug(mat,2.6,2.2,m.cream,true);
+ }
+ // In the living room: an L-shaped couch pressed into the south-west corner with the glass coffee table inside the L,
+ // a second lounge chair and ottoman beside it, and a warm wool rug before the fire. The east façade's dining table
+ // moves to the middle of the room (renovations.ts).
+ {const living=group(ground,0,.16,0);living.name='living-room-layout';living.userData.addedBy='nook';
+  const corner=[westFace+.02,southFace-.02];
+  const couch=group(living,corner[0],0,corner[1]);couch.name='living-l-couch';lCouch(couch,-2.9-corner[0],corner[1]-6.75,m.cream,[m.rust,m.grey,m.sage]);
+  const glassTable=group(living,-3.61,0,7.42);glassTable.name='living-glass-table-in-l';table(glassTable,1.45,1.05,.42,clear);
+  const facing=2.267,{chair,ottoman}=loungeChair({walnut,leather,metal:darkMetal});
+  const easy=group(living,-1.8,0,5.85,facing);easy.name='living-lounge-chair';easy.add(chair);
+  const rest=group(living,-2.41,0,6.36,facing);rest.name='living-lounge-ottoman';rest.add(ottoman);
+  // Terracotta wool with a cream border and an ochre line, centred on the fireplace.
+  const fire=group(living,-.055,0,7.55);fire.name='living-fireside-rug';box(fire,0,.004,0,3,.012,2.2,wool);box(fire,0,.006,0,2.76,.012,1.96,ochreWool);box(fire,0,.008,0,2.66,.012,1.86,terracotta);
+ }
  g=place(ground,614,642);g.name="entry-storage-clear-of-courtyard-door";cabinets(g,4.65,2.35,m.pine,false);plant(place(ground,781,600));
  // Narrow hall table along the dining-room wall, clear of the doorway at its south end.
  g=place(ground,1030,575);g.name='hall-table-beside-dining-door';table(g,.5,1.65,.85);

@@ -5,6 +5,7 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import kitchenLayout from '../../public/assets/kitchen-refined-layout-v4.json';
 import {planPoint as p,type Level} from './site-data';
 import {buildFrontWall} from './front-wall';
+import {loungeChair} from './lounge-chair';
 import {renovationState,type RenovationId,type RenovationState} from './renovation-data';
 
 // Register the permit inset to the original ground plan with ONE uniform scale.
@@ -25,7 +26,7 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  const box=(g:T.Group,x:number,y:number,z:number,w:number,h:number,d:number,mat:T.Material,rounded=false)=>{const o=new T.Mesh(rounded?soft:unit,mat);o.position.set(x,y+h/2,z);o.scale.set(w,h,d);o.castShadow=mat!==clear&&mat!==privacy;o.receiveShadow=true;g.add(o);return o;};
  const place=(g:T.Group,x:number,z:number,angle=0,y=.16)=>{const o=new T.Group();o.position.set(x,y,z);o.rotation.y=angle;g.add(o);return o;};
  const poly=(g:T.Group,points:number[][],y:number,h:number,mat:T.Material)=>{const shape=new T.Shape(points.map(([x,z])=>new T.Vector2(x,-z)));const geo=new T.ExtrudeGeometry(shape,{depth:h,bevelEnabled:false});geo.rotateX(-Math.PI/2);const mesh=new T.Mesh(geo,mat);mesh.position.y=y;mesh.castShadow=true;mesh.receiveShadow=true;g.add(mesh);return mesh;};
- function chair(g:T.Group,x:number,z:number,angle=0,stool=false){const c=place(g,x,z,angle,0),height=stool?.64:.43;box(c,0,height,0,.46,.08,.45,m.linen,true);for(const dx of [-.18,.18])for(const dz of [-.18,.18])box(c,dx,0,dz,.04,height,.04,m.oak);if(!stool){box(c,0,.51,.2,.47,.31,.06,m.oak,true);box(c,0,.54,.155,.39,.23,.04,m.linen,true);}else box(c,0,.27,.18,.4,.025,.025,m.metal);}
+ function chair(g:T.Group,x:number,z:number,angle=0,stool=false){const c=place(g,x,z,angle,0),height=stool?.64:.43;box(c,0,height,0,.46,.08,.45,m.linen,true);for(const dx of [-.18,.18])for(const dz of [-.18,.18])box(c,dx,0,dz,.04,height,.04,m.oak);if(!stool){box(c,0,.51,.2,.47,.31,.06,m.oak,true);box(c,0,.54,.155,.39,.23,.04,m.linen,true);}else box(c,0,.27,.18,.4,.025,.025,m.metal);return c;}
  function table(g:T.Group,w:number,d:number){box(g,0,.7,0,w,.07,d,m.oak,true);for(const x of [-w/2+.15,w/2-.15])for(const z of [-d/2+.15,d/2-.15])box(g,x,0,z,.065,.7,.065,m.oak);}
  function dining(g:T.Group,x:number,z:number,w:number,d:number,angle=0){const t=place(g,x,z,angle);table(t,w,d);for(const dx of [-w/3,0,w/3]){chair(t,dx,d/2+.36);chair(t,dx,-d/2-.36,Math.PI);}chair(t,-w/2-.35,0,-Math.PI/2);chair(t,w/2+.35,0,Math.PI/2);return t;}
  function planter(g:T.Group,x:number,z:number){box(g,x,.16,z,.6,.55,.6,m.stone,true);const leaves=new T.Mesh(new T.IcosahedronGeometry(.45,1),m.leaf);leaves.position.set(x,.9,z);leaves.scale.y=1.25;g.add(leaves);}
@@ -36,7 +37,9 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  for(const [from,to,privateBand] of [[182,388,0],[388,524,1],[524,669,0],[669,877,0]])glazing(east,p(1229,from),p(1229,to),!!privateBand);
  // The south wall is glazed on both sides of the retained fireplace; build-model keeps the piers beside it solid.
  for(const [from,to] of [[-6,-.93],[.82,6]])glazing(east,[from,9.61],[to,9.61]);
- const farDining=dining(east,...p(1132,739),2.7,1.02,Math.PI/2);farDining.name='east-family-dining';
+ const farDining=dining(east,...p(1132,739),2.7,1.02,Math.PI/2);farDining.name='east-family-dining';farDining.userData.replacedBy='nook';
+ // Layout Updates moves it south, to the middle of the room between its north wall and the fireplace wall.
+ const centred=dining(east,...p(1132,768.5),2.7,1.02,Math.PI/2);centred.name='east-family-dining-centred';centred.userData.addedBy='nook';
  // A frame lines the opened façade, as in the portal render: a head along the top of the glass, under the ceiling,
  // and a post wherever the glass meets a wall, the fireplace or the other glass wall at the south-east corner. Each
  // piece is split at the glass: light oak inside, the house's cladding outside.
@@ -94,9 +97,10 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  const lounge=place(courtyard,...p(416,891),-.093);box(lounge,0,.01,0,1.6,.015,2.8,m.linen);
  const sofa=(x:number,z:number,angle:number,w=2.1)=>{const g=place(lounge,x,z,angle,0);box(g,0,.06,0,w,.27,.81,m.oak,true);box(g,0,.33,0,w-.08,.16,.75,m.linen,true);box(g,0,.48,.33,w,.35,.15,m.linen,true);for(const dx of [-w/2+.07,w/2-.07])box(g,dx,.3,0,.11,.25,.86,m.oak,true);for(const dx of [-w*.3,w*.3])box(g,dx,.55,.2,.3,.3,.15,m.clay,true);};
  sofa(-.53,.18,-Math.PI/2);sofa(.33,1.85,0,1);const coffee=place(lounge,.35,.15,0,0);box(coffee,0,.25,0,.67,.09,1.2,m.stone,true);box(coffee,0,.02,0,.43,.23,.85,m.oak);planter(courtyard,...p(746,697));
- // Reading and office nook in the dining alcove (4.5 × 3.8 m between the hall wall and the east façade): a library wall
- // to the north, a deep sofa against the hall wall facing the garden, and a desk at the east window. Plan points.
- const nook=groups.nook,ink=material('#3e4a59'),ochre=material('#c39a53'),wool=material('#cbbda4'),rust=material('#9d5b41');
+ // Layout Updates: the dining alcove (4.5 × 3.8 m between the hall wall and the east façade) becomes a library: a book
+ // wall to the north, a desk against the hall wall, and a lounge chair with its ottoman at the east window under an arc
+ // lamp. Plan points.
+ const nook=groups.nook,ink=material('#3e4a59'),ochre=material('#c39a53'),rust=material('#9d5b41');
  const solid=(g:T.Object3D,geometry:T.BufferGeometry,mat:T.Material,x:number,y:number,z:number,sx:number,sy:number,sz:number)=>{const o=new T.Mesh(geometry,mat);o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.castShadow=o.receiveShadow=true;g.add(o);return o;};
  {const shelves=place(nook,...p(1124,533.8));shelves.name='nook-bookshelves';const w=3.82,d=.36,h=2.3,bays=4,levels=[.08,.44,.8,1.16,1.52,1.88];
   for(let i=0;i<=bays;i++)box(shelves,-w/2+.0175+i*(w-.035)/bays,0,0,.035,h,d,m.oak);
@@ -109,20 +113,18 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
     spines[Math.floor(rand()*colours.length)].push(new T.BoxGeometry(t-.003,h,deep).translate(b+t/2,y+h/2,.03+(.24-deep)/2));b+=t;}}x+=run+.012;}}
   spines.forEach((parts,k)=>{if(!parts.length)return;const o=new T.Mesh(mergeGeometries(parts),colours[k]);parts.forEach(part=>part.dispose());o.castShadow=o.receiveShadow=true;shelves.add(o);});
  }
- {const sofa=place(nook,...p(1069.8,581),Math.PI/2);sofa.name='nook-sofa';const w=1.72;
-  box(sofa,0,0,0,w-.12,.1,.78,ink);box(sofa,0,.1,.02,w,.26,.88,wool,true);box(sofa,0,.1,-.34,w,.62,.2,wool,true);
-  for(const x of [-w/4,w/4]){box(sofa,x,.36,.08,w/2-.2,.15,.62,wool,true);box(sofa,x,.44,-.2,w/2-.22,.38,.18,wool,true).rotation.x=-.18;}
-  for(const x of [-w/2+.09,w/2-.09])box(sofa,x,.1,.02,.18,.5,.88,wool,true);
-  box(sofa,-w/2+.36,.48,-.1,.42,.38,.13,rust,true).rotation.z=-.2;box(sofa,w/2-.4,.48,-.1,.4,.36,.13,m.sage,true).rotation.z=.18;box(sofa,w/2-.42,.515,.12,.5,.025,.62,ochre);
- }
- // An arc lamp over the sofa, a pouf and a rug; the desk faces the garden with its lamp, laptop and a few books.
- {const lamp=place(nook,...p(1072,545.2));solid(lamp,cyl,m.metal,0,.01,0,.14,.02,.14);box(lamp,0,0,0,.028,1.75,.028,m.metal);box(lamp,0,1.72,.36,.022,.022,.72,m.metal);solid(lamp,cyl,m.linen,0,1.6,.72,.18,.22,.18);}
- solid(place(nook,...p(1112,583)),cyl,rust,0,.2,0,.3,.4,.3);box(place(nook,...p(1106,591)),0,0,0,2.2,.012,2.4,m.clay);
- {const desk=place(nook,...p(1202.3,596));desk.name='nook-desk';box(desk,0,.72,0,.75,.04,1.7,m.oak);for(const x of [-.32,.32])for(const z of [-.8,.8])box(desk,x,0,z,.035,.72,.035,m.metal);
+ // The desk against the hall wall, facing it, with its lamp, laptop and a few books; the pouf and rug in the middle.
+ {const desk=place(nook,...p(1067.5,581),Math.PI);desk.name='nook-desk';box(desk,0,.72,0,.75,.04,1.7,m.oak);for(const x of [-.32,.32])for(const z of [-.8,.8])box(desk,x,0,z,.035,.72,.035,m.metal);
   solid(desk,cyl,m.metal,.24,.77,-.6,.08,.02,.08);box(desk,.24,.76,-.6,.018,.4,.018,m.metal);box(desk,.16,1.12,-.6,.2,.04,.07,m.metal);
   box(desk,-.08,.76,.05,.24,.015,.33,m.metal);box(desk,.05,.775,.05,.012,.22,.33,ink);box(desk,.2,.76,.55,.22,.06,.3,rust);box(desk,.2,.82,.55,.2,.04,.28,m.sage);
-  chair(desk,-.72,0,-Math.PI/2);
+  chair(desk,-.72,0,-Math.PI/2).name='nook-desk-chair';
  }
+ solid(place(nook,...p(1125,583)),cyl,rust,0,.2,0,.3,.4,.3);box(place(nook,...p(1106,591)),0,0,0,2.2,.012,2.4,m.clay);
+ // Where the desk stood, a lounge chair and ottoman of the Eames kind face into the room, under the arc lamp.
+ {const walnut=material('#8a6a4f','#5e4130',.5),leather=material('#3b3532','#26201d',.42),{chair:lounge,ottoman}=loungeChair({walnut,leather,metal:m.metal});
+  const seat=place(nook,...p(1194.3,596),Math.PI/2);seat.name='nook-lounge-chair';seat.add(lounge);
+  const rest=place(nook,...p(1164.6,596),Math.PI/2);rest.name='nook-ottoman';rest.add(ottoman);
+  const lamp=place(nook,...p(1203,565.7));solid(lamp,cyl,m.metal,0,.01,0,.14,.02,.14);box(lamp,0,0,0,.028,1.75,.028,m.metal);box(lamp,0,1.72,.36,.022,.022,.72,m.metal);solid(lamp,cyl,m.linen,0,1.6,.72,.18,.22,.18);}
  // A leafy plant in the corner: broad leaves spiralling up out of a stone pot.
  {const plant=place(nook,...p(1203,552)),leaf=new T.IcosahedronGeometry(1,1);solid(plant,cyl,m.stone,0,.21,0,.19,.42,.19);
   for(let i=0;i<11;i++){const a=i*2.4,r=.06+.012*i;const o=solid(plant,leaf,m.leaf,Math.cos(a)*r,.55+i*.06,Math.sin(a)*r,.07,.2,.15);o.rotation.set(0,-a,.55);}}
