@@ -38,4 +38,7 @@ assert(/isWebGPUBackend/.test(gpu),'a WebGPURenderer quietly running on WebGL 2 
 assert(before(gpu)&&/new GenerateMeshBVHWorker\(\)/.test(gpu),'trees are built in workers before the tracer sees the scene');
 // Only denoised images follow the first: none of the grainy ones in between stages are copied.
 assert(/if\(denoised&&!settled\)/.test(gpu),'between stages the denoised image stays');
-console.log(`Passed: WebGPU path tracing denoised at ${GPU_TRACE.stages.join(', ')} samples, copied to the WebGL view every ${GPU_TRACE.copyEvery} ms with rows flipped and unpadded; instances traced as instances with their trees built in workers; the tracer and conversions kept across rebuilds; no tracing without WebGPU.`);
+// The tracer copies the sky's filtering. Its environment shader samples the sky with a sampler, which three leaves out
+// for a nearest-filtered texture (a DataTexture's default): the shader would not compile and nothing would be traced.
+assert(/equirect:[^]*?const texture=new T\.DataTexture\([^\n]*texture\.minFilter=texture\.magFilter=T\.LinearFilter/.test(fs.readFileSync('lib/house-model/lighting.ts','utf8')),'the sky handed to the tracer is filtered');
+console.log(`Passed: a filtered sky; WebGPU path tracing denoised at ${GPU_TRACE.stages.join(', ')} samples, copied to the WebGL view every ${GPU_TRACE.copyEvery} ms with rows flipped and unpadded; instances traced as instances with their trees built in workers; the tracer and conversions kept across rebuilds; no tracing without WebGPU.`);

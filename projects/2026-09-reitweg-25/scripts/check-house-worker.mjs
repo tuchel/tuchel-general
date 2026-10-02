@@ -12,7 +12,7 @@ const foliage=foliageMaterials('leaves'),setting=landscapeContext({foliage,densi
 const model=buildHouseModel(true,setting.group,foliage);model.setLevel('exterior');
 const source=new T.Scene();source.add(model.root);
 const sun=new T.DirectionalLight('#fff4de',3);sun.position.set(-25,55,25);sun.target.position.set(0,0,0);source.add(sun,sun.target);
-const sky=new T.DataTexture(new Float32Array(8*4*4).fill(.5),8,4,T.RGBAFormat,T.FloatType);sky.mapping=T.EquirectangularReflectionMapping;
+const sky=new T.DataTexture(new Float32Array(8*4*4).fill(.5),8,4,T.RGBAFormat,T.FloatType);sky.mapping=T.EquirectangularReflectionMapping;sky.minFilter=sky.magFilter=T.LinearFilter;
 const cache=sceneCache(),options={maxDistance:120,origin:new T.Vector3(-5,0,8),instances:true,cache};
 const local=await photographicScene(source,sky,new AbortController().signal,()=>{},options);
 
@@ -44,7 +44,7 @@ meshes.forEach((m,i)=>{
 });
 assert(textured>0,'texture maps travel');
 const light=rebuilt.children.find(o=>o.isDirectionalLight);assert(light&&light.intensity===3,'the sun travels');
-assert(rebuilt.environment?.image.width===8,'the sky travels');
+assert(rebuilt.environment?.image.width===8&&rebuilt.environment.minFilter===T.LinearFilter&&rebuilt.environment.magFilter===T.LinearFilter,'the sky travels, filtered');
 
 // A second send after one hidden mesh carries no geometry, material or texture; the worker lets the hidden one go.
 // The hidden mesh is the only one with its material, so the worker lets that material go too.
