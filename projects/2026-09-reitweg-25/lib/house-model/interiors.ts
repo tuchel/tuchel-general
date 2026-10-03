@@ -86,7 +86,7 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  // Living: two facing sofas, transparent coffee table and woven chair by the garden.
  g=place(ground,1020,784);
  {const west=sofa(g,-2.05,0,2.9,-Math.PI/2);west.name='living-west-sofa';west.userData.replacedBy='nook';}
- sofa(g,2.05,0,2.9,Math.PI/2).userData.replacedBy='east';
+ {const east=sofa(g,2.05,0,2.9,Math.PI/2);east.name='living-east-sofa';east.userData.replacedBy='nook';}
  {const glassTable=group(g,0,0,0);glassTable.name='living-glass-table';glassTable.userData.replacedBy='nook';table(glassTable,1.45,1.05,.42,clear);}
  const cane=place(ground,1190,827,-.5);chair(cane,0,0,0,m.oak);box(cane,0,.47,0,.5,.13,.48,m.cream,true);plant(place(ground,1194,700));g=place(ground,920,841);round(g,0,0,0,.22,.025,m.charcoal);rod(g,[0,0,0],[0,1.5,0],.025,m.charcoal);mesh(g,new T.ConeGeometry(.25,.2,20),m.charcoal,.13,1.53,0);
  // Layout Updates (renovation-data.ts), shown only with it. The garden bedroom becomes a family room: its north window is

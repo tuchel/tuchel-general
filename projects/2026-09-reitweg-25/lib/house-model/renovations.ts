@@ -37,9 +37,9 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  for(const [from,to,privateBand] of [[182,388,0],[388,524,1],[524,669,0],[669,877,0]])glazing(east,p(1229,from),p(1229,to),!!privateBand);
  // The south wall is glazed on both sides of the retained fireplace; build-model keeps the piers beside it solid.
  for(const [from,to] of [[-6,-.93],[.82,6]])glazing(east,[from,9.61],[to,9.61]);
- const farDining=dining(east,...p(1132,739),2.7,1.02,Math.PI/2);farDining.name='east-family-dining';farDining.userData.replacedBy='nook';
- // Layout Updates moves it south, to the middle of the room between its north wall and the fireplace wall.
- const centred=dining(east,...p(1132,768.5),2.7,1.02,Math.PI/2);centred.name='east-family-dining-centred';centred.userData.addedBy='nook';
+ // Layout Updates sets a dining table where the east sofa stood (interiors.ts), centred between the room's north wall and
+ // the fireplace wall, outside its own group as its other living-room pieces are; the east façade changes no furniture.
+ {const table=dining(ground,...p(1132,768.5),2.7,1.02,Math.PI/2);table.name='living-dining-table';table.userData.addedBy='nook';}
  // A frame lines the opened façade, as in the portal render: a head along the top of the glass, under the ceiling,
  // and a post wherever the glass meets a wall, the fireplace or the other glass wall at the south-east corner. Each
  // piece is split at the glass: light oak inside, the house's cladding outside.
