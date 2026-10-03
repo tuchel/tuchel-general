@@ -21,6 +21,7 @@ import {places,type Place,type CaptureState} from './experience-data';
 import {foliageMaterials,finishFoliage,drawTrees} from './foliage';
 import {createTreeOcclusion} from './tree-occlusion';
 import {createMotionResolution,type MotionResolution} from './motion-resolution';
+import {createRoomProbes,ROOM_PROBES} from './room-probes';
 import {loadSurfaceTextures,finishSurfaces} from './surface-materials';
 import {bakeSkyVisibility} from './sky-visibility';
 import {bakeSunBounce} from './sun-bounce';
@@ -120,11 +121,14 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const bake=realistic&&tier.skyBake?bakeSkyVisibility(renderer,batches.meshes.filter(b=>[b.material].flat().every(m=>!m.transparent&&m.userData.photo!=='lawn')),[model.root,stage],tier.sunBounce?.55:.7):undefined;
  // Sunlight bounced indoors: the house itself, without trees and planting.
  const bounce=realistic&&tier.sunBounce?bakeSunBounce(batches.meshes.filter(b=>b.parent===model.root&&[b.material].flat().every(m=>!m.transparent&&!m.alphaTest&&m.userData.photo!=='lawn')),[model.root,stage],sun,tier.sunBounce,tier.bounces):undefined;
+ // Extreme: each main room reflects itself (room-probes.ts), baked in the whole-house view, trees drawn for each face.
+ const probes=realistic&&tier.roomProbes?createRoomProbes(renderer,scene,[model.root],()=>batches.meshes.filter(b=>{for(let a:T.Object3D|null=b;a;a=a.parent)if(!a.visible)return false;return true;}),
+  lens=>drawTrees(scene,[lens],2/ROOM_PROBES.size,lens)):undefined;
  let live:ReturnType<typeof createLiveTrace>|undefined=undefined;
  const applyState=()=>{
   model.setLevel(level);model.setRenovations(renovations);batches.sync(model.stateOf(level,renovations));
   stage.visible=level!=='basement';renderer.shadowMap.needsUpdate=true;
-  bake?.request();bounce?.request();live?.invalidate();invalidate();
+  bake?.request();bounce?.request();probes?.request();live?.invalidate();invalidate();
  };
  applyState();
  const grass=realistic&&tier.grass?eyeLevelGrass(scene,[...batches.meshes,stage]):undefined;
@@ -307,6 +311,10 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    const jitter=still&&post.accumulated>0;
    if(jitter){const i=post.accumulated,size=renderer.getDrawingBufferSize(buffer);camera.setViewOffset(size.x,size.y,halton(i,2)-.5,halton(i,3)-.5,size.x,size.y);}
    if(motion&&captures?.breezing&&tier.photographic)renderer.shadowMap.needsUpdate=true;
+   // A room's reflection bakes a face a frame in the whole-house view, until all are in; they show while the camera is
+   // in one of the rooms.
+   if(probes&&level==='exterior'&&!captures?.active){if(probes.step(rig.camera))post.reset();if(probes.baking)needsFrame=true;}
+   probes?.setCamera(rig.camera);
    cullTrees(low);
    if(mirror)timed('mirror',()=>mirror.render());post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel});
    if(low)steer?.finish(performance.now());
@@ -365,7 +373,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   zoom:(factor:number)=>{captures?.stop();rig.zoomBy(factor);changed();},
   setLevel:(l:Level)=>{captures?.stop();leaveEyeLevel();const floorChanged=l!==level;level=l;applyState();if(floorChanged)controls.target.y=l==='basement'?-2:l==='upper'?3.1:1;rig.project();changed();},
   setRenovations:(state:RenovationState)=>{captures?.stop();renovations={...state};applyState();},
-  setSun:(study:SunStudy):LightReading|undefined=>{if(!lighting)return;const r=lighting.apply(study);fitShadowToView();clearTimeout(sunSettle);sunSettle=setTimeout(()=>{bounce?.request();live?.relight();changed();},SUN_SETTLE);changed();return r;},
+  setSun:(study:SunStudy):LightReading|undefined=>{if(!lighting)return;const r=lighting.apply(study);fitShadowToView();clearTimeout(sunSettle);sunSettle=setTimeout(()=>{bounce?.request();probes?.request();live?.relight();changed();},SUN_SETTLE);changed();return r;},
   get lightReading(){return lighting?.reading;},
   /** A panel or dialog is open over the view (path tracing waits for it to close). */
   setInterface:(open:boolean)=>{interfaceOpen=open;},
@@ -376,7 +384,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   snapshot:rig.snapshot,
   restore:(s:Parameters<typeof rig.restore>[0])=>{rig.restore(s);changed();},
   dispose:()=>{
-   disposed=true;cancelAnimationFrame(frame);perf?.dispose();occlusion?.dispose();steer?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
+   disposed=true;cancelAnimationFrame(frame);perf?.dispose();occlusion?.dispose();steer?.dispose();probes?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
    canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('wheel',wheel);canvas.removeEventListener('keydown',key);
    bake?.dispose();bounce?.dispose();clouds?.dispose();grass?.dispose();post?.dispose();lighting?.dispose();textures?.dispose();environment?.dispose();
    const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();

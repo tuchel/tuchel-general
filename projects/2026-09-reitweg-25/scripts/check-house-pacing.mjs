@@ -20,7 +20,7 @@ for(const q of ['balanced','model'])assert.equal(tiers[q].motionScale,1,`${q} ke
 assert(/const scaleFor=\(moving:boolean\)=>/.test(viewer)&&/post\?\.setSize\(width,height,renderer\.getPixelRatio\(\)\*scaleFor\(/.test(viewer),'the post chain resizes with motion');
 
 // 8. A dragged sun: shadows and sky follow each step; bounced light and the traced scene wait for 150 ms of stillness.
-assert(/setSun:[^\n]*clearTimeout\(sunSettle\);sunSettle=setTimeout\(\(\)=>\{bounce\?\.request\(\);live\?\.relight\(\);changed\(\);\},SUN_SETTLE\)/.test(viewer),'bounce and tracing wait for the sun to settle');
+assert(/setSun:[^\n]*clearTimeout\(sunSettle\);sunSettle=setTimeout\(\(\)=>\{bounce\?\.request\(\);probes\?\.request\(\);live\?\.relight\(\);changed\(\);\},SUN_SETTLE\)/.test(viewer),'bounce, room reflections and tracing wait for the sun to settle');
 assert(/const SUN_SETTLE=150/.test(viewer),'150 ms');
 
 // 9. Shaders for every floor, renovation, eye level and dusk compile in the background after the first frame.
