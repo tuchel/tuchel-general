@@ -291,9 +291,14 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    if(!resting){resting=true;perf?.rest(now);}
    const traced=live.step();
    perf?.trace(now,traced,{ready:live.ready,finished:!live.wanted});
-   // Drawn a few times a second, and once more when tracing finishes.
-   // A denoised image is shown whole, without the grain filter.
-   if(traced&&(now-presented>=LIVE_TRACE.present||!live.wanted)){presented=now;const {amount,radius}=traceBlend(traced.denoised?LIVE_TRACE.filter.until:traced.samples);timed('trace blend',()=>post.present(traced.texture,amount,radius,lighting!.exposure,indoorOf(room),traced.demodulated));}
+   // Drawn a few times a second, and once more when tracing finishes. A denoised image is shown whole, without the grain
+   // filter, and kept; until this view has one, the last view's is carried in after a small move (carry.ts), and
+   // otherwise the grainy samples are shown as they gather.
+   if(now-presented>=LIVE_TRACE.present||!live.wanted){
+    if(traced?.denoised){presented=now;timed('trace blend',()=>post.present(traced.texture,1,0,lighting!.exposure,indoorOf(room),traced.demodulated));post.keep(traced.texture,traced.demodulated,live.generation);}
+    else if(post.carries(rig.camera,live.generation)){presented=now;timed('trace blend',()=>post.carry(lighting!.exposure,indoorOf(room)));}
+    else if(traced){presented=now;const {amount,radius}=traceBlend(traced.samples);timed('trace blend',()=>post.present(traced.texture,amount,radius,lighting!.exposure,indoorOf(room),traced.demodulated));}
+   }
    // What the view shows, for tests: 'preparing', the traced sample count, or 'live'; and the samples behind the denoised
    // image on show.
    const shown=traced?String(Math.floor(traced.samples)):'preparing';if(canvas.dataset.trace!==shown)canvas.dataset.trace=shown;

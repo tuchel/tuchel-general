@@ -27,7 +27,7 @@ export function createLiveTrace(options:{renderer:T.WebGLRenderer;scene:T.Scene;
  const {renderer,scene,camera,lighting}=options;
  type Prepared={gpu:WebGPUTracer;local:{scene:T.Scene;dispose:()=>void};environment:T.Texture};
  let prepared:Prepared|undefined,abort:AbortController|undefined,cache:SceneCache|undefined;
- let lightStale=false,cameraStale=true,sceneStale=false,disposed=false,unavailable=false;
+ let lightStale=false,cameraStale=true,sceneStale=false,disposed=false,unavailable=false,generation=0;
  const release=()=>{
   abort?.abort();abort=undefined;
   if(prepared){prepared.gpu.dispose();prepared.local.dispose();prepared.environment.dispose();prepared=undefined;}
@@ -90,12 +90,14 @@ export function createLiveTrace(options:{renderer:T.WebGLRenderer;scene:T.Scene;
   /** True while resting should keep drawing: preparing, or still gathering samples. */
   get wanted(){return !unavailable&&(!prepared||sceneStale||lightStale||relighting||!prepared.gpu.done);},
   get ready(){return !!prepared;},
+  /** Counts new scenes and suns: an image traced under another generation shows a different house or light. */
+  get generation(){return generation;},
   /** The camera moved: the next rest starts afresh. */
   reset:()=>{cameraStale=true;},
   /** The sun moved. */
-  relight:()=>{lightStale=true;cameraStale=true;},
+  relight:()=>{lightStale=true;cameraStale=true;generation++;},
   /** What is shown changed (floor, renovations, grass around the walker): the next rest converts what changed. */
-  invalidate:()=>{abort?.abort();abort=undefined;sceneStale=true;cameraStale=true;},
+  invalidate:()=>{abort?.abort();abort=undefined;sceneStale=true;cameraStale=true;generation++;},
   /** Frees the tracer (a photograph's own tracer needs the graphics card); the conversions are kept. */
   release,
   dispose:()=>{disposed=true;release();cache?.dispose();},

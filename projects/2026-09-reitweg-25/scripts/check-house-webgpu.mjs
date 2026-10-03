@@ -42,7 +42,7 @@ assert(!/WebGLPathTracer/.test(live),'no WebGL tracer');
 assert(/if\(!\('gpu' in navigator\)\)\{unavailable=true;return;\}/.test(live)&&/if\(gpu\.failed\)\{unavailable=true;release\(\);return;\}/.test(live),'no WebGPU, or a failed device: no tracing');
 // The tracer is kept: a rebuild hands it the new scene, converted with the kept cache.
 assert(/instances:true,cache\}/.test(live)&&/p\.gpu\.rescene\(local\.scene,controller\.signal\)/.test(live),'a rebuild reuses the tracer and the conversions');
-assert(/invalidate:\(\)=>\{abort\?\.abort\(\);abort=undefined;sceneStale=true;cameraStale=true;\}/.test(live),'invalidating keeps the tracer');
+assert(/invalidate:\(\)=>\{abort\?\.abort\(\);abort=undefined;sceneStale=true;cameraStale=true;generation\+\+;\}/.test(live),'invalidating keeps the tracer (and starts a new generation of traced images)');
 const gpu=fs.readFileSync('lib/house-model/live-trace-webgpu.ts','utf8');
 const before=source=>source.indexOf('await treesInBackground(scene,signal)')>0&&source.indexOf('await treesInBackground(scene,signal)')<source.indexOf('tracer.setScene(');
 assert(/isWebGPUBackend/.test(gpu),'a WebGPURenderer quietly running on WebGL 2 is not used');
