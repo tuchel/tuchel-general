@@ -40,7 +40,8 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
   const ids=typeof window==='undefined'?[]:new URLSearchParams(window.location.search).get('renovations')?.split(',')||[];
   return offeredState(ids);
  });
- const [sun,setSun]=useState(START),[capture,setCapture]=useState<CaptureState>(initialCapture);
+ // Clouds start off, so the sun's light reads alone while the time of day is scanned.
+ const [sun,setSun]=useState(START),[clouds,setClouds]=useState(false),[capture,setCapture]=useState<CaptureState>(initialCapture);
  const [panel,setPanel]=useState<Panel|null>(null),[region,setRegion]=useState<Region|null>(null),[about,setAbout]=useState(false);
  // Touch screens walk with thumbsticks; keyboards with W A S D.
  const [touch]=useState(()=>typeof window!=='undefined'&&window.matchMedia('(pointer: coarse)').matches);
@@ -83,6 +84,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
  },[ready]);
  useEffect(()=>{if(ready)api.current?.setRenovations(changes);},[ready,changes]);
  useEffect(()=>{if(ready)api.current?.setSun({enabled:true,...sun});},[ready,sun]);
+ useEffect(()=>{if(ready)api.current?.setClouds(clouds);},[ready,clouds]);
  // Extreme's path tracing waits while a panel or the About dialog is open, so menus stay quick.
  useEffect(()=>{if(ready)api.current?.setInterface(!!panel||about);},[ready,panel,about]);
  useEffect(()=>{
@@ -153,7 +155,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
     {panel==='floor'&&<FloorPanel level={level} onLevel={chooseLevel}/>}
     {panel==='changes'&&<div className="model-panel-body"><RenovationControls value={changes} onChange={setChanges} onFocus={focusRenovation} level={level} ready={ready&&!failed}/></div>}
     {panel==='light'&&<LightPanel day={sun.day} minutes={sun.minutes} onChange={(day,minutes)=>setSun({day,minutes})}/>}
-    {panel==='more'&&<MorePanel quality={quality} detected={detected} computer={computer} onQuality={chooseQuality} capture={capture} heavy={tiers[quality].photographic} eyeLevel={!!place}
+    {panel==='more'&&<MorePanel quality={quality} detected={detected} computer={computer} onQuality={chooseQuality} capture={capture} heavy={tiers[quality].photographic} eyeLevel={!!place} clouds={tiers[quality].clouds?clouds:undefined} onClouds={setClouds}
      onSave={()=>{setPanel(null);void api.current?.saveImage();}} onPhotograph={pano=>{setPanel(null);void api.current?.captures?.photograph(pano);}} onFilm={()=>{setPanel(null);if(place)chooseView('courtyard');api.current?.captures?.film();}}
      onExport={()=>{setPanel(null);void api.current?.captures?.exportModel();}} onBreeze={on=>api.current?.captures?.breeze(on)} onSound={on=>void api.current?.captures?.sound(on)} onAbout={()=>{setPanel(null);setAbout(true);}}/>}
    </section>}

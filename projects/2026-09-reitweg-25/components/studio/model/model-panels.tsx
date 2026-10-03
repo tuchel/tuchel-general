@@ -84,6 +84,8 @@ export type MoreActions={
  computer:boolean;
  capture:CaptureState;heavy:boolean;eyeLevel:boolean;
  onSave:()=>void;onPhotograph:(panorama:boolean)=>void;onFilm:()=>void;onExport:()=>void;onBreeze:(on:boolean)=>void;onSound:(on:boolean)=>void;onAbout:()=>void;
+ /** Whether clouds are shown, where the detail setting has them (Extreme). */
+ clouds?:boolean;onClouds:(on:boolean)=>void;
 };
 export function MorePanel(p:MoreActions){
  const realistic=p.quality!=='model',busy=p.capture.busy||p.capture.recording;
@@ -96,6 +98,7 @@ export function MorePanel(p:MoreActions){
   {realistic&&<div className="model-more-toggles">
    <button aria-pressed={p.capture.breeze} title="Leaves, grass and water move" onClick={()=>p.onBreeze(!p.capture.breeze)}>Breeze</button>
    <button aria-pressed={p.capture.sound} title="Designed ambience, not a recording" onClick={()=>p.onSound(!p.capture.sound)}>Garden sound</button>
+   {p.clouds!==undefined&&<button aria-pressed={p.clouds} title="Drifting clouds and their shadows; off, the sun's light reads alone" onClick={()=>p.onClouds(!p.clouds)}>Clouds</button>}
   </div>}
   <div className="model-segments" role="radiogroup" aria-label="Detail">
    {([...(p.computer?[['extreme','Extreme']] as const:[]),['detailed','Detailed'],['balanced','Balanced'],['model','Model']] as const).map(([id,label])=><button key={id} role="radio" aria-checked={p.quality===id} title={id==='extreme'?'Path-traced when the camera rests, where the browser has WebGPU; asks a lot of the graphics card':p.detected===id?'Suits this device':undefined} onClick={()=>p.onQuality(id)}>{label}{p.detected===id&&<small aria-label="suits this device"/>}</button>)}
