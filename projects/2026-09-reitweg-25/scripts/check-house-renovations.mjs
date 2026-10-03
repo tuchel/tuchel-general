@@ -66,7 +66,7 @@ for(const x of [-4.5,-2.5,2.5,4.5]){const hits=southAt(x);assert(hits.length&&hi
 assert(southAt(-.7).some(h=>[h.object.material].flat().some(m=>!m.transparent)),'the pier west of the fireplace stays solid');
 // Light oak frames the opened façade, as in the portal render: a head along the top of the glass and a post at the
 // south-east corner, where the east and south glass meet.
-{const oak=model.root.getObjectByName('east-family-dining').children[0].material.color.getHexString(),first=(from,to)=>{const u=new T.Vector3(...from),v=new T.Vector3(...to);southRay.set(u,v.clone().sub(u).normalize());southRay.far=u.distanceTo(v);return southRay.intersectObject(model.root,true).find(h=>h.object.isMesh&&visible(h.object));};
+{const oak=model.root.getObjectByName('living-dining-table').children[0].material.color.getHexString(),first=(from,to)=>{const u=new T.Vector3(...from),v=new T.Vector3(...to);southRay.set(u,v.clone().sub(u).normalize());southRay.far=u.distanceTo(v);return southRay.intersectObject(model.root,true).find(h=>h.object.isMesh&&visible(h.object));};
  for(const z of [-6,0,6]){const head=first([5.9,1.5,z],[5.9,3,z]);assert(head&&head.object.material.color.getHexString()===oak&&head.point.y<2.72,`an oak head runs along the top of the east glass at z ${z} (${head?.object.material.color.getHexString()} at ${head?.point.y.toFixed(2)} m)`);}
  const post=first([5.3,1.5,8.9],[6.2,1.5,9.8]);assert(post&&post.object.material.color.getHexString()===oak,`an oak post stands at the south-east corner (${post?.object.material.color.getHexString()})`);
  // Outside, the same frame wears the house's cladding.

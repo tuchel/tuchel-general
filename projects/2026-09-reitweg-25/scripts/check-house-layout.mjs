@@ -23,13 +23,14 @@ const north=-9.61+.12+.225,south=9.61-.12-.225,west=-6+.12+.225;
 const first=(from,to)=>{const u=new T.Vector3(...from),v=new T.Vector3(...to),ray=new T.Raycaster(u,v.clone().sub(u).normalize(),0,u.distanceTo(v));const meshes=[];ground.traverse(o=>{if(o.isMesh&&shown(o))meshes.push(o);});return ray.intersectObjects(meshes,false)[0];};
 const glassy=hit=>!!hit&&[hit.object.material].flat().some(m=>m.transparent);
 
-// Off: the house as it is.
+// Off: the house as it is, furniture included with the east façade on: that renovation changes only the façade.
 for(const east of [false,true]){
  set(false,east);
  assert(shown(named('garden-bedroom-bed'))&&shown(named('garden-bedroom-rug')),'the bed and its rug stay without Layout Updates');
  assert(glassy(window(false,east)),'the bedroom window stays without Layout Updates');
- for(const name of ['family-room','living-room-layout','east-family-dining-centred'])assert(!shown(named(name)),`${name} only with Layout Updates`);
- assert(shown(named('living-west-sofa'))&&shown(named('living-glass-table')),'the living room keeps its sofa and glass table');
+ for(const name of ['family-room','living-room-layout','living-dining-table'])assert(!shown(named(name)),`${name} only with Layout Updates`);
+ assert(shown(named('living-west-sofa'))&&shown(named('living-east-sofa'))&&shown(named('living-glass-table')),`the living room keeps both sofas and its glass table${east?' with the east façade':''}`);
+ assert(!named('east-family-dining'),'the east façade brings no dining table of its own');
 }
 for(const east of [false,true]){
  set(true,east);
@@ -63,12 +64,14 @@ for(const east of [false,true]){
  assert(easy.min.x>table.max.x-.6&&easy.max.z<table.max.z,'the lounge chair beside the table');
  assert(Math.abs((rug.min.x+rug.max.x)/2-(-.055))<.25&&rug.max.z<south-.5&&rug.max.z>south-1.2,'a rug in front of the fireplace');
  assert(!shown(named('living-west-sofa'))&&!shown(named('living-glass-table')),'the old sofa and table make way');
- const dining=named('east-family-dining-centred');
- if(east){const d=bounds(dining),room=(p(0,669)[1]+.09+south)/2;assert(shown(dining)&&!shown(named('east-family-dining')),'the dining table moves');assert(Math.abs((d.min.z+d.max.z)/2-room)<.15,`centred between the north and south walls (${((d.min.z+d.max.z)/2).toFixed(2)} vs ${room.toFixed(2)})`);}
- else assert(!shown(dining),'no dining table without the east façade');
+ // The east sofa makes way for a dining table centred between the room's north wall and the fireplace wall, with or
+ // without the east façade.
+ const dining=named('living-dining-table'),d=bounds(dining),room=(p(0,669)[1]+.09+south)/2;
+ assert(shown(dining)&&!shown(named('living-east-sofa')),'a dining table in place of the east sofa');
+ assert(Math.abs((d.min.z+d.max.z)/2-room)<.15,`centred between the north and south walls (${((d.min.z+d.max.z)/2).toFixed(2)} vs ${room.toFixed(2)})`);
  // Nothing new stands in other furniture: no mesh of a new piece meets a mesh of another piece (an L's bounding box
  // holds its own inner corner, so meshes are compared, not pieces). A chair and its ottoman stand together.
- const pieces=['family-room-l-couch','family-room-armchair','family-room-console','nook-desk','nook-desk-chair','nook-lounge-chair','nook-ottoman','living-l-couch','living-glass-table-in-l','living-lounge-chair','living-lounge-ottoman',...(east?['east-family-dining-centred']:[])];
+ const pieces=['family-room-l-couch','family-room-armchair','family-room-console','nook-desk','nook-desk-chair','nook-lounge-chair','nook-ottoman','living-l-couch','living-glass-table-in-l','living-lounge-chair','living-lounge-ottoman','living-dining-table'];
  const together=new Set(['nook-lounge-chair|nook-ottoman','living-lounge-chair|living-lounge-ottoman','nook-desk|nook-desk-chair']);
  const meshes=o=>{const out=[];o.traverse(m=>{if(m.isMesh&&shown(m))out.push(new T.Box3().setFromObject(m).expandByScalar(-.02));});return out;};
  const meet=(a,b)=>{const x=meshes(a),y=meshes(b);return x.some(u=>y.some(v=>u.intersectsBox(v)));};
@@ -84,4 +87,4 @@ for(const east of [false,true]){
  assert(!first([west+.05,.5,5.8],[west+1.2,.5,5.8]),'the living room’s west door is clear');
 }
 set(false,false);
-console.log('Passed: Layout Updates turns the garden bedroom into a family room (window walled up, television where the bed stood, L couch facing it, armchair), moves the nook’s desk to the hall wall with a lounge chair and ottoman at the east window, and gives the living room an L couch in its south-west corner around the glass table, a second lounge chair, a fireside rug and, with the east façade, a centred dining table; nothing overlaps, doorways stay clear, and without it the house is as before.');
+console.log('Passed: Layout Updates turns the garden bedroom into a family room (window walled up, television where the bed stood, L couch facing it, armchair), moves the nook’s desk to the hall wall with a lounge chair and ottoman at the east window, and gives the living room an L couch in its south-west corner around the glass table, a second lounge chair, a fireside rug and a dining table centred where the east sofa stood; nothing overlaps, doorways stay clear, and without it the house is as before, east façade or not.');
