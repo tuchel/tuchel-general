@@ -10,7 +10,7 @@ import {addShaderFeature,materialsOf} from './shader-features';
  * visible sky and the sky light both read. Each pixel marches up to 48 steps through the layer and five toward the sun,
  * with three orders of scattering approximated after Wrenninge (2013). A second texture, 3 km across, holds how much
  * sunlight reaches each point of the ground through the clouds; every lit surface reads it, so cloud shadows cross the
- * fields. */
+ * fields. Off until the Clouds toggle (More) turns them on, so the sun's light reads alone through the day. */
 /** `wind`: the clouds' velocity in metres a second, x east and −z north (from the west-south-west, as on a westerly day). */
 export const CLOUDS={base:1400,top:2600,coverage:.36,extinction:.045,wind:[7.4,-3.1] as const,
  /** The sky texture is baked in bands of 64 rows; a new sun re-bakes `perFrame` of them a frame, round the sky in four
@@ -25,13 +25,14 @@ float noise3(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
  return mix(mix(mix(hash3(i),hash3(i+vec3(1,0,0)),f.x),mix(hash3(i+vec3(0,1,0)),hash3(i+vec3(1,1,0)),f.x),f.y),
   mix(mix(hash3(i+vec3(0,0,1)),hash3(i+vec3(1,0,1)),f.x),mix(hash3(i+vec3(0,1,1)),hash3(i+vec3(1,1,1)),f.x),f.y),f.z);}
 float fbm3(vec3 p,int octaves){float s=0.0,a=0.5;for(int i=0;i<5;i++){if(i>=octaves)break;s+=a*noise3(p);p=p*2.03+vec3(17.1,3.7,9.3);a*=0.5;}return s;}
-uniform vec2 uWind;uniform float uCoverage;
+uniform vec2 uWind;uniform float uCoverage;uniform float uCloudsOn;
 const float BASE=${CLOUDS.base.toFixed(1)},TOP=${CLOUDS.top.toFixed(1)};
 /** Cloud density (0–1) at a point, metres from the house. Three octaves of value noise sum to about 0.438 ± 0.091
  * (normal); normalised, a cell is cloud where it exceeds the coverage threshold, raised or lowered by a wider field so
  * clouds gather in groups with clear sky between. Taller where the excess is larger; flat bases, narrowing tops. Detail
  * adds the erosion that gives cumulus its cauliflower edge. */
 float cloudDensity(vec3 p,bool detail){
+ if(uCloudsOn<0.5)return 0.0;
  float h=(p.y-BASE)/(TOP-BASE);if(h<0.0||h>1.0)return 0.0;
  vec3 q=p+vec3(uWind.x,0.0,uWind.y);
  float groups=(fbm3(vec3(q.xz/9000.0,1.7),3)-0.438)/0.091;
@@ -56,7 +57,7 @@ export function createClouds(renderer:T.WebGLRenderer){
  const make=(w:number,h:number)=>{const t=new T.WebGLRenderTarget(w,h,{type:T.HalfFloatType,depthBuffer:false,wrapS:T.RepeatWrapping,minFilter:T.LinearFilter,magFilter:T.LinearFilter});return t;};
  const skyTarget=make(S.width,S.height),shadowTarget=make(H.size,H.size),houseTarget=new T.WebGLRenderTarget(1,1,{depthBuffer:false});
  shadowTarget.texture.wrapS=T.ClampToEdgeWrapping;
- const common={uWind:wind,uCoverage:coverage,uSun:{value:new T.Vector3(0,1,0)},uSunLight:{value:new T.Vector3()},uAmbient:{value:new T.Vector3()},uExtinction:{value:CLOUDS.extinction}};
+ const on={value:0},common={uWind:wind,uCoverage:coverage,uCloudsOn:on,uSun:{value:new T.Vector3(0,1,0)},uSunLight:{value:new T.Vector3()},uAmbient:{value:new T.Vector3()},uExtinction:{value:CLOUDS.extinction}};
  const vertex='varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}';
  // The sky texture: columns are azimuth, rows the square root of the sine of elevation, so the horizon, where clouds
  // stack up and most views see sky, gets most of the rows.
@@ -132,7 +133,7 @@ export function createClouds(renderer:T.WebGLRenderer){
   drift:(seconds:number)=>{
    if(Math.abs(seconds-lastWind)<1/30)return;lastWind=seconds;
    // The field is sampled at position + offset, so the clouds travel opposite to the offset's change: with the wind.
-   wind.value.set(CLOUDS.start[0]-CLOUDS.wind[0]*seconds,CLOUDS.start[1]-CLOUDS.wind[1]*seconds);drifting=true;
+   wind.value.set(CLOUDS.start[0]-CLOUDS.wind[0]*seconds,CLOUDS.start[1]-CLOUDS.wind[1]*seconds);if(on.value)drifting=true;
   },
   /** Draws up to `count` bands of the sky texture after a new sun (one while the clouds drift) and the shadow texture;
    * true when anything changed. */
@@ -143,8 +144,12 @@ export function createClouds(renderer:T.WebGLRenderer){
   },
   /** A new sun's sky is still being baked. */
   get baking(){return owed>0;},
+  get enabled(){return on.value>0;},
+  /** Shows or clears the clouds; the sky and the shadow re-bake as for a new sun. True when that is a change. */
+  setEnabled:(value:boolean)=>{if(value===on.value>0)return false;on.value=value?1:0;owed=bands;drifting=false;return true;},
   /** Sunlight reaching the house through the clouds (0–1), for the path tracer's sun. */
   atHouse:()=>{
+   if(!on.value)return 1;
    // One byte-format pixel at the centre of the square: readable on every device, unlike half floats.
    const previous=renderer.getRenderTarget(),data=new Uint8Array(4);
    renderer.setRenderTarget(houseTarget);shadowQuad.render(renderer);renderer.readRenderTargetPixels(houseTarget,0,0,1,1,data);renderer.setRenderTarget(previous);

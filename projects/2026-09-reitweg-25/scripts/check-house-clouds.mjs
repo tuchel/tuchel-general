@@ -57,4 +57,23 @@ assert(/cloudsToward\(direction\)/.test(lighting)&&/cloudCoverage\.value=clouds\
 assert(/clouds\?\.shade\(\[scene\]\)/.test(viewer),'lit surfaces take cloud shadows');
 assert(/lighting\?\.drift\(captures\.waterSeconds\)/.test(viewer),'the breeze moves the clouds');
 assert(/intensity\*=sunScale/.test(scene),'the traced sun is dimmed by cloud over the house');
-console.log(`Passed: cumulus from ${CLOUDS.base} to ${CLOUDS.top} m covering ${CLOUDS.coverage*100}% of the sky, drifting ${speed.toFixed(1)} m/s with the breeze; ${(row(10)*100).toFixed(0)}% of the sky texture's rows for the lowest 10°; cloud shadows ${CLOUDS.shadow.span/1000} km across at ${texel.toFixed(1)} m a texel.`);
+
+// The Clouds toggle (More): off by default, so the sun's light reads alone while the time of day is scanned. Off, the
+// field is empty, so the sky is clear and no shadow falls; the traced sun is at full strength. Switching re-bakes the
+// sky as a new sun does, then the sky light, the room reflections and the traced image follow.
+{const {createClouds}=await import('../tmp/clouds-check/clouds.mjs'),reads=[];
+ const renderer={getRenderTarget:()=>null,setRenderTarget(){},render(){},readRenderTargetPixels:(t,x,y,w,h,data)=>{reads.push(1);data[0]=128;}};
+ const c=createClouds(renderer);
+ assert.equal(c.enabled,false,'clouds start off');assert.equal(c.atHouse(),1,'off, the sun reaches the house in full');assert.equal(reads.length,0,'without reading the graphics card');
+ for(let i=0;i<8&&c.baking;i++)c.update(CLOUDS.sky.perFrame);c.drift(5);assert.equal(c.update(),false,'off, the breeze re-bakes nothing');
+ assert.equal(c.setEnabled(true),true,'switching them on is a change');assert(c.baking,'on, the sky re-bakes');
+ for(let i=0;i<8&&c.baking;i++)c.update(CLOUDS.sky.perFrame);assert(!c.baking,'in a few frames');
+ assert.equal(c.atHouse(),128/255,'on, what is over the house dims the traced sun');assert.equal(c.setEnabled(true),false,'switching on again changes nothing');
+ assert.equal(c.setEnabled(false),true,'and off again re-bakes');assert(c.baking&&c.atHouse()===1,'to a clear sky');c.dispose();
+ assert(/float cloudDensity\(vec3 p,bool detail\)\{\n if\(uCloudsOn<0\.5\)return 0\.0;/.test(source),'off, the field is empty: no cloud in the sky and no shadow on the ground');
+ assert(/setClouds:\(on:boolean\)=>\{if\(!clouds\?\.setEnabled\(on\)\)return false;cloudsAll=true;return true;\}/.test(lighting),'the sky light follows once the sky is re-baked');
+ assert(/setClouds:\(on:boolean\)=>\{if\(!lighting\?\.setClouds\(on\)\)return;clearTimeout\(cloudSettle\);cloudSettle=setTimeout\(\(\)=>\{probes\?\.request\(\);live\?\.relight\(\);changed\(\);\},SUN_SETTLE\);changed\(\);\}/.test(viewer),'room reflections and the traced image follow');
+ const page=fs.readFileSync('components/studio/model/house-model.tsx','utf8'),panels=fs.readFileSync('components/studio/model/model-panels.tsx','utf8');
+ assert(/\[clouds,setClouds\]=useState\(false\)/.test(page)&&/api\.current\?\.setClouds\(clouds\)/.test(page),'off by default, kept across a change of detail');
+ assert(/clouds=\{tiers\[quality\]\.clouds\?clouds:undefined\}/.test(page)&&/p\.clouds!==undefined&&<button aria-pressed=\{p\.clouds\}[^\n]*>Clouds<\/button>/.test(panels),'a Clouds toggle in More, where the detail setting has clouds');}
+console.log(`Passed: cumulus from ${CLOUDS.base} to ${CLOUDS.top} m covering ${CLOUDS.coverage*100}% of the sky, drifting ${speed.toFixed(1)} m/s with the breeze; ${(row(10)*100).toFixed(0)}% of the sky texture's rows for the lowest 10°; cloud shadows ${CLOUDS.shadow.span/1000} km across at ${texel.toFixed(1)} m a texel; off by default, with a Clouds toggle in More.`);

@@ -166,7 +166,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  window.addEventListener('blur',away);window.addEventListener('focus',back);
  // Moving frames draw at the tier's motion scale, or Extreme's steered one; the first still frame is back at full
  // resolution.
- let drawnLow=false,drawnScale=1,sunSettle:ReturnType<typeof setTimeout>|undefined;const scaleFor=(moving:boolean)=>moving?(steer?.scale??tier.motionScale):1;
+ let drawnLow=false,drawnScale=1,sunSettle:ReturnType<typeof setTimeout>|undefined,cloudSettle:ReturnType<typeof setTimeout>|undefined;const scaleFor=(moving:boolean)=>moving?(steer?.scale??tier.motionScale):1;
  const sizePost=(moving:boolean)=>{const {width,height}=host.getBoundingClientRect();if(!width||!height)return;drawnLow=moving;drawnScale=scaleFor(moving);canvas.dataset.scale=String(drawnScale);post?.setSize(width,height,renderer.getPixelRatio()*drawnScale);};
  const changed=()=>{lastChange=performance.now();post?.reset();live?.reset();needsFrame=true;resting=false;};
  invalidate=changed;
@@ -379,6 +379,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   setLevel:(l:Level)=>{captures?.stop();leaveEyeLevel();const floorChanged=l!==level;level=l;applyState();if(floorChanged)controls.target.y=l==='basement'?-2:l==='upper'?3.1:1;rig.project();changed();},
   setRenovations:(state:RenovationState)=>{captures?.stop();renovations={...state};applyState();},
   setSun:(study:SunStudy):LightReading|undefined=>{if(!lighting)return;const r=lighting.apply(study);fitShadowToView();clearTimeout(sunSettle);sunSettle=setTimeout(()=>{bounce?.request();probes?.request();live?.relight();changed();},SUN_SETTLE);changed();return r;},
+  /** Clouds and their shadows on or off (Extreme); room reflections and the traced image follow the re-baked sky. */
+  setClouds:(on:boolean)=>{if(!lighting?.setClouds(on))return;clearTimeout(cloudSettle);cloudSettle=setTimeout(()=>{probes?.request();live?.relight();changed();},SUN_SETTLE);changed();},
   get lightReading(){return lighting?.reading;},
   /** A panel or dialog is open over the view (path tracing waits for it to close). */
   setInterface:(open:boolean)=>{interfaceOpen=open;},
@@ -389,7 +391,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   snapshot:rig.snapshot,
   restore:(s:Parameters<typeof rig.restore>[0])=>{rig.restore(s);changed();},
   dispose:()=>{
-   disposed=true;cancelAnimationFrame(frame);perf?.dispose();occlusion?.dispose();steer?.dispose();probes?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
+   disposed=true;cancelAnimationFrame(frame);perf?.dispose();occlusion?.dispose();steer?.dispose();probes?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);clearTimeout(cloudSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
    canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('wheel',wheel);canvas.removeEventListener('keydown',key);
    bake?.dispose();bounce?.dispose();clouds?.dispose();grass?.dispose();post?.dispose();lighting?.dispose();textures?.dispose();environment?.dispose();
    const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();

@@ -166,6 +166,8 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
    return changed;
   },
   get envPending(){return envDirty;},
+  /** Shows or clears the clouds (clouds.ts); the sky light follows once the sky is re-baked. False when nothing changed. */
+  setClouds:(on:boolean)=>{if(!clouds?.setEnabled(on))return false;cloudsAll=true;return true;},
   /** Moves the clouds with the breeze (clouds.ts). */
   drift:(seconds:number)=>clouds?.drift(seconds),
   /** Sunlight reaching the house through the clouds (0–1). */
