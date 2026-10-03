@@ -2,7 +2,7 @@ import * as T from 'three';
 import type {WebGLPathTracer} from 'three-gpu-pathtracer';
 import {atmosphere} from './atmosphere';
 import {initialCapture,type CaptureState} from './experience-data';
-import {largestFitting,photoSize} from './photo-size';
+import {fitPng,photoSize} from './photo-size';
 import type {Lighting} from './lighting';
 
 /** Photographs, panoramas, films and model export, plus optional breeze and sound. */
@@ -128,22 +128,15 @@ export function createCaptures(options:{
   maximum:(on:boolean)=>{stop();send({maximum:on});},
   breeze:(on:boolean)=>{air.breeze(on);send({breeze:on});},
   sound:async(on:boolean)=>{try{await air.sound(on);send({sound:on});}catch{send({sound:false,message:'Audio could not start in this browser.'});}},
-  /** Saves the photograph as a PNG; with `limit` (bytes), as the largest PNG within it (photo-size.ts, largestFitting),
-   * scaled down in full colour where the full image does not fit, its size in the file name. */
+  /** Saves the photograph as a PNG; with `limit` (bytes), as the largest PNG within it (photo-size.ts, fitPng), its size
+   * in the file name. */
   savePhoto:async(limit?:number)=>{
    if(!tracer||state.samples<1)return;
    tracer.renderSample();
    const name='reitweg-25-'+(state.render==='panorama'?'360-panorama':'photograph');
    if(!limit){canvas.toBlob(blob=>{if(blob)download(blob,name+'.png');});return;}
-   // A copy, taken before the drawing buffer is cleared: the photograph keeps refining while the encodings run.
-   const snapshot=document.createElement('canvas');snapshot.width=canvas.width;snapshot.height=canvas.height;snapshot.getContext('2d',{alpha:false})!.drawImage(canvas,0,0);
-   const encode=(scale:number)=>new Promise<{size:number;blob:Blob;width:number;height:number}>((resolve,reject)=>{
-    const width=Math.max(1,Math.round(snapshot.width*scale)),height=Math.max(1,Math.round(snapshot.height*scale)),c=document.createElement('canvas');c.width=width;c.height=height;
-    const context=c.getContext('2d',{alpha:false})!;context.imageSmoothingEnabled=true;context.imageSmoothingQuality='high';context.drawImage(snapshot,0,0,width,height);
-    c.toBlob(blob=>blob?resolve({size:blob.size,blob,width,height}):reject(new Error('PNG encoding failed')),'image/png');
-   });
-   const {result}=await largestFitting(limit,encode);
-   download(result.blob,`${name}-${result.width}x${result.height}.png`);
+   const fitted=await fitPng(canvas,limit);
+   download(fitted.blob,`${name}-${fitted.width}x${fitted.height}.png`);
   },
   get recording(){return recorder?.state==='recording';},
   get tracing(){return !!tracer;},

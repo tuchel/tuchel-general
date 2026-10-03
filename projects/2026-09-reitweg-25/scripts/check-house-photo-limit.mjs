@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {build} from 'esbuild';
-// "1 MB PNG" saves the photograph as the largest PNG that fits in 1 MB (1,000,000 bytes, under a mebibyte too): the
+// "1 MB PNG" saves the photograph, or the still image (Save image), as the largest PNG that fits in 1 MB (1,000,000 bytes, under a mebibyte too): the
 // full image when it fits, otherwise the image scaled down, in full colour, to the largest size whose PNG fits. The
 // size is found by encoding: a first guess from the bytes a pixel takes at full size, then halving the bracket.
 await build({entryPoints:['lib/house-model/photo-size.ts'],outdir:'tmp/photo-limit-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
@@ -23,11 +23,15 @@ for(const [w,h,perPixel,wobble] of [[1920,1200,2.2,0],[3840,2400,2.6,.03],[2048,
  assert(e.calls.length<=10,`${w} × ${h}: ${e.calls.length} encodings`);
 }
 
-// The wiring: the photograph is copied before the encodings (the live canvas keeps refining), scaled with smoothing,
-// without an alpha channel; the status bar offers it beside Save PNG.
-{const experience=fs.readFileSync('lib/house-model/experience.ts','utf8'),page=fs.readFileSync('components/studio/model/house-model.tsx','utf8');
- assert(/savePhoto:async\(limit\?:number\)=>/.test(experience)&&/largestFitting\(limit,/.test(experience),'a size-limited save');
- assert(/snapshot\.getContext\('2d'[^)]*\)!?\.drawImage\(canvas,0,0\)/.test(experience),'the photograph is copied before encoding');
- assert(/imageSmoothingQuality='high'/.test(experience)&&/alpha:false/.test(experience),'scaled with smoothing, no alpha channel');
- assert(/savePhoto\(PHOTO_LIMIT\)\}>1 MB PNG<\/button>/.test(page),'a 1 MB PNG button beside Save PNG');}
-console.log('Passed: a photograph that fits is saved as it is; one that does not is scaled to within 1% of the largest size whose PNG fits in 1,000,000 bytes, never over, in at most 10 encodings.');
+// The wiring: the image is copied before the encodings (the live canvas keeps drawing), scaled with smoothing, without
+// an alpha channel. The photograph's status bar offers it beside Save PNG; More offers it under Save image.
+{const read=f=>fs.readFileSync(f,'utf8'),size=read('lib/house-model/photo-size.ts'),experience=read('lib/house-model/experience.ts'),viewer=read('lib/house-model/viewer.ts');
+ const page=read('components/studio/model/house-model.tsx'),panels=read('components/studio/model/model-panels.tsx');
+ assert(/export async function fitPng\(source:HTMLCanvasElement,limit:number\)/.test(size)&&/largestFitting\(limit,/.test(size),'one size-limited encoder');
+ assert(/snapshot\.getContext\('2d'[^)]*\)!?\.drawImage\(source,0,0\);\n[^]*await/.test(size),'the image is copied before the first wait');
+ assert(/imageSmoothingQuality='high'/.test(size)&&/alpha:false/.test(size),'scaled with smoothing, no alpha channel');
+ assert(/savePhoto:async\(limit\?:number\)=>/.test(experience)&&/fitPng\(canvas,limit\)/.test(experience),'the photograph within a limit');
+ assert(/const saveImage=async\(limit\?:number\)=>/.test(viewer)&&/fitPng\(canvas,limit\)/.test(viewer),'the still image within a limit');
+ assert(/savePhoto\(PHOTO_LIMIT\)\}>1 MB PNG<\/button>/.test(page),'a 1 MB PNG button beside Save PNG');
+ assert(/onClick=\{\(\)=>p\.onSave\(PHOTO_LIMIT\)\}>Save image<small>1 MB PNG<\/small><\/button>/.test(panels)&&/onSave=\{limit=>\{setPanel\(null\);void api\.current\?\.saveImage\(limit\);\}\}/.test(page),'a 1 MB Save image row in More');}
+console.log('Passed: an image that fits is saved as it is; one that does not is scaled to within 1% of the largest size whose PNG fits in 1,000,000 bytes, never over, in at most 10 encodings.');

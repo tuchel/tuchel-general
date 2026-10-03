@@ -8,6 +8,7 @@ import {interiorRooms} from '@/lib/house-model/interior-data';
 import {sheets,mapMarkers,sheetOf,wholeViews,type Sheet} from '@/lib/house-model/view-map';
 import {sunDayEvents,clockLabel,studyDate,SUN_SITE,sunStudyReading} from '@/lib/house-model/sun-position';
 import type {Quality} from '@/lib/house-model/device-tier';
+import {PHOTO_LIMIT} from '@/lib/house-model/photo-size';
 
 export const floors:{id:Level;label:string;short:string}[]=[{id:'exterior',label:'Whole house',short:'House'},{id:'ground',label:'Ground floor',short:'Ground'},{id:'upper',label:'Upper floor',short:'Upper'},{id:'basement',label:'Basement',short:'Basement'}];
 export type ViewKey=Viewpoint|Place|`room:${string}`;
@@ -83,14 +84,16 @@ export type MoreActions={
  /** Extreme is offered on computers only. */
  computer:boolean;
  capture:CaptureState;heavy:boolean;eyeLevel:boolean;
- onSave:()=>void;onPhotograph:(panorama:boolean)=>void;onFilm:()=>void;onExport:()=>void;onBreeze:(on:boolean)=>void;onSound:(on:boolean)=>void;onAbout:()=>void;
+ /** `limit`: the largest PNG within that many bytes. */
+ onSave:(limit?:number)=>void;onPhotograph:(panorama:boolean)=>void;onFilm:()=>void;onExport:()=>void;onBreeze:(on:boolean)=>void;onSound:(on:boolean)=>void;onAbout:()=>void;
  /** Whether clouds are shown, where the detail setting has them (Extreme). */
  clouds?:boolean;onClouds:(on:boolean)=>void;
 };
 export function MorePanel(p:MoreActions){
  const realistic=p.quality!=='model',busy=p.capture.busy||p.capture.recording;
  return <div className="model-panel-body model-more">
-  <button className="model-row" onClick={p.onSave}>Save image<small>{p.heavy?'3840 px PNG':'twice the screen'}</small></button>
+  <button className="model-row" onClick={()=>p.onSave()}>Save image<small>{p.heavy?'3840 px PNG':'twice the screen'}</small></button>
+  <button className="model-row" title="The largest size that fits in 1 MB" onClick={()=>p.onSave(PHOTO_LIMIT)}>Save image<small>1 MB PNG</small></button>
   {realistic&&p.heavy&&<button className="model-row" disabled={busy} onClick={()=>p.onPhotograph(false)}>Photograph<small>path-traced light</small></button>}
   {realistic&&p.heavy&&<button className="model-row" disabled={busy||!p.eyeLevel} onClick={()=>p.onPhotograph(true)}>360° panorama<small>{p.eyeLevel?'from this view':'eye-level views only'}</small></button>}
   {realistic&&<button className="model-row" disabled={p.capture.busy} onClick={p.onFilm}>{p.capture.recording?'Finish film':'Film'}<small>20-second orbit</small></button>}
