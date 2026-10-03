@@ -11,6 +11,7 @@ import {viewpoints,regions,sourceNotes,photoChecks,planPoint,UPPER_PLAN_X_OFFSET
 import {interiorRooms} from '@/lib/house-model/interior-data';
 import {clockLabel,initialSunStudy,sunStudyReading} from '@/lib/house-model/sun-position';
 import {detectQuality,qualityFromParam,isPhone,tiers,type Quality} from '@/lib/house-model/device-tier';
+import {PHOTO_LIMIT} from '@/lib/house-model/photo-size';
 import type {HouseViewer} from '@/lib/house-model/viewer';
 
 type Panel='views'|'floor'|'changes'|'light'|'more';
@@ -146,7 +147,8 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
     </div>
    </div>
    {busy&&<div className="model-status" role="status"><div><strong>{capture.busy?'Preparing…':capture.render==='panorama'?'360° panorama':capture.render==='refining'?'Photograph':capture.recording?'Recording':'Model'}</strong><small>{capture.message}{capture.samples>0?` · ${capture.samples} samples`:''}</small></div>
-    {capture.samples>0&&<button onClick={()=>api.current?.captures?.savePhoto()}>Save PNG</button>}
+    {capture.samples>0&&<button onClick={()=>void api.current?.captures?.savePhoto()}>Save PNG</button>}
+    {capture.samples>0&&<button title="The largest size that fits in 1 MB" onClick={()=>void api.current?.captures?.savePhoto(PHOTO_LIMIT)}>1 MB PNG</button>}
     <button onClick={()=>capture.recording?api.current?.captures?.film():api.current?.captures?.stop()}>{capture.busy?'Cancel':capture.recording?'Finish':'Close'}</button>
    </div>}
    {panel&&<section className={'model-panel model-panel-'+panel} role="dialog" aria-label={panelTitles[panel]}>

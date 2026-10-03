@@ -170,6 +170,8 @@ body:has(.house-model-page) .topbar{display:none!important}
 .model-status strong{display:block;font-size:13px}
 .model-status small{display:block;color:#d9e2d5;font-size:12px}
 .model-status button{flex-shrink:0;min-height:36px;padding:6px 12px;border-radius:10px;border:1px solid #ffffff50;background:transparent;color:#fff;font-size:13px}
+/* Where the panel, at its widest, would reach the centred dock, it sits above the dock instead. */
+@media(min-width:768px) and (max-width:1210px){.model-status{bottom:96px}}
 .model-hint{position:absolute;z-index:2;left:18px;bottom:26px;font-size:12px;color:#3d4e41;text-shadow:0 1px 8px #fff}
 .model-loading,.model-error{position:absolute;inset:0;z-index:5;display:grid;place-content:center;justify-items:center;gap:12px;text-align:center;color:var(--model-accent);background:#dfe5e1}
 .model-loading svg{animation:model-pulse 1.4s ease-in-out infinite}
