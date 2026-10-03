@@ -20,6 +20,7 @@ import {createClouds} from './clouds';
 import {places,type Place,type CaptureState} from './experience-data';
 import {foliageMaterials,finishFoliage,drawTrees} from './foliage';
 import {createTreeOcclusion} from './tree-occlusion';
+import {createMotionResolution,type MotionResolution} from './motion-resolution';
 import {loadSurfaceTextures,finishSurfaces} from './surface-materials';
 import {bakeSkyVisibility} from './sky-visibility';
 import {bakeSunBounce} from './sun-bounce';
@@ -61,7 +62,11 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  canvas.setAttribute('aria-label','Interactive 3D model of Reitweg 25. Drag to orbit, pinch or scroll to zoom. Arrow keys rotate, plus and minus zoom, Home resets.');
  canvas.setAttribute('role','img');canvas.tabIndex=0;host.appendChild(canvas);
  // `?debug=perf`: what each pass costs the graphics card, what a frame costs the processor, how a trace progresses.
- const perf=new URLSearchParams(location.search).get('debug')==='perf'?createPerfReadout(renderer,host,{quality:tier.quality,motionScale:tier.motionScale}):undefined;
+ let steer:MotionResolution|undefined;
+ const perf=new URLSearchParams(location.search).get('debug')==='perf'?createPerfReadout(renderer,host,{quality:tier.quality,get motionScale(){return steer?.scale??tier.motionScale;}}):undefined;
+ // Extreme: moving frames at the largest scale that holds 60 frames a second, timed by the graphics card where the
+ // browser allows (the readout's own timers take it while it shows) and by the time between frames otherwise.
+ if(tier.steerMotion){const gl=renderer.getContext() as WebGL2RenderingContext;steer=createMotionResolution({gl,timer:perf?null:gl.getExtension('EXT_disjoint_timer_query_webgl2'),initial:tier.motionScale});}
  const timed=<R,>(label:string,work:()=>R):R=>perf?perf.time(label,work):work();
  const baked=(label:string,work:()=>boolean|undefined)=>perf?perf.baked(label,work):work();
  const scene=new T.Scene();scene.background=realistic?null:new T.Color('#edece5');
@@ -155,9 +160,10 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // graphics card. Returning carries on where they left off.
  let elsewhere=false;const away=()=>{elsewhere=true;},back=()=>{elsewhere=false;};
  window.addEventListener('blur',away);window.addEventListener('focus',back);
- // Moving frames draw at the tier's motion scale; the first still frame is back at full resolution.
- let drawnLow=false,sunSettle:ReturnType<typeof setTimeout>|undefined;const scaleFor=(moving:boolean)=>moving?tier.motionScale:1;
- const sizePost=(moving:boolean)=>{const {width,height}=host.getBoundingClientRect();if(!width||!height)return;drawnLow=moving;post?.setSize(width,height,renderer.getPixelRatio()*scaleFor(moving));};
+ // Moving frames draw at the tier's motion scale, or Extreme's steered one; the first still frame is back at full
+ // resolution.
+ let drawnLow=false,drawnScale=1,sunSettle:ReturnType<typeof setTimeout>|undefined;const scaleFor=(moving:boolean)=>moving?(steer?.scale??tier.motionScale):1;
+ const sizePost=(moving:boolean)=>{const {width,height}=host.getBoundingClientRect();if(!width||!height)return;drawnLow=moving;drawnScale=scaleFor(moving);canvas.dataset.scale=String(drawnScale);post?.setSize(width,height,renderer.getPixelRatio()*drawnScale);};
  const changed=()=>{lastChange=performance.now();post?.reset();live?.reset();needsFrame=true;resting=false;};
  invalidate=changed;
  const size=()=>{
@@ -295,12 +301,15 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   renderer.toneMappingExposure=lighting?lighting.exposure:.9;
   if(post){
    // A film or recording keeps full resolution throughout.
-   const low=tier.motionScale<1&&!still&&!captures?.recording&&!film;if(low!==drawnLow)sizePost(low);
+   const low=(tier.motionScale<1||!!steer)&&!still&&!captures?.recording&&!film;
+   if(low)steer?.start(now);else steer?.rest();
+   if(low!==drawnLow||scaleFor(low)!==drawnScale)sizePost(low);
    const jitter=still&&post.accumulated>0;
    if(jitter){const i=post.accumulated,size=renderer.getDrawingBufferSize(buffer);camera.setViewOffset(size.x,size.y,halton(i,2)-.5,halton(i,3)-.5,size.x,size.y);}
    if(motion&&captures?.breezing&&tier.photographic)renderer.shadowMap.needsUpdate=true;
    cullTrees(low);
    if(mirror)timed('mirror',()=>mirror.render());post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel});
+   if(low)steer?.finish(performance.now());
    if(jitter)camera.clearViewOffset();
   }else timed('scene',()=>renderer.render(scene,rig.camera));
   needsFrame=false;
@@ -367,7 +376,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   snapshot:rig.snapshot,
   restore:(s:Parameters<typeof rig.restore>[0])=>{rig.restore(s);changed();},
   dispose:()=>{
-   disposed=true;cancelAnimationFrame(frame);perf?.dispose();occlusion?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
+   disposed=true;cancelAnimationFrame(frame);perf?.dispose();occlusion?.dispose();steer?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
    canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('wheel',wheel);canvas.removeEventListener('keydown',key);
    bake?.dispose();bounce?.dispose();clouds?.dispose();grass?.dispose();post?.dispose();lighting?.dispose();textures?.dispose();environment?.dispose();
    const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
