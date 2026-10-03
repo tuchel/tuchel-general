@@ -23,3 +23,15 @@ export async function largestFitting<E extends {size:number}>(limit:number,encod
   guess=fits?(fits.scale+over)/2:guess*Math.sqrt(limit/result.size)*.97;
  }
 }
+/** `source` as the largest PNG within `limit` bytes (largestFitting): the full image when it fits, otherwise scaled down
+ * in full colour, smoothed, without an alpha channel. It is copied before the first wait, so a WebGL canvas is read
+ * before its drawing buffer is cleared and may keep drawing while the encodings run. */
+export async function fitPng(source:HTMLCanvasElement,limit:number){
+ const snapshot=document.createElement('canvas');snapshot.width=source.width;snapshot.height=source.height;snapshot.getContext('2d',{alpha:false})!.drawImage(source,0,0);
+ const encode=(scale:number)=>new Promise<{size:number;blob:Blob;width:number;height:number}>((resolve,reject)=>{
+  const width=Math.max(1,Math.round(snapshot.width*scale)),height=Math.max(1,Math.round(snapshot.height*scale)),c=document.createElement('canvas');c.width=width;c.height=height;
+  const context=c.getContext('2d',{alpha:false})!;context.imageSmoothingEnabled=true;context.imageSmoothingQuality='high';context.drawImage(snapshot,0,0,width,height);
+  c.toBlob(blob=>blob?resolve({size:blob.size,blob,width,height}):reject(new Error('PNG encoding failed')),'image/png');
+ });
+ return (await largestFitting(limit,encode)).result;
+}

@@ -17,6 +17,7 @@ import {addAlbedoOutput} from './albedo-pass';
 import {createPoolReflection} from './pool-reflection';
 import {hasShaderFeature,materialsOf} from './shader-features';
 import {createClouds} from './clouds';
+import {fitPng} from './photo-size';
 import {places,type Place,type CaptureState} from './experience-data';
 import {foliageMaterials,finishFoliage,drawTrees} from './foliage';
 import {createTreeOcclusion} from './tree-occlusion';
@@ -357,20 +358,25 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  };
  size();view('courtyard',true);frame=requestAnimationFrame(render);
 
- const saveImage=async()=>{
+ /** A still at four thousand pixels as a PNG; with `limit` (bytes), as the largest PNG within it (photo-size.ts, fitPng),
+  * its size in the file name. */
+ const saveImage=async(limit?:number)=>{
   captures?.stop();
   const cssSize=renderer.getSize(new T.Vector2()),ratio=renderer.getPixelRatio();
   // Four thousand pixels on computers; about twice the screen on phones, within their memory.
   const longest=Math.max(cssSize.x,cssSize.y),scale=Math.min(3840,tier.photographic?3840:2560)/longest;
   const w=Math.round(cssSize.x*scale),h=Math.round(cssSize.y*scale);
+  const name='reitweg-25-'+(realistic?'detailed':'model');let saving:Promise<{blob:Blob|null;file:string}>|undefined;
   try{
    renderer.outputColorSpace=T.SRGBColorSpace;renderer.setPixelRatio(1);renderer.setSize(w,h,false);post?.setSize(w,h,1);
    cullTrees(false);
    if(post){for(let i=0;i<Math.max(8,tier.refineFrames);i++){if(i)camera.setViewOffset(w,h,halton(i,2)-.5,halton(i,3)-.5,w,h);mirror?.render();post.render(true,lighting?lighting.exposure:.9,indoorOf(room),{eyeLevel:rig.eyeLevel});camera.clearViewOffset();}}
    else renderer.render(scene,rig.camera);
-   const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/png'));
-   if(blob){const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='reitweg-25-'+(realistic?'detailed':'model')+'.png';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
+   // Both encoders copy the canvas at once, so the view returns to its own size while they work.
+   saving=limit?fitPng(canvas,limit).then(f=>({blob:f.blob,file:`${name}-${f.width}x${f.height}.png`})):new Promise(resolve=>canvas.toBlob(blob=>resolve({blob,file:name+'.png'}),'image/png'));
   }finally{renderer.setPixelRatio(ratio);renderer.setSize(cssSize.x,cssSize.y,false);post?.setSize(cssSize.x,cssSize.y,ratio);changed();}
+  const saved=await saving;
+  if(saved?.blob){const url=URL.createObjectURL(saved.blob),link=document.createElement('a');link.href=url;link.download=saved.file;link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
  };
 
  return {

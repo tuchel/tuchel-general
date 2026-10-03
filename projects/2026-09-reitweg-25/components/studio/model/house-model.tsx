@@ -158,7 +158,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
     {panel==='changes'&&<div className="model-panel-body"><RenovationControls value={changes} onChange={setChanges} onFocus={focusRenovation} level={level} ready={ready&&!failed}/></div>}
     {panel==='light'&&<LightPanel day={sun.day} minutes={sun.minutes} onChange={(day,minutes)=>setSun({day,minutes})}/>}
     {panel==='more'&&<MorePanel quality={quality} detected={detected} computer={computer} onQuality={chooseQuality} capture={capture} heavy={tiers[quality].photographic} eyeLevel={!!place} clouds={tiers[quality].clouds?clouds:undefined} onClouds={setClouds}
-     onSave={()=>{setPanel(null);void api.current?.saveImage();}} onPhotograph={pano=>{setPanel(null);void api.current?.captures?.photograph(pano);}} onFilm={()=>{setPanel(null);if(place)chooseView('courtyard');api.current?.captures?.film();}}
+     onSave={limit=>{setPanel(null);void api.current?.saveImage(limit);}} onPhotograph={pano=>{setPanel(null);void api.current?.captures?.photograph(pano);}} onFilm={()=>{setPanel(null);if(place)chooseView('courtyard');api.current?.captures?.film();}}
      onExport={()=>{setPanel(null);void api.current?.captures?.exportModel();}} onBreeze={on=>api.current?.captures?.breeze(on)} onSound={on=>void api.current?.captures?.sound(on)} onAbout={()=>{setPanel(null);setAbout(true);}}/>}
    </section>}
    {place&&touch&&ready&&!panel&&<WalkJoysticks onChange={(move,look)=>api.current?.joystick(move,look)}/>}
