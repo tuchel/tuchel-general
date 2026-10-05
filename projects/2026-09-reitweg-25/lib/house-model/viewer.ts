@@ -31,6 +31,7 @@ import {eyeLevelGrass} from './grass';
 import {createWalker,type WalkInput} from './walk';
 import {tierFor,type Quality} from './device-tier';
 import {createPerfReadout} from './perf-readout';
+import {neighborHouses} from './neighbors';
 import {renovationState,type RenovationState} from './renovation-data';
 import {viewpoints,type Level,type Region,type Viewpoint} from './site-data';
 
@@ -92,8 +93,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const foliage=realistic?foliageMaterials(tier.trees):undefined;
  const setting=realistic?landscapeContext({foliage,density:tier.farWoodland}):undefined;
  const model=buildHouseModel(realistic,setting?.group,foliage,tier.cars==='none'?false:options.cars);scene.add(model.root);
- const stageGeometry=terrainWithPoolOpening(groundOpenings());
- if(realistic){const p=stageGeometry.attributes.position;for(let i=0;i<p.count;i++)p.setY(i,-5*T.MathUtils.smoothstep(p.getX(i),55,140));stageGeometry.computeVertexNormals();}
+ const stageGeometry=terrainWithPoolOpening(groundOpenings()),terrain=(x:number)=>realistic?-5*T.MathUtils.smoothstep(x,55,140):0;
+ if(realistic){const p=stageGeometry.attributes.position;for(let i=0;i<p.count;i++)p.setY(i,terrain(p.getX(i)));stageGeometry.computeVertexNormals();}
  const stageMaterial=new T.MeshStandardMaterial({color:realistic?'#a0b18d':'#edece5',roughness:1});if(realistic)stageMaterial.userData.photo='lawn';
  const stage=new T.Mesh(stageGeometry,stageMaterial);stage.position.y=realistic?-.035:-.53;stage.receiveShadow=true;stage.name='surrounding-ground';scene.add(stage);
 
@@ -134,9 +135,12 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const probes=realistic&&tier.roomProbes?createRoomProbes(renderer,scene,[model.root],()=>batches.meshes.filter(b=>{for(let a:T.Object3D|null=b;a;a=a.parent)if(!a.visible)return false;return true;}),
   lens=>drawTrees(scene,[lens],2/ROOM_PROBES.size,lens)):undefined;
  let live:ReturnType<typeof createLiveTrace>|undefined=undefined;
+ // The neighbors' buildings (neighbors.ts), built the first time they are shown; with the setting, outside only.
+ let neighbors:T.Mesh|undefined,neighborsOn=false;
+ const showNeighbors=()=>{if(neighbors)neighbors.visible=neighborsOn&&level==='exterior';};
  const applyState=()=>{
   model.setLevel(level);model.setRenovations(renovations);batches.sync(model.stateOf(level,renovations));
-  stage.visible=level!=='basement';renderer.shadowMap.needsUpdate=true;
+  stage.visible=level!=='basement';showNeighbors();renderer.shadowMap.needsUpdate=true;
   bake?.request();bounce?.request();probes?.request();live?.invalidate();invalidate();
  };
  applyState();
@@ -398,6 +402,12 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   setSun:(study:SunStudy):LightReading|undefined=>{if(!lighting)return;const r=lighting.apply(study);fitShadowToView();clearTimeout(sunSettle);sunSettle=setTimeout(()=>{bounce?.request();probes?.request();live?.relight();changed();},SUN_SETTLE);changed();return r;},
   /** Clouds and their shadows on or off (Extreme); room reflections and the traced image follow the re-baked sky. */
   setClouds:(on:boolean)=>{if(!lighting?.setClouds(on))return;clearTimeout(cloudSettle);cloudSettle=setTimeout(()=>{probes?.request();live?.relight();changed();},SUN_SETTLE);changed();},
+  /** The neighbors' buildings on or off; their shadows and the traced image follow. */
+  setNeighbors:(on:boolean)=>{
+   if(on===neighborsOn)return;neighborsOn=on;
+   if(on&&!neighbors){neighbors=neighborHouses(x=>stage.position.y+terrain(x));scene.add(neighbors);clouds?.shade([neighbors]);}
+   showNeighbors();renderer.shadowMap.needsUpdate=true;live?.invalidate();changed();
+  },
   get lightReading(){return lighting?.reading;},
   /** A panel or dialog is open over the view (path tracing waits for it to close). */
   setInterface:(open:boolean)=>{interfaceOpen=open;},

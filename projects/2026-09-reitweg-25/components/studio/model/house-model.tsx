@@ -42,7 +42,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
   return offeredState(ids);
  });
  // Clouds start off, so the sun's light reads alone while the time of day is scanned.
- const [sun,setSun]=useState(START),[clouds,setClouds]=useState(false),[capture,setCapture]=useState<CaptureState>(initialCapture);
+ const [sun,setSun]=useState(START),[clouds,setClouds]=useState(false),[neighbors,setNeighbors]=useState(false),[capture,setCapture]=useState<CaptureState>(initialCapture);
  // A place's caption is taken down once the walker leaves where it starts (the viewer reports it), until a place is
  // chosen again.
  const [wandered,setWandered]=useState(false);
@@ -91,6 +91,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
  useEffect(()=>{if(ready)api.current?.setRenovations(changes);},[ready,changes]);
  useEffect(()=>{if(ready)api.current?.setSun({enabled:true,...sun});},[ready,sun]);
  useEffect(()=>{if(ready)api.current?.setClouds(clouds);},[ready,clouds]);
+ useEffect(()=>{if(ready)api.current?.setNeighbors(neighbors);},[ready,neighbors]);
  // Extreme's path tracing waits while a panel or the About dialog is open, so menus stay quick.
  useEffect(()=>{if(ready)api.current?.setInterface(!!panel||about);},[ready,panel,about]);
  useEffect(()=>{
@@ -162,7 +163,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
     {panel==='floor'&&<FloorPanel level={level} onLevel={chooseLevel}/>}
     {panel==='changes'&&<div className="model-panel-body"><RenovationControls value={changes} onChange={setChanges} onFocus={focusRenovation} level={level} ready={ready&&!failed}/></div>}
     {panel==='light'&&<LightPanel day={sun.day} minutes={sun.minutes} onChange={(day,minutes)=>setSun({day,minutes})}/>}
-    {panel==='more'&&<MorePanel quality={quality} detected={detected} computer={computer} onQuality={chooseQuality} capture={capture} heavy={tiers[quality].photographic} eyeLevel={!!place} clouds={tiers[quality].clouds?clouds:undefined} onClouds={setClouds}
+    {panel==='more'&&<MorePanel quality={quality} detected={detected} computer={computer} onQuality={chooseQuality} capture={capture} heavy={tiers[quality].photographic} eyeLevel={!!place} clouds={tiers[quality].clouds?clouds:undefined} onClouds={setClouds} neighbors={neighbors} onNeighbors={setNeighbors}
      onSave={limit=>{setPanel(null);void api.current?.saveImage(limit);}} onPhotograph={pano=>{setPanel(null);void api.current?.captures?.photograph(pano);}} onFilm={()=>{setPanel(null);if(place)chooseView('courtyard');api.current?.captures?.film();}}
      onExport={()=>{setPanel(null);void api.current?.captures?.exportModel();}} onBreeze={on=>api.current?.captures?.breeze(on)} onSound={on=>void api.current?.captures?.sound(on)} onAbout={()=>{setPanel(null);setAbout(true);}}/>}
    </section>}
@@ -181,6 +182,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
    <div className="model-about-photos">{photoChecks.map(photo=><a key={photo.file} href={'/assets/'+photo.file} target="_blank" rel="noreferrer"><img loading="lazy" src={'/assets/'+photo.file} alt={photo.label}/><span>{photo.label}</span></a>)}</div>
    <ul>{sourceNotes.map(note=><li key={note}>{note}</li>)}
     <li>The garage’s cars are “2026 Tesla Model Y Performance” by BloxBloger (CC BY-NC 4.0) and “FREE 1975 Porsche 911 (930) Turbo” by Lionsharp Studios (CC BY 4.0), both from Sketchfab, scaled to their published lengths and compressed.</li>
+    <li>The neighbors’ buildings come from the Bavarian survey’s 3D building models (LoD2), © Bayerische Vermessungsverwaltung, geodaten.bayern.de, CC BY 4.0, shown as plain massing on the model’s ground.</li>
     <li>Surfaces use tileable textures generated to match the photographed cladding, roof slates, oak, limestone and lawn. Sunlight follows the calculated sun for the address; sky light inside rooms is precomputed from the building’s openings.</li></ul>
    <div className="button-row"><a href="/assets/expose.pdf#page=18" target="_blank" rel="noreferrer">Original exposé ↗</a><a href="/assets/house-model-source-notes.json" target="_blank" rel="noreferrer">Model assumptions ↗</a></div>
    <Dialog.Close className="btn">Back to the house</Dialog.Close>
