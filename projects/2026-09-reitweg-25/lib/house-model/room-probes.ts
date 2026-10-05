@@ -1,14 +1,17 @@
 import * as T from 'three';
 import {computeBoundsTree,acceleratedRaycast} from 'three-mesh-bvh';
 import {FullScreenQuad} from 'three/addons/postprocessing/Pass.js';
-import {interiorRooms} from './interior-data';
+import {interiorRooms,type InteriorRoom} from './interior-data';
 import {planPoint,UPPER_PLAN_X_OFFSET} from './site-data';
 import {addShaderFeature,after,before,materialsOf} from './shader-features';
 
 /** Reflections of the rooms themselves (Extreme). `rooms`: those that get one; `size`: each map's side; `height`: the
  * probe's height above the floor; `reach`: how far (m) a room's walls are looked for. */
-export const ROOM_PROBES={rooms:['kitchen','dining','living','main-atrium','bedroom','upper-bedroom'],size:256,height:1.45,reach:12};
-export const probeRooms=()=>ROOM_PROBES.rooms.map(id=>interiorRooms.find(r=>r.id===id)!);
+export const ROOM_PROBES={rooms:['kitchen','dining','living','main-atrium','bedroom','upper-bedroom','garage'],size:256,height:1.45,reach:12};
+type ProbeRoom=Pick<InteriorRoom,'id'|'level'|'center'>;
+/** Rooms reflected without a place on the Views map: the garage, between the two cars' bays (garage-cars.ts). */
+const PROBE_ONLY:ProbeRoom[]=[{id:'garage',level:'ground',center:[252,657]}];
+export const probeRooms=():ProbeRoom[]=>ROOM_PROBES.rooms.map(id=>interiorRooms.find(r=>r.id===id)??PROBE_ONLY.find(r=>r.id===id)!);
 
 /** Octahedral layout of directions over a square, y up: the upper half sphere fills the inner diamond. */
 export function octEncode(d:T.Vector3){
@@ -92,6 +95,10 @@ export function createRoomProbes(renderer:T.WebGLRenderer,scene:T.Scene,receiver
       vec3 far=max((uRoomMax[i]-vRoomWorld)/roomR,(uRoomMin[i]-vRoomWorld)/roomR);
       vec3 seen=normalize(vRoomWorld+roomR*min(min(far.x,far.y),far.z)-uRoomCentre[i]);
       radiance=textureLod(uRoomMaps,vec3(roomOct(seen),float(i)),sqrt(material.roughness)*${lods.toFixed(1)}).rgb*envMapIntensity;
+      // A clear coat (car paint) reflects the room too, as sharp as its own roughness.
+      #ifdef USE_CLEARCOAT
+      clearcoatRadiance=textureLod(uRoomMaps,vec3(roomOct(seen),float(i)),sqrt(material.clearcoatRoughness)*${lods.toFixed(1)}).rgb*envMapIntensity;
+      #endif
       break;
      }
     }
