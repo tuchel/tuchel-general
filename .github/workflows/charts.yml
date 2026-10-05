@@ -1,0 +1,40 @@
+name: Chart kit
+
+on:
+  pull_request:
+    paths:
+      - 'shared/charts/**'
+      - '**/src/figures.tsx'
+      - '.github/workflows/charts.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'shared/charts/**'
+      - '**/src/figures.tsx'
+      - '.github/workflows/charts.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: shared/charts
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: shared/charts/package-lock.json
+
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Kit tests
+        run: npm test
+      - name: Figure gate (overlaps at rest, 11 px floor, takeaways)
+        run: npm run check

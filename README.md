@@ -2,7 +2,7 @@
 
 Personal monorepo for projects and ideas that do not warrant their own repository.
 
-Operator schema: [`AGENTS.md`](AGENTS.md) (already in agent context). Work lives under [`projects/`](projects/).
+Operator schema: [`AGENTS.md`](AGENTS.md) (already in agent context). Work lives under [`projects/`](projects/). Apps share one chart kit: [`shared/charts/`](shared/charts/README.md).
 
 ## Live projects
 
