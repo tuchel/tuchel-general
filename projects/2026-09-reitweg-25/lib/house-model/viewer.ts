@@ -40,10 +40,15 @@ export type ViewerOptions={
  /** The viewer asks to leave an eye-level view (Escape) or reset (Home). */
  onRequest?:(request:'exit'|'reset')=>void;
  onHeading?:(degrees:number)=>void;
+ /** True once the walker has left the start of an eye-level place (WANDER), where its caption no longer applies; false
+  * on entering a place. */
+ onWander?:(away:boolean)=>void;
  onMaterials?:(status:'loading'|'ready')=>void;
 };
 /** A dragged sun re-traces bounced light and the traced scene once it has been still this long (ms). */
 const SUN_SETTLE=150;
+/** How far (m) the walker goes from where a place starts before its caption is taken down. */
+const WANDER=1;
 const halton=(i:number,b:number)=>{let f=1,r=0;while(i>0){f/=b;r+=f*(i%b);i=Math.floor(i/b);}return r;};
 const SITE_CENTER=new T.Vector3(-5,0,8),SITE_RADIUS=70;
 
@@ -136,7 +141,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  clouds?.shade([scene]);
  // Walking at eye level: W A S D (Shift to run) on computers, the joysticks on phones.
  const walker=createWalker(rig.lens,()=>[...batches.meshes,stage]),walkInput:WalkInput={forward:0,strafe:0,run:false},lookRate={x:0,y:0};
- const walkAnchor=new T.Vector3(),skyAnchor=new T.Vector3();let joystick=false,room=1,roomTarget=1;
+ const walkAnchor=new T.Vector3(),skyAnchor=new T.Vector3(),placeStart=new T.Vector3();let joystick=false,room=1,roomTarget=1,wandered=false;
 
  // Extreme: trees the house hides are counted right after the scene is drawn, and left out of the next frames.
  const occlusion=realistic&&tier.treeOcclusion?createTreeOcclusion(renderer.getContext() as WebGL2RenderingContext,scene):undefined;
@@ -199,7 +204,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   captures?.stop();
   if(key in places){
    const p=places[key as Place];place=key as Place;
-   rig.enterEyeLevel(new T.Vector3(...p.position),new T.Vector3(...p.target));walker.reset();walkAnchor.copy(rig.lens.position);
+   rig.enterEyeLevel(new T.Vector3(...p.position),new T.Vector3(...p.target));walker.reset();walkAnchor.copy(rig.lens.position);placeStart.copy(rig.lens.position);wandered=false;options.onWander?.(false);
    room=roomTarget=roomExposure(walker.openness());skyAnchor.copy(rig.lens.position);lighting?.setRoom(room);fitShadowToView();if(grass){grass.showAround(rig.lens.position);live?.invalidate();}fadeIn();
    canvas.setAttribute('aria-label','Eye-level view. W, A, S and D walk; Shift runs. Drag or use arrow keys to look around. Pinch or scroll to zoom. Escape returns to the overview.');
   }else{
@@ -273,6 +278,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(rig.eyeLevel){
    if(lookRate.x||lookRate.y){rig.lookBy(lookRate.x*delta*1.9,lookRate.y*delta*1.3);moving=true;}
    if(walker.step(delta,walkInput)){moving=true;
+    if(!wandered&&rig.lens.position.distanceTo(placeStart)>WANDER){wandered=true;options.onWander?.(true);}
     // Keep shadows and near grass centred on the walker, refreshed every few metres.
     if(rig.lens.position.distanceTo(walkAnchor)>4){walkAnchor.copy(rig.lens.position);fitShadowToView();if(grass){grass.showAround(rig.lens.position);live?.invalidate();}}
     if(rig.lens.position.distanceTo(skyAnchor)>.5){skyAnchor.copy(rig.lens.position);roomTarget=roomExposure(walker.openness());}}

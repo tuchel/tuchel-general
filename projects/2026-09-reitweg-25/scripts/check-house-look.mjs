@@ -35,7 +35,7 @@ const bounce=fs.readFileSync('lib/house-model/sun-bounce-core.ts','utf8'),reflec
  assert(/ColorManagement\.define\(\{\[DisplayP3ColorSpace\]:DisplayP3ColorSpaceImpl\}\)/.test(viewer)&&/renderer\.outputColorSpace=wide\?DisplayP3ColorSpace:T\.SRGBColorSpace/.test(viewer),'the canvas draws in P3');
  // Photographs, recordings and saved images leave the canvas as files and video: they draw in sRGB.
  assert(/const space=wide&&!captures\?\.active&&!captures\?\.recording\?DisplayP3ColorSpace:T\.SRGBColorSpace;[^\n]*\n[^\n]*if\(captures\?\.tick\(now\)\)return;/.test(viewer),'captures draw in sRGB');
- assert(/const saveImage=async\(\)=>\{[^]*?renderer\.outputColorSpace=T\.SRGBColorSpace;/.test(viewer),'a saved image draws in sRGB');
+ assert(/const saveImage=async\([^)]*\)=>\{[^]*?renderer\.outputColorSpace=T\.SRGBColorSpace;/.test(viewer),'a saved image draws in sRGB');
  assert((post.match(/output\.uniforms\.uP3\.value=renderer\.outputColorSpace===DisplayP3ColorSpace\?1:0/g)??[]).length===2,'the live and the traced image alike');}
 // Timber and rug take the photographed hue and saturation (IMG_1502): honey-orange spruce, a pink rug.
 const {buildHouseModel}=await import('../tmp/look-check/build-model.mjs');const model=buildHouseModel(true),hsl=c=>c.getHSL({h:0,s:0,l:0},T.SRGBColorSpace);
