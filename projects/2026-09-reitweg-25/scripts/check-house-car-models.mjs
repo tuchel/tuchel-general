@@ -7,13 +7,13 @@ import {build} from 'esbuild';
 // quantized, WebP) and carries its maker's credit; each car is turned so its nose points along +x like the traced cars,
 // centred on its footprint with its wheels on the floor, scaled to its own published length (the 930's, not a modern
 // 911's), without the flat display props it was exported with, and read as plain floats by the batching and the path
-// tracer. A car whose file fails to load keeps its traced stand-in. Balanced shows no cars; Model keeps the traced ones.
+// tracer. A car whose file fails to load keeps its traced stand-in. Balanced and Model show no cars.
 await build({entryPoints:['lib/house-model/car-models.ts','lib/house-model/device-tier.ts','lib/house-model/build-model.ts'],outdir:'tmp/car-models-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
 const {CAR_MODELS,fitCar}=await import('../tmp/car-models-check/car-models.mjs');
 const {tiers}=await import('../tmp/car-models-check/device-tier.mjs'),{buildHouseModel}=await import('../tmp/car-models-check/build-model.mjs');
 
 // Which cars each preset shows.
-assert.deepEqual(Object.fromEntries(Object.entries(tiers).map(([q,t])=>[q,t.cars])),{extreme:'modelled',detailed:'modelled',balanced:'none',model:'traced'});
+assert.deepEqual(Object.fromEntries(Object.entries(tiers).map(([q,t])=>[q,t.cars])),{extreme:'modelled',detailed:'modelled',balanced:'none',model:'none'});
 assert.equal(buildHouseModel(true,undefined,undefined,false).root.getObjectByName('garage-cars'),undefined,'without cars, the garage is empty');
 
 // A glTF-like car as exported: nose along +z, y up, off-centre, one part quantized, a transmissive lamp lens, and a
@@ -53,4 +53,4 @@ assert.equal(CAR_MODELS.porsche.length,4.291);
  assert(/if\(cars!==false\)ground\.add\(garageCars\(cars\)\)/.test(model)&&/buildHouseModel\(realistic,setting\?\.group,foliage,tier\.cars==='none'\?false:options\.cars\)/.test(viewer),'threaded through the house build');
  assert(/tiers\[quality\]\.cars==='modelled'\?import\('@\/lib\/house-model\/car-models'\)/.test(page)&&/\.catch\(/.test(page),'loaded for the photographic presets, falling back on failure');
  assert(/BloxBloger/.test(page)&&/Lionsharp Studios/.test(page),'credited in About this model');}
-console.log(`Passed: a modelled car turns nose-first along +x, sits centred with its wheels on the floor at its published length (Model Y ${CAR_MODELS.modelY.length} m, 930 ${CAR_MODELS.porsche.length} m), drops its ground props and reads as plain floats; both files are under 3.5 MB, credited and decodable; Detailed and Extreme load them before the house is built and keep a traced car whose file fails; Balanced shows none.`);
+console.log(`Passed: a modelled car turns nose-first along +x, sits centred with its wheels on the floor at its published length (Model Y ${CAR_MODELS.modelY.length} m, 930 ${CAR_MODELS.porsche.length} m), drops its ground props and reads as plain floats; both files are under 3.5 MB, credited and decodable; Detailed and Extreme load them before the house is built and keep a traced car whose file fails; Balanced and Model show none.`);

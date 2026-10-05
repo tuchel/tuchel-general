@@ -29,14 +29,15 @@ export type TierSettings={
  scanned:boolean;
  /** Resolution of moving frames relative to still ones (1: the same). */
  motionScale:number;
- /** The garage's cars: modelled (car-models.ts), the traced stand-ins (garage-cars.ts), or none. */
- cars:'modelled'|'traced'|'none';
+ /** The garage's cars: modelled (car-models.ts) or none. A modelled car whose file fails keeps its traced stand-in
+  * (garage-cars.ts). */
+ cars:'modelled'|'none';
 };
 export const tiers:Record<Quality,TierSettings>={
  extreme:{quality:'extreme',bounces:4,treeOcclusion:true,steerMotion:true,roomProbes:true,pixelRatio:3,samples:4,shadowSize:4096,ao:true,bloom:true,refineFrames:32,textureSize:1024,farWoodland:1,grass:true,skyBake:true,photographic:true,sunBounce:32,trees:'leaves',liveTrace:true,lens:true,clouds:true,poolMirror:true,scanned:true,motionScale:.7,cars:'modelled'},
  detailed:{quality:'detailed',bounces:1,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:2,samples:4,shadowSize:4096,ao:true,bloom:true,refineFrames:24,textureSize:1024,farWoodland:1,grass:true,skyBake:true,photographic:true,sunBounce:32,trees:'leaves',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,motionScale:.7,cars:'modelled'},
  balanced:{quality:'balanced',bounces:1,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:1.5,samples:2,shadowSize:2048,ao:true,bloom:false,refineFrames:8,textureSize:512,farWoodland:.45,grass:false,skyBake:true,photographic:false,sunBounce:24,trees:'hybrid',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,motionScale:1,cars:'none'},
- model:{quality:'model',bounces:1,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:1.75,samples:4,shadowSize:2048,ao:false,bloom:false,refineFrames:0,textureSize:512,farWoodland:0,grass:false,skyBake:false,photographic:false,sunBounce:0,trees:'hybrid',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,motionScale:1,cars:'traced'},
+ model:{quality:'model',bounces:1,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:1.75,samples:4,shadowSize:2048,ao:false,bloom:false,refineFrames:0,textureSize:512,farWoodland:0,grass:false,skyBake:false,photographic:false,sunBounce:0,trees:'hybrid',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,motionScale:1,cars:'none'},
 };
 /** The settings a viewer runs with. Detailed on a phone keeps the scene, materials and light, but fits a phone
  * browser's graphics memory: a 2048 shadow map and 2× multisampling need about 160 MB less at phone size. Extreme is
