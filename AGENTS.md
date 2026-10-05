@@ -57,6 +57,8 @@ Test: delete any phrase a stranger would have to ask you to explain.
 
 Read [`skills/tufte design/SKILL.md`](skills/tufte%20design/SKILL.md). Pass the 7-question test there. Open the reference files only for a new dense display.
 
+Build app charts with [`shared/charts/`](shared/charts/README.md) and follow its rules. No standalone SVG figures.
+
 ## Git & autonomy
 
 Solo repo. Feature branches off `main`; never push `main`. `cursor/{topic}` agent, `tuchel/{topic}` human. Lowercase. One PR per logical change. Agent may commit and push. Fix failing CI on the same branch.

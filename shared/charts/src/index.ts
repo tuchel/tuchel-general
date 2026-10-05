@@ -1,0 +1,14 @@
+export { Figure, type FigureProps, type HeadlinePart, type KeyItem, type DataTable, type Takeaways } from './figure/Figure.tsx';
+export { Segmented, type Option } from './figure/Segmented.tsx';
+export { useFigure, useEmphasis, timingFor, type Tip, type RenderMode } from './figure/context.ts';
+export { useFocusable } from './figure/focus.ts';
+export { Bars, Dots, Texts, Rules, Line, type Bar, type Dot, type Label, type Rule, type LineSpec } from './marks/marks.tsx';
+export { AxisX, AxisY } from './marks/axes.tsx';
+export { Crossfade } from './motion/crossfade.tsx';
+export { Ticker, TickerText } from './motion/ticker.tsx';
+export { useKeyedTween, useTween, resample, interpolateValue } from './motion/tween.ts';
+export { useStillMotion } from './motion/env.ts';
+export { measure, wrap, labelBox, setChartFace, chartFace, type Face, type TextStyle } from './measure.ts';
+export { c, MOTION, TYPE, COLOR, type ColorName } from './tokens.ts';
+export * from './placement.ts';
+export * as d3 from '../vendor/d3.js';
