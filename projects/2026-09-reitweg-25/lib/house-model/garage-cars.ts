@@ -289,8 +289,9 @@ export function buildCar(s:CarSpec,m=carMaterials(s)){
 /** `models`: modelled cars (car-models.ts) that stand in a bay in place of its traced car. */
 export function garageCars(models:CarModels={}){
  const group=new T.Group();group.name='garage-cars';
- // Bays follow the two garage doors; both cars stand nose-in.
- for(const [spec,px,pz,model] of [[teslaModelY,257,603,models.modelY],[porsche911,247,711,models.porsche]] as [CarSpec,number,number,T.Object3D|undefined][]){
+ // Bays follow the two garage doors; both cars stand nose-in. The south bay has the more room beside it (1.80 m from
+ // its centre line to the wall, against 1.11 m), so the wider Model Y parks there.
+ for(const [spec,px,pz,model] of [[teslaModelY,247,711,models.modelY],[porsche911,257,603,models.porsche]] as [CarSpec,number,number,T.Object3D|undefined][]){
   const car=model??buildCar(spec),p=planPoint(px,pz);car.position.set(p[0],.16,p[1]);car.rotation.y=-.1;group.add(car);
  }
  return group;

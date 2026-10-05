@@ -8,13 +8,19 @@ import {build} from 'esbuild';
 // centred on its footprint with its wheels on the floor, scaled to its own published length (the 930's, not a modern
 // 911's), without the flat display props it was exported with, and read as plain floats by the batching and the path
 // tracer. A car whose file fails to load keeps its traced stand-in. Balanced and Model show no cars.
-await build({entryPoints:['lib/house-model/car-models.ts','lib/house-model/device-tier.ts','lib/house-model/build-model.ts'],outdir:'tmp/car-models-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
+await build({entryPoints:['lib/house-model/car-models.ts','lib/house-model/device-tier.ts','lib/house-model/build-model.ts','lib/house-model/site-data.ts'],outdir:'tmp/car-models-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
 const {CAR_MODELS,fitCar}=await import('../tmp/car-models-check/car-models.mjs');
 const {tiers}=await import('../tmp/car-models-check/device-tier.mjs'),{buildHouseModel}=await import('../tmp/car-models-check/build-model.mjs');
 
 // Which cars each preset shows.
 assert.deepEqual(Object.fromEntries(Object.entries(tiers).map(([q,t])=>[q,t.cars])),{extreme:'modelled',detailed:'modelled',balanced:'none',model:'none'});
 assert.equal(buildHouseModel(true,undefined,undefined,false).root.getObjectByName('garage-cars'),undefined,'without cars, the garage is empty');
+// The Model Y, the wider car, parks in the south bay, which has 1.80 m beside its centre line against the north bay's
+// 1.11 m; the 911 in the north bay.
+{const {planPoint}=await import('../tmp/car-models-check/site-data.mjs'),cars=buildHouseModel(true).root.getObjectByName('garage-cars');
+ const at=name=>cars.children.find(c=>c.name.startsWith(name)).position,south=planPoint(247,711),north=planPoint(257,603);
+ assert(Math.abs(at('Tesla').x-south[0])<1e-6&&Math.abs(at('Tesla').z-south[1])<1e-6,'the Model Y in the south bay');
+ assert(Math.abs(at('Porsche').x-north[0])<1e-6&&Math.abs(at('Porsche').z-north[1])<1e-6,'the 911 in the north bay');}
 
 // A glTF-like car as exported: nose along +z, y up, off-centre, one part quantized, a transmissive lamp lens, and a
 // baked shadow plane on the ground.
