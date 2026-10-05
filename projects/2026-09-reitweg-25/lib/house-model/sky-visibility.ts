@@ -73,6 +73,10 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
      float skyVisible=mix(bounce,1.0,open);
      // Oak floors and warm plaster make bounced light warmer than the sky.
      iblIrradiance=iblIrradiance*open+overhead*bounce*vec3(1.08,.97,.84)*(1.0-open);irradiance*=skyVisible;radiance*=mix(1.0,skyVisible,0.85);
+     // A clear coat (car paint) sees as little of the sky indoors as the layer beneath it.
+     #ifdef USE_CLEARCOAT
+     clearcoatRadiance*=mix(1.0,skyVisible,0.85);
+     #endif
     }`);
   }});
  }});
