@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {build} from 'esbuild';
 await build({entryPoints:['lib/house-model/view-map.ts','lib/house-model/site-data.ts','lib/house-model/experience-data.ts'],outdir:'tmp/view-map-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm'});
 const {sheets,mapMarkers,MARKER,wholeViews}=await import('../tmp/view-map-check/view-map.mjs');
@@ -49,4 +50,9 @@ for(const width of [331,384,434]){
   }
  }
 }
+// Hidden for now, still built: the reference photographs in captions and the room and floor shortcuts above the map.
+{const panels=fs.readFileSync('components/studio/model/model-panels.tsx','utf8'),page=fs.readFileSync('components/studio/model/house-model.tsx','utf8');
+ assert(/export const SHOWN=\{referencePhotos:false,roomShortcuts:false\}/.test(panels),'both hidden');
+ assert(/\{SHOWN\.roomShortcuts&&!whole&&<div className="model-chips">/.test(panels),'the shortcuts follow the switch');
+ assert(/\{SHOWN\.referencePhotos&&place&&<a /.test(page)&&/\{SHOWN\.referencePhotos&&room&&<div className="model-caption-photos">/.test(page),'the caption photographs follow the switch');}
 console.log('Passed: eight eye-level places and three side overviews on the site and floor plans, registered to the model, pointing the way each view looks, with labels clear of one another at 331–434 px.');
