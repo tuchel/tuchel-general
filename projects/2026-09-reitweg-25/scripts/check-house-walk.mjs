@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import * as T from 'three';
 import {build} from 'esbuild';
@@ -79,4 +80,10 @@ const openness=position=>{camera.position.copy(position);camera.updateMatrixWorl
 const inside=roomExposure(openness(new T.Vector3(lx,1.65,lz))),outside=roomExposure(openness(east));
 assert(inside>3.5,`the family room keeps the room exposure (×${inside.toFixed(2)})`);
 assert(outside<1.1,`the terrace is exposed as outdoors (×${outside.toFixed(2)})`);
+// A place's caption describes where it starts: once the walker is a metre from there it no longer applies and is
+// hidden, until a place is chosen again.
+{const read=f=>fs.readFileSync(f,'utf8'),viewer=read('lib/house-model/viewer.ts'),page=read('components/studio/model/house-model.tsx');
+ const wander=+(viewer.match(/const WANDER=([\d.]+)/)?.[1]??NaN);assert(wander>=.5&&wander<=1.5,`the caption goes after ${wander} m`);
+ assert(/placeStart\.copy\(rig\.lens\.position\);wandered=false;options\.onWander\?\.\(false\);/.test(viewer)&&/if\(!wandered&&rig\.lens\.position\.distanceTo\(placeStart\)>WANDER\)\{wandered=true;options\.onWander\?\.\(true\);\}/.test(viewer),'the viewer reports leaving the start of a place');
+ assert(/onWander:setWandered/.test(page)&&/caption&&!selected&&!\(place&&wandered\)/.test(page),'the page hides the caption until a place is chosen again');}
 console.log(`Passed: the curbside, courtyard and master bedroom places start on their floors at a 2.1 m/s pace; the garden door, hall doors and front gate let the walker through, a wall stops it (${south.z.toFixed(2)} m), and the main stair reaches the upper floor (feet at ${(top.y-1.65).toFixed(2)} m) and the basement (feet at ${(down.y-1.65).toFixed(2)} m); the family room keeps the room exposure (×${inside.toFixed(2)}) and the terrace is exposed as outdoors (×${outside.toFixed(2)}).`);

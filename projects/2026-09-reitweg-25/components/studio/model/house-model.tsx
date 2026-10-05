@@ -43,6 +43,9 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
  });
  // Clouds start off, so the sun's light reads alone while the time of day is scanned.
  const [sun,setSun]=useState(START),[clouds,setClouds]=useState(false),[capture,setCapture]=useState<CaptureState>(initialCapture);
+ // A place's caption is taken down once the walker leaves where it starts (the viewer reports it), until a place is
+ // chosen again.
+ const [wandered,setWandered]=useState(false);
  const [panel,setPanel]=useState<Panel|null>(null),[region,setRegion]=useState<Region|null>(null),[about,setAbout]=useState(false);
  // Touch screens walk with thumbsticks; keyboards with W A S D.
  const [touch]=useState(()=>typeof window!=='undefined'&&window.matchMedia('(pointer: coarse)').matches);
@@ -70,7 +73,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
    try{
     api.current=createHouseViewer(host.current,{
      quality,onSelect:r=>{setRegion(r);setPanel(null);},onReady:()=>setReady(true),onError:fail,onCapture:setCapture,onMaterials:setMaterials,
-     onHeading:deg=>{if(compass.current)compass.current.style.transform=`rotate(${deg}deg)`;},
+     onWander:setWandered,onHeading:deg=>{if(compass.current)compass.current.style.transform=`rotate(${deg}deg)`;},
      onRequest:()=>{const next=levelRef.current==='exterior'?'courtyard':'top';setView(next);setRegion(null);api.current?.view(next);},
     });
     if(saved.current&&quality!=='model'&&tiers[quality])api.current.restore(saved.current);
@@ -132,7 +135,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
    {failed&&<div className="model-error" role="alert"><h3>The 3D view couldn’t start.</h3><p>Reload the model, or open the original plans.</p><button className="btn" onClick={reloadPage}>Reload model</button>{onNavigate&&<button className="text-btn" onClick={()=>onNavigate('plans')}>Open the plans</button>}</div>}
    <div className="model-top">
     {onNavigate&&<button className="model-round model-back" aria-label="Back to the design studio" onClick={()=>onNavigate('studio')}><ArrowLeft size={20}/></button>}
-    {caption&&!selected&&<div className="model-caption" aria-live="polite"><strong>{caption.title}</strong>{caption.detail&&<span>{caption.detail}</span>}
+    {caption&&!selected&&!(place&&wandered)&&<div className="model-caption" aria-live="polite"><strong>{caption.title}</strong>{caption.detail&&<span>{caption.detail}</span>}
      {place&&!touch&&<small className="model-walk-hint">Walk with W A S D · Shift to run · drag to look</small>}
      {place&&<a href={'/assets/'+place.photo} target="_blank" rel="noreferrer">Reference photograph <ArrowUpRight size={13}/></a>}
      {room&&<div className="model-caption-photos">{room.photos.map((src,i)=><a key={src} href={src} target="_blank" rel="noreferrer"><img src={src} alt={`${room.label}, reference ${i+1}`} loading="lazy"/></a>)}</div>}
