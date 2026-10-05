@@ -1,6 +1,7 @@
 import * as T from 'three';
 import {MeshBVH} from 'three-mesh-bvh';
 import {planPoint} from './site-data';
+import type {CarModels} from './car-models';
 
 /** The two cars in the garage, a Porsche 911 Carrera GTS (992.2) and a Tesla Model Y Performance (2025), built to
  * published length, width, height, wheelbase and tyre sizes. Bodies are lofts through side and plan profiles traced
@@ -285,11 +286,12 @@ export function buildCar(s:CarSpec,m=carMaterials(s)){
  return car;
 }
 
-export function garageCars(){
+/** `models`: modelled cars (car-models.ts) that stand in a bay in place of its traced car. */
+export function garageCars(models:CarModels={}){
  const group=new T.Group();group.name='garage-cars';
  // Bays follow the two garage doors; both cars stand nose-in.
- for(const [spec,px,pz] of [[teslaModelY,257,603],[porsche911,247,711]] as [CarSpec,number,number][]){
-  const car=buildCar(spec),p=planPoint(px,pz);car.position.set(p[0],.16,p[1]);car.rotation.y=-.1;group.add(car);
+ for(const [spec,px,pz,model] of [[teslaModelY,257,603,models.modelY],[porsche911,247,711,models.porsche]] as [CarSpec,number,number,T.Object3D|undefined][]){
+  const car=model??buildCar(spec),p=planPoint(px,pz);car.position.set(p[0],.16,p[1]);car.rotation.y=-.1;group.add(car);
  }
  return group;
 }

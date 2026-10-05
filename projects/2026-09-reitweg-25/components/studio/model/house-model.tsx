@@ -68,11 +68,13 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
    setFellBack(quality);setReady(false);setQuality(lighter);
    const url=new URL(window.location.href);url.searchParams.set('quality',lighter);window.history.replaceState(null,'',url);
   };
-  import('@/lib/house-model/viewer').then(({createHouseViewer})=>{
+  // Detailed and Extreme show modelled cars, loaded beside the viewer's code so they are built in with the house.
+  const cars=tiers[quality].cars==='modelled'?import('@/lib/house-model/car-models').then(m=>m.loadCarModels()).catch(error=>{console.warn('Car models',error);return undefined;}):Promise.resolve(undefined);
+  Promise.all([import('@/lib/house-model/viewer'),cars]).then(([{createHouseViewer},carModels])=>{
    if(cancelled||!host.current)return;
    try{
     api.current=createHouseViewer(host.current,{
-     quality,onSelect:r=>{setRegion(r);setPanel(null);},onReady:()=>setReady(true),onError:fail,onCapture:setCapture,onMaterials:setMaterials,
+     quality,cars:carModels,onSelect:r=>{setRegion(r);setPanel(null);},onReady:()=>setReady(true),onError:fail,onCapture:setCapture,onMaterials:setMaterials,
      onWander:setWandered,onHeading:deg=>{if(compass.current)compass.current.style.transform=`rotate(${deg}deg)`;},
      onRequest:()=>{const next=levelRef.current==='exterior'?'courtyard':'top';setView(next);setRegion(null);api.current?.view(next);},
     });
@@ -178,6 +180,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
    <Dialog.Description>Plan-based geometry, the owner’s photographs and calculated sunlight. It is not a laser scan or a measured survey.</Dialog.Description>
    <div className="model-about-photos">{photoChecks.map(photo=><a key={photo.file} href={'/assets/'+photo.file} target="_blank" rel="noreferrer"><img loading="lazy" src={'/assets/'+photo.file} alt={photo.label}/><span>{photo.label}</span></a>)}</div>
    <ul>{sourceNotes.map(note=><li key={note}>{note}</li>)}
+    <li>The garage’s cars are “2026 Tesla Model Y Performance” by BloxBloger (CC BY-NC 4.0) and “FREE 1975 Porsche 911 (930) Turbo” by Lionsharp Studios (CC BY 4.0), both from Sketchfab, scaled to their published lengths and compressed.</li>
     <li>Surfaces use tileable textures generated to match the photographed cladding, roof slates, oak, limestone and lawn. Sunlight follows the calculated sun for the address; sky light inside rooms is precomputed from the building’s openings.</li></ul>
    <div className="button-row"><a href="/assets/expose.pdf#page=18" target="_blank" rel="noreferrer">Original exposé ↗</a><a href="/assets/house-model-source-notes.json" target="_blank" rel="noreferrer">Model assumptions ↗</a></div>
    <Dialog.Close className="btn">Back to the house</Dialog.Close>

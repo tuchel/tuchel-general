@@ -3,6 +3,7 @@ import {roofSlopeWithOpenings,roofLining} from './roof-openings';
 import {architecturalDetails} from './architectural-details';
 import {roofTrim} from './realism-details';
 import {garageCars} from './garage-cars';
+import type {CarModels} from './car-models';
 import {guestStair} from './guest-stair';
 import {buildGarden} from './garden';
 import {buildEntranceGarden} from './entrance-garden';
@@ -19,7 +20,7 @@ import {planPoint as p,sitePoint as s,plotOutline,treePositions,guestRoofFrame,U
 import {basementStairWell,hallStairWell,HALL_WELL,buildBasementStair,buildLightWells,BASEMENT_WINDOWS} from './site-openings';
 import {passable} from './walk';
 
-export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:ReturnType<typeof foliageMaterials>){
+export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:ReturnType<typeof foliageMaterials>,cars?:CarModels|false){
  const root=new T.Group(),ground=new T.Group(),upper=new T.Group(),basement=new T.Group(),roofs=new T.Group(),site=new T.Group(),trees=new T.Group();
  root.add(site,trees,ground,upper,basement,roofs);
  ground.name='ground-floor';upper.name='upper-floor';basement.name='basement';
@@ -229,7 +230,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  guestBasement.forEach((a,i)=>{const b=guestBasement[(i+1)%4];wall(basement,a[0],a[1],b[0],b[1],BASEMENT_WALL,-2.3);});
  {q=at(262,1074);const column=add(cylinderGeo,m.plaster,basement);column.scale.set(.15,BASEMENT_WALL,.15);column.position.set(q[0],-2.3+BASEMENT_WALL/2,q[1]);column.userData.base=-2.3;column.userData.height=BASEMENT_WALL;cutWalls.push(column);}
  furnishHouse(ground,upper,basement,material);
- ground.add(garageCars());
+ // `cars`: modelled cars for the garage's bays; false leaves the garage empty.
+ if(cars!==false)ground.add(garageCars(cars));
  const within=(x:number,z:number,points:number[][])=>{let inside=false;for(let i=0,j=points.length-1;i<points.length;j=i++){const [xi,zi]=points[i],[xj,zj]=points[j];if((zi>z)!==(zj>z)&&x<(xj-xi)*(z-zi)/(zj-zi)+xi)inside=!inside;}return inside;};
  const mainFootprint=[[W-.11,N-.11],[E+.11,N-.11],[E+.11,S+.11],[W-.11,S+.11]],indoors=(x:number,z:number)=>within(x,z,mainFootprint)||within(x,z,guestOutline);
  // Pitched roofs: the main pitch follows the upper plan's height lines; other heights are model assumptions.

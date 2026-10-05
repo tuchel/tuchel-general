@@ -18,6 +18,7 @@ import {createPoolReflection} from './pool-reflection';
 import {hasShaderFeature,materialsOf} from './shader-features';
 import {createClouds} from './clouds';
 import {fitPng} from './photo-size';
+import type {CarModels} from './car-models';
 import {places,type Place,type CaptureState} from './experience-data';
 import {foliageMaterials,finishFoliage,drawTrees} from './foliage';
 import {createTreeOcclusion} from './tree-occlusion';
@@ -43,6 +44,8 @@ export type ViewerOptions={
  /** True once the walker has left the start of an eye-level place (WANDER), where its caption no longer applies; false
   * on entering a place. */
  onWander?:(away:boolean)=>void;
+ /** Modelled cars for the garage (car-models.ts), loaded beforehand; the traced cars stand in for any missing. */
+ cars?:CarModels;
  onMaterials?:(status:'loading'|'ready')=>void;
 };
 /** A dragged sun re-traces bounced light and the traced scene once it has been still this long (ms). */
@@ -88,7 +91,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // Scene: house, setting and ground.
  const foliage=realistic?foliageMaterials(tier.trees):undefined;
  const setting=realistic?landscapeContext({foliage,density:tier.farWoodland}):undefined;
- const model=buildHouseModel(realistic,setting?.group,foliage);scene.add(model.root);
+ const model=buildHouseModel(realistic,setting?.group,foliage,tier.cars==='none'?false:options.cars);scene.add(model.root);
  const stageGeometry=terrainWithPoolOpening(groundOpenings());
  if(realistic){const p=stageGeometry.attributes.position;for(let i=0;i<p.count;i++)p.setY(i,-5*T.MathUtils.smoothstep(p.getX(i),55,140));stageGeometry.computeVertexNormals();}
  const stageMaterial=new T.MeshStandardMaterial({color:realistic?'#a0b18d':'#edece5',roughness:1});if(realistic)stageMaterial.userData.photo='lawn';
