@@ -20,7 +20,8 @@ assert(/const applyState=\(\)=>\{[^]*?live\?\.invalidate\(\)[^]*?\};/.test(viewe
 assert(/setSun:[^\n]*live\?\.relight\(\)/.test(viewer),'a new sun re-lights');
 assert(/still&&!refine&&!needsFrame&&level!=='upper'&&!captures\?\.active/.test(viewer),'traces only a settled view, never the upper-floor section or during a photograph');
 // The eye-level grass is placed around the walker; wherever it moves, the traced scene is rebuilt with it.
-assert.equal((viewer.match(/grass\.(showAround\(rig\.lens\.position\)|hide\(\));live\?\.invalidate\(\)/g)||[]).length,3,'grass moves rebuild the traced scene');
+assert.equal((viewer.match(/grass\.(showAround\(rig\.lens\.position\)|hide\(\));live\?\.invalidate\(\)/g)||[]).length,2,'grass shown or hidden rebuilds the traced scene');
+assert(/if\(grass\?\.step\(\)\)\{live\?\.invalidate\(\);/.test(viewer),'grass moved with the walker rebuilds it');
 // The interface comes first: tracing, and preparing its scene, waits until the view has rested a second with no panel
 // or dialog open, and the traced image is drawn a few times a second rather than every frame.
 assert(LIVE_TRACE.rest>=800&&LIVE_TRACE.present>=80,'a real rest before tracing; a few draws a second');
