@@ -283,8 +283,10 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    if(walker.step(delta,walkInput)){moving=true;
     if(!wandered&&rig.lens.position.distanceTo(placeStart)>WANDER){wandered=true;options.onWander?.(true);}
     // Keep shadows and near grass centred on the walker, refreshed every few metres.
-    if(rig.lens.position.distanceTo(walkAnchor)>4){walkAnchor.copy(rig.lens.position);fitShadowToView();if(grass){grass.showAround(rig.lens.position);live?.invalidate();}}
+    if(rig.lens.position.distanceTo(walkAnchor)>4){walkAnchor.copy(rig.lens.position);fitShadowToView();grass?.moveTo(rig.lens.position);}
     if(rig.lens.position.distanceTo(skyAnchor)>.5){skyAnchor.copy(rig.lens.position);roomTarget=roomExposure(walker.openness());}}
+   // The grass moves with the walker a few milliseconds a frame; the traced scene is rebuilt with it.
+   if(grass?.step()){live?.invalidate();changed();}
    // Exposure eases to the new surroundings over about a second, as eyes adjust walking in or out.
    if(Math.abs(roomTarget-room)>.005){room+=(roomTarget-room)*Math.min(1,delta*3);lighting?.setRoom(room);moving=true;}
   }
