@@ -1,0 +1,35 @@
+{
+  "name": "charts",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Chart kit: D3 scales and shapes, React SVG marks, and a motion layer. Apps import src/ directly; this package.json holds authoring tools only (checks, preview, capture, tests).",
+  "scripts": {
+    "metrics": "node bin/build-metrics.mjs",
+    "vendor": "node bin/build-vendor.mjs",
+    "check": "node bin/check-figures.mjs --all",
+    "test": "node --experimental-strip-types --no-warnings --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/d3-array": "^3.2.2",
+    "@types/d3-format": "^3.0.4",
+    "@types/d3-interpolate": "^3.0.4",
+    "@types/d3-scale": "^4.0.9",
+    "@types/d3-shape": "^3.2.0",
+    "@types/node": "^22.20.4",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "d3-array": "3.2.4",
+    "d3-format": "3.1.0",
+    "d3-interpolate": "3.0.1",
+    "d3-scale": "4.0.2",
+    "d3-shape": "3.2.0",
+    "esbuild": "0.24.2",
+    "fontkit": "2.0.4",
+    "playwright-core": "1.56.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "typescript": "^5.9.3"
+  }
+}
