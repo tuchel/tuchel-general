@@ -12,13 +12,16 @@ import {PHOTO_LIMIT} from '@/lib/house-model/photo-size';
 
 export const floors:{id:Level;label:string;short:string}[]=[{id:'exterior',label:'Whole house',short:'House'},{id:'ground',label:'Ground floor',short:'Ground'},{id:'upper',label:'Upper floor',short:'Upper'},{id:'basement',label:'Basement',short:'Basement'}];
 export type ViewKey=Viewpoint|Place|`room:${string}`;
+/** Built but hidden for now: the reference photographs in captions and the room and floor shortcuts above the Views
+ * map. Set either to true to show it again. */
+export const SHOWN={referencePhotos:false,roomShortcuts:false};
 
 export function ViewsPanel({level,view,onView}:{level:Level;view:ViewKey|null;onView:(v:ViewKey)=>void}){
  const rooms=interiorRooms.filter(r=>r.level===level),whole=level==='exterior';
  const [inside,setInside]=useState(()=>{const sheet=view?sheetOf(view):undefined;return sheet==='ground'||sheet==='upper';});
  const chip=(id:ViewKey,label:string)=><button key={id} className="model-chip" aria-pressed={view===id} onClick={()=>onView(id)}>{label}</button>;
  return <div className="model-panel-body">
-  {!whole&&<div className="model-chips">{[chip('top','Whole floor'),...rooms.map(r=>chip(`room:${r.id}`,r.label))]}</div>}
+  {SHOWN.roomShortcuts&&!whole&&<div className="model-chips">{[chip('top','Whole floor'),...rooms.map(r=>chip(`room:${r.id}`,r.label))]}</div>}
   <div className="view-map-tabs" role="tablist" aria-label="Map">
    <button role="tab" aria-selected={!inside} onClick={()=>setInside(false)}>Outside</button>
    <button role="tab" aria-selected={inside} onClick={()=>setInside(true)}>Inside</button>

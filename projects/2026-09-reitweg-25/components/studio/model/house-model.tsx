@@ -4,7 +4,7 @@ import {ArrowLeft,ArrowUpRight,Box,Camera,Layers,MoreHorizontal,Sun,Building2,X}
 import {Dialog} from 'radix-ui';
 import RenovationControls from './renovation-controls';
 import {WalkJoysticks} from './walk-joysticks';
-import {ViewsPanel,FloorPanel,LightPanel,MorePanel,floors,type ViewKey} from './model-panels';
+import {ViewsPanel,FloorPanel,LightPanel,MorePanel,floors,SHOWN,type ViewKey} from './model-panels';
 import {renovations,offeredState,type RenovationState,type RenovationId} from '@/lib/house-model/renovation-data';
 import {places,initialCapture,type Place,type CaptureState} from '@/lib/house-model/experience-data';
 import {viewpoints,regions,sourceNotes,photoChecks,planPoint,UPPER_PLAN_X_OFFSET,BASEMENT_PLAN_X_OFFSET,type Level,type Region,type Viewpoint} from '@/lib/house-model/site-data';
@@ -139,8 +139,8 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
     {onNavigate&&<button className="model-round model-back" aria-label="Back to the design studio" onClick={()=>onNavigate('studio')}><ArrowLeft size={20}/></button>}
     {caption&&!selected&&!(place&&wandered)&&<div className="model-caption" aria-live="polite"><strong>{caption.title}</strong>{caption.detail&&<span>{caption.detail}</span>}
      {place&&!touch&&<small className="model-walk-hint">Walk with W A S D · Shift to run · drag to look</small>}
-     {place&&<a href={'/assets/'+place.photo} target="_blank" rel="noreferrer">Reference photograph <ArrowUpRight size={13}/></a>}
-     {room&&<div className="model-caption-photos">{room.photos.map((src,i)=><a key={src} href={src} target="_blank" rel="noreferrer"><img src={src} alt={`${room.label}, reference ${i+1}`} loading="lazy"/></a>)}</div>}
+     {SHOWN.referencePhotos&&place&&<a href={'/assets/'+place.photo} target="_blank" rel="noreferrer">Reference photograph <ArrowUpRight size={13}/></a>}
+     {SHOWN.referencePhotos&&room&&<div className="model-caption-photos">{room.photos.map((src,i)=><a key={src} href={src} target="_blank" rel="noreferrer"><img src={src} alt={`${room.label}, reference ${i+1}`} loading="lazy"/></a>)}</div>}
     </div>}
     {selected&&<div className="model-caption" aria-live="polite"><strong>{selected.title}</strong><span>{selected.detail}</span>
      <div className="model-caption-links"><a href={'/assets/'+selected.source} target="_blank" rel="noreferrer">Source plan <ArrowUpRight size={13}/></a>{onNavigate&&selected.renovation&&<button className="model-link" onClick={()=>onNavigate(selected.renovation!)}>The renovation <ArrowUpRight size={13}/></button>}</div>
