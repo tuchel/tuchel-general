@@ -1,7 +1,9 @@
 /** NOAA/Meeus solar geometry. Angles in degrees; longitude positive east.
  * https://gml.noaa.gov/grad/solcalc/calcdetails.html
- * Address and plan rotation reuse the portal's solar feasibility study. */
-export const SUN_SITE={latitude:47.8606705,longitude:11.2919095,planNorthBearing:7.5,timeZone:'Europe/Berlin',year:2026} as const;
+ * Address from the portal's solar feasibility study. Plan north is 8.7° east of true north: the house's own building
+ * in the Bavarian survey's LoD2 models fits the model 7.0° from UTM grid north (neighbors.json), and grid north lies
+ * 1.7° east of true north here (meridian convergence). */
+export const SUN_SITE={latitude:47.8606705,longitude:11.2919095,planNorthBearing:8.7,timeZone:'Europe/Berlin',year:2026} as const;
 export type SunStudy={enabled:boolean;day:number;minutes:number};
 export const initialSunStudy:SunStudy={enabled:false,day:172,minutes:9*60};
 const rad=Math.PI/180,deg=180/Math.PI,mod=(a:number,n:number)=>((a%n)+n)%n;

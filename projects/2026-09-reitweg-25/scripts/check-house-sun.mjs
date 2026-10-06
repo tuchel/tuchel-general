@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import * as T from 'three';
 import {build} from 'esbuild';
 await build({entryPoints:['lib/house-model/sun-position.ts'],outfile:'tmp/sun-check.mjs',bundle:true,platform:'node',format:'esm'});
-const {solarPosition,studyInstant,sunDirection,initialSunStudy,clockLabel}=await import('../tmp/sun-check.mjs');
+const {solarPosition,studyInstant,sunDirection,initialSunStudy,clockLabel,SUN_SITE}=await import('../tmp/sun-check.mjs');
 assert.equal(clockLabel(initialSunStudy.minutes),'09:00','the model opens at 09:00');
 // Fixtures independently evaluated with NOAA's published calculator main.js,
 // using the address coordinates, UTC times and its apparent altitude correction.
@@ -17,8 +18,14 @@ assert.equal(studyInstant(172,780).date.toISOString(),'2026-06-21T11:00:00.000Z'
 assert.equal(studyInstant(355,780).date.toISOString(),'2026-12-21T12:00:00.000Z');
 assert.equal(studyInstant(88,150).date.toISOString(),'2026-03-29T01:30:00.000Z');assert.equal(studyInstant(88,150).minutes,210);
 assert.equal(studyInstant(298,150).date.toISOString(),'2026-10-25T00:30:00.000Z');assert(studyInstant(298,150).notice);
-assert(Math.abs(sunDirection(97.5,0)[0]-1)<1e-10,'east roof bearing maps to +X');assert(sunDirection(0,0)[0]<0&&sunDirection(0,0)[2]<0,'true north matches plan compass');
-console.log('Passed: five NOAA fixtures across seasons/day/night, CET/CEST including both transitions, and model north/east registration.');
+// Plan north: the house's own LoD2 building fits the model turned `fit.rotation` from UTM grid north
+// (scripts/build-neighbors.mjs); grid north lies the meridian convergence east of true north here,
+// atan(tan(longitude − 9°) · sin(latitude)) in zone 32.
+{const fit=JSON.parse(fs.readFileSync('lib/house-model/neighbors.json','utf8')).fit,rad=Math.PI/180;
+ const convergence=Math.atan(Math.tan((SUN_SITE.longitude-9)*rad)*Math.sin(SUN_SITE.latitude*rad))/rad;
+ assert(Math.abs(SUN_SITE.planNorthBearing-(fit.rotation+convergence))<.05,`plan north ${SUN_SITE.planNorthBearing}° against ${fit.rotation}° + ${convergence.toFixed(2)}° from the survey`);}
+assert(Math.abs(sunDirection(90+SUN_SITE.planNorthBearing,0)[0]-1)<1e-10,'east roof bearing maps to +X');assert(sunDirection(0,0)[0]<0&&sunDirection(0,0)[2]<0,'true north matches plan compass');
+console.log('Passed: five NOAA fixtures across seasons/day/night, CET/CEST including both transitions, and model north/east registration from the survey.');
 
 await build({entryPoints:['lib/house-model/lighting.ts'],outfile:'tmp/lighting-check.mjs',bundle:true,platform:'node',format:'esm',packages:'external'});
 const {createLighting,skyRadiance}=await import('../tmp/lighting-check.mjs');
