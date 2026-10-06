@@ -164,13 +164,14 @@ function standTree(kind:StandKind,far:boolean,seed:number){
    u.fromBufferAttribute(p,i);const bump=1+.32*Math.sin(u.x*7+b.c.y*2)*Math.sin(u.y*6+b.c.x*2)*Math.sin(u.z*8+b.c.z*2);
    v.copy(u).multiplyScalar(rad*bump);v.y*=b.stretch;v.add(b.c);p.setXYZ(i,v.x,v.y,v.z);
    // Broken normals keep the clump from shading as a smooth ball; it reads as the crown's shadowed inside.
-   const out2=v.clone().sub(crown).normalize(),n=u.clone().multiplyScalar(.4).addScaledVector(out2,.4).add(new T.Vector3(r()-.5,r()-.5,r()-.5).multiplyScalar(.9)).normalize();nrm.setXYZ(i,n.x,n.y,n.z);
-   const c=green.clone().multiplyScalar(shadeAt(v,b.lift)*(.5+.35*Math.max(0,u.y)));colors.push(c.r,c.g,c.b);
+   const out2=v.clone().sub(crown).normalize(),n=u.clone().multiplyScalar(.4).addScaledVector(out2,.4).add(new T.Vector3(r()-.5,r()-.5,r()-.5).multiplyScalar(.45)).normalize();nrm.setXYZ(i,n.x,n.y,n.z);
+   // A spruce's needles fill it to the trunk, so its inside is less dark than a broadleaf crown's.
+   const c=green.clone().multiplyScalar((spruce?.55+.45*shadeAt(v,b.lift):shadeAt(v,b.lift))*(.5+.35*Math.max(0,u.y)));colors.push(c.r,c.g,c.b);
   }
   g.setAttribute('color',new T.Float32BufferAttribute(colors,3));g.deleteAttribute('uv');parts.push(g);
  }
  // Leaf cards over each clump's exposed surface; a birch's hang, a spruce's droop.
- const count=far?(spruce?800:birch?1000:1000):(spruce?1800:birch?2200:2600),card0=far?(spruce?1.2:1.7):(spruce?.85:birch?1.2:1.5),cell=cells[kind];
+ const count=far?(spruce?800:birch?1000:1000):(spruce?3400:birch?2200:2600),card0=far?(spruce?1.2:1.7):(spruce?1.05:birch?1.2:1.5),cell=cells[kind];
  for(let placed=0,guard=0;placed<count&&guard<count*30;guard++){
   const b=blobs[Math.floor(r()*blobs.length)],dir=new T.Vector3(r()*2-1,r()*2-1,r()*2-1);if(dir.lengthSq()<.02||dir.lengthSq()>1)continue;dir.normalize();
   const center=b.c.clone().addScaledVector(dir,b.rad*(.85+r()*.4));center.y=b.c.y+(center.y-b.c.y)*b.stretch;
