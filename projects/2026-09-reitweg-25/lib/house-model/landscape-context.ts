@@ -1,6 +1,6 @@
 import * as T from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
-import {plotOutline,sitePoint as s,NORTH_TREES,EAST_TREES,GABLE_HEDGE} from './site-data';
+import {plotOutline,sitePoint as s,NORTH_TREES,EAST_TREES,TALL_HEDGE} from './site-data';
 import {alpineTerrain} from './alpine-terrain';
 import {buildTrees,buildHedge,foliageMaterials,type TreeSpec} from './foliage';
 import {NEIGHBORS} from './neighbors';
@@ -97,11 +97,11 @@ export function landscapeContext(options:{foliage?:ReturnType<typeof foliageMate
 
 /** The three garden-side hedges are part of the property in both detail settings. */
 export function boundaryHedge(foliage?:ReturnType<typeof foliageMaterials>){
- // The lawn terminates in the low hedge visible from the upstairs window; a tall hedge runs along the main house's north
- // gable (GABLE_HEDGE).
- const runs=[[plotOutline[0],plotOutline[1]],[plotOutline[1],plotOutline[2]],[plotOutline[2],plotOutline[3]]].map(([a,b])=>[{x:a[0],y:a[1]},{x:b[0],y:b[1]}] as [T.Vector2Like,T.Vector2Like]);
- const group=new T.Group(),{from,to,z,height,width}=GABLE_HEDGE;group.name='garden-hedges';
- group.add(buildHedge(runs,{width:1.25,height:1.35,inset:.62},foliage),buildHedge([[{x:from,y:z},{x:to,y:z}]],{width,height,inset:0},foliage));
+ // The lawn terminates in the low hedge visible from the upstairs window; the north hedge stands taller from the arrival
+ // wall to abreast of the main house's north gable (TALL_HEDGE).
+ const [a,b,c,d]=plotOutline.map(([x,y])=>({x,y})),t=(TALL_HEDGE.until-a.x)/(b.x-a.x),gable={x:TALL_HEDGE.until,y:a.y+(b.y-a.y)*t};
+ const group=new T.Group();group.name='garden-hedges';
+ group.add(buildHedge([[a,gable]],{width:1.25,height:TALL_HEDGE.height,inset:.62},foliage),buildHedge([[gable,b],[b,c],[c,d]],{width:1.25,height:1.35,inset:.62},foliage));
  return group;
 }
 

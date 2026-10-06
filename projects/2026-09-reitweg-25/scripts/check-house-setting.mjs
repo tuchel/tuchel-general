@@ -1,18 +1,26 @@
 import assert from 'node:assert/strict';
 import * as T from 'three';
 import {build} from 'esbuild';
-await build({entryPoints:['lib/house-model/landscape-context.ts','lib/house-model/site-data.ts','lib/house-model/neighbors.ts'],outdir:'tmp/setting-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',loader:{'.json':'json'}});
+await build({entryPoints:['lib/house-model/landscape-context.ts','lib/house-model/site-data.ts','lib/house-model/neighbors.ts','lib/house-model/foliage.ts'],outdir:'tmp/setting-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',loader:{'.json':'json'}});
 const {landscapeContext,boundaryHedge}=await import('../tmp/setting-check/landscape-context.mjs');
-const {plotOutline,NORTH_TREES,EAST_TREES,GABLE_HEDGE}=await import('../tmp/setting-check/site-data.mjs'),{NEIGHBORS}=await import('../tmp/setting-check/neighbors.mjs');
-// The garden hedges: about 1.35 m on all three garden edges; a tall hedge, about 3.2 m, along the main house's north
-// gable, clear of the wall (owner and aerial photographs).
-const hedge=boundaryHedge(),runs=[[plotOutline[0],plotOutline[1]],[plotOutline[1],plotOutline[2]],[plotOutline[2],plotOutline[3]]];
+const {foliageMaterials}=await import('../tmp/setting-check/foliage.mjs');
+const {plotOutline,NORTH_TREES,EAST_TREES,TALL_HEDGE}=await import('../tmp/setting-check/site-data.mjs'),{NEIGHBORS}=await import('../tmp/setting-check/neighbors.mjs');
+// The garden hedges: about 1.35 m on all three garden edges, except that the north hedge stands about 3.2 m from the
+// arrival wall to abreast of the main house's north gable (owner photographs); no hedge stands apart along the gable.
+const hedge=boundaryHedge(foliageMaterials()),runs=[[plotOutline[0],plotOutline[1]],[plotOutline[1],plotOutline[2]],[plotOutline[2],plotOutline[3]]];
 hedge.updateMatrixWorld(true);const bodies=[];hedge.traverse(o=>{if(o.name==='hedge-body')bodies.push(o);});const ray=new T.Raycaster(),down=new T.Vector3(0,-1,0);
 const top=(x,z)=>{ray.set(new T.Vector3(x,5,z),down);return ray.intersectObjects(bodies,false)[0]?.point.y;};
+let tall=0;
 for(const [a,b] of runs){const len=Math.hypot(b[0]-a[0],b[1]-a[1]),tx=(b[0]-a[0])/len,tz=(b[1]-a[1])/len;
- for(let t=.05;t<1;t+=.1){const y=top(a[0]+(b[0]-a[0])*t-tz*.62,a[1]+(b[1]-a[1])*t+tx*.62);assert(y>1.1&&y<1.6,'hedge continues on all three garden edges at about 1.35 m');}}
-for(let x=GABLE_HEDGE.from+.5;x<GABLE_HEDGE.to-.4;x+=1){const y=top(x,GABLE_HEDGE.z);assert(y>2.9&&y<3.5,`the hedge along the north gable stands about 3.2 m (x ${x.toFixed(1)}: ${y?.toFixed(2)} m)`);}
-assert(GABLE_HEDGE.z+GABLE_HEDGE.width/2<-9.61-1.5&&GABLE_HEDGE.from<-6&&GABLE_HEDGE.to>4,'along the gable, at least 1.5 m clear of the north wall');
+ for(let t=.02;t<1;t+=.04){const x=a[0]+(b[0]-a[0])*t-tz*.62,z=a[1]+(b[1]-a[1])*t+tx*.62,y=top(x,z),high=a===plotOutline[0]&&x<TALL_HEDGE.until-.4,low=a!==plotOutline[0]||x>TALL_HEDGE.until+.4;
+  if(high){tall++;assert(y>2.9&&y<3.5,`the north hedge stands about 3.2 m from the arrival wall to the gable (x ${x.toFixed(1)}: ${y?.toFixed(2)} m)`);}
+  else if(low)assert(y>1.1&&y<1.6,`the hedge continues at about 1.35 m (x ${x.toFixed(1)}: ${y?.toFixed(2)} m)`);}}
+assert(tall>=10&&TALL_HEDGE.until>4&&TALL_HEDGE.until<6.5,'tall from the arrival wall to abreast of the north gable');
+for(let x=-6;x<=6;x+=1)assert(top(x,-12.5)===undefined,'no hedge standing apart along the gable');
+// Leaves cover a hedge's sides, not just its top: a good share of the leaf cards sit between a third and four fifths up.
+{const cards=[];hedge.traverse(o=>{if(o.name==='hedge-leaf-cards')cards.push(o);});const p=cards[0].geometry.attributes.position;let mid=0;
+ for(let i=0;i<p.count;i+=6){const y=p.getY(i);if(y>3.2*.33&&y<3.2*.8)mid++;}
+ assert(mid/(p.count/6)>.2,`${(mid/(p.count/6)*100).toFixed(0)}% of the tall hedge's leaf cards on its sides`);}
 const {group}=landscapeContext();group.updateMatrixWorld(true);assert(group.getObjectByName('mature-roadside-avenue'));assert(group.getObjectByName('layered-park-woodland'));
 // Trees traced from the aerial photograph: outside the plot, clear of the neighbors' houses; north of the boundary a
 // spruce behind the main house's north gable; east of the lot a cluster that ends about halfway down the east hedge.
@@ -49,4 +57,4 @@ const {group}=landscapeContext();group.updateMatrixWorld(true);assert(group.getO
  assert.equal(shown,0,`${shown} points of the woodland floor show inside the garden`);}
 let ridges=0;group.traverse(o=>{if(o instanceof T.Mesh){assert([...o.matrixWorld.elements].every(Number.isFinite));const a=o.geometry.attributes.position;for(let i=0;i<a.count;i++)assert(Number.isFinite(a.getX(i)+a.getY(i)+a.getZ(i)));if(o.userData.scenicBackdrop){ridges++;const radii=[];for(let j=0;j<a.count;j++)radii.push(Math.hypot(a.getX(j),a.getZ(j)));assert(Math.min(...radii)>=999,'the distant land is drawn beyond the property and its setting');assert(a.count>40000,'land with depth and relief');assert(Math.max(...radii)-Math.min(...radii)>1800,'terrain extends across sloping depth, not a vertical card');}}});assert.equal(ridges,1);
 for(const root of [group,hedge])root.traverse(o=>{if(o instanceof T.Mesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose();}});
-console.log('Passed: three continuous garden hedges at about 1.35 m and a 3.2 m hedge along the north gable; trees traced from the aerial photograph outside the plot and clear of the neighbors’ houses, a spruce behind the north gable and the east cluster ending halfway down the east hedge, heights under the photographed skyline, the woods closed down to the ground by their lower storey; finite landscape geometry and the distant land drawn beyond the setting.');
+console.log('Passed: three continuous garden hedges at about 1.35 m, the north one about 3.2 m from the arrival wall to the north gable, leaves on their sides; trees traced from the aerial photograph outside the plot and clear of the neighbors’ houses, a spruce behind the north gable and the east cluster ending halfway down the east hedge, heights under the photographed skyline, the woods closed down to the ground by their lower storey; finite landscape geometry and the distant land drawn beyond the setting.');
