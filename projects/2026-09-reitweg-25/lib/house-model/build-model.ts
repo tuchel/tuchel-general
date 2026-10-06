@@ -140,6 +140,9 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  wall(ground,816,466,816,505).scale.z=26*PLAN_SCALE;
  // The dining alcove opens into the sitting room between two piers, as drawn on the plan.
  wall(ground,1166,669,1215,669);
+ // Opening the east façade takes away the outside wall these partitions stop at: each runs on to the oak post at the
+ // new glass, 0.12 m inside the façade line (renovations.ts).
+ for(const [x,z] of [[1218,388],[1215,524],[1215,669]]){const run=wall(ground,x,z,1012+(E-.12)/PLAN_SCALE,z);run.visible=false;(additions.east??=[]).push(run);}
  // Door leaves: thin panels cut with the walls in floor views. Steel-framed glazed leaves follow the photographs.
  const panel=(x1:number,z1:number,x2:number,z2:number,y:number,h:number,t:number,mat:T.Material,door=true)=>{const o=wall(ground,x1,z1,x2,z2,h,y,mat);o.scale.z=t;return door?passable(o):o;};
  // Steel glazed leaves: six panes between slim bars, and a black lever on both faces of doors (owner photos).

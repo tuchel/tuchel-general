@@ -74,6 +74,14 @@ assert(southAt(-.7).some(h=>[h.object.material].flat().some(m=>!m.transparent)),
  for(const z of [-6,0,6]){const head=first([6.4,2.71,z],[5.5,2.71,z]);assert(head&&head.object.material.color.getHexString()===skin,`outside, the head is clad like the house at z ${z} (${head?.object.material.color.getHexString()})`);}
  for(const [from,to,where] of [[[6.8,1.5,10.4],[5.95,1.5,9.55],'south-east corner'],[[6.6,1.5,-3.91],[5.5,1.5,-3.91],'east post'],[[-.93,1.5,10.3],[-.93,1.5,9.2],'post by the fireplace']]){
   const hit=first(from,to);assert(hit&&hit.object.material.color.getHexString()===skin,`outside, the ${where} is clad like the house (${hit?.object.material.color.getHexString()})`);}}
+// Opening the east façade takes away the outside wall the partitions stopped at; each runs on to the glass, with no gap
+// between its end and the post at the glass (bedroom and bath, bath and dining, the dining alcove's pier).
+{const ray=new T.Raycaster(),gaps=[];
+ for(const plan of [388,524,669]){const z=(plan-529.5)*12/434;
+  for(const x of [5.7,5.78,5.85])for(const y of [.5,1.5,2.5]){ray.set(new T.Vector3(x,y,z-.5),new T.Vector3(0,0,1));ray.far=1;
+   const hit=ray.intersectObject(model.root,true).find(h=>h.object.isMesh&&visible(h.object)&&![h.object.material].flat().some(m=>m.transparent));
+   if(!hit||Math.abs(hit.point.z-z)>.15)gaps.push(`${plan}: x ${x}, y ${y}`);}}
+ assert.equal(gaps.length,0,`partitions reach the east glass (open: ${gaps.join('; ')})`);}
 // The glass stands on the floor slab: no slot under it to the lawn, along the east run and both south runs.
 {const ray=new T.Raycaster(),slots=[];
  const runs=[...[-8.5,-6,-2,1.5,6,8.5].map(z=>({at:[5.75,z],dir:[1,0],line:6})),...[-4.5,-2.5,2.5,4.5].map(x=>({at:[x,9.36],dir:[0,1],line:9.61}))];
@@ -139,4 +147,4 @@ model.setRenovations(renovationState());
  {const set=new T.Box3(),[armEast]=kitchenPoint(334,0);kitchen.traverse(o=>{if((o.name==='garden-kitchen-table'||o.name==='garden-kitchen-chair')&&o.getWorldPosition(new T.Vector3()).x<armEast)set.expandByObject(o);});
   const c=set.getCenter(new T.Vector3()),[ax,az]=kitchenPoint(219,421);assert(Math.hypot(c.x-ax,c.z-az)<.03,`the dining set is centred in the glazed arm (${(c.x-ax).toFixed(2)}, ${(c.z-az).toFixed(2)} m off)`);}
  model.setRenovations(renovationState());}
-console.log(`Passed: all ${1<<ids.length} renovation combinations across four floors; original scene and meadow restored; 50 panels clear skylights, perimeter and each other; finite transforms; south glazing on both sides of the fireplace, standing on the floor slab, in a frame of light oak inside and the house's cladding outside, and the master bedroom gable glazed from the chimney to the knee wall; Layout Updates' library replaces the dining alcove with bookshelves, a desk and a lounge chair, clear of the doorways, with or without the east façade; the arrival wall has upright slats in the house cladding; four renovations are offered, three set aside; the garden kitchen's sage island leaves the way past its end open; sage tall units and a fridge line the kitchen's south wall, and the dining set is centred in the glazed arm.`);
+console.log(`Passed: all ${1<<ids.length} renovation combinations across four floors; original scene and meadow restored; 50 panels clear skylights, perimeter and each other; finite transforms; partitions running on to the east glass, south glazing on both sides of the fireplace, standing on the floor slab, in a frame of light oak inside and the house's cladding outside, and the master bedroom gable glazed from the chimney to the knee wall; Layout Updates' library replaces the dining alcove with bookshelves, a desk and a lounge chair, clear of the doorways, with or without the east façade; the arrival wall has upright slats in the house cladding; four renovations are offered, three set aside; the garden kitchen's sage island leaves the way past its end open; sage tall units and a fridge line the kitchen's south wall, and the dining set is centred in the glazed arm.`);
