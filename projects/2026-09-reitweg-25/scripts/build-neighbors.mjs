@@ -74,16 +74,12 @@ for(let d=-5;d<=20;d+=.5){const c=Math.cos(d*Math.PI/180),s=Math.sin(d*Math.PI/1
 // Into the model's frame: x east-ish, y up from the building's own ground, z south-ish; rounded to centimetres.
 const c=Math.cos(fit.rotation*Math.PI/180),s=Math.sin(fit.rotation*Math.PI/180),r2=x=>Math.round(x*100)/100;
 const toWorld=([e,n,h],ground)=>[r2(e*c-n*s+fit.shift[0]),r2(h-ground),r2(-(e*s+n*c+fit.shift[1]))];
-/** Newell normal of a ring of [x, y, z]. */
-const normal=ring=>{const nn=[0,0,0];ring.forEach((p,i)=>{const q=ring[(i+1)%ring.length];nn[0]+=(p[1]-q[1])*(p[2]+q[2]);nn[1]+=(p[2]-q[2])*(p[0]+q[0]);nn[2]+=(p[0]-q[0])*(p[1]+q[1]);});return nn;};
 const lotOf=id=>Number(Object.keys(LOTS).find(n=>LOTS[n].includes(id)));
 const out=buildings.filter(b=>lotOf(b.id)).sort((a,b)=>Math.hypot(...a.centre)-Math.hypot(...b.centre)).map(b=>{
  const ground=Math.min(...b.surfaces.filter(s=>s.kind==='GroundSurface').flatMap(s=>s.ring.map(p=>p[2])));
  const footprint=b.surfaces.filter(s=>s.kind==='GroundSurface').map(s=>s.ring.map(p=>toWorld(p,ground))).sort((p,q)=>q.length-p.length)[0];
- const mid=[footprint.reduce((t,p)=>t+p[0],0)/footprint.length,footprint.reduce((t,p)=>t+p[2],0)/footprint.length];
- // Faces turned outward: roofs up, walls away from the footprint's middle.
- const faces=kind=>b.surfaces.filter(s=>s.kind===kind).map(s=>{const ring=s.ring.map(p=>toWorld(p,ground)),nn=normal(ring),m=ring.reduce((t,p)=>[t[0]+p[0]/ring.length,t[1]+p[2]/ring.length],[0,0]);
-  const out=kind==='RoofSurface'?nn[1]>=0:nn[0]*(m[0]-mid[0])+nn[2]*(m[1]-mid[1])>=0;return (out?ring:ring.reverse()).flat();});
+ // The survey winds every face counterclockwise seen from outside; (east, north, up) to (x, y, z) keeps that.
+ const faces=kind=>b.surfaces.filter(s=>s.kind===kind).map(s=>s.ring.flatMap(p=>toWorld(p,ground)));
  return {id:b.id,lot:lotOf(b.id),height:r2(Math.max(...b.surfaces.flatMap(s=>s.ring.map(p=>p[2])))-ground),footprint:footprint.flatMap(p=>[p[0],p[2]]),walls:faces('WallSurface'),roofs:faces('RoofSurface')};
 });
 const houseRoofs=house.surfaces.filter(s=>s.kind==='RoofSurface').map(s=>s.ring.flatMap(p=>{const w=toWorld(p,0);return [w[0],w[2]];}));
