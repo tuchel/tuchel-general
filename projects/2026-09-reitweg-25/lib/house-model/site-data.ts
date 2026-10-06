@@ -1,3 +1,4 @@
+import type {StandKind} from './foliage';
 /** Source tracing in the 1888px-wide presentation of the exposé spreads.
  * Ground plan is calibrated to its labelled ~12 m main-house width.
  * Plot tracing uses the same house width as a registration anchor.
@@ -29,20 +30,25 @@ export const plotOutline:Point[] = [[441,220],[1717,417],[1599,1016],[199,849],[
  * aerial photograph): from x to x (world m) at z, its height and width. */
 export const GABLE_HEDGE={from:-6.8,to:4.4,z:-12.5,height:3.2,width:1.2};
 /** Trees traced from the owner's aerial photograph (north up, calibrated on the house and the neighbours' surveyed
- * buildings to about 2 m): [x, z, height, crown radius, kind], world metres; heights from the owner's photographs.
- * North of the boundary: a spruce in No. 21's garden behind the main house's north gable, and the canopy round and
- * behind Nos. 21 and 23. */
-export const NORTH_TREES:[number,number,number,number,'pine'|'broadleaf'][]=[
- [-3,-31,26,3,'pine'],[18.5,-52,18,4.5,'broadleaf'],[20.5,-66.5,24,6.5,'broadleaf'],[7.5,-73.5,24,7.5,'broadleaf'],[-7,-74,26,8,'broadleaf'],
- [-17,-51,24,6.5,'broadleaf'],[-23,-38,22,6,'broadleaf'],[27.5,-65.5,24,6,'broadleaf'],[52.5,-72,26,8.5,'broadleaf'],[67,-57.5,26,9.5,'broadleaf'],[63.5,-40.5,24,7.5,'broadleaf'],
+ * buildings to about 2 m): [x, z, height, crown radius, kind], world metres. Heights from the owner's photographs: from
+ * the east roof window the canopy's skyline caps each tree in view (camera fitted to the neighbours' buildings, the roof
+ * verge and the north hedge to 8 px). Kinds as photographed: broadleaves grown in a wood, a silver birch, spruces.
+ * North of the boundary: a spruce in No. 21's garden behind the main house's north gable, and the wood round and behind
+ * Nos. 21 and 23; the silver birch behind No. 23's west end, under the wood's canopy from above, is placed from the roof
+ * window photograph (its bearing and height, at the house it stands behind). */
+export const NORTH_TREES:[number,number,number,number,StandKind][]=[
+ [-3,-31,26,3,'spruce'],[18.5,-52,18,4.5,'woodland'],[20.5,-66.5,23.5,6.5,'woodland'],[7.5,-73.5,23,7.5,'woodland'],[-7,-74,26,8,'woodland'],
+ [-17,-51,24,6.5,'woodland'],[-23,-38,22,6,'woodland'],[27.5,-65.5,23.5,6,'woodland'],[52.5,-72,24.5,8.5,'woodland'],[67,-57.5,26,9.5,'woodland'],[63.5,-40.5,23.5,7.5,'woodland'],
+ [28,-50.5,18.5,6,'birch'],
 ];
-/** East of the garden: a dense cluster beyond the north-east corner that ends about halfway down the east hedge, a
- * large broadleaf and a few small conifers in the pasture, and a clump beyond the south-east corner. */
-export const EAST_TREES:[number,number,number,number,'pine'|'broadleaf'][]=[
- [55.5,-30,23,7.5,'broadleaf'],[68,-33,25,8.5,'broadleaf'],[79.5,-37.5,23,7.5,'broadleaf'],[61.5,-16,23,8,'broadleaf'],[75.5,-17,25,8.5,'broadleaf'],[85,-25,21,6,'broadleaf'],
- [69,-2.5,21,6.5,'broadleaf'],[59,1.5,18,5.5,'broadleaf'],[54.5,7,14,3.5,'broadleaf'],[74,6,18,5.5,'broadleaf'],
- [102,-17.5,25,10.5,'broadleaf'],[125,-16.5,20,7.5,'broadleaf'],[101.5,-58.5,10,3,'pine'],[116,-52,10,3,'pine'],[108.5,-36.5,11,3.5,'broadleaf'],
- [49.5,51.5,18,7.5,'broadleaf'],[53,66,20,8.5,'broadleaf'],[48.5,84.5,16,6,'broadleaf'],
+/** East of the garden: a dense wood beyond the north-east corner that ends about halfway down the east hedge, with a
+ * silver birch at its foot; a large broadleaf and a few small spruces in the pasture; a clump beyond the south-east
+ * corner. */
+export const EAST_TREES:[number,number,number,number,StandKind][]=[
+ [55.5,-30,20.5,7.5,'woodland'],[68,-33,23.5,8.5,'woodland'],[79.5,-37.5,22,7.5,'woodland'],[61.5,-16,20,8,'woodland'],[75.5,-17,23,8.5,'woodland'],[85,-25,21,6,'woodland'],
+ [69,-2.5,19,6.5,'woodland'],[59,1.5,19,5.5,'birch'],[54.5,7,14,3.5,'woodland'],[74,6,18,5.5,'woodland'],
+ [102,-17.5,25,10.5,'woodland'],[125,-16.5,20,7.5,'woodland'],[101.5,-58.5,10,3,'spruce'],[116,-52,10,3,'spruce'],[108.5,-36.5,11,3.5,'woodland'],
+ [49.5,51.5,14,7.5,'woodland'],[53,66,16,8.5,'woodland'],[48.5,84.5,13,6,'woodland'],
 ];
 /** Two small trees in the east meadow (aerial photograph), in site-plan units as treePositions: [x, z, radius, height]. */
 export const MEADOW_TREES:[number,number,number,number][]=[[1455,554,2,5],[1508,803,2,5]];
