@@ -4,6 +4,7 @@ import {plotOutline,sitePoint as s,NORTH_TREES,EAST_TREES,GABLE_HEDGE} from './s
 import {alpineTerrain} from './alpine-terrain';
 import {buildTrees,buildHedge,foliageMaterials,type TreeSpec} from './foliage';
 import {NEIGHBORS} from './neighbors';
+import {distantWoods} from './forests';
 
 /** Photo-led context, not surveyed terrain or a geographic mountain model.
  * Near vegetation has real depth; compressed distant ridges reproduce the quiet
@@ -78,6 +79,8 @@ export function landscapeContext(options:{foliage?:ReturnType<typeof foliageMate
   disc.setAttribute('color',new T.Float32BufferAttribute(colors,3));disc.deleteAttribute('uv');return disc;}))!;
  floor.computeVertexNormals();
  const shade=new T.Mesh(floor,new T.MeshStandardMaterial({vertexColors:true,roughness:1,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));shade.name='woodland-floor';shade.receiveShadow=true;understory.add(shade);
+ // The woods further out, from their mapped outlines.
+ vegetation.add(distantWoods(ground));
  // Distant terrain has sloping faces and atmospheric depth, not silhouette cards.
  group.add(alpineTerrain());
  // Meadow verges run beside the lane, clear of the cobbled inset and gates.
