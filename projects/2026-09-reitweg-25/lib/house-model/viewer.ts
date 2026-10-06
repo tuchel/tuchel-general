@@ -145,6 +145,10 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  };
  applyState();
  const grass=realistic&&tier.grass?eyeLevelGrass(scene,[...batches.meshes,stage]):undefined;
+ // The distant land (alpine-terrain.ts) stays centred under the camera; at rest it is rebuilt for the camera's height,
+ // which the path tracer and photographs read.
+ const panorama=scene.getObjectByName('alpine-panorama') as T.Mesh|undefined,panoramaAt=new T.Vector3();
+ if(panorama)panorama.onBeforeRender=(_r,_s,view)=>{if(view!==rig.camera)return;panorama.position.set(view.position.x,0,view.position.z);panorama.updateMatrixWorld();};
  clouds?.shade([scene]);
  // Walking at eye level: W A S D (Shift to run) on computers, the joysticks on phones.
  const walker=createWalker(rig.lens,()=>[...batches.meshes,stage]),walkInput:WalkInput={forward:0,strafe:0,run:false},lookRate={x:0,y:0};
@@ -300,6 +304,10 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(!elsewhere){if(bake&&baked('sky bake',()=>bake.update()))changed();if(bounce&&baked('bounce bake',()=>bounce.update()))changed();}
   const motion=!!(captures?.breezing||captures?.recording||film);
   const still=!motion&&!moving&&now-lastChange>110,refine=!!post&&still&&post.accumulated<tier.refineFrames;
+  if(panorama&&still&&!captures?.active){
+   const p=rig.camera.position;
+   if(Math.abs(p.y-panorama.userData.anchorHeight())>.5||Math.hypot(p.x-panoramaAt.x,p.z-panoramaAt.z)>4){panorama.userData.anchor(p.y);panoramaAt.copy(p);live?.invalidate();}
+  }
   // A settled view hands over to path tracing; the floor-plan section of the upper floor cuts roofs with clipping
   // planes, which the tracer cannot, so it stays live.
   if(captures?.active)live?.release();
