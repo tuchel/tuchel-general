@@ -92,6 +92,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // Scene: house, setting and ground.
  const foliage=realistic?foliageMaterials(tier.trees):undefined;
  const setting=realistic?landscapeContext({foliage,density:tier.farWoodland}):undefined;
+ // The mapped woods further out (forests.ts) read as forest edges from eye level; from above they would read as blocks.
+ const woods=setting?.vegetation.getObjectByName('distant-woods');if(woods)woods.visible=false;
  const model=buildHouseModel(realistic,setting?.group,foliage,tier.cars==='none'?false:options.cars);scene.add(model.root);
  const stageGeometry=terrainWithPoolOpening(groundOpenings()),terrain=(x:number)=>realistic?-5*T.MathUtils.smoothstep(x,55,140):0;
  if(realistic){const p=stageGeometry.attributes.position;for(let i=0;i<p.count;i++)p.setY(i,terrain(p.getX(i)));stageGeometry.computeVertexNormals();}
@@ -210,11 +212,11 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(level==='basement')target.y=-2;
   return {target,direction:position.sub(target),span:v.span,exterior:level==='exterior',reach:'reach' in v?v.reach:undefined};
  };
- const leaveEyeLevel=()=>{if(!place)return;place=undefined;pressed.clear();Object.assign(walkInput,{forward:0,strafe:0,run:false});lookRate.x=lookRate.y=0;room=roomTarget=1;lighting?.setRoom(1);if(grass){grass.hide();live?.invalidate();}fitShadowToView();};
+ const leaveEyeLevel=()=>{if(!place)return;place=undefined;if(woods)woods.visible=false;pressed.clear();Object.assign(walkInput,{forward:0,strafe:0,run:false});lookRate.x=lookRate.y=0;room=roomTarget=1;lighting?.setRoom(1);if(grass){grass.hide();live?.invalidate();}fitShadowToView();};
  const view=(key:Viewpoint|Place,instant=false)=>{
   captures?.stop();
   if(key in places){
-   const p=places[key as Place];place=key as Place;
+   const p=places[key as Place];place=key as Place;if(woods)woods.visible=true;
    rig.enterEyeLevel(new T.Vector3(...p.position),new T.Vector3(...p.target));walker.reset();walkAnchor.copy(rig.lens.position);placeStart.copy(rig.lens.position);wandered=false;options.onWander?.(false);
    room=roomTarget=roomExposure(walker.openness());skyAnchor.copy(rig.lens.position);lighting?.setRoom(room);fitShadowToView();if(grass){grass.showAround(rig.lens.position);live?.invalidate();}fadeIn();
    canvas.setAttribute('aria-label','Eye-level view. W, A, S and D walk; Shift runs. Drag or use arrow keys to look around. Pinch or scroll to zoom. Escape returns to the overview.');

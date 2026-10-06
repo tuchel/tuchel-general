@@ -229,13 +229,15 @@
       "Owner-supplied avenue photographs, 28 September 2026",
       "Owner-supplied east-facing upstairs photographs showing meadow, boundary hedge, park trees and Alpine horizon",
       "Expos\u00e9 lot outline and registered road axis",
-      "Owner-supplied roof-window photographs of the woods north and east, 22 June 2026"
+      "Owner-supplied roof-window photographs of the woods north and east, 22 June 2026",
+      "OpenStreetMap woodland outlines (landuse=forest, natural=wood), \u00a9 OpenStreetMap contributors, ODbL"
     ],
     "implemented": [
       "Three garden-side boundary hedges on the north, east and south traced lot edges, present in both detail settings",
       "Extended narrow lane, mature broadleaf avenue, dappled shadows, grass verges and curved-neck street lamps",
       "Layered park-edge woodland with a view opening beyond the eastern garden",
       "The woods north and east of the garden at their photographed heights: broadleaves grown in a stand with crowns reaching low, silver birches and spruces, over a lower storey of young trees and shrubs",
+      "The woods from 120 m to 700 m out, from their mapped outlines on the land's own height, at most 3 m above the model's level ground: spruce woods about 28 m, broadleaf woods about 24 m",
       "The land out to 150 km at its true bearing and elevation angle: the Alps to the south, from the Wendelstein to the Zugspitze",
       "Eye-level avenue and upstairs roof-window viewpoints with source-photo access"
     ],
