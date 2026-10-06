@@ -89,9 +89,9 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  {const east=sofa(g,2.05,0,2.9,Math.PI/2);east.name='living-east-sofa';east.userData.replacedBy='nook';}
  {const glassTable=group(g,0,0,0);glassTable.name='living-glass-table';glassTable.userData.replacedBy='nook';table(glassTable,1.45,1.05,.42,clear);}
  const cane=place(ground,1190,827,-.5);chair(cane,0,0,0,m.oak);box(cane,0,.47,0,.5,.13,.48,m.cream,true);plant(place(ground,1194,700));g=place(ground,920,841);round(g,0,0,0,.22,.025,m.charcoal);rod(g,[0,0,0],[0,1.5,0],.025,m.charcoal);mesh(g,new T.ConeGeometry(.25,.2,20),m.charcoal,.13,1.53,0);
- // Layout Updates (renovation-data.ts), shown only with it. The garden bedroom becomes a family room: its north window is
- // walled up (build-model.ts), a television hangs low where the bed stood, just over an oak console, an L-shaped couch faces it
- // with a club armchair by the east wall, and the striped rug lies between them.
+ // Layout Updates (renovation-data.ts), shown only with it. The garden bedroom becomes a family room: a television hangs
+ // low on the north wall where the bed stood, just over an oak console, an L-shaped couch faces it with a club armchair by
+ // the east wall, and the striped rug lies between them.
  const screen=material('#2b2e30','#14171a',.28),walnut=material('#8a6a4f','#5e4130',.5),leather=material('#3b3532','#26201d',.42);
  const darkMetal=material('#4a4d4c','#2e3131',.35);darkMetal.metalness=.6;
  const oatmeal=material('#e2d9c9','#cdbfa5');oatmeal.userData.photo='linen';
