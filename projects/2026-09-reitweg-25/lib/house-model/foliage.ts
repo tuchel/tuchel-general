@@ -6,10 +6,16 @@ import {addShaderFeature} from './shader-features';
  * leaves; phones draw a solid shaded core under a shell of leaf cards cut from the
  * generated leaf atlas, which distant woodland uses everywhere. Every tree of one
  * archetype is a single draw. */
-export type TreeKind='broadleaf'|'maple'|'pine';
+export type TreeKind='broadleaf'|'maple'|'pine'|StandKind;
+/** The woods round the garden: broadleaves grown in a stand, silver birch, spruce. */
+export type StandKind='woodland'|'birch'|'spruce';
 export type TreeSpec={x:number;z:number;r:number;height:number;seed:number;kind:TreeKind;far?:boolean;base?:number};
-const cells:Record<TreeKind|'hedge',[number,number]>={broadleaf:[0,1],maple:[1,1],pine:[0,0],hedge:[1,0]};
+const cells:Record<TreeKind|'hedge',[number,number]>={broadleaf:[0,1],maple:[1,1],pine:[0,0],hedge:[1,0],woodland:[1,0],birch:[1,0],spruce:[0,0]};
 const REF_H=10,REF_R=3.5;
+/** The height and crown radius each archetype is built at; woodland trees are built near their real size, so their
+ * leaves keep about theirs. */
+const REF:Record<TreeKind,[number,number]>={broadleaf:[REF_H,REF_R],maple:[REF_H,REF_R],pine:[REF_H,REF_R],woodland:[20,7],birch:[20,4.5],spruce:[24,3.6]};
+const isStand=(kind:TreeKind):kind is StandKind=>kind==='woodland'||kind==='birch'||kind==='spruce';
 /** Crown style: modelled leaves shared per archetype (leaves) or a solid shaded core under a leaf-card shell (hybrid). */
 export type TreeStyle='leaves'|'hybrid';
 function random(seed:number){let s=seed>>>0;return()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};}
@@ -27,10 +33,12 @@ export function foliageMaterials(style:TreeStyle='leaves'){
  addShaderFeature(leaves,translucency);
  const depth=new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking,alphaTest:.42,side:T.DoubleSide});
  const bark=new T.MeshStandardMaterial({color:'#ffffff',roughness:.95});bark.userData.foliage='bark';
+ // A silver birch's bark: the same bark set, lightened to its chalky white.
+ const birchBark=bark.clone();birchBark.color.setRGB(2.3,2.3,2.2);
  // Solid crown core (hybrid) and modelled leaves: colour lives in the vertices.
  const core=new T.MeshStandardMaterial({color:'#ffffff',roughness:.95,vertexColors:true});core.userData.photo='foliage';
  const solid=new T.MeshStandardMaterial({color:'#ffffff',roughness:.78,envMapIntensity:.8,side:T.DoubleSide,vertexColors:true});solid.userData.photo='foliage';addShaderFeature(solid,translucency);
- return {leaves,depth,bark,core,solid,style};
+ return {leaves,depth,bark,birchBark,core,solid,style};
 }
 export type FoliageMaterials=ReturnType<typeof foliageMaterials>;
 
@@ -59,6 +67,7 @@ function limb(a:T.Vector3,b:T.Vector3,r0:number,r1:number,segments:number){
 }
 /** One archetype at reference size (10 m tall, 3.5 m crown radius); instances scale it. */
 function archetype(kind:TreeKind,far:boolean,seed:number,style:TreeStyle,context=false){
+ if(isStand(kind))return standTree(kind,far,seed);
  const r=random(seed),H=REF_H,R=REF_R,crown=new T.Vector3(0,H-R*.95,0);
  const flat=kind==='pine'?.55:1,clusters:T.Vector3[]=[],wood:T.BufferGeometry[]=[];
  const trunkTop=new T.Vector3((r()-.5)*.3,H*.45,(r()-.5)*.3);
@@ -112,6 +121,76 @@ function hybridCrown(kind:TreeKind,far:boolean,r:()=>number,clusters:T.Vector3[]
  }
  const merged=mergeGeometries(parts)!;parts.forEach(g=>g.dispose());return merged;
 }
+/** A woodland tree at its reference size (REF): a crown of leafy lobes over shaded clumps, closing down low as trees do
+ * at a wood's edge; a silver birch's narrow crown of hanging twigs from about a third of its height; a spruce's cone of
+ * drooping tiers. Leaf cards keep about their real size, and the whole tree is scaled to top out exactly at the reference
+ * height, so an instance stands as tall as asked. */
+function standTree(kind:StandKind,far:boolean,seed:number){
+ const r=random(seed),[H,R]=REF[kind],wood:T.BufferGeometry[]=[],out={p:[] as number[],n:[] as number[],uv:[] as number[],c:[] as number[]};
+ const blobs:{c:T.Vector3;rad:number;stretch:number;lift:number}[]=[];
+ const spruce=kind==='spruce',birch=kind==='birch',base=H*(spruce?.04:birch?.33:.09),span=H-base;
+ // The crown's radius at height y.
+ const reach=(y:number)=>{const t=clamp01((y-base)/span);return spruce?R*Math.pow(1-t,1.05):R*Math.pow(Math.sin(Math.PI*(.06+t*.9)),birch?.8:.6);};
+ if(spruce){
+  // Tiers of drooping branches every metre or so, thinning to a spire.
+  for(let y=base+.3;y<H-1.4;y+=.85+r()*.35){const rr=reach(y),n=Math.max(3,Math.round(rr*2.4));
+   for(let i=0;i<n;i++){const a=(i+r()*.6)/n*Math.PI*2;blobs.push({c:new T.Vector3(Math.cos(a)*rr*.55,y-rr*.18,Math.sin(a)*rr*.55),rad:Math.max(.32,rr*.5)*(.85+r()*.3),stretch:.5,lift:0});}}
+  for(let y=H-1.6;y<H-.3;y+=.4)blobs.push({c:new T.Vector3(0,y,0),rad:.32,stretch:1.6,lift:0});
+  wood.push(limb(new T.Vector3(0,-.3,0),new T.Vector3(0,H*.96,0),.32,.05,far?5:8));
+ }else{
+  // Leafy lobes round the crown, one at the top; a few clumps of each, pulled inside the crown's outline.
+  const lobes:T.Vector3[]=[],n=birch?5:7;
+  for(let i=0;i<n;i++){const a=(i+r()*.7)/n*Math.PI*2,y=base+span*(.25+r()*.5);lobes.push(new T.Vector3(Math.cos(a),0,Math.sin(a)).multiplyScalar(reach(y)*(.45+r()*.25)).setY(y));}
+  lobes.push(new T.Vector3((r()-.5)*R*.3,H-span*.2,(r()-.5)*R*.3));
+  const per=far?(birch?4:5):(birch?7:9),size=birch?[.75,1.15]:[1.5,2.5];
+  for(const lobe of lobes)for(let k=0;k<per;k++){
+   const d=new T.Vector3(r()*2-1,r()*1.6-.5,r()*2-1).normalize().multiplyScalar((birch?1.1:1.9)*(.4+r()*.8)),c=lobe.clone().add(d);
+   c.y=T.MathUtils.clamp(c.y,base+.6,H-.8);const flat=Math.hypot(c.x,c.z),limit=reach(c.y)*.92;if(flat>limit)c.multiply(new T.Vector3(limit/flat,1,limit/flat));
+   blobs.push({c,rad:size[0]+r()*(size[1]-size[0]),stretch:birch?1.7:.9,lift:r()});
+  }
+  // The lowest branches, sweeping out near the crown's foot.
+  if(!birch)for(let i=0;i<(far?4:6);i++){const a=r()*Math.PI*2,y=base+.4+r()*1.4;blobs.push({c:new T.Vector3(Math.cos(a),0,Math.sin(a)).multiplyScalar(reach(y)*.75).setY(y),rad:1.4+r()*.6,stretch:.7,lift:r()});}
+  const top=new T.Vector3((r()-.5)*.4,base+span*(birch?.75:.4),(r()-.5)*.4);
+  wood.push(limb(new T.Vector3(0,-.3,0),top,birch?.2:.38,birch?.07:.24,far?6:9));
+  for(const lobe of lobes){const from=new T.Vector3(0,0,0).lerp(top,.55+r()*.4),mid=from.clone().lerp(lobe,.5).add(new T.Vector3(0,.6,0));wood.push(limb(from,mid,birch?.07:.17,birch?.05:.1,far?4:6),limb(mid,lobe,birch?.05:.1,.04,far?3:5));}
+ }
+ // Shaded clumps: darker underneath and inside the crown, lighter where they face up and out.
+ const green=new T.Color(spruce?'#34492c':birch?'#6a8a36':'#3d5c24'),crown=new T.Vector3(0,base+span*.5,0),parts:T.BufferGeometry[]=[];
+ const shadeAt=(v:T.Vector3,lift:number)=>(.42+.58*clamp01((v.y-base)/span))*(.62+.38*clamp01(Math.hypot(v.x,v.z)/(reach(v.y)+.01)))*(.92+.16*lift);
+ for(const b of blobs){
+  const g=new T.IcosahedronGeometry(1,far?0:1),p=g.attributes.position,nrm=g.attributes.normal,colors:number[]=[],v=new T.Vector3(),u=new T.Vector3();
+  const rad=b.rad*(birch?.5:.72);
+  for(let i=0;i<p.count;i++){
+   u.fromBufferAttribute(p,i);const bump=1+.32*Math.sin(u.x*7+b.c.y*2)*Math.sin(u.y*6+b.c.x*2)*Math.sin(u.z*8+b.c.z*2);
+   v.copy(u).multiplyScalar(rad*bump);v.y*=b.stretch;v.add(b.c);p.setXYZ(i,v.x,v.y,v.z);
+   // Broken normals keep the clump from shading as a smooth ball; it reads as the crown's shadowed inside.
+   const out2=v.clone().sub(crown).normalize(),n=u.clone().multiplyScalar(.4).addScaledVector(out2,.4).add(new T.Vector3(r()-.5,r()-.5,r()-.5).multiplyScalar(.9)).normalize();nrm.setXYZ(i,n.x,n.y,n.z);
+   const c=green.clone().multiplyScalar(shadeAt(v,b.lift)*(.5+.35*Math.max(0,u.y)));colors.push(c.r,c.g,c.b);
+  }
+  g.setAttribute('color',new T.Float32BufferAttribute(colors,3));g.deleteAttribute('uv');parts.push(g);
+ }
+ // Leaf cards over each clump's exposed surface; a birch's hang, a spruce's droop.
+ const count=far?(spruce?800:birch?1000:1000):(spruce?1800:birch?2200:2600),card0=far?(spruce?1.2:1.7):(spruce?.85:birch?1.2:1.5),cell=cells[kind];
+ for(let placed=0,guard=0;placed<count&&guard<count*30;guard++){
+  const b=blobs[Math.floor(r()*blobs.length)],dir=new T.Vector3(r()*2-1,r()*2-1,r()*2-1);if(dir.lengthSq()<.02||dir.lengthSq()>1)continue;dir.normalize();
+  const center=b.c.clone().addScaledVector(dir,b.rad*(.85+r()*.4));center.y=b.c.y+(center.y-b.c.y)*b.stretch;
+  if(blobs.some(o=>o!==b&&o.c.distanceTo(center)<o.rad*.8))continue;
+  const outward=center.clone().sub(crown).setY(0).normalize();
+  const normal=birch?outward.clone().add(new T.Vector3(r()-.5,(r()-.5)*.4,r()-.5).multiplyScalar(.9)).normalize()
+   :dir.clone().multiplyScalar(.5).addScaledVector(outward,.25).add(new T.Vector3(r()-.5,spruce?-.2:r()-.5,r()-.5).multiplyScalar(.7)).normalize();
+  const shade=(.72+r()*.36)*(.5+.5*shadeAt(center,b.lift)),tint=new T.Color(shade,shade*(.96+r()*.08),shade*(.82+r()*.14));
+  card(center,normal,card0*(.8+r()*.45),birch?Math.PI+(r()-.5)*.6:r()*Math.PI*2,cell,r()<.5,crown,tint,out);placed++;
+ }
+ const leaves=new T.BufferGeometry();
+ leaves.setAttribute('position',new T.Float32BufferAttribute(out.p,3));leaves.setAttribute('normal',new T.Float32BufferAttribute(out.n,3));
+ leaves.setAttribute('uv',new T.Float32BufferAttribute(out.uv,2));leaves.setAttribute('color',new T.Float32BufferAttribute(out.c,3));
+ const core=mergeGeometries(parts)!;parts.forEach(g=>g.dispose());
+ const bark=mergeGeometries(wood.map(g=>g.toNonIndexed()))!;wood.forEach(g=>g.dispose());
+ // Top out exactly at H: the leaves, clumps and limbs together, from the ground up.
+ const box=new T.Box3();for(const g of [leaves,core,bark]){g.computeBoundingBox();box.union(g.boundingBox!);}
+ const fit=new T.Matrix4().makeScale(1,H/box.max.y,1);for(const g of [leaves,core,bark]){g.applyMatrix4(fit);g.computeBoundingBox();g.computeBoundingSphere();}
+ return {leaves,bark,core,solid:undefined};
+}
 /** Modelled leaves: a folded four-triangle blade repeated around branch-tip clusters, one geometry per archetype. */
 function modelledLeaves(kind:TreeKind,context:boolean,r:()=>number,clusters:T.Vector3[],crown:T.Vector3,flat:number){
  const R=REF_R,blade=[[0,0,0],[-.34,.05,.42],[0,.1,.5],[0,0,1],[.34,.05,.42]],tris=[0,1,2,1,3,2,0,2,4,2,3,4];
@@ -157,7 +236,7 @@ export function buildTrees(specs:TreeSpec[],materials:FoliageMaterials,name:stri
  for(const [key,list] of byKey){
   const [kind,detail,variant]=key.split('-') as [TreeKind,string,string];
   const seed=9173+Number(variant)*7919+kind.length*31,arch=archetype(kind,detail==='far',seed,materials.style,context);
-  const bark=new T.InstancedMesh(arch.bark,materials.bark,list.length);bark.name='tree-bark';
+  const bark=new T.InstancedMesh(arch.bark,kind==='birch'?materials.birchBark:materials.bark,list.length);bark.name='tree-bark';
   const crowns:T.InstancedMesh[]=[];
   if(arch.leaves){const leaves=new T.InstancedMesh(arch.leaves,materials.leaves,list.length);leaves.name='tree-leaf-cards';leaves.customDepthMaterial=materials.depth;crowns.push(leaves);}
   if(arch.core){const core=new T.InstancedMesh(arch.core,materials.core,list.length);core.name='tree-crown-core';crowns.push(core);}
@@ -174,10 +253,10 @@ export function buildTrees(specs:TreeSpec[],materials:FoliageMaterials,name:stri
   for(const s of list){
    const r=random(s.seed);
    q.setFromAxisAngle(new T.Vector3(0,1,0),r()*Math.PI*2);
-   const origin=new T.Vector3(s.x,s.base??0,s.z),scale=new T.Vector3(s.r/REF_R,s.height/REF_H,s.r/REF_R);
+   const [refH,refR]=REF[kind],origin=new T.Vector3(s.x,s.base??0,s.z),scale=new T.Vector3(s.r/refR,s.height/refH,s.r/refR);
    set.matrices.push(new T.Matrix4().compose(origin,q,scale));set.origins.push(origin);
    set.centres.push(new T.Vector3(s.x,(s.base??0)+s.height*.55,s.z));set.radii.push(Math.max(s.height,s.r*2)*.62);set.leaf.push(LEAF*Math.max(scale.x,scale.y));
-   const hue=kind==='pine'?.9:.85+r()*.3;set.colors.push(new T.Color().setRGB(hue,hue*(.97+r()*.06),hue*(.85+r()*.2)));
+   const hue=kind==='pine'?.9:kind==='spruce'?.82+r()*.12:kind==='woodland'?.72+r()*.3:.85+r()*.3;set.colors.push(new T.Color().setRGB(hue,hue*(.97+r()*.06),hue*(.85+r()*.2)));
   }
   for(const c of [...crowns,...lod??[]])c.userData.sway='leaf';
   for(const mesh of [...crowns,bark,...lod??[]]){

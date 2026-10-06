@@ -44,4 +44,21 @@ drawTrees(scene,[camera],pixel,camera);
 const local=await photographicScene(scene,new T.Texture(),new AbortController().signal,()=>{},{instances:true});
 let traced=0;local.scene.traverse(o=>{if(o.isInstancedMesh&&o.name==='tree-bark')traced+=o.count;});
 assert.equal(traced,total,'the tracer gets every tree');local.dispose();
-console.log(`Passed: ${counts.drawn} of ${total} trees drawn for a view east (${modelled} modelled, ${crowns} as crowns beyond ${LEAF_PIXELS} px a leaf, ${counts.farDrawn} distant); every tree casts shadows; the mirror adds its own; the tracer sees all.`);
+// Woodland trees (the stands round the garden) are built near their real size: an instance stands exactly as tall as
+// asked, its crown reaching low as at a wood's edge (a birch's from about a third up), and its leaf cards keep about
+// their real size whatever the tree's.
+const stand={};
+for(const [kind,low] of [['woodland',.25],['birch',.42],['spruce',.12]])for(const far of [false,true])for(const height of [6,14,24]){
+ const r=kind==='spruce'?height*.15:kind==='birch'?height*.22:height*.35,g=buildTrees([{x:0,z:0,r,height,seed:4021,kind,far,base:-1}],materials,'stand-check');g.updateMatrixWorld(true);
+ const crown=new T.Box3(),m=new T.Matrix4(),v=new T.Vector3();let cards=0,edge=0;
+ g.traverse(o=>{if(!o.isInstancedMesh||o.name==='tree-bark')return;o.getMatrixAt(0,m);const p=o.geometry.attributes.position;
+  for(let i=0;i<p.count;i++)crown.expandByPoint(v.fromBufferAttribute(p,i).applyMatrix4(m));
+  if(o.name==='tree-leaf-cards')for(let i=0;i+5<p.count;i+=6){cards++;edge+=v.fromBufferAttribute(p,i).applyMatrix4(m).distanceTo(new T.Vector3().fromBufferAttribute(p,i+1).applyMatrix4(m));}});
+ assert(cards>0,`${kind}: leaf cards`);
+ assert(Math.abs(crown.max.y-(height-1))<height*.02,`${kind}${far?' (far)':''}: ${height} m asked, crown tops out at ${(crown.max.y+1).toFixed(2)} m`);
+ assert(crown.min.y+1<height*low,`${kind}${far?' (far)':''}: crown reaches down to ${((crown.min.y+1)/height*100).toFixed(0)}% of its height`);
+ const size=edge/cards;if(!far&&height===14)stand[kind]=size;
+ assert(height<14||size>.4&&size<2.2,`${kind}${far?' (far)':''}: a ${height} m tree's leaf cards are ${size.toFixed(2)} m, about their real size`);
+ g.traverse(o=>{if(o.isMesh)o.geometry.dispose();});
+}
+console.log(`Passed: ${counts.drawn} of ${total} trees drawn for a view east (${modelled} modelled, ${crowns} as crowns beyond ${LEAF_PIXELS} px a leaf, ${counts.farDrawn} distant); every tree casts shadows; the mirror adds its own; the tracer sees all; woodland trees top out at the height asked, crowns reaching low, leaf cards about ${stand.woodland.toFixed(1)} m whatever the tree's size.`);

@@ -228,16 +228,18 @@
     "sources": [
       "Owner-supplied avenue photographs, 28 September 2026",
       "Owner-supplied east-facing upstairs photographs showing meadow, boundary hedge, park trees and Alpine horizon",
-      "Expos\u00e9 lot outline and registered road axis"
+      "Expos\u00e9 lot outline and registered road axis",
+      "Owner-supplied roof-window photographs of the woods north and east, 22 June 2026"
     ],
     "implemented": [
       "Three garden-side boundary hedges on the north, east and south traced lot edges, present in both detail settings",
       "Extended narrow lane, mature broadleaf avenue, dappled shadows, grass verges and curved-neck street lamps",
       "Layered park-edge woodland with a view opening beyond the eastern garden",
+      "The woods north and east of the garden at their photographed heights: broadleaves grown in a stand with crowns reaching low, silver birches and spruces, over a lower storey of young trees and shrubs",
       "The land out to 150 km at its true bearing and elevation angle: the Alps to the south, from the Wendelstein to the Zugspitze",
       "Eye-level avenue and upstairs roof-window viewpoints with source-photo access"
     ],
-    "limits": "Tree positions and street furniture off the lot are photo-led interpretations. The distant land follows elevation data (Terrain Tiles: EU-DEM, DGM \u00d6sterreich, SRTM) at about 50 m, drawn at compressed distances with true angles; level lake surfaces in that data are tinted as water. The house footprint and renovation geometry are unchanged."
+    "limits": "Tree positions and street furniture off the lot are photo-led interpretations; the woods' lower storey is drawn, not traced tree by tree. The distant land follows elevation data (Terrain Tiles: EU-DEM, DGM \u00d6sterreich, SRTM) at about 50 m, drawn at compressed distances with true angles; level lake surfaces in that data are tinted as water. The house footprint and renovation geometry are unchanged."
   },
   "poolSurround": {
     "source": "Owner photograph supplied 28 September 2026; pool-flush-surround-reference.jpg",
