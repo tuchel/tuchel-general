@@ -16,7 +16,7 @@ import {furnishHouse} from './interiors';
 import {roofSkylights} from './solar-layout';
 import {buildRenovations} from './renovations';
 import {renovationState,type RenovationId,type RenovationState} from './renovation-data';
-import {planPoint as p,sitePoint as s,plotOutline,treePositions,guestRoofFrame,UPPER_PLAN_X_OFFSET,BASEMENT_PLAN_X_OFFSET,PLAN_SCALE,type Level,type Region} from './site-data';
+import {planPoint as p,sitePoint as s,plotOutline,treePositions,MEADOW_TREES,guestRoofFrame,UPPER_PLAN_X_OFFSET,BASEMENT_PLAN_X_OFFSET,PLAN_SCALE,type Level,type Region} from './site-data';
 import {basementStairWell,hallStairWell,HALL_WELL,buildBasementStair,buildLightWells,BASEMENT_WINDOWS} from './site-openings';
 import {passable} from './walk';
 
@@ -398,8 +398,9 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // Low-poly crowns, open trunks and gentle variation, fixed to the source planting plan.
  // Detailed trees: instanced leaf-card archetypes. Pines and the Japanese maples follow the owner photos.
  const foliage=realistic?(foliageIn??foliageMaterials()):undefined;
- // The small fruit trees and shrubs around the well follow the owner photos (front-garden.ts); shrubs carry their own height.
- const gardenTrees:(readonly number[])[]=[...treePositions,...FRUIT_TREES,...SHRUBS],treeHeight=(t:readonly number[])=>t[3]??t[2]*1.35+1.7;
+ // The small fruit trees and shrubs around the well follow the owner photos (front-garden.ts), the two small meadow trees
+ // the aerial photograph (site-data.ts); both carry their own height.
+ const gardenTrees:(readonly number[])[]=[...treePositions,...FRUIT_TREES,...SHRUBS,...MEADOW_TREES],treeHeight=(t:readonly number[])=>t[3]??t[2]*1.35+1.7;
  if(foliage)trees.add(buildTrees(gardenTrees.map((t,i)=>{const [px,pz,r]=t,[x,z]=s(px,pz),seed=171+i*927;return {x,z,r,height:treeHeight(t),seed,kind:[171,1098,2025,4806,5733].includes(seed)?'pine':i%5===3&&i<treePositions.length?'maple':'broadleaf'} as TreeSpec;}),foliage,'garden-trees'));
  gardenTrees.forEach((t,i)=>{if(realistic)return;const [px,pz,r]=t,[x,z]=s(px,pz),height=treeHeight(t);const trunk=add(cylinderGeo,m.trunk,trees);trunk.scale.set(.1,height*.68,.1);trunk.position.set(x,height*.34,z);
   for(let k=0;k<5;k++){const angle=k*2.4+i,dx=Math.cos(angle)*r*.52,dz=Math.sin(angle)*r*.52;segment(trees,[x,height*.43,z],[x+dx,height-r*.2,z+dz],.06,m.trunk);}

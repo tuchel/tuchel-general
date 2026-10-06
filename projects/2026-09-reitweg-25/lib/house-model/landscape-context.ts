@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {plotOutline,sitePoint as s} from './site-data';
+import {plotOutline,sitePoint as s,NORTH_TREES,EAST_TREES,GABLE_HEDGE} from './site-data';
 import {alpineTerrain} from './alpine-terrain';
 import {buildTrees,buildHedge,foliageMaterials,type TreeSpec} from './foliage';
 
@@ -26,24 +26,29 @@ export function landscapeContext(options:{foliage?:ReturnType<typeof foliageMate
   specs.push({x:q.x-side*.6,z:q.y,r,height:h,seed:11003+i*359,kind:'broadleaf'});
  }
  avenue.add(buildTrees(specs.splice(0),foliage,'avenue-trees'));
- // Park-edge woodland is dense at the sides, opening toward the distant view.
- const trees:{x:number;z:number;h:number;r:number;base:number;conifer:boolean}[]=[];
+ // A park-edge woodland and a tree belt east of the lot stood here; the trees traced from the aerial photograph
+ // (EAST_TREES) replace them, and they stay in the list, marked, only so the wooded edges below keep their places and seeds.
+ const trees:{x:number;z:number;h:number;r:number;base:number;conifer:boolean;replaced?:boolean}[]=[];
  for(let i=0;i<88;i++){
   const x=65+random()*70,z=-80+random()*150;
   if(z>-17&&z<24&&random()<.79)continue;
   const central=z>-17&&z<24;
-  trees.push({x,z,h:central?5+random()*5:9+random()*8,r:central?1.5+random():2.5+random()*2,base:-Math.min(5,(x-55)*.065),conifer:random()<.3});
+  trees.push({x,z,h:central?5+random()*5:9+random()*8,r:central?1.5+random():2.5+random()*2,base:-Math.min(5,(x-55)*.065),conifer:random()<.3,replaced:true});
  }
- // A layered tree belt beyond the hedge, with a narrow gap for the distant outlook.
- for(let i=0;i<54;i++){const z=-52+i*2.2;if(z>3&&z<12)continue;const x=79+random()*15;trees.push({x,z,h:8+random()*6,r:2.9+random()*1.9,base:-2,conifer:false});if(i%2===0)trees.push({x:x-3,z:z+1,h:4.5+random()*2,r:2.5+random(),base:-1.3,conifer:false});}
+ for(let i=0;i<54;i++){const z=-52+i*2.2;if(z>3&&z<12)continue;const x=79+random()*15;trees.push({x,z,h:8+random()*6,r:2.9+random()*1.9,base:-2,conifer:false,replaced:true});if(i%2===0)trees.push({x:x-3,z:z+1,h:4.5+random()*2,r:2.5+random(),base:-1.3,conifer:false,replaced:true});}
  // A looser wooded edge outside the west/north garden, never a uniform circular ring.
  for(let i=0;i<38;i++){const along=-63+random()*126,q=roadCenter.clone().addScaledVector(axis,along).addScaledVector(normal,-(11+random()*17));trees.push({x:q.x,z:q.y,h:8+random()*9,r:2.5+random()*2.5,base:0,conifer:false});}
  // Continue the wooded lane into depth so its setting does not end at the lot.
  for(let i=0;i<65;i++){const along=76+random()*92,side=i%2?-1:1,q=roadCenter.clone().addScaledVector(axis,along).addScaledVector(normal,side*(5+random()*22));trees.push({x:q.x,z:q.y,h:10+random()*10,r:3+random()*3,base:0,conifer:false});}
  const woodland=new T.Group();woodland.name='layered-park-woodland';vegetation.add(woodland);
  // Distant woodland uses large, sparse cards; lighter presets keep a deterministic share.
- trees.forEach((tree,i)=>{if(((i*2654435761)>>>0)/4294967296>=density)return;specs.push({x:tree.x,z:tree.z,r:tree.r,height:tree.h,base:tree.base,seed:17013+i*31,kind:tree.conifer?'pine':'broadleaf',far:true});});
+ trees.forEach((tree,i)=>{if(tree.replaced||((i*2654435761)>>>0)/4294967296>=density)return;specs.push({x:tree.x,z:tree.z,r:tree.r,height:tree.h,base:tree.base,seed:17013+i*31,kind:tree.conifer?'pine':'broadleaf',far:true});});
  woodland.add(buildTrees(specs.splice(0),foliage,'woodland-trees'));
+ // Trees traced from the aerial photograph: north of the boundary round Nos. 21 and 23, and east of the lot, each on
+ // the ground as it falls away east (the surrounding ground's slope, viewer.ts).
+ const traced=(list:typeof NORTH_TREES,name:string,seed:number)=>{const group=new T.Group();group.name=name;vegetation.add(group);
+  group.add(buildTrees(list.map(([x,z,height,r,kind],i)=>({x,z,r,height,kind,seed:seed+i*577,base:-5*T.MathUtils.smoothstep(x,55,140),far:Math.hypot(x,z)>60})),foliage,name));};
+ traced(NORTH_TREES,'north-neighbor-trees',23011);traced(EAST_TREES,'east-trees',31013);
  // Distant terrain has sloping faces and atmospheric depth, not silhouette cards.
  group.add(alpineTerrain());
  // Meadow verges run beside the lane, clear of the cobbled inset and gates.
@@ -60,7 +65,10 @@ export function landscapeContext(options:{foliage?:ReturnType<typeof foliageMate
 
 /** The three garden-side hedges are part of the property in both detail settings. */
 export function boundaryHedge(foliage?:ReturnType<typeof foliageMaterials>){
- // The lawn terminates in the low hedge visible from the upstairs window.
+ // The lawn terminates in the low hedge visible from the upstairs window; a tall hedge runs along the main house's north
+ // gable (GABLE_HEDGE).
  const runs=[[plotOutline[0],plotOutline[1]],[plotOutline[1],plotOutline[2]],[plotOutline[2],plotOutline[3]]].map(([a,b])=>[{x:a[0],y:a[1]},{x:b[0],y:b[1]}] as [T.Vector2Like,T.Vector2Like]);
- return buildHedge(runs,{width:1.25,height:1.35,inset:.62},foliage);
+ const group=new T.Group(),{from,to,z,height,width}=GABLE_HEDGE;group.name='garden-hedges';
+ group.add(buildHedge(runs,{width:1.25,height:1.35,inset:.62},foliage),buildHedge([[{x:from,y:z},{x:to,y:z}]],{width,height,inset:0},foliage));
+ return group;
 }
