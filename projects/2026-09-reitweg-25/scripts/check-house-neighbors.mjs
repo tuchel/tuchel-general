@@ -38,26 +38,25 @@ for(const b of NEIGHBORS.buildings){
  assert(b.lot===27?z>0&&z<plotSouth+60:z<0&&z>plotNorth-60,`${b.id} on No. ${b.lot} lies ${b.lot===27?'south':'north'} of the house`);
 }
 
-// The mesh: every building on the ground it is given, at its own height, roofs up, walls out (positive enclosed volume
-// once the footprint closes it, near footprint area × height).
+// The mesh: every building on the ground it is given, at its own height, roofs up, and every wall facing out: a ray
+// leaving a wall's face crosses the building's other faces an even number of times, so a wall turned inward (and drawn
+// only from inside) fails.
 const groundAt=x=>-.035-5*T.MathUtils.smoothstep(x,55,140),mesh=neighborHouses(groundAt),p=mesh.geometry.attributes.position;
 assert(mesh.castShadow&&mesh.receiveShadow&&mesh.material.color.getHexString()==='dfdad0','off-white, casting and taking shadows');
-let start=0;const a=new T.Vector3(),b2=new T.Vector3(),c=new T.Vector3();
+let start=0;const ray=new T.Ray(),hit=new T.Vector3();
 for(const b of NEIGHBORS.buildings){
- let count=0;const tri=ring=>{const n=ring.length/3;count+=(n-2)*3;};for(const r of [...b.walls,...b.roofs])tri(r);
- const corners=Array.from({length:b.footprint.length/2},(_,i)=>[b.footprint[i*2],b.footprint[i*2+1]]);
- let area=0;corners.forEach(([x,z],i)=>{const [x2,z2]=corners[(i+1)%corners.length];area+=(x*z2-x2*z)/2;});area=Math.abs(area);
- let low=Infinity,high=-Infinity,roofDown=0,volume=0;
- for(let i=start;i<start+count;i++){low=Math.min(low,p.getY(i));high=Math.max(high,p.getY(i));}
- // Enclosed volume about the footprint's middle at the base, where the open bottom adds nothing; a wall two buildings
- // share is left out of both, which the range allows.
- const o=new T.Vector3(corners.reduce((t,q)=>t+q[0],0)/corners.length,low,corners.reduce((t,q)=>t+q[1],0)/corners.length),walls=b.walls.reduce((t,r)=>t+(r.length/3-2)*3,0);
- for(let i=start;i<start+count;i+=3){a.fromBufferAttribute(p,i).sub(o);b2.fromBufferAttribute(p,i+1).sub(o);c.fromBufferAttribute(p,i+2).sub(o);volume+=a.dot(b2.clone().cross(c))/6;
-  if(i>=start+walls&&e1.subVectors(b2,a).cross(e2.subVectors(c,a)).y<0)roofDown++;}
- const base=Math.min(...corners.map(([x,z])=>groundAt(x,z)))-.05;
+ const count=[...b.walls,...b.roofs].reduce((t,r)=>t+(r.length/3-2)*3,0),walls=b.walls.reduce((t,r)=>t+(r.length/3-2)*3,0);
+ const tris=[];for(let i=start;i<start+count;i+=3)tris.push([0,1,2].map(k=>new T.Vector3().fromBufferAttribute(p,i+k)));
+ const low=Math.min(...tris.flat().map(v=>v.y)),high=Math.max(...tris.flat().map(v=>v.y));
+ let roofDown=0;const inward=[];
+ tris.forEach(([ta,tb,tc],t)=>{const n=e1.subVectors(tb,ta).cross(e2.subVectors(tc,ta)).normalize();
+  if(t*3>=walls){if(n.y<0)roofDown++;return;}
+  const from=new T.Vector3().add(ta).add(tb).add(tc).divideScalar(3).addScaledVector(n,.02);ray.set(from,n.clone().add(new T.Vector3(.013,.017,.011)).normalize());
+  if(tris.filter(([x,y,z])=>ray.intersectTriangle(x,y,z,false,hit)).length%2)inward.push(t);});
+ const corners=Array.from({length:b.footprint.length/2},(_,i)=>[b.footprint[i*2],b.footprint[i*2+1]]),base=Math.min(...corners.map(([x,z])=>groundAt(x,z)))-.05;
  assert(Math.abs(low-base)<.02&&Math.abs(high-low-b.height)<.02,`${b.id}: stands at ${low.toFixed(2)} m, ${(high-low).toFixed(2)} m tall (LoD2 ${b.height} m)`);
  assert.equal(roofDown,0,`${b.id}: every roof face up`);
- assert(volume>.45*area*b.height&&volume<1.02*area*b.height,`${b.id}: faces outward, ${volume.toFixed(0)} m³ in ${area.toFixed(0)} m² × ${b.height} m`);
+ assert.equal(inward.length,0,`${b.id}: ${inward.length} wall triangles face inward`);
  start+=count;
 }
 assert.equal(start,p.count,'every face accounted for');
@@ -69,4 +68,4 @@ assert.equal(start,p.count,'every face accounted for');
  assert(/if\(on&&!neighbors\)\{neighbors=neighborHouses\(/.test(viewer)&&/neighbors\.visible=neighborsOn&&level==='exterior'/.test(viewer),'built when first shown; outside only');
  assert(/setNeighbors:[^]*?live\?\.invalidate\(\);changed\(\);/.test(viewer),'the traced image follows');
  assert(/Bayerische Vermessungsverwaltung, geodaten\.bayern\.de, CC BY 4\.0/.test(page),'credited in About this model');}
-console.log(`Passed: ${NEIGHBORS.buildings.length} neighbors' buildings (Nos. 21 and 23 north, No. 27 south) stand outside the plot, at their own heights on the model's ground, faces outward; the house's LoD2 roofs cover ${(covered*100).toFixed(1)}% on the model's roofs (overlap ${overlap.toFixed(3)} with the eaves); off at first, a More toggle, outside only, credited.`);
+console.log(`Passed: ${NEIGHBORS.buildings.length} neighbors' buildings (Nos. 21 and 23 north, No. 27 south) stand outside the plot, at their own heights on the model's ground, every wall facing out; the house's LoD2 roofs cover ${(covered*100).toFixed(1)}% on the model's roofs (overlap ${overlap.toFixed(3)} with the eaves); off at first, a More toggle, outside only, credited.`);
