@@ -345,7 +345,8 @@ export function buildHedge(runs:[T.Vector2Like,T.Vector2Like][],options:{width:n
   if(materials){
    const count=Math.round(len*(w+h*2)*4.2);
    for(let i=0;i<count;i++){
-    const t=r(),side=r(),[px,py]=profile[Math.min(k-1,Math.floor(side*k))],cx=a.x+dx*t-tz*inset,cz=a.y+dz*t+tx*inset;
+    // Over the whole section: both sides from the ground up, and the rounded top.
+    const t=r(),side=r(),up=r(),[px,py]=side<2*h/(2*h+w*1.6)?[(up<.5?-1:1)*w/2,.2+r()*(h-.5)]:profile[1+Math.floor(r()*(k-2))],cx=a.x+dx*t-tz*inset,cz=a.y+dz*t+tx*inset;
     const center=new T.Vector3(cx+nx*px*1.04,Math.max(.2,py*1.01),cz+nz*px*1.04),axis=new T.Vector3(cx,h*.45,cz);
     const normal=center.clone().sub(axis).normalize().add(new T.Vector3(r()-.5,r()-.5,r()-.5).multiplyScalar(.7)).normalize();
     const shade=.62+r()*.3;card(center,normal,.7+r()*.35,r()*Math.PI*2,cells.hedge,r()<.5,axis,new T.Color(shade,shade,shade*.9),out);

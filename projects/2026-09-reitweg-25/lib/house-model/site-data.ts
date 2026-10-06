@@ -26,9 +26,9 @@ export const guestRoofFrame = (()=>{
 })();
 export const sitePoint = (x:number,z:number):Point => [(x-874)*(12/181),(z-531.5)*(12/181)];
 export const plotOutline:Point[] = [[441,220],[1717,417],[1599,1016],[199,849],[246,626],[346,610],[365,422],[336,399]].map(([x,z])=>sitePoint(x,z));
-/** A tall clipped hedge runs along the main house's north gable, about 2.9 m out from the wall (owner photographs and
- * aerial photograph): from x to x (world m) at z, its height and width. */
-export const GABLE_HEDGE={from:-6.8,to:4.4,z:-12.5,height:3.2,width:1.2};
+/** The north boundary hedge stands taller from the arrival wall to abreast of the main house's north gable (owner
+ * photographs and aerial photograph): its height (m) as far east as x = until (world m). */
+export const TALL_HEDGE={until:4.4,height:3.2};
 /** Trees traced from the owner's aerial photograph (north up, calibrated on the house and the neighbours' surveyed
  * buildings to about 2 m): [x, z, height, crown radius, kind], world metres. Heights from the owner's photographs: from
  * the east roof window the canopy's skyline caps each tree in view (camera fitted to the neighbours' buildings, the roof
