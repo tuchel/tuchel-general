@@ -132,12 +132,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  capture('kitchen',ground,()=>facade(ground,[W,N],[W,kitchenSouth],[{from:2.75,to:5.74,sill:0,head:2.3,kind:'sliding'}],'kitchen'));
  facade(ground,[W,kitchenSouth],[W,S],[{from:8.95-westSplit,to:9.95-westSplit,sill:.8,head:2.1},{from:11.86-westSplit,to:12.96-westSplit,sill:0,head:2.3,kind:'passage'},{from:14.86-westSplit,to:15.94-westSplit,sill:0,head:2.2}],'main');
  capture('kitchen',ground,()=>facade(ground,[W,N],[kitchenEast,N],[{from:1.8,to:3,sill:.7,head:2.15}],'kitchen'));
- // The garden bedroom's north window, behind the bed, has a run of its own: Layout Updates walls it up.
- const bedroomWindow=[kitchenEast+8.05-northSplit,kitchenEast+9.55-northSplit] as const;
- facade(ground,[kitchenEast,N],[bedroomWindow[0],N],[{from:5.5-northSplit,to:6.7-northSplit,sill:0,head:2.2}],'main');
- capture('nook',ground,()=>facade(ground,[bedroomWindow[0],N],[bedroomWindow[1],N],[{from:.15,to:1.35,sill:.7,head:2.15}],'main'));
- capture('nook',ground,()=>facade(ground,[bedroomWindow[0],N],[bedroomWindow[1],N],[],'main'),additions);
- facade(ground,[bedroomWindow[1],N],[E,N],[],'main');
+ // The garden bedroom's north wall, behind the bed, has no window (owner).
+ facade(ground,[kitchenEast,N],[E,N],[{from:5.5-northSplit,to:6.7-northSplit,sill:0,head:2.2}],'main');
  capture('east',ground,()=>facade(ground,[W,S],[E,S],[{from:1.6,to:4.2,sill:.9,head:2.2},{from:7.83,to:10.26,sill:.9,head:2.2}],'main'));
  for(const [a,b,c,d] of [[965,194,965,382],[964,386,1003,386],[1030,388,1043,388],[988,389,988,464],[814,464,850,464],[877,464,952,464],[980,464,1001,464],[1029,464,1043,464],[1043,388,1126,388],[1175,388,1218,388],[1050,388,1050,462],[1114,428,1114,462],[1050,462,1114,462],[1050,470,1050,613],[1050,524,1215,524],[1037,669,1078,669],[814,669,959,669],[893,464,893,609],[893,652,893,669],[829,507,893,507],[869,559,893,559],[869,559,869,598],[869,598,893,598],[829,598,833,598]])wall(ground,a,b,c,d);
  // The walk-in pantry's west side is solid down to its wall with the WC: the thick wall drawn between it and the facade.

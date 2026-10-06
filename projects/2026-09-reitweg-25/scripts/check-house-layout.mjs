@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import * as T from 'three';
 import {build} from 'esbuild';
-// Layout Updates: the garden bedroom becomes a family room (its north window walled up, a television where the bed
-// stood, an L-shaped couch and an armchair); the library nook's desk moves to the hall wall and a lounge chair with an
+// Layout Updates: the garden bedroom, whose north wall behind the bed has no window, becomes a family room (a television
+// where the bed stood, an L-shaped couch and an armchair); the library nook's desk moves to the hall wall and a lounge chair with an
 // ottoman takes the east window; the living room gets an L-shaped couch in its south-west corner with the glass coffee
 // table inside the L, a second lounge chair, a warm rug before the fire and, with the east façade, a centred dining table.
 await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/renovation-data.ts','lib/house-model/site-data.ts'],outdir:'tmp/layout-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
@@ -14,7 +14,8 @@ const model=buildHouseModel(true),root=model.root,ground=root.getObjectByName('g
 const shown=o=>{for(let q=o;q;q=q.parent)if(!q.visible)return false;return true;};
 const named=name=>root.getObjectByName(name);
 const set=(nook,east,level='ground')=>{model.setRenovations({...renovationState(),nook,east});model.setLevel(level);root.updateMatrixWorld(true);};
-// The window, seen in the whole-house view (the ground-floor view cuts walls at 1.17 m but not glass above them).
+// The north wall behind the bed, seen in the whole-house view (the ground-floor view cuts walls at 1.17 m but not glass
+// above them).
 const window=(nook,east)=>{set(nook,east,'exterior');const hit=first([2.8,2,-8],[2.8,2,-10.5]);set(nook,east);return hit;};
 const bounds=o=>new T.Box3().setFromObject(o);
 // Interior faces: the north and south façades and the west façade, 0.45 m thick, clad 0.105 m outside the outline.
@@ -27,7 +28,7 @@ const glassy=hit=>!!hit&&[hit.object.material].flat().some(m=>m.transparent);
 for(const east of [false,true]){
  set(false,east);
  assert(shown(named('garden-bedroom-bed'))&&shown(named('garden-bedroom-rug')),'the bed and its rug stay without Layout Updates');
- assert(glassy(window(false,east)),'the bedroom window stays without Layout Updates');
+ {const wall=window(false,east);assert(wall&&!glassy(wall)&&Math.abs(wall.point.z-north)<.03,'no window behind the bed');}
  for(const name of ['family-room','living-room-layout','living-dining-table'])assert(!shown(named(name)),`${name} only with Layout Updates`);
  assert(shown(named('living-west-sofa'))&&shown(named('living-east-sofa'))&&shown(named('living-glass-table')),`the living room keeps both sofas and its glass table${east?' with the east façade':''}`);
  assert(!named('east-family-dining'),'the east façade brings no dining table of its own');
@@ -36,8 +37,8 @@ for(const east of [false,true]){
  set(true,east);
  // Garden bedroom → family room.
  assert(!shown(named('garden-bedroom-bed'))&&!shown(named('garden-bedroom-rug')),'no bed in the family room');
- const wall=window(true,east);assert(wall&&!glassy(wall)&&Math.abs(wall.point.z-north)<.03,'the window behind the bed is walled up');
- // In the ground-floor view no glass stands above the cut wall where the window was.
+ const wall=window(true,east);assert(wall&&!glassy(wall)&&Math.abs(wall.point.z-north)<.03,'the north wall stays solid behind the television');
+ // In the ground-floor view no glass stands above the cut wall.
  assert(!glassy(first([2.8,2,-8],[2.8,2,-10.5])),'no window glass above the cut wall');
  const tv=bounds(named('family-room-tv')),couch=bounds(named('family-room-l-couch')),chair=bounds(named('family-room-armchair'));
  assert(tv.min.z-north<.06&&tv.min.z>=north-.001,'the television hangs on the north wall');
@@ -87,4 +88,4 @@ for(const east of [false,true]){
  assert(!first([west+.05,.5,5.8],[west+1.2,.5,5.8]),'the living room’s west door is clear');
 }
 set(false,false);
-console.log('Passed: Layout Updates turns the garden bedroom into a family room (window walled up, television where the bed stood, L couch facing it, armchair), moves the nook’s desk to the hall wall with a lounge chair and ottoman at the east window, and gives the living room an L couch in its south-west corner around the glass table, a second lounge chair, a fireside rug and a dining table centred where the east sofa stood; nothing overlaps, doorways stay clear, and without it the house is as before, east façade or not.');
+console.log('Passed: Layout Updates turns the garden bedroom into a family room (no window behind the bed either way, television where the bed stood, L couch facing it, armchair), moves the nook’s desk to the hall wall with a lounge chair and ottoman at the east window, and gives the living room an L couch in its south-west corner around the glass table, a second lounge chair, a fireside rug and a dining table centred where the east sofa stood; nothing overlaps, doorways stay clear, and without it the house is as before, east façade or not.');
