@@ -209,7 +209,7 @@
       "note": "The user recalled 203 uploads; 201 photographs are verifiable in both source library and portal. The source photographs inspected for textures are themselves 960\u20131280 pixels, not hidden high-resolution masters."
     },
     "architecture": "Plan-derived room layouts and owner corrections retained. Photo-led linen curtains, interior plaster faces, window reveals and hardware, fireplace hearth/logs, roof gutters/downpipes and ceiling slabs with the original registered atrium openings. Small dimensions and finishes remain interpretations. Roof windows now have physical holes through the detailed roof and tile layer. Roofs-on views include the upper gallery and furnishings using the same registered world transforms as the upper cutaway.",
-    "landscape": "Distinct pine-like crowns and leafy trees, existing meadow islands and subtle motion. Distant tree line is an illustrative setting outside the traced lot, not a reconstruction of the horizon. The lot remains level; no measured contours or Alps panorama are claimed.",
+    "landscape": "Distinct pine-like crowns and leafy trees, existing meadow islands and subtle motion. Distant tree line is an illustrative setting outside the traced lot, not a reconstruction of the horizon. The lot remains level. Beyond the setting, the land out to 150 km, the Alps included, stands at its true bearing and elevation angle from elevation data.",
     "lighting": "Daylight, overcast and evening are artistic lighting studies, not date- and location-calibrated sun studies. Interior exposure and warm fixture lights are chosen for visualization. Thin clear glazing uses non-occluding shadow rays in the photographic renderer; this is an architectural-glass approximation, not a physically exact glazing specification.",
     "photographicRendering": "Pinned three-gpu-pathtracer WebGL renderer; 8 light bounces, 12 transmissive bounces, progressive accumulation. Standard photo textures are rectified in the browser, with inferred roughness and normal maps. Default up to 1920 px / 256 samples; maximum 3840 px / 1024 samples. Panorama 2048\u00d71024 or 4096\u00d72048. Fine tree-leaf geometry is halved for export/rendering memory.",
     "capture": "PNG images, equirectangular panoramas, a 20-second silent orbit film where MediaRecorder is supported, and textured GLB of the currently visible scene and selected renovations. GLB export is a handoff for an offline renderer; no offline-rendered film or surveyed digital twin is claimed.",
@@ -234,10 +234,10 @@
       "Three garden-side boundary hedges on the north, east and south traced lot edges, present in both detail settings",
       "Extended narrow lane, mature broadleaf avenue, dappled shadows, grass verges and curved-neck street lamps",
       "Layered park-edge woodland with a view opening beyond the eastern garden",
-      "Three subdued Alpine ridge silhouettes and falling context terrain beyond the property",
+      "The land out to 150 km at its true bearing and elevation angle: the Alps to the south, from the Wendelstein to the Zugspitze",
       "Eye-level avenue and upstairs roof-window viewpoints with source-photo access"
     ],
-    "limits": "The off-site terrain, tree positions, street furniture and ridge shapes are photo-led interpretations, not measured or georeferenced reconstruction. Ridge distances are compressed for the renderer. The lake is nearby context described by the owner; no visible water surface has been invented. The house footprint and renovation geometry are unchanged."
+    "limits": "Tree positions and street furniture off the lot are photo-led interpretations. The distant land follows elevation data (Terrain Tiles: EU-DEM, DGM \u00d6sterreich, SRTM) at about 50 m, drawn at compressed distances with true angles; level lake surfaces in that data are tinted as water. The house footprint and renovation geometry are unchanged."
   },
   "poolSurround": {
     "source": "Owner photograph supplied 28 September 2026; pool-flush-surround-reference.jpg",
@@ -245,7 +245,7 @@
     "modelAssumptions": "16 x 4 m retained from labelled plan. Deck width 0.48 m, rim 0.115 m, water 0.08 m below lawn and basin depth 1.4 m estimated, not measured."
   },
   "alpineAtmosphere": {
-    "geometry": "Three shallow terrain ranges with branching relief and baked atmospheric haze replace the vertical silhouette strips. Photo-led impression, not surveyed or georeferenced.",
+    "geometry": "The land out to 150 km from elevation data: 720 bearings by 64 distances, each keeping the steepest elevation angle in its cell, with the earth's curvature and standard refraction. Drawn 1\u20132.9 km away at true angles, centred under the camera, with baked atmospheric haze.",
     "motion": "GPU vertex breeze with distance falloff; uniform-driven pool ripples. Default on except reduced motion, 30 Hz maximum ambient updates with 20/15 Hz fallback based on render submission cost. Paused offscreen, in floor cutaways, and while preparing/refining photographs. Ambient frames reuse static shadow maps."
   },
   "sunStudy": {
@@ -257,6 +257,6 @@
     "year": 2026,
     "clock": "Europe/Berlin, CET/CEST via Intl. Spring gap moves forward; autumn duplicate uses first occurrence.",
     "method": "NOAA/Meeus Julian-century solar declination and equation of time; refraction correction for apparent altitude. Source: https://gml.noaa.gov/grad/solcalc/calcdetails.html",
-    "limits": "Model geometry and vegetation are estimates. Distant terrain is decorative and does not cast sun-study shadows. No measured horizon, irradiance, snow, or seasonal canopy model."
+    "limits": "Model geometry and vegetation are estimates. Distant terrain does not cast sun-study shadows, and sunrise and sunset assume an unobstructed horizon. No measured irradiance, snow, or seasonal canopy model."
   }
 }
