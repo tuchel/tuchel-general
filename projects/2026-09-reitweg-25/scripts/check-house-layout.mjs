@@ -87,5 +87,19 @@ for(const east of [false,true]){
  assert(!first([p(1040,641)[0],.5,p(1040,641)[1]],[p(1150,641)[0],.5,p(1150,641)[1]]),'the hall doorway into the nook is clear');
  assert(!first([west+.05,.5,5.8],[west+1.2,.5,5.8]),'the living room’s west door is clear');
 }
+// The living room's two south windows, either side of the fireplace, sit low over a timber window bench (owner
+// photographs inside and out): glass from about 0.5 m to the 2.2 m head, a bench along the whole opening at the frame's
+// foot, and the narrow opening light on the side away from the chimney. Both go with the east façade's full glazing.
+{set(false,false,'exterior');
+ const windows=[{from:-4.4,to:-1.8,narrow:'west'},{from:1.83,to:4.26,narrow:'east'}];
+ for(const {from,to,narrow} of windows){const w=to-from;
+  for(const x of [from+.3,(from+to)/2,to-.3]){
+   assert(glassy(first([x,.12+.62,9],[x,.12+.62,10.5])),`glass at 0.62 m in the window at x ${x.toFixed(2)}`);
+   assert(!glassy(first([x,.12+2.26,9],[x,.12+2.26,10.5])),`wall above the 2.2 m head at x ${x.toFixed(2)}`);
+   const seat=first([x,1.5,south-.05],[x,0,south-.05]);
+   assert(seat?.object.name==='window-bench'&&Math.abs(seat.point.y-(.12+.5))<.02,`a window bench at the frame's foot at x ${x.toFixed(2)} (${seat?.object.name} at ${seat?.point.y.toFixed(2)} m)`);}
+  const bar=narrow==='east'?to-.4*w:from+.4*w,mid=first([bar,1.5,8],[bar,1.5,10.5]);
+  assert(mid&&!glassy(mid)&&Math.abs(mid.point.z-(9.61-.12))<.1,`the mullion stands ${narrow==='east'?'0.4 of the width from the east end':'0.4 of the width from the west end'}`);}
+ set(false,true,'exterior');for(const x of [-3.1,3]){const seat=first([x,1.5,south-.05],[x,0,south-.05]);assert(seat?.object.name!=='window-bench','the benches go with the east façade');}}
 set(false,false);
-console.log('Passed: Layout Updates turns the garden bedroom into a family room (no window behind the bed either way, television where the bed stood, L couch facing it, armchair), moves the nook’s desk to the hall wall with a lounge chair and ottoman at the east window, and gives the living room an L couch in its south-west corner around the glass table, a second lounge chair, a fireside rug and a dining table centred where the east sofa stood; nothing overlaps, doorways stay clear, and without it the house is as before, east façade or not.');
+console.log('Passed: the living room’s south windows sit low over a timber bench, the narrow light away from the chimney; Layout Updates turns the garden bedroom into a family room (no window behind the bed either way, television where the bed stood, L couch facing it, armchair), moves the nook’s desk to the hall wall with a lounge chair and ottoman at the east window, and gives the living room an L couch in its south-west corner around the glass table, a second lounge chair, a fireside rug and a dining table centred where the east sofa stood; nothing overlaps, doorways stay clear, and without it the house is as before, east façade or not.');
