@@ -67,12 +67,14 @@ for(const t of [.3,1]){const r=probe(...linkNorth,t,slab+1.2,courtyard);assert(r
 for(const t of [2,4.2,6.41])solid(`a glazing post at ${t} m along`,...linkNorth,t,slab+1.2,courtyard);
 glass('north glazing between posts',...linkNorth,2.6,slab+1.2,courtyard);
 solid('courtyard opening head 1.9 m',...linkSouth,7.9,slab+2.05,courtyard);glass('courtyard opening',...linkSouth,7.9,slab+1.5,courtyard);
-// Two-leaf lift-and-slide doors: the east bedroom, bathroom and living-room doors, the guest wing's two courtyard doors and
-// the link's east bay. A fixed leaf outside and a sliding leaf on the room side meet at mid-width behind wide stiles; a
-// lever on the sliding leaf, inside. The link's other bays are fixed glass between posts, without a centre bar.
+// Two-leaf lift-and-slide doors: the east bathroom and living-room doors, the guest wing's two courtyard doors and the
+// link's east bay. A fixed leaf outside and a sliding leaf on the room side meet at mid-width behind wide stiles; a lever
+// on the sliding leaf, inside. The link's other bays are fixed glass between posts, without a centre bar. The bedroom's
+// garden door is a pair of black steel glazed doors opening outward: two leaves in one plane, a mid-rail at handle height
+// and a lever on both faces.
 {const leaves=[],handles=[];root.traverse(o=>{if(/^lift-slide-(fixed|leaf)$/.test(o.name))leaves.push(o);if(o.name==='lift-slide-handle')handles.push(o);});
  const guestCourt=[p(367,671),p(316,1228)];
- for(const [what,[a,b],from,to,inside,slides] of [['bedroom door',east,1.9,4.6,main],['bathroom door',east,6.45,8.95,main],['living-room door',east,15,17.45,main],['yoga room door',guestCourt,4.45,7.15,guest],['wellness room door',guestCourt,10.1,12.9,guest],['link east bay',linkNorth,6.41,8.7,courtyard,'to']]){
+ for(const [what,[a,b],from,to,inside,slides] of [['bathroom door',east,6.45,8.95,main],['living-room door',east,15,17.45,main],['yoga room door',guestCourt,4.45,7.15,guest],['wellness room door',guestCourt,10.1,12.9,guest],['link east bay',linkNorth,6.41,8.7,courtyard,'to']]){
   const mid=(from+to)/2,len=Math.hypot(b[0]-a[0],b[1]-a[1]),ux=(b[0]-a[0])/len,uz=(b[1]-a[1])/len;
   // Along the wall (t) and into the room (depth) from the wall line.
   let nx=-uz,nz=ux;{const mx=a[0]+ux*mid,mz=a[1]+uz*mid;if(nx*(inside[0]-mx)+nz*(inside[1]-mz)<0){nx=-nx;nz=-nz;}}
@@ -84,7 +86,12 @@ solid('courtyard opening head 1.9 m',...linkSouth,7.9,slab+2.05,courtyard);glass
   if(slides)assert((s.t>mid)===(slides==='to'),`${what}: the sliding leaf parks over the fixed one from the ${slides==='to'?'far':'near'} side`);
   solid(`${what}: meeting stiles at mid-width`,a,b,mid,slab+1.2,inside);glass(`${what}: fixed leaf`,a,b,f.t,slab+1.2,inside);glass(`${what}: sliding leaf`,a,b,s.t,slab+1.2,inside);
   assert(handles.some(o=>{const h=frame(o);return Math.abs(h.t-mid)<.35&&h.depth>s.depth&&h.y>slab+.8&&h.y<slab+1.4;}),`${what}: a lever on the sliding leaf, inside`);}
- for(const t of [3.1,5.3])glass(`link: fixed bay without a centre bar at ${t} m`,...linkNorth,t,slab+1.2,courtyard);}
+ for(const t of [3.1,5.3])glass(`link: fixed bay without a centre bar at ${t} m`,...linkNorth,t,slab+1.2,courtyard);
+ const french=[];root.traverse(o=>{if(o.name==='french-door-leaf')french.push(new T.Box3().setFromObject(o).getCenter(new T.Vector3()));});
+ const bedroom=french.filter(c=>Math.abs(c.x-E)<.3&&c.z>-7.8&&c.z<-4.9);assert.equal(bedroom.length,2,'bedroom door: two steel glazed leaves');assert(Math.abs(bedroom[0].x-bedroom[1].x)<.01,'in one plane');
+ assert(!leaves.some(o=>{const c=new T.Box3().setFromObject(o).getCenter(new T.Vector3());return Math.abs(c.x-E)<.3&&c.z>-7.8&&c.z<-4.9;}),'bedroom door: not lift-and-slide');
+ solid('bedroom door: meeting stiles',...east,3.25,slab+1.5,main);for(const t of [2.55,3.95]){glass('bedroom door leaf',...east,t,slab+1.5,main);solid('bedroom door mid-rail',...east,t,slab+1.11,main);}
+ let levers=0;root.traverse(o=>{if(o.name==='french-door-handle')levers++;});assert.equal(levers,2,'bedroom door: a lever on each face');}
 // The passage from the link into the hall: 0.97 m wide (z 2.31–3.28), its black steel glazed leaf hinged on the south jamb
 // and standing open into the hall.
 const westHall=[[W,p(795,464)[1]],[W,S]],westSplit=p(795,464)[1]-(-9.61);
@@ -92,4 +99,4 @@ solid('passage begins at z 2.31',...westHall,11.9-westSplit,slab+1.2,main);solid
 {const leaf=root.getObjectByName('hall-passage-door');assert(leaf,'the passage door');const b=new T.Box3().setFromObject(leaf);
  assert(b.min.x>-5.75&&b.max.x>-4.85&&b.max.x<-4.55&&b.max.z-b.min.z<.15&&Math.abs((b.min.z+b.max.z)/2-3.24)<.08,`the passage door stands open into the hall from the south jamb (x ${b.min.x.toFixed(2)}…${b.max.x.toFixed(2)}, z ${b.min.z.toFixed(2)}…${b.max.z.toFixed(2)})`);
  assert.equal(first([-5.1,slab+1.2,2.7],[-5.1,slab+1.2,3.7]),'glass','the passage door is glazed');}
-console.log('Passed: east doors and the dining window, north door and upper window, west WC window and kitchen door, upper south windows, east and guest roof windows, garage doors, guest windows and gable window, link door, posts and courtyard opening, the two-leaf lift-and-slide doors and the steel glazed passage door as photographed.');
+console.log('Passed: east doors and the dining window, north door and upper window, west WC window and kitchen door, upper south windows, east and guest roof windows, garage doors, guest windows and gable window, link door, posts and courtyard opening, the two-leaf lift-and-slide doors, the steel glazed bedroom doors and the steel glazed passage door as photographed.');
