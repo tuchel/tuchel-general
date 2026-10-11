@@ -83,8 +83,10 @@ for(const east of [false,true]){
   for(const other of pieces.slice(i+1))if(!together.has(`${name}|${other}`)&&!together.has(`${other}|${name}`)&&!a.getObjectByName(other)&&!named(other).getObjectByName(name))assert(!meet(a,named(other)),`${name} clear of ${other}`);
   for(const o of others){if(o.getObjectByName(name)||a.getObjectByName(o.name)||pieces.some(n=>o.getObjectByName(n)))continue;assert(!meet(a,o),`${name} clear of ${o.name}`);}
  }
- // The way from the hall into the nook, and the west door of the living room, stay clear at knee height.
- assert(!first([p(1040,641)[0],.5,p(1040,641)[1]],[p(1150,641)[0],.5,p(1150,641)[1]]),'the hall doorway into the nook is clear');
+ // The way from the hall into the nook, and the west door of the living room, stay clear at knee height; the dining-room
+ // door, which a walker passes through, does not count.
+ {const u=new T.Vector3(p(1040,641)[0],.5,p(1040,641)[1]),v=new T.Vector3(p(1150,641)[0],.5,p(1150,641)[1]),meshes=[];ground.traverse(o=>{if(o.isMesh&&shown(o))meshes.push(o);});
+  const hits=new T.Raycaster(u,v.clone().sub(u).normalize(),0,u.distanceTo(v)).intersectObjects(meshes,false).filter(h=>!h.object.userData.passable);assert(!hits.length,'the hall doorway into the nook is clear');}
  assert(!first([west+.05,.5,5.8],[west+1.2,.5,5.8]),'the living room’s west door is clear');
 }
 // The living room's two south windows, either side of the fireplace, sit low over a timber window bench (owner

@@ -78,9 +78,10 @@ for(const realism of [false,true]){
      const h=ray.intersectObject(model.root,true).find(h=>h.object.isMesh&&shown(h.object));if(h&&/roof-slope|ceiling/.test(h.object.name))hidden.push(`${h.object.name} covers the window corner at x ${x.toFixed(2)}, z ${corner.z.toFixed(1)}`);}}}
   assert.equal(hidden.length,0,hidden.slice(0,4).join('; '));
  }
- // Downpipes stand outside: never within the main house or the guest wing (and its garage).
+ // Downpipes stand outside: never within the main house, the guest wing (and its garage) or the link between them.
  const guest=[[116,535],[475,573],[461,668],[367,671],[316,1228],[49,1208]].map(([x,z])=>p(x,z)),[w,n]=p(795,182),[e,s]=p(1229,877);
- model.root.traverse(o=>{if(o.name!=='downpipe')return;const v=o.getWorldPosition(new T.Vector3());assert(!(v.x>w&&v.x<e&&v.z>n&&v.z<s)&&!within(v.x,v.z,guest),`downpipe indoors at x ${v.x.toFixed(1)}, z ${v.z.toFixed(1)}`);});
+ const linkPlan=[[459,574],[811,574],[811,672],[367,671],[370,647],[449,646]].map(([x,z])=>p(x,z));
+ model.root.traverse(o=>{if(o.name!=='downpipe')return;const v=o.getWorldPosition(new T.Vector3());assert(!(v.x>w&&v.x<e&&v.z>n&&v.z<s)&&!within(v.x,v.z,guest)&&!within(v.x,v.z,linkPlan),`downpipe indoors at x ${v.x.toFixed(1)}, z ${v.z.toFixed(1)}`);});
  model.dispose();
 }
 console.log('Passed: no wall, window or beam breaks through a roof, the entrance roof stops at the main and guest roofs, rafters keep clear of roof windows and stay above the upper floors inside the walls, none under the guest roof, gable windows show whole, and no downpipe stands indoors, in either detail mode.');

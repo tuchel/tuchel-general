@@ -99,6 +99,18 @@ solid('courtyard opening head 1.9 m',...linkSouth,7.9,slab+2.05,courtyard);glass
  const curtains=root.getObjectByName('bedroom-linen-curtains');assert(curtains,'bedroom curtains');const panels=[];curtains.traverse(o=>{if(o.isMesh&&o.geometry.type==='PlaneGeometry')panels.push(new T.Box3().setFromObject(o));});
  assert.equal(panels.length,2,'two curtains at the bedroom door');for(const b of panels){assert(b.max.x<E-.3&&b.min.y<slab+.15&&b.max.y>slab+2.3,'a floor-length curtain inside the east wall');}
  assert(panels.some(b=>b.max.z<-7.66)&&panels.some(b=>b.min.z>-5.06),'the curtains hang either side of the door, clear of the glass');}
+// Reveals: inside the glass a window's or door's reveal is plaster, outside it the façade's cladding wraps in; the opening
+// from the link into the hall is plaster through the wall (owner photographs from the hall, the kitchen and the living
+// room).
+{const meets=(from,dir)=>{ray.set(new T.Vector3(...from),new T.Vector3(...dir).normalize());ray.far=2;const hit=ray.intersectObjects(meshes,false)[0];if(!hit)return 'nothing';
+  const m=[hit.object.material].flat()[hit.face?.materialIndex??0];return m.userData.photo==='cladding'?'cladding':m.userData.timber==='#e9e4d9'?'plaster':hit.object.name||'other';};
+ // The kitchen's north window, x −4.2 to −3.0 and 0.82 to 2.27 m up, its glass 0.12 m inside the wall line at z −9.61.
+ for(const dir of [[-1,0,0],[1,0,0]]){assert.equal(meets([-3.6,1.5,-9.33],dir),'plaster',`the kitchen window's reveal is plaster inside (toward x ${dir[0]})`);assert.equal(meets([-3.6,1.5,-9.66],dir),'cladding',`the kitchen window's reveal is clad outside (toward x ${dir[0]})`);}
+ assert.equal(meets([-3.6,1.5,-9.33],[0,1,0]),'plaster','the kitchen window\'s head is plaster inside');
+ // The passage from the link into the hall, z 2.31–3.28 through the wall from x −6.105 to −5.655.
+ for(const x of [-6.02,-5.75])assert.equal(meets([x,1.2,2.8],[0,0,-1]),'plaster',`the passage from the link is plaster through the wall (x ${x})`);
+ // The link's end walls, the main house's west wall and the guest wing's east wall, are plastered on the link's side.
+ assert.equal(meets([-8,2.2,1.7],[1,0,0]),'plaster','the main house\'s wall is plaster inside the link');assert.equal(meets([-14,1.5,2.9],[-1,0,0]),'plaster','the guest wing\'s wall is plaster inside the link');}
 // The passage from the link into the hall: 0.97 m wide (z 2.31–3.28), its black steel glazed leaf hinged on the south jamb
 // and standing open into the hall.
 const westHall=[[W,p(795,464)[1]],[W,S]],westSplit=p(795,464)[1]-(-9.61);
