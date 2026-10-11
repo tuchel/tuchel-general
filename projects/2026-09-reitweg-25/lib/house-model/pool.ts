@@ -1,7 +1,9 @@
 import * as T from 'three';
 import {sitePoint} from './site-data';
 
-export const poolCenter=sitePoint(845,788);
+// Where the owner's aerial photograph puts the pool and its deck (calibrated on the house and the neighbors' surveyed
+// buildings, to about 1 m), its east end beyond the main house's east wall as in the pool-side photograph.
+export const poolCenter=sitePoint(916,815);
 // Labelled 16 × 4 m water footprint. Surround widths and depth are photo estimates.
 export const poolOpening={x:poolCenter[0],z:poolCenter[1],width:16,depth:4};
 export function poolHole(){

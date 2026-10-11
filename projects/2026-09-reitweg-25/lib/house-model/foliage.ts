@@ -9,7 +9,7 @@ import {addShaderFeature} from './shader-features';
 export type TreeKind='broadleaf'|'maple'|'pine'|'mugo'|StandKind;
 /** The woods round the garden: broadleaves grown in a stand, silver birch, spruce. */
 export type StandKind='woodland'|'birch'|'spruce';
-export type TreeSpec={x:number;z:number;r:number;height:number;seed:number;kind:TreeKind;far?:boolean;base?:number};
+export type TreeSpec={x:number;z:number;r:number;height:number;seed:number;kind:TreeKind;far?:boolean;base?:number;tint?:readonly [number,number,number]};
 const cells:Record<TreeKind|'hedge',[number,number]>={broadleaf:[0,1],maple:[1,1],pine:[0,0],mugo:[0,0],hedge:[1,0],woodland:[1,0],birch:[1,0],spruce:[0,0]};
 const REF_H=10,REF_R=3.5;
 /** The height and crown radius each archetype is built at; woodland trees and the mugo pine are built near their real
@@ -267,7 +267,7 @@ export function buildTrees(specs:TreeSpec[],materials:FoliageMaterials,name:stri
    const [refH,refR]=REF[kind],origin=new T.Vector3(s.x,s.base??0,s.z),scale=new T.Vector3(s.r/refR,s.height/refH,s.r/refR);
    set.matrices.push(new T.Matrix4().compose(origin,q,scale));set.origins.push(origin);
    set.centres.push(new T.Vector3(s.x,(s.base??0)+s.height*.55,s.z));set.radii.push(Math.max(s.height,s.r*2)*.62);set.leaf.push(LEAF*Math.max(scale.x,scale.y));
-   const hue=kind==='pine'||kind==='mugo'?.9:kind==='spruce'?.82+r()*.12:kind==='woodland'?.72+r()*.3:.85+r()*.3;set.colors.push(new T.Color().setRGB(hue,hue*(.97+r()*.06),hue*(.85+r()*.2)));
+   const hue=kind==='pine'||kind==='mugo'?.9:kind==='spruce'?.82+r()*.12:kind==='woodland'?.72+r()*.3:.85+r()*.3;const color=new T.Color().setRGB(hue,hue*(.97+r()*.06),hue*(.85+r()*.2));if(s.tint)color.multiply(new T.Color().setRGB(...s.tint));set.colors.push(color);
   }
   for(const c of [...crowns,...lod??[]])c.userData.sway='leaf';
   for(const mesh of [...crowns,bark,...lod??[]]){

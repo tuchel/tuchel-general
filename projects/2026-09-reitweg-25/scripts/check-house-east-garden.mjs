@@ -50,4 +50,9 @@ const boulder=root.getObjectByName('garden-boulder');assert(boulder,'the boulder
 {const b=new T.Box3().setFromObject(boulder),size=b.getSize(new T.Vector3()),c=b.getCenter(new T.Vector3());
  assert(Math.hypot(c.x-12,c.z+11.2)<.6,`the boulder stands at (12, -11.2) (${c.x.toFixed(1)}, ${c.z.toFixed(1)})`);
  assert(size.y>1&&size.y<1.3,`the boulder is about 1.15 m high (${size.y.toFixed(2)})`);assert(Math.max(size.x,size.z)>2.2&&Math.max(size.x,size.z)<2.8,'about 2.5 m long');}
-console.log('Passed: the photographed mugo pines, Japanese maple, Japanese dogwood and hawthorns stand where and as tall as photographed; the yew hedge, fountain grass and boulder; no trees where none grow.');
+// By the loggia's south end: a dwarf red Japanese maple, its leaves deep red, beside a smaller boulder.
+{const list=[];for(const set of trees.userData.treeSets)set.matrices.forEach((matrix,i)=>{const at=new T.Vector3().setFromMatrixPosition(matrix);if(Math.hypot(at.x+15,at.z-21)<1)list.push(set.colors[i]);});
+ assert.equal(list.length,1,'a red Japanese maple by the loggia');assert(list[0].r>list[0].g*2,'its leaves are red');
+ const red=one('red Japanese maple',-15,21,[1.1,1.5],[1,1.8]);assert(red.top<1.6,'a dwarf');
+ const stone=root.getObjectByName('loggia-boulder');assert(stone,'the boulder beside it');const c=new T.Box3().setFromObject(stone).getCenter(new T.Vector3());assert(Math.hypot(c.x+14.1,c.z-21.3)<.5,'beside the maple');}
+console.log('Passed: the photographed mugo pines, Japanese maple, Japanese dogwood and hawthorns stand where and as tall as photographed; the yew hedge, fountain grass and boulder; the red Japanese maple by the loggia; no trees where none grow.');
