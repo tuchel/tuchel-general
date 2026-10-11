@@ -166,7 +166,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // The living room's two south windows sit low over a timber window bench, the narrow opening light on the side away
  // from the chimney (owner photographs inside and out).
  capture('east',ground,()=>facade(ground,[W,S],[E,S],[{from:1.6,to:4.2,sill:.5,head:2.2,mullion:1.6+.4*2.6,bench:true},{from:7.83,to:10.26,sill:.5,head:2.2,mullion:10.26-.4*2.43,bench:true}],'main'));
- for(const [a,b,c,d] of [[965,194,965,382],[964,386,1003,386],[1030,388,1043,388],[988,389,988,464],[814,464,850,464],[877,464,952,464],[980,464,1001,464],[1029,464,1043,464],[1043,388,1126,388],[1175,388,1218,388],[1050,388,1050,462],[1114,428,1114,462],[1050,462,1114,462],[1050,470,1050,613],[1050,524,1215,524],[1037,669,1078,669],[814,669,959,669],[893,464,893,609],[893,652,893,669],[829,507,893,507],[869,559,893,559],[869,559,869,598],[869,598,893,598],[829,598,833,598]])wall(ground,a,b,c,d);
+ for(const [a,b,c,d] of [[965,194,965,382],[964,386,1003,386],[1030,388,1043,388],[988,389,988,464],[814,464,850,464],[877,464,952,464],[980,464,1001,464],[1029,464,1043,464],[1043,388,1126,388],[1175,388,1218,388],[1050,388,1050,462],[1114,428,1114,462],[1050,462,1114,462],[1050,470,1050,613],[1050,524,1215,524],[1037,669,1078,669],[814,669,959,669],[893,464,893,609],[893,652,893,669],[829,507,893,507],[869,559,893,559],[869,598,893,598],[829,598,833,598]])wall(ground,a,b,c,d);
  // The walk-in pantry's west side is solid down to its wall with the WC: the thick wall drawn between it and the facade.
  wall(ground,816,466,816,505).scale.z=26*PLAN_SCALE;
  // The dining alcove opens into the sitting room between two piers, as drawn on the plan.

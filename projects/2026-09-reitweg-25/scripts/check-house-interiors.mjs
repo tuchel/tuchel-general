@@ -25,15 +25,18 @@ assert.equal(crosses(point(850,625),point(850,580),[ground]).length,0,'hall WC s
 // The hall table stands beside the dining-room doorway, never across it: clear at table-top height over the whole opening.
 for(let z=616;z<=661;z+=5)assert.equal(crosses(point(1005,z,.97),point(1068,z,.97),[ground]).length,0,`hall to dining doorway is clear at z ${z}`);
 assert(model.root.getObjectByName('hall-table-beside-dining-door'),'hall table present');
-// The hall WC as photographed from its door: the toilet in the north bay, its cistern against the east wall and facing
-// the window; the vanity, about 1 m long, against the west face of the shaft south of it, under a black-framed mirror.
+// The hall WC as photographed from its door and drawn on the ground plan: the toilet in the north bay, its cistern
+// against the east wall and facing the window; the vanity, about 1 m long, filling the recess east of the room south of
+// it, open to the room, its back to the east wall under a black-framed mirror.
 {const toilet=model.root.getObjectByName('hall-wc-toilet'),basin=model.root.getObjectByName('hall-wc-basin'),mirror=model.root.getObjectByName('hall-wc-mirror');assert(toilet&&basin&&mirror,'hall WC toilet, vanity and mirror');
- const [eastWall]=p(893,0),[shaft]=p(869,0),t=new T.Box3().setFromObject(toilet),v=new T.Box3().setFromObject(basin),m=new T.Box3().setFromObject(mirror);
+ const [eastWall]=p(893,0),[recess]=p(869,0),t=new T.Box3().setFromObject(toilet),v=new T.Box3().setFromObject(basin),m=new T.Box3().setFromObject(mirror);
  assert(t.max.x<eastWall-.085&&t.max.x>eastWall-.14,`the toilet's cistern stands against the east wall (${t.max.x.toFixed(2)}, wall face ${(eastWall-.09).toFixed(2)})`);
  assert(toilet.getWorldDirection(new T.Vector3()).x>.9,'the toilet faces west, toward the window');
- assert(v.max.x<shaft-.085&&v.max.x>shaft-.14,`the vanity stands against the shaft (${v.max.x.toFixed(2)}, wall face ${(shaft-.09).toFixed(2)})`);
+ assert(v.max.x<eastWall-.085&&v.max.x>eastWall-.14&&v.min.x>recess-.05,`the vanity stands in the recess against the east wall (x ${v.min.x.toFixed(2)} to ${v.max.x.toFixed(2)})`);
+ assert(basin.getWorldDirection(new T.Vector3()).x>.9,'the vanity faces west, toward the window');
  assert(v.max.z-v.min.z>.95&&v.max.z-v.min.z<1.15,`the vanity is about 1 m long (${(v.max.z-v.min.z).toFixed(2)})`);
- assert(m.min.y>1.1&&m.max.y<2.2&&m.min.z>v.min.z&&m.max.z<v.max.z&&m.max.x<shaft-.085,'the mirror hangs on the shaft over the vanity');}
+ assert(m.min.y>1.1&&m.max.y<2.2&&m.min.z>v.min.z&&m.max.z<v.max.z&&m.max.x<eastWall-.085,'the mirror hangs on the east wall over the vanity');
+ assert.equal(crosses(point(860,578,1.2),point(878,578,1.2),[ground]).length,0,'the recess is open to the room');}
 assert(crosses(point(170,851),point(245,851),[ground]).length>0,'yoga partition is present');
 assert.equal(crosses(point(171,910),point(231,910),[ground]).length,0,'yoga doorway remains clear');
 // The link's west end: a full-height timber door stands closed in the passage to the garage corridor (photographs from
@@ -150,4 +153,4 @@ model.setLevel('exterior');model.root.updateMatrixWorld(true);
  const track=model.root.getObjectByName('link-light-track');assert(track,'a light track along the ridge');const tb=new T.Box3().setFromObject(track);
  assert(tb.max.x-tb.min.x>7&&tb.max.x<-6.66&&tb.min.y>3.2&&Math.abs((tb.min.z+tb.max.z)/2-2.51)<.1,'the track runs the link along its ridge');assert(spots.length>=6,`spotlights on the track (${spots.length})`);
  model.setLevel('ground');model.root.updateMatrixWorld(true);assert.notEqual(above(-11,2.3)?.object.name,'link-ceiling','the link ceiling lifts off in the ground-floor view');}
-model.dispose();console.log('Passed: the link\'s pitched plaster ceiling with its steel beams and track lights, the closed full-height garage corridor door, the hall WC\'s toilet against the east wall and vanity against the shaft, dining circulation, the basement stairwell open and guarded in the hall with a clear way onto its top step, the pantry closed off from the WC, the hall doorway beside its table, the south bedroom headboard against its wall, yoga doorway, sliding door, corridor clearance, walkway, outdoor table, guest atrium, plan doorways, guest stair, basement doors and registration, roof height, upper walls to the ceiling, roof windows over the knee wall and finite model transforms.');
+model.dispose();console.log('Passed: the link\'s pitched plaster ceiling with its steel beams and track lights, the closed full-height garage corridor door, the hall WC\'s toilet against the east wall and vanity in its recess, dining circulation, the basement stairwell open and guarded in the hall with a clear way onto its top step, the pantry closed off from the WC, the hall doorway beside its table, the south bedroom headboard against its wall, yoga doorway, sliding door, corridor clearance, walkway, outdoor table, guest atrium, plan doorways, guest stair, basement doors and registration, roof height, upper walls to the ceiling, roof windows over the knee wall and finite model transforms.');
