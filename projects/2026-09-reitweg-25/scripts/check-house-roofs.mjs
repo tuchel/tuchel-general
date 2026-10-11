@@ -52,7 +52,10 @@ for(const realism of [false,true]){
  assert.equal(hanging.length,0,`${realism?'detailed':'model'}: the entrance roof hangs inside a house: ${hanging.slice(0,4).join('; ')}`);
  // Rafters frame the roof windows and never cross one: nothing timber between a room and the glass.
  if(realism){
-  const rafters=[];model.root.traverse(o=>{if(o.name==='roof-rafter')rafters.push(o);});assert(rafters.length>40,'rafters exist');
+  const rafters=[];model.root.traverse(o=>{if(o.name==='roof-rafter')rafters.push(o);});assert(rafters.length>25,`main-roof rafters exist (${rafters.length})`);
+  // The guest wing's upper rooms have plain plastered slopes, posts and braces but no rafters (owner photographs of the
+  // guest rooms under its north gable).
+  assert.equal(rafters.filter(o=>o.parent?.name==='guest-roof').length,0,'no rafters under the guest roof');
   const crossing=[];model.root.traverse(o=>{if(o.name!=='open-roof-window')return;
    for(const u of [-.55,-.3,0,.3,.55])for(const w of [-.28,0,.28]){const pane=new T.Vector3(u,.05,w).applyMatrix4(o.matrixWorld),normal=new T.Vector3(0,1,0).transformDirection(o.matrixWorld);
     ray.set(pane.clone().addScaledVector(normal,-1.5),normal);ray.far=1.5;const h=ray.intersectObjects(rafters,false)[0];if(h)crossing.push(`window at x ${pane.x.toFixed(1)}, z ${pane.z.toFixed(1)}`);}});
@@ -80,4 +83,4 @@ for(const realism of [false,true]){
  model.root.traverse(o=>{if(o.name!=='downpipe')return;const v=o.getWorldPosition(new T.Vector3());assert(!(v.x>w&&v.x<e&&v.z>n&&v.z<s)&&!within(v.x,v.z,guest),`downpipe indoors at x ${v.x.toFixed(1)}, z ${v.z.toFixed(1)}`);});
  model.dispose();
 }
-console.log('Passed: no wall, window or beam breaks through a roof, the entrance roof stops at the main and guest roofs, rafters keep clear of roof windows and stay above the upper floors inside the walls, gable windows show whole, and no downpipe stands indoors, in either detail mode.');
+console.log('Passed: no wall, window or beam breaks through a roof, the entrance roof stops at the main and guest roofs, rafters keep clear of roof windows and stay above the upper floors inside the walls, none under the guest roof, gable windows show whole, and no downpipe stands indoors, in either detail mode.');

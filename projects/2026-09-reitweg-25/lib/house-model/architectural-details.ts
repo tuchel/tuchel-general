@@ -17,6 +17,15 @@ export function architecturalDetails(ground:T.Group,ceilings:T.Group){
   const c=new T.Mesh(geometry,linen);c.rotation.y=-Math.PI/2;c.position.set(5.57,1.48,z);c.castShadow=true;curtains.add(c);
  }
  box(curtains,5.6,2.78,6.35,.025,.025,3.2,dark);
+ // Floor-length linen curtains hang either side of the bedroom's garden door, clear of the glass (owner photograph from the
+ // bed).
+ const bedroom=new T.Group();bedroom.name='bedroom-linen-curtains';group.add(bedroom);
+ for(const z of [-7.96,-4.76]){
+  const geometry=new T.PlaneGeometry(.46,2.56,32,14);const pos=geometry.attributes.position;
+  for(let i=0;i<pos.count;i++){const x=pos.getX(i),y=pos.getY(i);pos.setZ(i,.055*Math.sin(x*65)+.016*Math.cos(y*3+x*4));}geometry.computeVertexNormals();
+  const c=new T.Mesh(geometry,linen);c.rotation.y=-Math.PI/2;c.position.set(5.57,1.48,z);c.castShadow=true;bedroom.add(c);
+ }
+ box(bedroom,5.6,2.78,-6.36,.025,.025,3.6,dark);
  // Stone hearth, reveal and a modest stack of logs beside the retained fireplace.
  const [fx,fz]=p(1010,877);box(group,fx,.135,fz-.35,1.8,.07,1.15,stone);
  for(const x of [-.69,.69])box(group,fx+x,.21,fz-.48,.23,1.02,.15,stone);
