@@ -91,7 +91,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // Stone slabs outside the bedroom, from the wall to the yew hedge as far as the fountain grass, then a strip along the
  // wall to the paved terrace outside the dining and sitting rooms (Terrasse 2 and 3 on the grounds plan; owner photos
  // from the east terrace): grey, darker than the courtyard's paving.
- const slabs=material('#c4c1b9','#8f8c85');slabs.userData.photo='stone';
+ const slabs=material('#bcb8ae','#78756e');slabs.userData.photo='stone';
  poly([[1233,240],[1319,240],[1319,421],[1254,421],[1254,533],[1233,533]].map(([x,z])=>p(x,z)),.05,0,slabs,site);capture('terrace',site,()=>planBox(site,1233,533,1301,877,.05,0,slabs));
  // Basement light-well grates and the guest basement's external stair.
  site.add(buildLightWells(m.dark,m.edge,BASEMENT_PLAN_X_OFFSET),buildBasementStair(m.stone,m.dark,m.dark));
