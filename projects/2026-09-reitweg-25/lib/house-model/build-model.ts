@@ -9,9 +9,10 @@ import {buildGarden} from './garden';
 import {buildEntranceGarden} from './entrance-garden';
 import {buildPool,poolHole} from './pool';
 import {boundaryHedge} from './landscape-context';
-import {buildTrees,foliageMaterials,type TreeSpec} from './foliage';
+import {buildTrees,foliageMaterials,type TreeSpec,type TreeKind} from './foliage';
 import {buildFrontWall} from './front-wall';
 import {buildFrontGarden,FRUIT_TREES,SHRUBS} from './front-garden';
+import {buildEastGarden,EAST_GARDEN_TREES} from './east-garden';
 import {furnishHouse} from './interiors';
 import {roofSkylights} from './solar-layout';
 import {buildRenovations} from './renovations';
@@ -408,10 +409,11 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // Detailed trees: instanced leaf-card archetypes. Pines and the Japanese maples follow the owner photos.
  const foliage=realistic?(foliageIn??foliageMaterials()):undefined;
  // The small fruit trees and shrubs around the well follow the owner photos (front-garden.ts), the two small meadow trees
- // the aerial photograph (site-data.ts); both carry their own height.
- const gardenTrees:(readonly number[])[]=[...treePositions,...FRUIT_TREES,...SHRUBS,...MEADOW_TREES],treeHeight=(t:readonly number[])=>t[3]??t[2]*1.35+1.7;
- if(foliage)trees.add(buildTrees(gardenTrees.map((t,i)=>{const [px,pz,r]=t,[x,z]=s(px,pz),seed=171+i*927;return {x,z,r,height:treeHeight(t),seed,kind:[171,1098,2025,4806,5733].includes(seed)?'pine':i%5===3&&i<treePositions.length?'maple':'broadleaf'} as TreeSpec;}),foliage,'garden-trees'));
- gardenTrees.forEach((t,i)=>{if(realistic)return;const [px,pz,r]=t,[x,z]=s(px,pz),height=treeHeight(t);const trunk=add(cylinderGeo,m.trunk,trees);trunk.scale.set(.1,height*.68,.1);trunk.position.set(x,height*.34,z);
+ // the aerial photograph (site-data.ts), the trees east of the house both (site-data.ts, east-garden.ts); they carry
+ // their own height, and the mugo pines their kind.
+ const gardenTrees:readonly (readonly [number,number,number,number?,TreeKind?])[]=[...treePositions,...FRUIT_TREES,...SHRUBS,...MEADOW_TREES,...EAST_GARDEN_TREES];
+ if(foliage)trees.add(buildTrees(gardenTrees.map((t,i)=>{const [px,pz,r,height,kind]=t,[x,z]=s(px,pz),seed=171+i*927;return {x,z,r,height:height??r*1.35+1.7,seed,kind:kind??([171,1098,2025,4806,5733].includes(seed)?'pine':i%5===3&&i<treePositions.length?'maple':'broadleaf')} as TreeSpec;}),foliage,'garden-trees'));
+ gardenTrees.forEach((t,i)=>{if(realistic)return;const [px,pz,r,h]=t,[x,z]=s(px,pz),height=h??r*1.35+1.7;const trunk=add(cylinderGeo,m.trunk,trees);trunk.scale.set(.1,height*.68,.1);trunk.position.set(x,height*.34,z);
   for(let k=0;k<5;k++){const angle=k*2.4+i,dx=Math.cos(angle)*r*.52,dz=Math.sin(angle)*r*.52;segment(trees,[x,height*.43,z],[x+dx,height-r*.2,z+dz],.06,m.trunk);}
   // Seeded, overlapping lobes give each crown an irregular, airy silhouette.
   let seed=171+i*927;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
@@ -421,6 +423,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
 
  trees.add(boundaryHedge(foliage));
  const frontGarden=buildFrontGarden(foliage);trees.add(frontGarden.planting);site.add(frontGarden.ground);
+ trees.add(buildEastGarden(foliage));
  const renovation=buildRenovations(ground,roofs,site,material);
  // The retained fireplace and a pier either side of it, between the two runs of south glazing (renovations.ts).
  facade(renovation.groups.east,[-.93,S],[.82,S],[],'main');

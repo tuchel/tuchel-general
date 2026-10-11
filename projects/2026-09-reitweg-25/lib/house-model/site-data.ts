@@ -1,4 +1,4 @@
-import type {StandKind} from './foliage';
+import type {StandKind,TreeKind} from './foliage';
 /** Source tracing in the 1888px-wide presentation of the exposé spreads.
  * Ground plan is calibrated to its labelled ~12 m main-house width.
  * Plot tracing uses the same house width as a registration anchor.
@@ -29,6 +29,9 @@ export const plotOutline:Point[] = [[441,220],[1717,417],[1599,1016],[199,849],[
 /** The north boundary hedge stands taller from the arrival wall to abreast of the main house's north gable (owner
  * photographs and aerial photograph): its height (m) as far east as x = until (world m). */
 export const TALL_HEDGE={until:4.4,height:3.2};
+/** The north hedge's height (m) from there to the north-east corner: 1.75–2.05 m in the owner's photographs from the
+ * east meadow and the east terrace (cameras fitted to the main house), against the neighbors' buildings behind it. */
+export const NORTH_HEDGE=1.9;
 /** Trees traced from the owner's aerial photograph (north up, calibrated on the house and the neighbours' surveyed
  * buildings to about 2 m): [x, z, height, crown radius, kind], world metres. Heights from the owner's photographs: from
  * the east roof window the canopy's skyline caps each tree in view (camera fitted to the neighbours' buildings, the roof
@@ -52,12 +55,17 @@ export const EAST_TREES:[number,number,number,number,StandKind][]=[
 ];
 /** Two small trees in the east meadow (aerial photograph), in site-plan units as treePositions: [x, z, radius, height]. */
 export const MEADOW_TREES:[number,number,number,number][]=[[1455,554,2,5],[1508,803,2,5]];
-export const treePositions = [
+/** Garden trees from the grounds plan, in site-plan units: [x, z, crown radius, height?, kind?]. East and north-east of
+ * the main house they stand where the owner's photographs and the aerial photograph put them (cameras fitted to the
+ * house, crossed bearings from two photographs, to about 1 m), as tall as photographed: a Japanese dogwood in front of
+ * the north hedge, two hawthorns by the north-east corner, a broad mugo pine in the east lawn and a Japanese maple over
+ * the south-east corner, clear of its roof. */
+export const treePositions:readonly (readonly [number,number,number,number?,TreeKind?])[] = [
  [473,294,2.8],[480,363,2.3],[421,426,2],[524,458,1.7],[613,329,2.8],[619,442,2.6],[740,310,2.8],[708,500,2.5],
- [1081,361,2.8],[1166,406,1.4],[1201,386,1.6],[1020,578,2],[1185,617,3],[1009,729,3.1],[667,713,2.2],
+ [1052,341.5,2.2,4.5],[1000.5,390,1.5,4],[1050.5,420,2.1,4],[1020,578,2],[1192.5,628,2.25,2.5,'mugo'],[969,723,3.1,8],[667,713,2.2],
  [690,858,2.7],[747,881,2],[793,895,2],[841,904,1.8],[931,918,1.4],[967,905,1.5],[992,929,1.4],[1045,934,1.4],
  [579,878,1.7],[357,846,1.4],[308,839,1.3],[256,833,1.3],[246,690,3.9]
-] as const;
+];
 export const viewpoints = {
  courtyard:{label:'Courtyard',position:[24,25,44],target:[-10,1,9],span:36},
  east:{label:'East garden',position:[48,20,21],target:[-1,2,1],span:41},
