@@ -61,10 +61,14 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  let g=place(ground,870,337);cabinets(group(g,0,0,0,Math.PI/2),3.1,.86,m.white);box(g,0,.915,0,1.07,.06,3.15,m.oak);sink(g,0,.8,.98);
  // Range run from the north wall to the pier, cooker opposite the island; chrome trim (IMG_1448).
  g=place(ground,947,297,Math.PI/2);cabinets(g,5.1,.88,m.sage);const cooker=group(g,-1.1,0,-.03);box(cooker,0,0,-.04,1.13,.91,.64,m.charcoal);for(const x of [-.28,.28]){box(cooker,x,.15,-.366,.5,.49,.025,m.charcoal);box(cooker,x,.58,-.4,.35,.028,.045,nickel);}box(cooker,0,.91,-.04,1.16,.035,.67,m.charcoal);for(const x of [-.33,.33])for(const z of [-.22,.15])round(cooker,x,.946,z,.115,.018,m.charcoal);for(let i=0;i<5;i++)round(group(cooker,-.43+i*.215,.77,-.37,0),0,0,0,.035,.04,nickel).rotation.x=Math.PI/2;
- // Hood is a separate upper piece, retained because it identifies the existing kitchen.
- box(g,-1.1,1.75,.05,1.18,.18,.59,m.sage);box(g,-1.1,1.93,.14,.7,.55,.38,m.sage);
- // Glossy olive zellige up to the hood, open shelves beside it (D546F362).
- box(g,-1.1,.94,.29,2.4,.81,.02,zellige);for(const y of [1.42,1.78])box(g,.75,y,.17,1.4,.04,.26,m.oak);
+ // The hood: a broad sage box about 2.1 m wide and 0.7 m deep on a black band 2 m up, its front sloping back to the
+ // ceiling, over open sage shelf units either side of the cooker (ground plan; owner photograph of the range).
+ {const hood=group(g,0,0,0);hood.name='kitchen-hood';const side=new T.Shape([[-.3,1.96],[.42,1.96],[.12,2.63],[-.3,2.63]].map(([x,y])=>new T.Vector2(x,y)));
+  const body=new T.Mesh(new T.ExtrudeGeometry(side,{depth:2.1,bevelEnabled:false}).rotateY(Math.PI/2).translate(-2.15,0,0),m.sage);body.castShadow=true;body.receiveShadow=true;hood.add(body);
+  box(hood,-1.1,1.84,-.06,2.12,.12,.74,m.charcoal);}
+ for(const x of [-1.87,-.33]){const shelves=group(g,x,.935,.15);shelves.name='kitchen-open-shelves';for(const d of [-.19,.19])box(shelves,d,0,0,.02,.9,.3,m.sage);box(shelves,0,0,.145,.38,.9,.01,m.sage);for(const y of [.3,.6])box(shelves,0,y,0,.38,.02,.3,m.sage);}
+ // Glossy olive zellige between the shelf units up to the hood; a floating oak shelf over the counter's north end (D546F362).
+ box(g,-1.1,.94,.29,1.13,.9,.02,zellige);box(g,.75,1.48,.17,1.4,.04,.26,m.oak);
  // Tall units either side of the pantry door, which stays clear.
  cabinets(place(ground,917,450),1.8,2.2,m.sage,false);cabinets(place(ground,841,450),.55,2.2,m.sage,false);
  g=place(ground,872,238);table(g,1.6,.87);bench(g,0,-.81,2.05,Math.PI);bench(g,-1.04,-.28,1.5,-Math.PI/2);chair(g,.35,.8);chair(g,1.12,0,Math.PI/2);
@@ -123,8 +127,13 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
   const fire=group(living,-.055,0,7.55);fire.name='living-fireside-rug';box(fire,0,.004,0,3,.012,2.2,wool);box(fire,0,.006,0,2.76,.012,1.96,ochreWool);box(fire,0,.008,0,2.66,.012,1.86,terracotta);
  }
  g=place(ground,614,642);g.name="entry-storage-clear-of-courtyard-door";cabinets(g,4.65,2.35,m.pine,false);plant(place(ground,781,600));
- // Narrow hall table along the dining-room wall, clear of the doorway at its south end.
- g=place(ground,1030,575);g.name='hall-table-beside-dining-door';table(g,.5,1.65,.85);
+ // A long dark elm sideboard of drawers against the dining-room wall, clear of the doorway at its south end, a large pale
+ // green canvas leaning on the wall above it (owner photograph from the hall).
+ {g=place(ground,1037.5,557.5,Math.PI/2);g.name='hall-sideboard';const elm=material('#8a7766','#4d3d2f',.75);
+  box(g,0,.84,0,2.45,.05,.5,elm);for(const x of [-1.15,1.15])for(const z of [-.2,.2])box(g,x,0,z,.07,.84,.07,elm);
+  box(g,0,.44,.01,2.36,.4,.46,elm);box(g,0,.08,.01,2.36,.03,.46,elm);for(const x of [-.4,.4])box(g,x,.11,.01,.04,.33,.46,elm);
+  for(const [y,count] of [[.64,5],[.46,4]] as const)for(let i=0;i<count;i++){const w=2.3/count,x=-1.15+w*(i+.5);box(g,x,y+.01,-.225,w-.03,.16,.02,elm);round(group(g,x,y+.09,-.24),0,0,0,.018,.012,m.charcoal).rotation.x=Math.PI/2;}
+  const lean=place(ground,1037.5,557.5,Math.PI/2);lean.name='hall-canvas';const canvas=group(lean,.35,.89,.12);canvas.rotation.x=.08;box(canvas,0,0,0,1.25,1.55,.035,m.oak);box(canvas,0,.03,-.019,1.19,1.49,.004,material('#d8dbc4','#bcc192',.9));}
  // Garage: keep the bays clear as photographed, with workbench and storage.
  // Charcoal base units with a pale worktop, sink and floating oak shelf (4DBC069B), on the south wall clear of both door positions.
  g=place(ground,415,645);cabinets(g,2.2,.87,m.charcoal,false);box(g,0,.87,0,2.24,.04,.65,m.white);sink(g,-.55,0,.88);box(g,0,1.5,.17,2.1,.035,.28,m.oak);rug(place(ground,270,580),4.1,.7,m.rust);

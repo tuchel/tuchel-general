@@ -22,9 +22,10 @@ assert.equal(crosses(point(850,625),point(850,580),[ground]).length,0,'hall WC s
 {const [x,z]=p(926,540),floor=crosses([x,1,z],[x,-.5,z],[ground]).filter(h=>h.object.isMesh)[0];assert(!floor,`the hall floor is open over the basement flight (floor at ${floor?.point.y.toFixed(2)} m)`);
  // Where the stair up passes well overhead (about 1.9 m), a ray from the hall at rail height meets the rail at the edge.
  const [ex,gz]=p(975,510),[gx]=p(946,510),guard=crosses([ex,1.12,gz],[gx-.4,1.12,gz],[ground]).filter(h=>h.object.isMesh)[0];assert(guard&&guard.point.x>gx-.05&&guard.point.x<gx+.15,'a rail guards the stairwell on the hall side');}
-// The hall table stands beside the dining-room doorway, never across it: clear at table-top height over the whole opening.
+// The hall sideboard stands beside the dining-room doorway, never across it: clear at its top's height over the whole
+// opening.
 for(let z=616;z<=661;z+=5)assert.equal(crosses(point(1005,z,.97),point(1068,z,.97),[ground]).length,0,`hall to dining doorway is clear at z ${z}`);
-assert(model.root.getObjectByName('hall-table-beside-dining-door'),'hall table present');
+assert(model.root.getObjectByName('hall-sideboard'),'hall sideboard present');
 // The hall WC as photographed from its door and drawn on the ground plan: the toilet in the north bay, its cistern
 // against the east wall and facing the window; the vanity, about 1 m long, filling the recess east of the room south of
 // it, open to the room, its back to the east wall under a black-framed mirror.

@@ -17,6 +17,15 @@ export function architecturalDetails(ground:T.Group,ceilings:T.Group){
   const c=new T.Mesh(geometry,linen);c.rotation.y=-Math.PI/2;c.position.set(5.57,1.48,z);c.castShadow=true;curtains.add(c);
  }
  box(curtains,5.6,2.78,6.35,.025,.025,3.2,dark);
+ // And to the floor either side of both south windows, on black rods, clear of the glass (owner photograph of the fire).
+ for(const [lo,hi] of [[-4.4,-1.8],[1.83,4.26]]){
+  for(const x of [lo-.27,hi+.27]){
+   const geometry=new T.PlaneGeometry(.46,2.44,32,14);const pos=geometry.attributes.position;
+   for(let i=0;i<pos.count;i++){const u=pos.getX(i),y=pos.getY(i);pos.setZ(i,.055*Math.sin(u*65)+.016*Math.cos(y*3+u*4));}geometry.computeVertexNormals();
+   const c=new T.Mesh(geometry,linen);c.position.set(x,1.4,9.185);c.castShadow=true;curtains.add(c);
+  }
+  box(curtains,(lo+hi)/2,2.63,9.2,hi-lo+1.2,.025,.025,dark);
+ }
  // Floor-length linen curtains hang either side of the bedroom's garden door, clear of the glass (owner photograph from the
  // bed).
  const bedroom=new T.Group();bedroom.name='bedroom-linen-curtains';group.add(bedroom);
@@ -26,8 +35,16 @@ export function architecturalDetails(ground:T.Group,ceilings:T.Group){
   const c=new T.Mesh(geometry,linen);c.rotation.y=-Math.PI/2;c.position.set(5.57,1.48,z);c.castShadow=true;bedroom.add(c);
  }
  box(bedroom,5.6,2.78,-6.36,.025,.025,3.6,dark);
- // Stone hearth, reveal and a modest stack of logs beside the retained fireplace.
- const [fx,fz]=p(1010,877);box(group,fx,.135,fz-.35,1.8,.07,1.15,stone);
+ // A dark slate hearth, cut irregular, before the fireplace's stone surround; a modest stack of logs beside it; a brass
+ // sunburst mirror over it (owner photograph of the fire).
+ const [fx,fz]=p(1010,877);
+ {const outline=[[-.98,0],[.96,0],[.94,-.42],[.6,-.5],[.1,-.47],[-.3,-.55],[-.75,-.68],[-.95,-.6]].map(([x,z])=>new T.Vector2(x,-z));
+  const geometry=new T.ExtrudeGeometry(new T.Shape(outline),{depth:.03,bevelEnabled:false});geometry.rotateX(-Math.PI/2);
+  const slate=new T.MeshStandardMaterial({color:'#55585a',roughness:.55});const hearth=new T.Mesh(geometry,slate);hearth.position.set(fx,.16,fz-.4);hearth.name='living-hearth';hearth.receiveShadow=true;group.add(hearth);}
+ {const sun=new T.Group();sun.name='living-sunburst-mirror';sun.position.set(fx,2.05,fz-.42);group.add(sun);const brass=new T.MeshStandardMaterial({color:'#b08d4a',roughness:.35,metalness:.8});
+  const glass=new T.Mesh(new T.SphereGeometry(.1,24,12,0,Math.PI*2,0,Math.PI/2),new T.MeshStandardMaterial({color:'#cfd3d2',roughness:.05,metalness:.9}));glass.rotation.x=-Math.PI/2;glass.scale.y=.35;sun.add(glass);
+  sun.add(new T.Mesh(new T.TorusGeometry(.12,.012,8,32),brass));
+  for(let i=0;i<36;i++){const a=i/36*Math.PI*2,len=i%2?.2:.27,ray=new T.Mesh(new T.CylinderGeometry(.004,.006,len,5),brass);ray.position.set(Math.cos(a)*(.13+len/2),Math.sin(a)*(.13+len/2),0);ray.rotation.z=a-Math.PI/2;sun.add(ray);}}
  for(const x of [-.69,.69])box(group,fx+x,.21,fz-.48,.23,1.02,.15,stone);
  box(group,fx,1.18,fz-.48,1.6,.18,.18,stone);
  const bark=new T.MeshStandardMaterial({color:'#66533c',roughness:1});
@@ -38,6 +55,24 @@ export function architecturalDetails(ground:T.Group,ceilings:T.Group){
   const fixture=new T.Mesh(new T.CylinderGeometry(.07,.07,.15,16),dark);fixture.position.set(x,2.77,z);ceilings.add(fixture);
   const disc=new T.Mesh(new T.CircleGeometry(.058,16),emit);disc.rotation.x=Math.PI/2;disc.position.set(x,2.691,z);ceilings.add(disc);lamps.push(disc);
  }
+ // In the kitchen: the same black cylinders in a row over the island and another between it and the range; two brass
+ // pendants with bare bulbs over the breakfast table; linen curtains tied back either side of its window (owner
+ // photographs of the kitchen).
+ for(const [x,z] of [[-3.93,-6.4],[-3.93,-5.33],[-3.93,-4.26],[-2.55,-7.1],[-2.55,-5.9],[-2.55,-4.7]]){
+  const fixture=new T.Mesh(new T.CylinderGeometry(.07,.07,.15,16),dark);fixture.position.set(x,2.715,z);fixture.name='kitchen-downlight';ceilings.add(fixture);
+  const disc=new T.Mesh(new T.CircleGeometry(.058,16),emit);disc.rotation.x=Math.PI/2;disc.position.set(x,2.639,z);ceilings.add(disc);lamps.push(disc);
+ }
+ const brass=new T.MeshStandardMaterial({color:'#a8874a',roughness:.35,metalness:.8});
+ for(const x of [-4.27,-3.47]){const pendant=new T.Group();pendant.name='kitchen-pendant';pendant.position.set(x,0,-8.07);ceilings.add(pendant);
+  const stem=new T.Mesh(new T.CylinderGeometry(.006,.006,.95,6),brass);stem.position.y=2.315;pendant.add(stem);
+  const shade=new T.Mesh(new T.CylinderGeometry(.12,.12,.008,24),brass);shade.position.y=1.83;pendant.add(shade);
+  const bulb=new T.Mesh(new T.SphereGeometry(.055,16,10),emit);bulb.position.y=1.77;pendant.add(bulb);lamps.push(bulb);}
+ for(const x of [-4.42,-2.78]){
+  const geometry=new T.PlaneGeometry(.4,1.6,24,10);const pos=geometry.attributes.position;
+  for(let i=0;i<pos.count;i++){const u=pos.getX(i),y=pos.getY(i);pos.setZ(i,.045*Math.sin(u*65)*(.5+.5*Math.abs(y+.3))+.012*Math.cos(y*3+u*4));}geometry.computeVertexNormals();
+  const c=new T.Mesh(geometry,linen);c.position.set(x,1.65,-9.185);c.castShadow=true;c.name='kitchen-window-curtain';group.add(c);
+ }
+ box(group,-3.6,2.45,-9.2,2.3,.02,.02,dark);
  // Low trim follows wall segments, keeping every doorway open.
  const walls:T.Mesh[]=[];ground.traverse(o=>{if(o instanceof T.Mesh&&o.userData.height>2&&o.material instanceof T.MeshStandardMaterial&&o.material.userData.timber==='#e9e4d9')walls.push(o);});
  for(const wall of walls){const trim=box(group,wall.position.x,.14,wall.position.z,wall.scale.x,.075,.2,skirting);trim.rotation.copy(wall.rotation);}
