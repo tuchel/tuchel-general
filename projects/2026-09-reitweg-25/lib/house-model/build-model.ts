@@ -209,7 +209,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // The living room's chimney breast stands 0.35 m proud of the south wall; its open firebox, a third of a metre deep, is
  // pale firebrick sooted at the back, over a raised brick floor (owner photograph of the fire).
  q=at(1010,877);{const face=S-.345-.35,back=q[1]+.4,mid=(face+back)/2,open=.575,top=1.18,deep=.33,brick=material('#d9cfbd','#c9b89a',.9),soot=material('#6b6760','#2e2a26',.95);
-  for(const d of [-1,1])box(ground,q[0]+d*(open+.125),.1,mid,.25,2.9,back-face,m.plaster);box(ground,q[0],top,mid,open*2,3-top,back-face,m.plaster);box(ground,q[0],.1,(face+deep+back)/2,open*2,top-.1,back-face-deep,m.plaster);
+  for(const d of [-1,1])box(ground,q[0]+d*(open+.125),.1,mid,.25,2.9,back-face,m.plaster);box(ground,q[0],top,face+deep/2,open*2,3-top,deep,m.plaster);box(ground,q[0],.1,(face+deep+back)/2,open*2,2.9,back-face-deep,m.plaster);
   const lining=(o:T.Mesh)=>{o.name='living-firebrick';return o;};lining(box(ground,q[0],.16,face+deep-.01,open*2,top-.16,.02,brick));for(const d of [-1,1])lining(box(ground,q[0]+d*(open-.01),.16,face+deep/2,.02,top-.16,deep,brick));
   lining(box(ground,q[0],.16,face+deep/2,open*2,.12,deep,brick));box(ground,q[0],.62,face+deep-.021,open*2-.04,top-.62,.002,soot);
   for(const [x,turn] of [[-.12,.25],[.1,-.2]]){const log=box(ground,q[0]+x,.33,face+deep/2,.42,.09,.09,m.trunk);log.rotation.y=turn;}}
