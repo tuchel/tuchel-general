@@ -85,12 +85,12 @@ export const regions:Record<Region,{title:string;detail:string;source:string;ren
  main:{title:'The main house',detail:'Kitchen, bedroom, bath, dining and family room below a long pitched roof. Explore the ground floor, upper floor or basement.',source:'ground-floor.png',renovation:'east'},
  guest:{title:'The guest & wellness wing',detail:'The angled second wing holds the garage, wellness rooms and upstairs guest spaces. Its connection to the main house encloses the courtyard.',source:'ground-floor.png'},
  courtyard:{title:'The sheltered courtyard',detail:'Two covered bays form the courtyard edge, with the existing outdoor fireplace in the west wing and the pool beyond.',source:'grounds.png',renovation:'courtyard'},
- pool:{title:'The pool',detail:'The exposé labels the pool approximately 16 × 4 m. The steps and position follow the source plans.',source:'ground-floor.png'},
+ pool:{title:'The pool',detail:'The exposé labels the pool approximately 16 × 4 m. Its position follows the aerial photograph and the owner’s pool-side photograph.',source:'ground-floor.png'},
  kitchen:{title:'Kitchen & west terrace',detail:'The existing kitchen and terrace sit northwest of the entrance connection. The renovation brief develops the confirmed west-and-north extension.',source:'ground-floor.png',renovation:'kitchen'},
  grounds:{title:'The whole property',detail:'The lot boundary, drive, fountain and principal planting positions are traced from the exposé overview. The model uses level ground; surveyed contours and exact tree heights are unavailable.',source:'grounds.png'}
 };
 export const sourceNotes = [
- 'Footprints, room relationships, pool and lot outline: traced from the exposé ground, upper, basement and grounds plans.',
+ 'Footprints, room relationships and lot outline: traced from the exposé ground, upper, basement and grounds plans. The pool’s position: from the aerial photograph.',
  'Main-house plan calibration: approximately 12 × 19.3 m. Pool: approximately 16 × 4 m, using the dimensions printed in the exposé.',
  'The upper-floor spread is registered 52 trace pixels west to align its stair and chimney axes with the ground-floor spread. The guest roof outline includes the courtyard loggia.',
  'Photo checks: two separate timber garage doors; three lower guest-gable windows and the wide upper window; main chimney-gable windows; entrance glazing; staggered east roof windows. Frames and dimensions remain approximate.',
