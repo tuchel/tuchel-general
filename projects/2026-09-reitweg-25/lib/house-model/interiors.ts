@@ -149,11 +149,13 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  const courtyardStart=ground.children.length;
  // Existing covered courtyard has a long built-in lounge, rather than the proposed dining layout.
  g=place(ground,620,693);sofa(g,0,0,4.8,Math.PI,m.grey,false);for(const x of [-.5,.5])round(g,x,0,1.25,.2,.42,m.oak);
- // Guest-side loggia: rattan bench along the yoga glazing, two armchairs and a small side table (FDE39D63).
- g=place(ground,361,880,-Math.PI/2-.093);g.name='loggia-rattan-seating';box(g,0,0,0,1.9,.4,.46,m.oak,true);box(g,0,.4,0,1.85,.09,.44,m.cream,true);
+ // Guest-side loggia: rattan bench against the wall between the yoga and wellness doors, two armchairs and a small side
+ // table (FDE39D63).
+ g=place(ground,352,982,-Math.PI/2-.093);g.name='loggia-rattan-seating';box(g,0,0,0,1.9,.4,.46,m.oak,true);box(g,0,.4,0,1.85,.09,.44,m.cream,true);
  for(const x of [-.62,.62]){const c=group(g,x,0,-1.05,Math.PI);box(c,0,0,0,.72,.42,.7,m.oak,true);box(c,0,.42,.27,.72,.4,.16,m.oak,true);for(const side of [-.33,.33])box(c,side,.42,0,.08,.2,.66,m.oak,true);box(c,0,.42,-.04,.56,.09,.52,m.cream,true);}
  round(g,0,0,-1.05,.24,.45,m.oak);
- for(const o of ground.children.slice(courtyardStart))o.userData.replacedBy='courtyard';
+ // On the loggia paving, 0.14 m below the link floor.
+ for(const o of ground.children.slice(courtyardStart)){o.userData.replacedBy='courtyard';o.position.y-=.14;}
  // The owner confirms the two mirrored north bedrooms; the east bed has its head against the dividing wall.
  g=place(upper,1020,225,-Math.PI/2);g.name='northwest-bed-against-divider';bed(g,1.6,true,false,[1]);desk(place(upper,925,337,-Math.PI/2),2.55);
  bed(place(upper,1108,225,Math.PI/2),1.6,true,false,[-1]);desk(place(upper,1203,337,Math.PI/2),2.55);
