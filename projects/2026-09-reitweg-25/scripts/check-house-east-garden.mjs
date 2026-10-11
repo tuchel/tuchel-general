@@ -16,7 +16,7 @@ for(const set of trees.userData.treeSets)set.matrices.forEach(matrix=>{const at=
  for(const mesh of [set.bark,...set.crowns]){const p=mesh.geometry.attributes.position;for(let k=0;k<p.count;k+=3)box.expandByPoint(v.fromBufferAttribute(p,k).applyMatrix4(matrix));}
  // Leaves under the main house's roof (eaves ±6.55 × ±10.1, ridge 8 m), and of those, inside its walls (±6 × ±9.6).
  let under=0,rooms=0;for(const mesh of set.crowns){const p=mesh.geometry.attributes.position;for(let k=0;k<p.count;k++){v.fromBufferAttribute(p,k).applyMatrix4(matrix);if(Math.abs(v.x)<6.55&&Math.abs(v.z)<10.1&&v.y<2.95+(6.55-Math.abs(v.x))*(8-2.95)/6.55){under++;if(Math.abs(v.x)<6&&Math.abs(v.z)<9.6)rooms++;}}}
- found.push({x:at.x,z:at.z,top:box.max.y,low:box.min.y,under,rooms,reach:Math.max(box.max.x-at.x,at.x-box.min.x,box.max.z-at.z,at.z-box.min.z)});});
+ found.push({x:at.x,z:at.z,kind:set.kind,top:box.max.y,low:box.min.y,under,rooms,reach:Math.max(box.max.x-at.x,at.x-box.min.x,box.max.z-at.z,at.z-box.min.z)});});
 const near=(x,z,d=1)=>found.filter(t=>Math.hypot(t.x-x,t.z-z)<d);
 const one=(name,x,z,[lo,hi],[rlo,rhi])=>{const list=near(x,z);assert.equal(list.length,1,`${name}: one tree at (${x}, ${z}), found ${list.length}`);const [t]=list;
  assert(t.top>lo&&t.top<hi,`${name}: ${t.top.toFixed(2)} m tall, photographed ${lo}–${hi} m`);assert(t.reach>rlo&&t.reach<rhi,`${name}: crown reaches ${t.reach.toFixed(2)} m, photographed ${rlo}–${rhi} m`);return t;};
@@ -25,7 +25,7 @@ const mugo=one('mugo pine',21.1,6.4,[2.3,2.75],[1.9,2.7]);assert(mugo.low<.4,`th
 // The Japanese maple over the south-east corner: about 8 m tall, its crown from z 8.2 to 15.6, reaching over the eaves
 // but not into the rooms beneath the roof.
 const maple=one('Japanese maple',5.8,11.9,[7.5,8.6],[3.3,4.3]);assert.equal(maple.rooms,0,`the maple's leaves stay out of the rooms under the roof (${maple.rooms} leaf points inside)`);
-assert(!found.some(t=>t!==maple&&t.under>0),'no other garden tree reaches into the roof');
+assert(!found.some(t=>t!==maple&&t.under>0),`no other garden tree reaches into the roof (${found.filter(t=>t!==maple&&t.under>0).map(t=>`${t.under} leaf points of the tree at (${t.x.toFixed(1)}, ${t.z.toFixed(1)})`).join('; ')})`);
 // In front of the north hedge: the Japanese dogwood, the second mugo pine beside the boulder; two hawthorns.
 one('Japanese dogwood',11.8,-12.6,[4.2,4.9],[2.1,2.9]);
 const small=one('second mugo pine',13.6,-12.0,[1.6,2.1],[.9,1.5]);assert(small.low<.4,'the second mugo pine reaches the ground');
@@ -69,10 +69,12 @@ for(const [x,z] of [[7.8,-9.3],[11.7,-7.4]]){let stems=0;
  assert(stems>=4,`the hawthorn at (${x}, ${z}) grows as several stems (${stems} at 0.6 m)`);}
 // The terraces outside the bedroom, the dining room and the living room are stone slabs, not timber decking: the bedroom
 // terrace from the wall to the yew hedge as far south as the fountain grass, then a strip along the wall.
-{const site=[];root.traverse(o=>{if(o.isMesh&&!o.isInstancedMesh)site.push(o);});
- const under=(x,z)=>{ray.set(new T.Vector3(x,1.5,z),new T.Vector3(0,-1,0));const hit=ray.intersectObjects(site,false).find(h=>h.point.y>-.01);return [hit?.object.material].flat()[0]?.userData.photo;};
- for(const [x,z,what] of [[7.3,-7.5,'the bedroom terrace'],[8.2,-4,'the bedroom terrace by the yew hedge'],[6.4,-1.5,'the strip along the wall'],[7.4,4,'the dining terrace'],[7.4,8,'the living-room terrace']])
-  assert.equal(under(x,z),'stone',`${what} is stone at (${x}, ${z})`);}
+{const site=[],shown=o=>{for(let a=o;a;a=a.parent)if(!a.visible)return false;return true;};root.traverse(o=>{if(o.isMesh&&!o.isInstancedMesh&&shown(o))site.push(o);});
+ const under=(x,z)=>{ray.set(new T.Vector3(x,1.5,z),new T.Vector3(0,-1,0));const hit=ray.intersectObjects(site,false).find(h=>h.point.y>-.01);return [hit?.object.material].flat()[0];};
+ // Dark grey slabs, darker than the courtyard's pale paving: nothing paler lies over them.
+ for(const [x,z,what] of [[7.3,-7.5,'the bedroom terrace'],[8.2,-4,'the bedroom terrace by the yew hedge'],[6.4,-1.5,'the strip along the wall'],[7.4,4,'the dining terrace'],[7.4,8,'the living-room terrace']]){
+  const mat=under(x,z);assert.equal(mat?.userData.photo,'stone',`${what} is stone at (${x}, ${z})`);
+  const l=mat.color.getHSL({h:0,s:0,l:0},T.SRGBColorSpace).l;assert(l<.6,`${what} is dark grey stone at (${x}, ${z}) (lightness ${l.toFixed(2)})`);}}
 // The mown path through the east meadow, as the east-meadow photograph shows it (camera fitted to the house): about
 // 1.5 m wide from the meadow's east end to the lawn by the mugo pine, which stands in mown lawn; meadow either side.
 {const tufts=root.getObjectByName('meadow-grass'),at=[];for(let i=0;i<tufts.count;i++){tufts.getMatrixAt(i,m);at.push(new T.Vector3().setFromMatrixPosition(m));}
@@ -81,4 +83,14 @@ for(const [x,z] of [[7.8,-9.3],[11.7,-7.4]]){let stems=0;
  const onPath=at.filter(q=>along(q)>1&&along(q)<22&&Math.abs(across(q))<.6);assert.equal(onPath.length,0,`no meadow on the mown path (${onPath.length} tufts)`);
  for(const [lo,hi,side] of [[-2.5,-.8,'north'],[.8,2.5,'south']])assert(at.filter(q=>along(q)>2&&along(q)<14&&across(q)>lo&&across(q)<hi).length>300,`meadow ${side} of the path`);
  const byMugo=at.filter(q=>Math.hypot(q.x-21.1,q.z-6.4)<2.5);assert.equal(byMugo.length,0,`the mugo pine stands in mown lawn (${byMugo.length} meadow tufts around it)`);}
-console.log('Passed: the photographed mugo pines, Japanese maple, Japanese dogwood and hawthorns stand where and as tall as photographed; the yew hedge, fountain grass and boulder; the red Japanese maple by the loggia; no trees where none grow; many-stemmed hawthorns, stone terraces and the mown path through the meadow.');
+// The southern meadow island, as photographed from the meadow's north end and placed on the aerial photograph: a bushy
+// pine about 4 m tall, its needles nearly to the grass; a pale boulder about 2.3 m long and 0.95 m high in front of it;
+// and a low deck of grey boards beside the boulder, about 3 m long; no meadow grass grows under the deck or the boulder.
+{const pine=one('meadow pine',41.3,17.4,[3.7,4.4],[1.1,1.9]);assert(['pine','mugo'].includes(pine.kind),'the tree by the meadow boulder is a pine');assert(pine.low<.8,`the meadow pine's needles reach low (${pine.low.toFixed(2)} m)`);
+ const stone=root.getObjectByName('meadow-boulder');assert(stone,'the meadow boulder');const b=new T.Box3().setFromObject(stone),size=b.getSize(new T.Vector3()),c=b.getCenter(new T.Vector3());
+ assert(Math.hypot(c.x-43.4,c.z-18.4)<.6&&size.y>.85&&size.y<1.05&&Math.max(size.x,size.z)>2&&Math.max(size.x,size.z)<2.8,`the meadow boulder at (43.4, 18.4), 2.3 × 0.95 m (${c.x.toFixed(1)}, ${c.z.toFixed(1)}; ${size.y.toFixed(2)} m high)`);
+ const deck=root.getObjectByName('meadow-deck');assert(deck,'the meadow deck');const d=new T.Box3().setFromObject(deck),dc=d.getCenter(new T.Vector3());
+ assert(Math.hypot(dc.x-43.6,dc.z-21)<.6&&d.max.y>.1&&d.max.y<.16,`a low deck beside the boulder (${dc.x.toFixed(1)}, ${dc.z.toFixed(1)}; ${d.max.y.toFixed(2)} m)`);
+ const tufts=root.getObjectByName('meadow-grass'),q=new T.Vector3();let under=0;for(let i=0;i<tufts.count;i++){tufts.getMatrixAt(i,m);q.setFromMatrixPosition(m);if((Math.hypot(q.x-43.6,q.z-21)<1&&q.y>-1)||Math.hypot(q.x-43.4,q.z-18.4)<.6)under++;}
+ assert.equal(under,0,`no meadow grass through the deck or the boulder (${under} tufts)`);}
+console.log('Passed: the photographed mugo pines, Japanese maple, Japanese dogwood and hawthorns stand where and as tall as photographed; the yew hedge, fountain grass and boulder; the red Japanese maple by the loggia; no trees where none grow; many-stemmed hawthorns, stone terraces and the mown path through the meadow; the meadow pine, boulder and deck.');

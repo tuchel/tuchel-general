@@ -1,6 +1,7 @@
 import * as T from 'three';
 import type {RenovationState} from './renovation-data';
 import {plotOutline} from './site-data';
+import {meadowClear} from './east-garden';
 
 /** Photo-led planting masses. Boundaries are indicative, not surveyed beds. */
 export function buildGarden(realistic=false){
@@ -30,7 +31,7 @@ export function buildGarden(realistic=false){
   const currentBed=bedId++;let points:number[][]=[];if(rectangular)points.push([cx-rx,cz-rz],[cx+rx,cz-rz],[cx+rx,cz+rz],[cx-rx,cz+rz]);else for(let i=0;i<64;i++){const a=i/64*Math.PI*2,r=1+.04*Math.sin(a*3+.8)+.035*Math.cos(a*5);points.push([cx+Math.cos(a)*rx*r,cz+Math.sin(a)*rz*r]);}
   for(const half of keep)points=clip(points,half);
   const shape=new T.Shape(points.map(([x,z])=>new T.Vector2(x,-z)));const mesh=new T.Mesh(new T.ShapeGeometry(shape),baseMat);mesh.rotation.x=-Math.PI/2;mesh.position.y=.035;mesh.receiveShadow=true;group.add(mesh);bedBases.push(mesh);
-  for(let i=0;i<rx*rz*Math.PI*density*(realistic?1.7:1);i++){const x=cx+(rand()*2-1)*rx*1.08,z=cz+(rand()*2-1)*rz*1.08;if(inside(x,z,points)&&inside(x,z,plotOutline)&&!(x>-18.5&&x<-12&&z>-.7&&z<1.6))positions.push({x,z,h:height*(.65+rand()*.7),flower:flowers&&rand()<.16,bed:currentBed,tint,fountain});}
+  for(let i=0;i<rx*rz*Math.PI*density*(realistic?1.7:1);i++){const x=cx+(rand()*2-1)*rx*1.08,z=cz+(rand()*2-1)*rz*1.08;if(inside(x,z,points)&&inside(x,z,plotOutline)&&!(x>-18.5&&x<-12&&z>-.7&&z<1.6)&&!meadowClear(x,z))positions.push({x,z,h:height*(.65+rand()*.7),flower:flowers&&rand()<.16,bed:currentBed,tint,fountain});}
   return currentBed;
  }
  // Tall meadow beyond the close-cut eastern lawn; a mown route separates islands. A mown path about 1.5 m wide runs
