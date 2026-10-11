@@ -55,4 +55,30 @@ const boulder=root.getObjectByName('garden-boulder');assert(boulder,'the boulder
  assert.equal(list.length,1,'a red Japanese maple by the loggia');assert(list[0].r>list[0].g*2,'its leaves are red');
  const red=one('red Japanese maple',-15,21,[1.1,1.5],[1,1.8]);assert(red.top<1.6,'a dwarf');
  const stone=root.getObjectByName('loggia-boulder');assert(stone,'the boulder beside it');const c=new T.Box3().setFromObject(stone).getCenter(new T.Vector3());assert(Math.hypot(c.x+14.1,c.z-21.3)<.5,'beside the maple');}
-console.log('Passed: the photographed mugo pines, Japanese maple, Japanese dogwood and hawthorns stand where and as tall as photographed; the yew hedge, fountain grass and boulder; the red Japanese maple by the loggia; no trees where none grow.');
+// The hawthorns grow as several slim stems from the ground, not one trunk: at 0.6 m their bark falls into four or more
+// separate stems.
+for(const [x,z] of [[7.8,-9.3],[11.7,-7.4]]){let stems=0;
+ for(const set of trees.userData.treeSets)set.matrices.forEach(matrix=>{const at=new T.Vector3().setFromMatrixPosition(matrix);if(Math.hypot(at.x-x,at.z-z)>1)return;
+  // Where the bark's surface crosses 0.6 m.
+  const p=set.bark.geometry.attributes.position,pts=[],c=[0,1,2].map(()=>new T.Vector3());
+  for(let k=0;k+2<p.count;k+=3){c.forEach((q,j)=>q.fromBufferAttribute(p,k+j).applyMatrix4(matrix));for(const [i,j] of [[0,1],[1,2],[2,0]]){const A=c[i],B=c[j];if((A.y-.6)*(B.y-.6)<0){const t=(.6-A.y)/(B.y-A.y);pts.push([A.x+(B.x-A.x)*t,A.z+(B.z-A.z)*t]);}}}
+  // Single-linkage clusters of bark points 8 cm apart.
+  const group=pts.map((_,i)=>i),root=i=>group[i]===i?i:(group[i]=root(group[i]));
+  for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++)if(Math.hypot(pts[i][0]-pts[j][0],pts[i][1]-pts[j][1])<.08)group[root(i)]=root(j);
+  stems=new Set(pts.map((_,i)=>root(i))).size;});
+ assert(stems>=4,`the hawthorn at (${x}, ${z}) grows as several stems (${stems} at 0.6 m)`);}
+// The terraces outside the bedroom, the dining room and the living room are stone slabs, not timber decking: the bedroom
+// terrace from the wall to the yew hedge as far south as the fountain grass, then a strip along the wall.
+{const site=[];root.traverse(o=>{if(o.isMesh&&!o.isInstancedMesh)site.push(o);});
+ const under=(x,z)=>{ray.set(new T.Vector3(x,1.5,z),new T.Vector3(0,-1,0));const hit=ray.intersectObjects(site,false).find(h=>h.point.y>-.01);return [hit?.object.material].flat()[0]?.userData.photo;};
+ for(const [x,z,what] of [[7.3,-7.5,'the bedroom terrace'],[8.2,-4,'the bedroom terrace by the yew hedge'],[6.4,-1.5,'the strip along the wall'],[7.4,4,'the dining terrace'],[7.4,8,'the living-room terrace']])
+  assert.equal(under(x,z),'stone',`${what} is stone at (${x}, ${z})`);}
+// The mown path through the east meadow, as the east-meadow photograph shows it (camera fitted to the house): about
+// 1.5 m wide from the meadow's east end to the lawn by the mugo pine, which stands in mown lawn; meadow either side.
+{const tufts=root.getObjectByName('meadow-grass'),at=[];for(let i=0;i<tufts.count;i++){tufts.getMatrixAt(i,m);at.push(new T.Vector3().setFromMatrixPosition(m));}
+ const a=[23.7,4.3],b=[37.4,6.6],len=Math.hypot(b[0]-a[0],b[1]-a[1]),ux=(b[0]-a[0])/len,uz=(b[1]-a[1])/len;
+ const along=q=>(q.x-a[0])*ux+(q.z-a[1])*uz,across=q=>-(q.x-a[0])*uz+(q.z-a[1])*ux;
+ const onPath=at.filter(q=>along(q)>1&&along(q)<22&&Math.abs(across(q))<.6);assert.equal(onPath.length,0,`no meadow on the mown path (${onPath.length} tufts)`);
+ for(const [lo,hi,side] of [[-2.5,-.8,'north'],[.8,2.5,'south']])assert(at.filter(q=>along(q)>2&&along(q)<14&&across(q)>lo&&across(q)<hi).length>300,`meadow ${side} of the path`);
+ const byMugo=at.filter(q=>Math.hypot(q.x-21.1,q.z-6.4)<2.5);assert.equal(byMugo.length,0,`the mugo pine stands in mown lawn (${byMugo.length} meadow tufts around it)`);}
+console.log('Passed: the photographed mugo pines, Japanese maple, Japanese dogwood and hawthorns stand where and as tall as photographed; the yew hedge, fountain grass and boulder; the red Japanese maple by the loggia; no trees where none grow; many-stemmed hawthorns, stone terraces and the mown path through the meadow.');

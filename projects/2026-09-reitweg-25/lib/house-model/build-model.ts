@@ -88,9 +88,11 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  traceSite([[746,398],[782,398],[782,548],[746,548]],.055,m.paving,'kitchen');
  // Cobbled strip along the guest wing's west wall, from the entrance toward the well.
  traceSite([[455,719],[478,719],[478,803],[455,803]],.045,m.paving);
- // Grey timber decks outside the bedroom and the dining and sitting rooms (Terrasse 2 and 3 on the grounds plan).
- const deck=material('#aaa69c','#8c867b');deck.userData.photo='deck';
- planBox(site,1233,240,1301,345,.05,0,deck);capture('terrace',site,()=>planBox(site,1233,533,1301,877,.05,0,deck));
+ // Stone slabs outside the bedroom, from the wall to the yew hedge as far as the fountain grass, then a strip along the
+ // wall to the paved terrace outside the dining and sitting rooms (Terrasse 2 and 3 on the grounds plan; owner photos
+ // from the east terrace): grey, darker than the courtyard's paving.
+ const slabs=material('#bcb8ae','#78756e');slabs.userData.photo='stone';
+ poly([[1233,240],[1319,240],[1319,421],[1254,421],[1254,533],[1233,533]].map(([x,z])=>p(x,z)),.05,0,slabs,site);capture('terrace',site,()=>planBox(site,1233,533,1301,877,.05,0,slabs));
  // Basement light-well grates and the guest basement's external stair.
  site.add(buildLightWells(m.dark,m.edge,BASEMENT_PLAN_X_OFFSET),buildBasementStair(m.stone,m.dark,m.dark));
  capture('front',site,()=>site.add(buildFrontWall(material)));

@@ -23,17 +23,26 @@ export function buildGarden(realistic=false){
  const plumeGeo=new T.CylinderGeometry(.005,.009,.1,5).translate(0,.05,0);
  let bedId=0;const bedBases:T.Mesh[]=[];
  const positions:{x:number;z:number;h:number;flower:boolean;bed:number;tint?:T.Color;fountain?:boolean}[]=[];
- function bed(cx:number,cz:number,rx:number,rz:number,density:number,height:number,flowers:boolean,{rectangular=false,tint,fountain}:{rectangular?:boolean;tint?:T.Color;fountain?:boolean}={}){
-  const currentBed=bedId++;const points:number[][]=[];if(rectangular)points.push([cx-rx,cz-rz],[cx+rx,cz-rz],[cx+rx,cz+rz],[cx-rx,cz+rz]);else for(let i=0;i<64;i++){const a=i/64*Math.PI*2,r=1+.04*Math.sin(a*3+.8)+.035*Math.cos(a*5);points.push([cx+Math.cos(a)*rx*r,cz+Math.sin(a)*rz*r]);}
+ // Keeps the part of a polygon where (p − at)·normal ≥ 0.
+ const clip=(points:number[][],[at,normal]:number[][])=>{const side=(q:number[])=>(q[0]-at[0])*normal[0]+(q[1]-at[1])*normal[1],out:number[][]=[];
+  points.forEach((q,i)=>{const n=points[(i+1)%points.length],a=side(q),b=side(n);if(a>=0)out.push(q);if((a>=0)!==(b>=0)){const t=a/(a-b);out.push([q[0]+(n[0]-q[0])*t,q[1]+(n[1]-q[1])*t]);}});return out;};
+ function bed(cx:number,cz:number,rx:number,rz:number,density:number,height:number,flowers:boolean,{rectangular=false,tint,fountain,keep=[]}:{rectangular?:boolean;tint?:T.Color;fountain?:boolean;keep?:number[][][]}={}){
+  const currentBed=bedId++;let points:number[][]=[];if(rectangular)points.push([cx-rx,cz-rz],[cx+rx,cz-rz],[cx+rx,cz+rz],[cx-rx,cz+rz]);else for(let i=0;i<64;i++){const a=i/64*Math.PI*2,r=1+.04*Math.sin(a*3+.8)+.035*Math.cos(a*5);points.push([cx+Math.cos(a)*rx*r,cz+Math.sin(a)*rz*r]);}
+  for(const half of keep)points=clip(points,half);
   const shape=new T.Shape(points.map(([x,z])=>new T.Vector2(x,-z)));const mesh=new T.Mesh(new T.ShapeGeometry(shape),baseMat);mesh.rotation.x=-Math.PI/2;mesh.position.y=.035;mesh.receiveShadow=true;group.add(mesh);bedBases.push(mesh);
   for(let i=0;i<rx*rz*Math.PI*density*(realistic?1.7:1);i++){const x=cx+(rand()*2-1)*rx*1.08,z=cz+(rand()*2-1)*rz*1.08;if(inside(x,z,points)&&inside(x,z,plotOutline)&&!(x>-18.5&&x<-12&&z>-.7&&z<1.6))positions.push({x,z,h:height*(.65+rand()*.7),flower:flowers&&rand()<.16,bed:currentBed,tint,fountain});}
+  return currentBed;
  }
- // Tall meadow beyond the close-cut eastern lawn; a mown route separates islands.
- bed(32,1.1,17,9.8,20,.56,true);bed(32,21,13.8,5.3,20,.6,true);
+ // Tall meadow beyond the close-cut eastern lawn; a mown route separates islands. A mown path about 1.5 m wide runs
+ // through the northern one from its east end to the lawn by the mugo pine, which stands in mown lawn (owner's photograph
+ // from the east meadow, camera fitted to the house): the meadow south of it stops 2.5 m short of the pine.
+ const path=[[23.7,4.3],[37.4,6.6]],[ux,uz]=[path[1][0]-path[0][0],path[1][1]-path[0][1]].map((d,_,v)=>d/Math.hypot(...v)),edge=(d:number)=>[path[0][0]-uz*d,path[0][1]+ux*d];
+ bed(32,1.1,17,9.8,20,.56,true,{keep:[[edge(-.75),[uz,-ux]],[[23.8,3.5],[8.5,-5.1]]]});bed(32,1.1,17,9.8,20,.56,true,{keep:[[edge(.75),[-uz,ux]],[[23.7,0],[1,0]]]});
+ bed(32,21,13.8,5.3,20,.6,true);
  // Fountain grass between the east terrace's yew hedge and the wall (east-garden.ts), a drift of it beyond the terrace,
  // and the arrival path.
- bed(7.6,-.65,.9,2.35,26,.85,false,{rectangular:true,fountain:true});bed(9.75,6.7,1.6,1.7,26,.85,false,{fountain:true});
- bed(-10,-5.8,1.7,3.4,35,.48,false);
+ const terraceBeds=[bed(7.6,-.65,.9,2.35,26,.85,false,{rectangular:true,fountain:true}),bed(9.75,6.7,1.6,1.7,26,.85,false,{fountain:true})];
+ const kitchenBed=bed(-10,-5.8,1.7,3.4,35,.48,false);
  // A golden clump of it past the yew hedge's end; orange sedge either side of the boulder by the north hedge.
  bed(10.1,-1.2,.9,1.1,26,.85,false,{fountain:true,tint:new T.Color(1.12,1.02,.75)});
  const sedge=new T.Color(1.55,.95,.55);bed(10.5,-11.4,.55,.5,45,.45,false,{tint:sedge});bed(13.5,-10.6,.5,.45,45,.45,false,{tint:sedge});
@@ -56,6 +65,6 @@ export function buildGarden(realistic=false){
  // Each instanced draw with the bed of each of its instances, for hiding a bed a renovation replaces.
  const draws:[T.InstancedMesh,number[]][]=[[tufts,meadow.map(p=>p.bed)],...flowers.map((mesh,k):[T.InstancedMesh,number[]]=>[mesh,flowerBeds[k]]),[fountainTufts,fountains.map(p=>p.bed)],[plumes,plumeBeds]];
  const originals=draws.map(([mesh])=>mesh.instanceMatrix.array.slice());
- const setRenovations=(state:RenovationState)=>{const hidden=new Set<number>([...(state.kitchen?[4]:[]),...(state.terrace?[2,3]:[])]);bedBases.forEach((base,i)=>base.visible=!hidden.has(i));draws.forEach(([mesh,beds],k)=>{mesh.instanceMatrix.array.set(originals[k]);beds.forEach((bed,i)=>{if(hidden.has(bed)){dummy.matrix.makeScale(0,0,0);mesh.setMatrixAt(i,dummy.matrix);}});mesh.instanceMatrix.needsUpdate=true;});};
+ const setRenovations=(state:RenovationState)=>{const hidden=new Set<number>([...(state.kitchen?[kitchenBed]:[]),...(state.terrace?terraceBeds:[])]);bedBases.forEach((base,i)=>base.visible=!hidden.has(i));draws.forEach(([mesh,beds],k)=>{mesh.instanceMatrix.array.set(originals[k]);beds.forEach((bed,i)=>{if(hidden.has(bed)){dummy.matrix.makeScale(0,0,0);mesh.setMatrixAt(i,dummy.matrix);}});mesh.instanceMatrix.needsUpdate=true;});};
  return {group,setRenovations,setFinish:(finish:string)=>{group.visible=finish!=='lines';grassMat.color.set(realistic?'#78884b':(finish==='timber'||finish==='photo')?'#a5af7a':'#b2b793');fountainMat.color.set(realistic?'#8a9150':(finish==='timber'||finish==='photo')?'#b0b07a':'#b8b996');plumeMat.color.set(realistic?'#85766f':'#9a8e86');baseMat.color.set(realistic?'#829051':(finish==='timber'||finish==='photo')?'#a8b583':'#bbc19e');}};
 }
