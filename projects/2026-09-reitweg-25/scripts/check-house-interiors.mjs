@@ -115,7 +115,7 @@ if(process.argv.includes('--realism')){
  const [rx,rz]=p(1128,766),eye=new T.Vector3(rx+UPPER_PLAN_X_OFFSET,3.07+1.6,rz),visible=[];model.root.traverse(o=>{if(o.isMesh&&model.rendered(o))visible.push(o);});
  const up=new T.Raycaster(eye.clone().setZ(eye.z+.45),new T.Vector3(0,1,0)).intersectObjects(visible,false)[0];
  assert(up&&up.object.name.startsWith('main-ceiling'),`the south-east room looks up at a plastered ceiling (${up?.object.name})`);
- const slope=Math.atan2(5.36,6.55),glass=new T.Vector3(6.55*.68+.3*Math.cos(slope)+.05*Math.sin(slope),8-5.36*.68-.3*Math.sin(slope)+.05*Math.cos(slope),8.8),front=eye.clone().setZ(8.8),toward=new T.Raycaster(front,glass.clone().sub(front).normalize()).intersectObjects(visible,false)[0];
+ const rise=8-2.95,slope=Math.atan2(rise,6.55),glass=new T.Vector3(6.55*.68+.3*Math.cos(slope)+.05*Math.sin(slope),8-rise*.68-.3*Math.sin(slope)+.05*Math.cos(slope),8.8),front=eye.clone().setZ(8.8),toward=new T.Raycaster(front,glass.clone().sub(front).normalize()).intersectObjects(visible,false)[0];
  assert(toward&&[toward.object.material].flat().some(m=>m.transparent),`a low east roof window is visible over the knee wall (${toward?.object.name||toward?.object.parent?.name})`);
 }
 // The walk-in pantry is closed off from the hall WC: solid wall on its west side down to the wall between them (plan).

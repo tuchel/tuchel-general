@@ -131,7 +131,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const CEILING=realistic?.28:0;
  // The east knee wall is 0.55 m high under a spruce sill, with the lowest roof windows just above it (owner photo of
  // the south-east room); it stands further out than the plan's line, which would make it 1.2 m high.
- const eastKnee=((8-.045-CEILING-3.07-.55)*6.55/5.36-UPPER_PLAN_X_OFFSET)/PLAN_SCALE+1012;
+ const eastKnee=((8-.045-CEILING-3.07-.55)*6.55/(8-2.95)-UPPER_PLAN_X_OFFSET)/PLAN_SCALE+1012;
  capture('east',ground,()=>facade(ground,[E,N],[E,S],[{from:1.9,to:4.6,sill:.1,head:2.2},{from:6.45,to:8.95,sill:0,head:2.2},{from:10.3,to:11.15,sill:.95,head:2.2},{from:12,to:13,sill:0,head:2.2},{from:15,to:17.45,sill:.1,head:2.25}],'main'));
  const kitchenSouth=p(795,464)[1],kitchenEast=p(970,182)[0],westSplit=kitchenSouth-N,northSplit=kitchenEast-W;
  capture('kitchen',ground,()=>facade(ground,[W,N],[W,kitchenSouth],[{from:2.75,to:5.74,sill:0,head:2.1,kind:'sliding'}],'kitchen'));
@@ -363,7 +363,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
    for(const child of mesh.children)if(child instanceof T.LineSegments)child.geometry=new T.EdgesGeometry(clipped,24);
   }
  }
- const mainUnder=pitchedRoof(0,0,13.1,20.2,2.64,8);
+ const mainUnder=pitchedRoof(0,0,13.1,20.2,2.95,8);
  const guest=guestRoofFrame;const guestUnder=pitchedRoof(guest.center[0],guest.center[1],guest.width+.18,guest.length+.18,2.94,6.75,guest.rotation,'guest',guestOutline);
  // Knee walls close the low edge of the upper rooms, as drawn on the upper plan.
  const knee=(under:(x:number,z:number)=>number,floor:number,x1:number,z1:number,x2:number,z2:number,sill=false)=>{const top=Math.max(.2,Math.min(...[[x1,z1],[x2,z2]].map(([x,z])=>{const [px,pz]=p(x,z);return under(px+UPPER_PLAN_X_OFFSET,pz);}))-CEILING-floor+.01);const w=wall(upper,x1,z1,x2,z2,top,floor);w.userData.alsoExterior=true;

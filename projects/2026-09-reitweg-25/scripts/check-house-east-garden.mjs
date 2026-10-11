@@ -15,7 +15,7 @@ const found=[],v=new T.Vector3(),m=new T.Matrix4();
 for(const set of trees.userData.treeSets)set.matrices.forEach(matrix=>{const at=new T.Vector3().setFromMatrixPosition(matrix),box=new T.Box3();
  for(const mesh of [set.bark,...set.crowns]){const p=mesh.geometry.attributes.position;for(let k=0;k<p.count;k+=3)box.expandByPoint(v.fromBufferAttribute(p,k).applyMatrix4(matrix));}
  // Leaves under the main house's roof (eaves ±6.55 × ±10.1, ridge 8 m), and of those, inside its walls (±6 × ±9.6).
- let under=0,rooms=0;for(const mesh of set.crowns){const p=mesh.geometry.attributes.position;for(let k=0;k<p.count;k++){v.fromBufferAttribute(p,k).applyMatrix4(matrix);if(Math.abs(v.x)<6.55&&Math.abs(v.z)<10.1&&v.y<2.64+(6.55-Math.abs(v.x))*5.36/6.55){under++;if(Math.abs(v.x)<6&&Math.abs(v.z)<9.6)rooms++;}}}
+ let under=0,rooms=0;for(const mesh of set.crowns){const p=mesh.geometry.attributes.position;for(let k=0;k<p.count;k++){v.fromBufferAttribute(p,k).applyMatrix4(matrix);if(Math.abs(v.x)<6.55&&Math.abs(v.z)<10.1&&v.y<2.95+(6.55-Math.abs(v.x))*(8-2.95)/6.55){under++;if(Math.abs(v.x)<6&&Math.abs(v.z)<9.6)rooms++;}}}
  found.push({x:at.x,z:at.z,top:box.max.y,low:box.min.y,under,rooms,reach:Math.max(box.max.x-at.x,at.x-box.min.x,box.max.z-at.z,at.z-box.min.z)});});
 const near=(x,z,d=1)=>found.filter(t=>Math.hypot(t.x-x,t.z-z)<d);
 const one=(name,x,z,[lo,hi],[rlo,rhi])=>{const list=near(x,z);assert.equal(list.length,1,`${name}: one tree at (${x}, ${z}), found ${list.length}`);const [t]=list;
