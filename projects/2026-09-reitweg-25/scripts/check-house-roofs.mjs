@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import * as T from 'three';
 import {build} from 'esbuild';
 // Nothing may break through a roof: seen from above, every wall, window frame and beam lies
-// under the roof surface, except the parts meant to stand on it (ridge caps, eave fascias, chimney).
+// under the roof surface, except the parts meant to stand on it (ridge caps, eave fascias, the chimney and the flue up the
+// north gable).
 await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/site-data.ts'],outdir:'tmp/roof-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
 const {buildHouseModel}=await import('../tmp/roof-check/build-model.mjs');
-const onRoof=new Set(['roof-ridge-cap','roof-eave-fascia','chimney']);
+const onRoof=new Set(['roof-ridge-cap','roof-eave-fascia','chimney','flue-pipe','flue-cap']);
 const {planPoint:p}=await import('../tmp/roof-check/site-data.mjs');
 const within=(x,z,pts)=>{let inside=false;for(let i=0,j=pts.length-1;i<pts.length;j=i++){const [xi,zi]=pts[i],[xj,zj]=pts[j];if((zi>z)!==(zj>z)&&x<(xj-xi)*(z-zi)/(zj-zi)+xi)inside=!inside;}return inside;};
 for(const realism of [false,true]){

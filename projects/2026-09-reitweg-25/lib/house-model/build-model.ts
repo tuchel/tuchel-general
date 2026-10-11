@@ -13,6 +13,7 @@ import {buildTrees,foliageMaterials,type TreeSpec,type TreeKind} from './foliage
 import {buildFrontWall} from './front-wall';
 import {buildFrontGarden,FRUIT_TREES,SHRUBS} from './front-garden';
 import {buildEastGarden,EAST_GARDEN_TREES} from './east-garden';
+import {buildNorthGarden} from './north-garden';
 import {furnishHouse} from './interiors';
 import {roofSkylights} from './solar-layout';
 import {buildRenovations} from './renovations';
@@ -81,10 +82,9 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const border=new T.LineLoop(new T.BufferGeometry().setFromPoints(plotOutline.map(([x,z])=>new T.Vector3(x,.02,z))),new T.LineBasicMaterial({color:'#8d9b80'}));site.add(border);
  const traceSite=(points:number[][],y:number,mat:T.Material,region?:Region)=>poly(points.map(([x,z])=>s(x,z)),.045,y,mat,site,region);
  // The cobbled vehicle apron is built with the entrance walk below.
- traceSite([[783,677],[994,677],[994,387],[963,387],[963,662],[783,662]],.045,m.paving);
  traceSite([[606,595],[784,595],[784,662],[638,662],[621,827],[582,823]],-.03,m.paving,'courtyard');
  // Narrow cobbled walk, shallow threshold step and planted borders from owner photos.
- site.add(buildEntranceGarden(realistic));
+ site.add(buildEntranceGarden(realistic),buildNorthGarden());
  traceSite([[746,398],[782,398],[782,548],[746,548]],.055,m.paving,'kitchen');
  // Cobbled strip along the guest wing's west wall, from the entrance toward the well.
  traceSite([[455,719],[478,719],[478,803],[455,803]],.045,m.paving);
@@ -215,7 +215,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // Loggia slabs, existing posts and fireplace; roof remains part of the connection. The paving lies flush with the lawn
  // beside it, 0.14 m below the link and guest-wing floors (IMG_1563, photographs 15 and 69).
  const terrace=[[393,676],[810,676],[810,846],[446,846],[408,1235],[318,1224]].map(([x,z])=>p(x,z));poly(terrace,.09,-.07,m.paving,ground,'courtyard');
- for(const [x,z] of [[447,761],[574,761],[690,761],[435,873],[422,987],[413,1102]]){q=at(x,z);box(ground,q[0],.02,q[1],.14,2.78,.14,m.wall,'courtyard').name='courtyard-post';}
+ for(const [x,z] of [[447,761],[574,761],[690,761],[435,873],[422,987],[413,1102]]){q=at(x,z);box(ground,q[0],.02,q[1],.2,.2,.2,m.stone,'courtyard').name='courtyard-post-plinth';box(ground,q[0],.22,q[1],.14,2.58,.14,m.wall,'courtyard').name='courtyard-post';}
  // Stone block steps up from the paving to the link's courtyard opening and the guest wing's two courtyard doors, their
  // tops just below the thresholds (IMG_1431, IMG_1563).
  for(const [a,b,from,to] of [[p(464,667),p(811,667),6.9,8.9],[p(367,671),p(316,1228),4.45,7.15],[p(367,671),p(316,1228),10.1,12.9]] as const){
@@ -433,22 +433,29 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const linkWest=meets(guestUnder,connector[0]-12,connector[0])-.15,linkEast=meets(mainUnder,connector[0],0)+.15;
  pitchedRoof((linkWest+linkEast)/2,connector[1],5.6,linkEast-linkWest,2.85,linkRidge,Math.PI/2,'link',linkOutline,[mainUnder,guestUnder]);
  q=at(1010,885);box(roofs,q[0],.15,q[1],.8,9.15,.75,m.plaster,'main').name='chimney';
+ // A black flue pipe climbs the north gable 0.8 m from the north-west corner, 12 cm off the cladding on brackets, through
+ // the verge to a metre above the roof beside it (owner photograph from the north-west corner; its top is estimated).
+ {const flue=new T.Group();flue.name='north-gable-flue';roofs.add(flue);const black=material('#4b4e4f','#2c2e2f',.5),x=-5.3,z=-9.715-.12-.1,top=2.95+(6.55-5.3)*(8-2.95)/6.55+1;
+  const pipe=new T.Mesh(new T.CylinderGeometry(.1,.1,top-.3,20),black);pipe.position.set(x,.3+(top-.3)/2,z);pipe.name='flue-pipe';
+  const cap=new T.Mesh(new T.ConeGeometry(.17,.12,20),black);cap.position.set(x,top+.14,z);cap.name='flue-cap';
+  for(const o of [pipe,cap]){o.castShadow=true;o.receiveShadow=true;flue.add(o);}
+  for(const y of [1,2.2,3.4])box(flue,x,y,z+.11,.04,.04,.14,black).name='flue-bracket';}
  // Fine cladding rhythm, deliberately restrained in the pale model finish.
  const slats=new T.Group();ground.add(slats);for(let z=N;z<S;z+=.23){for(const x of [W-.025,E+.025]){const bar=box(slats,x,2.4,z,.035,.38,.025,m.wood);bar.castShadow=false;if(x>0)(originals.east??=[]).push(bar);else if(z<kitchenSouth)(originals.kitchen??=[]).push(bar);}}
  // Low-poly crowns, open trunks and gentle variation, fixed to the source planting plan.
  // Detailed trees: instanced leaf-card archetypes. Pines and the Japanese maples follow the owner photos.
  const foliage=realistic?(foliageIn??foliageMaterials()):undefined;
  // The small fruit trees and shrubs around the well follow the owner photos (front-garden.ts), the two small meadow trees
- // the aerial photograph (site-data.ts), the trees east of the house both (site-data.ts, east-garden.ts); they carry
- // their own height, and the mugo pines their kind.
- const gardenTrees:readonly (readonly [number,number,number,number?,TreeKind?,(readonly [number,number,number])?])[]=[...treePositions,...FRUIT_TREES,...SHRUBS,...MEADOW_TREES,...EAST_GARDEN_TREES];
- if(foliage)trees.add(buildTrees(gardenTrees.map((t,i)=>{const [px,pz,r,height,kind,tint]=t,[x,z]=s(px,pz),seed=171+i*927;return {x,z,r,height:height??r*1.35+1.7,seed,tint,kind:kind??([171,1098,2025,4806,5733].includes(seed)?'pine':i%5===3&&i<treePositions.length?'maple':'broadleaf')} as TreeSpec;}),foliage,'garden-trees'));
- gardenTrees.forEach((t,i)=>{if(realistic)return;const [px,pz,r,h]=t,[x,z]=s(px,pz),height=h??r*1.35+1.7;const trunk=add(cylinderGeo,m.trunk,trees);trunk.scale.set(.1,height*.68,.1);trunk.position.set(x,height*.34,z);
-  for(let k=0;k<5;k++){const angle=k*2.4+i,dx=Math.cos(angle)*r*.52,dz=Math.sin(angle)*r*.52;segment(trees,[x,height*.43,z],[x+dx,height-r*.2,z+dz],.06,m.trunk);}
+ // the aerial photograph (site-data.ts), the trees round the house both (site-data.ts, east-garden.ts); they carry
+ // their own height, and some their kind and lean.
+ const gardenTrees:readonly (readonly [number,number,number,number?,TreeKind?,(readonly [number,number,number])?,(readonly [number,number])?])[]=[...treePositions,...FRUIT_TREES,...SHRUBS,...MEADOW_TREES,...EAST_GARDEN_TREES];
+ if(foliage)trees.add(buildTrees(gardenTrees.map((t,i)=>{const [px,pz,r,height,kind,tint,lean]=t,[x,z]=s(px,pz),seed=171+i*927;return {x,z,r,height:height??r*1.35+1.7,seed,tint,lean,kind:kind??([171,1098,2025,4806,5733].includes(seed)?'pine':i%5===3&&i<treePositions.length?'maple':'broadleaf')} as TreeSpec;}),foliage,'garden-trees'));
+ gardenTrees.forEach((t,i)=>{if(realistic)return;const [px,pz,r,h,,,[lx,lz]=[0,0]]=t,[x,z]=s(px,pz),height=h??r*1.35+1.7,lean=(y:number)=>[lx*y/height,lz*y/height];const trunk=add(cylinderGeo,m.trunk,trees);trunk.scale.set(.1,height*.68,.1);trunk.position.set(x,height*.34,z);
+  for(let k=0;k<5;k++){const angle=k*2.4+i,dx=Math.cos(angle)*r*.52+lean(height-r*.2)[0],dz=Math.sin(angle)*r*.52+lean(height-r*.2)[1];segment(trees,[x,height*.43,z],[x+dx,height-r*.2,z+dz],.06,m.trunk);}
   // Seeded, overlapping lobes give each crown an irregular, airy silhouette.
   let seed=171+i*927;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
   const foliage=new T.InstancedMesh(sphereGeo,m.leaf,65);foliage.castShadow=true;foliage.receiveShadow=true;const dummy=new T.Object3D();
-  for(let k=0;k<65;k++){const angle=random()*Math.PI*2,vertical=random()*2-1,radial=Math.sqrt(1-vertical*vertical)*Math.sqrt(random());dummy.position.set(x+Math.cos(angle)*radial*r*.76,height-r*.35+vertical*r*.62,z+Math.sin(angle)*radial*r*.71);const size=r*(.16+random()*.18);dummy.scale.set(size*(.8+random()*.5),size*(.75+random()*.55),size);dummy.rotation.set(random(),random(),random());dummy.updateMatrix();foliage.setMatrixAt(k,dummy.matrix);foliage.setColorAt(k,new T.Color().setRGB(.88+random()*.12,.9+random()*.1,.86+random()*.14));}trees.add(foliage);
+  for(let k=0;k<65;k++){const angle=random()*Math.PI*2,vertical=random()*2-1,radial=Math.sqrt(1-vertical*vertical)*Math.sqrt(random());const y=height-r*.35+vertical*r*.62;dummy.position.set(x+Math.cos(angle)*radial*r*.76+lean(y)[0],y,z+Math.sin(angle)*radial*r*.71+lean(y)[1]);const size=r*(.16+random()*.18);dummy.scale.set(size*(.8+random()*.5),size*(.75+random()*.55),size);dummy.rotation.set(random(),random(),random());dummy.updateMatrix();foliage.setMatrixAt(k,dummy.matrix);foliage.setColorAt(k,new T.Color().setRGB(.88+random()*.12,.9+random()*.1,.86+random()*.14));}trees.add(foliage);
  });
 
  trees.add(boundaryHedge(foliage));

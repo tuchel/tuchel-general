@@ -26,11 +26,12 @@ export const guestRoofFrame = (()=>{
 })();
 export const sitePoint = (x:number,z:number):Point => [(x-874)*(12/181),(z-531.5)*(12/181)];
 export const plotOutline:Point[] = [[441,220],[1717,417],[1599,1016],[199,849],[246,626],[346,610],[365,422],[336,399]].map(([x,z])=>sitePoint(x,z));
-/** The north boundary hedge stands taller from the arrival wall to abreast of the main house's north gable (owner
- * photographs and aerial photograph): its height (m) as far east as x = until (world m). */
-export const TALL_HEDGE={until:4.4,height:3.2};
+/** The north boundary hedge stands taller from the arrival wall to the main house's north gable (owner photographs and
+ * aerial photograph): its height (m) as far east as x = until (world m), the gable's west end. */
+export const TALL_HEDGE={until:-6.1,height:3.2};
 /** The north hedge's height (m) from there to the north-east corner: 1.75–2.05 m in the owner's photographs from the
- * east meadow and the east terrace (cameras fitted to the main house), against the neighbors' buildings behind it. */
+ * north-west corner (against the fence at the north-east corner), the east meadow and the east terrace (cameras fitted to
+ * the main house), against the neighbors' buildings behind it. */
 export const NORTH_HEDGE=1.9;
 /** Trees traced from the owner's aerial photograph (north up, calibrated on the house and the neighbours' surveyed
  * buildings to about 2 m): [x, z, height, crown radius, kind], world metres. Heights from the owner's photographs: from
@@ -53,16 +54,19 @@ export const EAST_TREES:[number,number,number,number,StandKind][]=[
  [102,-17.5,25,10.5,'woodland'],[125,-16.5,20,7.5,'woodland'],[101.5,-58.5,10,3,'spruce'],[116,-52,10,3,'spruce'],[108.5,-36.5,11,3.5,'woodland'],
  [49.5,51.5,14,7.5,'woodland'],[53,66,16,8.5,'woodland'],[48.5,84.5,13,6,'woodland'],
 ];
-/** Two small trees in the east meadow (aerial photograph), in site-plan units as treePositions: [x, z, radius, height]. */
-export const MEADOW_TREES:[number,number,number,number][]=[[1455,554,2,5],[1508,803,2,5]];
-/** Garden trees from the grounds plan, in site-plan units: [x, z, crown radius, height?, kind?]. East and north-east of
- * the main house they stand where the owner's photographs and the aerial photograph put them (cameras fitted to the
- * house, crossed bearings from two photographs, to about 1 m), as tall as photographed: a Japanese dogwood in front of
- * the north hedge, two hawthorns by the north-east corner, a broad mugo pine in the east lawn and a Japanese maple over
- * the south-east corner, clear of its roof. */
-export const treePositions:readonly (readonly [number,number,number,number?,TreeKind?])[] = [
- [473,294,2.8],[480,363,2.3],[421,426,2],[524,458,1.7],[613,329,2.8],[619,442,2.6],[740,310,2.8],[708,500,2.5],
- [1052,341.5,2.2,4.5],[1000.5,390,1.5,4,'hawthorn'],[1050.5,420,2.1,4,'hawthorn'],[1020,578,2],[1192.5,628,2.25,2.5,'mugo'],[969,723,3,8],[667,713,2.2],
+/** Two small trees in the east meadow (aerial photograph), in site-plan units as treePositions: [x, z, radius, height,
+ * kind]. The southern one is a bushy pine about 4 m tall, needled nearly to the grass, beside a boulder and a timber deck
+ * (the owner's photograph from the meadow's north end). */
+export const MEADOW_TREES:[number,number,number,number,TreeKind?][]=[[1455,554,2,5],[1497,794,1.6,4.1,'mugo']];
+/** Garden trees from the grounds plan, in site-plan units: [x, z, crown radius, height?, kind?, tint?, lean?]. Round the
+ * main house they stand where the owner's photographs and the aerial photograph put them (cameras fitted to the house,
+ * crossed bearings from two photographs, to about 1 m), as tall as photographed: a cherry about 1.8 m off the north
+ * gable, its crown grown away from the wall; a pine north of the link; a Japanese dogwood in front of the north hedge,
+ * two hawthorns by the north-east corner, a broad mugo pine in the east lawn and a Japanese maple over the south-east
+ * corner, clear of its roof; and a maple about 9 m tall on the lawn beside the courtyard, forking low. */
+export const treePositions:readonly (readonly [number,number,number,number?,TreeKind?,(readonly [number,number,number])?,(readonly [number,number])?])[] = [
+ [473,294,2.8],[480,363,2.3],[421,426,2],[524,458,1.7],[613,329,2.8],[619,442,2.6],[843.8,358,1.6,7.5,'broadleaf',undefined,[0,-1.3]],[708,500,2.2,7.8,'pine'],
+ [1052,341.5,2.2,4.5],[1000.5,390,1.5,4,'hawthorn'],[1050.5,420,2.1,4,'hawthorn'],[1020,578,2],[1192.5,628,2.25,2.5,'mugo'],[969,723,3,8],[667,713,3.7,9,'maple'],
  [690,858,2.7],[747,881,2],[793,895,2],[841,904,1.8],[931,918,1.4],[967,905,1.5],[992,929,1.4],[1045,934,1.4],
  [579,878,1.7],[357,846,1.4],[308,839,1.3],[256,833,1.3],[246,690,3.9]
 ];
