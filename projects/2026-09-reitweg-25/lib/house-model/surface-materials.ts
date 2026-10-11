@@ -55,7 +55,7 @@ vec2 surfaceUV(vec3 p,vec3 n,out vec3 tu,out vec3 tv){
 /** World-projected albedo, roughness, relief and cavity for one surface set. */
 function surfaceFeature(material:T.MeshStandardMaterial,surface:Surface,textures:SurfaceTextures){
  const set=textures.get(surface),ref=new T.Color(painted[surface]),own=material.color;
- const tint=new T.Color(T.MathUtils.clamp(own.r/ref.r,.3,2),T.MathUtils.clamp(own.g/ref.g,.3,2),T.MathUtils.clamp(own.b/ref.b,.3,2));
+ const tint=new T.Color(T.MathUtils.clamp(own.r/ref.r,.15,2),T.MathUtils.clamp(own.g/ref.g,.15,2),T.MathUtils.clamp(own.b/ref.b,.15,2));
  const uniforms={uSurfaceColor:{value:set.color},uSurfaceNormal:{value:set.normal},uSurfaceMetres:{value:set.metres?new T.Vector2(set.metres,set.metres):new T.Vector2(...metres[surface])},uSurfaceTint:{value:tint},uSurfaceBump:{value:bump[surface]},uSurfaceSlope:{value:surface==='roof'?1:0},uLawn:{value:surface==='lawn'?1:0}};
  // The texture carries the colour from here on; the bounced-light bake reads the average (sun-bounce.ts).
  material.userData.albedo=ref.clone().multiply(tint);material.color.set('#ffffff');material.userData.surfaceUniforms=uniforms;

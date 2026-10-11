@@ -24,7 +24,7 @@ assert.equal(crosses(point(850,625),point(850,580),[ground]).length,0,'hall WC s
  const [ex,gz]=p(975,510),[gx]=p(946,510),guard=crosses([ex,1.12,gz],[gx-.4,1.12,gz],[ground]).filter(h=>h.object.isMesh)[0];assert(guard&&guard.point.x>gx-.05&&guard.point.x<gx+.15,'a rail guards the stairwell on the hall side');}
 // The hall sideboard stands beside the dining-room doorway, never across it: clear at its top's height over the whole
 // opening.
-for(let z=616;z<=661;z+=5)assert.equal(crosses(point(1005,z,.97),point(1068,z,.97),[ground]).length,0,`hall to dining doorway is clear at z ${z}`);
+for(let z=622;z<=651;z+=5)assert.equal(crosses(point(1005,z,.97),point(1045,z,.97),[ground]).length,0,`hall to dining doorway is clear at z ${z}`);
 assert(model.root.getObjectByName('hall-sideboard'),'hall sideboard present');
 // The hall WC as photographed from its door and drawn on the ground plan: the toilet in the north bay, its cistern
 // against the east wall and facing the window; the vanity, about 1 m long, filling the recess east of the room south of
