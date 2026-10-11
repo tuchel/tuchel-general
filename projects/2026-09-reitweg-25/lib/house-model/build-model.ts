@@ -82,7 +82,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const traceSite=(points:number[][],y:number,mat:T.Material,region?:Region)=>poly(points.map(([x,z])=>s(x,z)),.045,y,mat,site,region);
  // The cobbled vehicle apron is built with the entrance walk below.
  traceSite([[783,677],[994,677],[994,387],[963,387],[963,662],[783,662]],.045,m.paving);
- traceSite([[606,595],[784,595],[784,662],[638,662],[621,827],[582,823]],.055,m.paving,'courtyard');
+ traceSite([[606,595],[784,595],[784,662],[638,662],[621,827],[582,823]],-.03,m.paving,'courtyard');
  // Narrow cobbled walk, shallow threshold step and planted borders from owner photos.
  site.add(buildEntranceGarden(realistic));
  traceSite([[746,398],[782,398],[782,548],[746,548]],.055,m.paving,'kitchen');
@@ -212,11 +212,17 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // The sauna's glass front opens onto the wellness room beside a black steel column (10064ED8).
  {q=at(183,1083);const column=add(cylinderGeo,m.dark,ground);column.scale.set(.07,2.67,.07);column.position.set(q[0],.12+1.335,q[1]);column.name='wellness-steel-column';column.userData.base=.12;column.userData.height=2.67;cutWalls.push(column);}
  ground.add(guestStair(m.wood,m.dark));
- // Loggia slabs, existing posts and fireplace; roof remains part of the connection.
- const terrace=[[393,676],[810,676],[810,846],[446,846],[408,1235],[318,1224]].map(([x,z])=>p(x,z));poly(terrace,.09,.045,m.paving,ground,'courtyard');
- for(const [x,z] of [[447,761],[574,761],[690,761],[435,873],[422,987],[413,1102]]){q=at(x,z);box(ground,q[0],.13,q[1],.14,2.67,.14,m.wall,'courtyard');}
- // Cream mantel-style fireplace at the guest and link corner (FDE39D63).
- q=at(380,772);box(ground,q[0],.13,q[1],.55,1.15,1.1,m.plaster,'courtyard');box(ground,q[0]+.04,1.28,q[1],.66,.07,1.28,m.plaster);box(ground,q[0]+.28,.33,q[1],.02,.55,.62,m.dark);
+ // Loggia slabs, existing posts and fireplace; roof remains part of the connection. The paving lies flush with the lawn
+ // beside it, 0.14 m below the link and guest-wing floors (IMG_1563, photographs 15 and 69).
+ const terrace=[[393,676],[810,676],[810,846],[446,846],[408,1235],[318,1224]].map(([x,z])=>p(x,z));poly(terrace,.09,-.07,m.paving,ground,'courtyard');
+ for(const [x,z] of [[447,761],[574,761],[690,761],[435,873],[422,987],[413,1102]]){q=at(x,z);box(ground,q[0],.02,q[1],.14,2.78,.14,m.wall,'courtyard').name='courtyard-post';}
+ // Stone block steps up from the paving to the link's courtyard opening and the guest wing's two courtyard doors, their
+ // tops just below the thresholds (IMG_1431, IMG_1563).
+ for(const [a,b,from,to] of [[p(464,667),p(811,667),6.9,8.9],[p(367,671),p(316,1228),4.45,7.15],[p(367,671),p(316,1228),10.1,12.9]] as const){
+  const len=Math.hypot(b[0]-a[0],b[1]-a[1]),ux=(b[0]-a[0])/len,uz=(b[1]-a[1])/len,mid=(from+to)/2,centre=p(625,800),s=Math.sign(-uz*(centre[0]-a[0]-ux*mid)+ux*(centre[1]-a[1]-uz*mid));
+  const step=box(ground,a[0]+ux*mid-uz*s*.28,.02,a[1]+uz*mid+ux*s*.28,to-from+.2,.13,.35,m.paving,'courtyard');step.rotation.y=-Math.atan2(uz,ux);step.name='courtyard-step';}
+ // Cream mantel-style fireplace at the guest and link corner (FDE39D63), standing on the paving.
+ q=at(380,772);box(ground,q[0],.02,q[1],.55,1.15,1.1,m.plaster,'courtyard').name='courtyard-fireplace';box(ground,q[0]+.04,1.17,q[1],.66,.07,1.28,m.plaster);box(ground,q[0]+.28,.22,q[1],.02,.55,.62,m.dark);
  // Upper-floor cutaway: layout under the roof, at an inferred 2.95 m floor level.
  // Open stairwell in the slab, rather than an opaque dark patch.
  const slabShape=new T.Shape([[900,183],[eastKnee+3,183],[eastKnee+3,875],[900,875]].map(([x,z])=>{const a=p(x,z);return new T.Vector2(a[0],-a[1])}));

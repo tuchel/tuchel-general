@@ -93,7 +93,8 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  box(terrace,11.38,.015,5.2,.38,.07,9.6,m.stone);dining(terrace,8.7,5.5,3.3,1.08,Math.PI/2);
  const umbrella=place(terrace,10.5,2.3,0,.17);box(umbrella,0,0,0,.055,2.55,.055,m.metal);const shade=new T.Mesh(new T.ConeGeometry(1.7,.35,8),m.linen);shade.position.y=2.55;umbrella.add(shade);planter(terrace,10.65,.55);planter(terrace,10.65,9.9);
  // Selected courtyard: long table stays in the north bay; lounge stays by the west fireplace.
- const courtyard=groups.courtyard;dining(courtyard,...p(624,728),3.5,1.04);
+ // On the loggia paving, 0.14 m below the link floor.
+ const courtyard=groups.courtyard;courtyard.position.y=-.14;dining(courtyard,...p(624,728),3.5,1.04);
  const counter=place(courtyard,...p(620,687));box(counter,0,0,0,4.5,.86,.6,m.oak);box(counter,0,.86,0,4.56,.065,.65,m.stone);for(let x=-2;x<2.2;x+=.65)box(counter,x,.09,-.308,.012,.69,.013,m.metal);
  const lounge=place(courtyard,...p(416,891),-.093);box(lounge,0,.01,0,1.6,.015,2.8,m.linen);
  const sofa=(x:number,z:number,angle:number,w=2.1)=>{const g=place(lounge,x,z,angle,0);box(g,0,.06,0,w,.27,.81,m.oak,true);box(g,0,.33,0,w-.08,.16,.75,m.linen,true);box(g,0,.48,.33,w,.35,.15,m.linen,true);for(const dx of [-w/2+.07,w/2-.07])box(g,dx,.3,0,.11,.25,.86,m.oak,true);for(const dx of [-w*.3,w*.3])box(g,dx,.55,.2,.3,.3,.15,m.clay,true);};
