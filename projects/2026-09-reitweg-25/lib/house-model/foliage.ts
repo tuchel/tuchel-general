@@ -6,15 +6,15 @@ import {addShaderFeature} from './shader-features';
  * leaves; phones draw a solid shaded core under a shell of leaf cards cut from the
  * generated leaf atlas, which distant woodland uses everywhere. Every tree of one
  * archetype is a single draw. */
-export type TreeKind='broadleaf'|'maple'|'pine'|'mugo'|StandKind;
+export type TreeKind='broadleaf'|'maple'|'hawthorn'|'pine'|'mugo'|StandKind;
 /** The woods round the garden: broadleaves grown in a stand, silver birch, spruce. */
 export type StandKind='woodland'|'birch'|'spruce';
 export type TreeSpec={x:number;z:number;r:number;height:number;seed:number;kind:TreeKind;far?:boolean;base?:number;tint?:readonly [number,number,number]};
-const cells:Record<TreeKind|'hedge',[number,number]>={broadleaf:[0,1],maple:[1,1],pine:[0,0],mugo:[0,0],hedge:[1,0],woodland:[1,0],birch:[1,0],spruce:[0,0]};
+const cells:Record<TreeKind|'hedge',[number,number]>={broadleaf:[0,1],maple:[1,1],hawthorn:[0,1],pine:[0,0],mugo:[0,0],hedge:[1,0],woodland:[1,0],birch:[1,0],spruce:[0,0]};
 const REF_H=10,REF_R=3.5;
 /** The height and crown radius each archetype is built at; woodland trees and the mugo pine are built near their real
  * size, so their leaves keep about theirs. */
-const REF:Record<TreeKind,[number,number]>={broadleaf:[REF_H,REF_R],maple:[REF_H,REF_R],pine:[REF_H,REF_R],mugo:[2.5,2.2],woodland:[20,7],birch:[20,4.5],spruce:[24,3.6]};
+const REF:Record<TreeKind,[number,number]>={broadleaf:[REF_H,REF_R],maple:[REF_H,REF_R],hawthorn:[REF_H,REF_R],pine:[REF_H,REF_R],mugo:[2.5,2.2],woodland:[20,7],birch:[20,4.5],spruce:[24,3.6]};
 const isStand=(kind:TreeKind):kind is StandKind|'mugo'=>kind==='woodland'||kind==='birch'||kind==='spruce'||kind==='mugo';
 /** Crown style: modelled leaves shared per archetype (leaves) or a solid shaded core under a leaf-card shell (hybrid). */
 export type TreeStyle='leaves'|'hybrid';
@@ -71,9 +71,12 @@ function archetype(kind:TreeKind,far:boolean,seed:number,style:TreeStyle,context
  const r=random(seed),H=REF_H,R=REF_R,crown=new T.Vector3(0,H-R*.95,0);
  const flat=kind==='pine'?.55:1,clusters:T.Vector3[]=[],wood:T.BufferGeometry[]=[];
  const trunkTop=new T.Vector3((r()-.5)*.3,H*.45,(r()-.5)*.3);
- // A Japanese maple forks low into three leaning stems; other trees carry one trunk into the crown.
- const fork=new T.Vector3(0,H*.1,0),stems=kind==='maple'?[0,1,2].map(i=>{const a=i*2.1+r()*.5;return new T.Vector3(Math.cos(a)*R*.3,H*.42,Math.sin(a)*R*.3);}):[trunkTop];
+ // A Japanese maple forks low into three leaning stems; a hawthorn grows five slim stems from the ground, leaning out
+ // under a broad crown; other trees carry one trunk into the crown.
+ const fork=new T.Vector3(0,H*.1,0),stems=kind==='maple'?[0,1,2].map(i=>{const a=i*2.1+r()*.5;return new T.Vector3(Math.cos(a)*R*.3,H*.42,Math.sin(a)*R*.3);}):
+  kind==='hawthorn'?[0,1,2,3,4].map(i=>{const a=i*1.26+r()*.4;return new T.Vector3(Math.cos(a)*R*(.3+r()*.12),H*(.36+r()*.08),Math.sin(a)*R*(.3+r()*.12));}):[trunkTop];
  if(kind==='maple'){wood.push(limb(new T.Vector3(0,-.3,0),fork,.26,.22,far?6:9));for(const top of stems)wood.push(limb(fork,top,.16,.11,far?5:7));}
+ else if(kind==='hawthorn')stems.forEach((top,i)=>{const a=i*1.26+.3;wood.push(limb(new T.Vector3(Math.cos(a)*R*.05,-.3,Math.sin(a)*R*.05),top,.12,.08,far?5:7));});
  else wood.push(limb(new T.Vector3(0,-.3,0),trunkTop,.26,.19,far?6:9));
  const limbs=far?5:9;
  for(let i=0;i<limbs;i++){
