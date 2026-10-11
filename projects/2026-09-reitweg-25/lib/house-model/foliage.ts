@@ -6,16 +6,16 @@ import {addShaderFeature} from './shader-features';
  * leaves; phones draw a solid shaded core under a shell of leaf cards cut from the
  * generated leaf atlas, which distant woodland uses everywhere. Every tree of one
  * archetype is a single draw. */
-export type TreeKind='broadleaf'|'maple'|'pine'|StandKind;
+export type TreeKind='broadleaf'|'maple'|'pine'|'mugo'|StandKind;
 /** The woods round the garden: broadleaves grown in a stand, silver birch, spruce. */
 export type StandKind='woodland'|'birch'|'spruce';
 export type TreeSpec={x:number;z:number;r:number;height:number;seed:number;kind:TreeKind;far?:boolean;base?:number};
-const cells:Record<TreeKind|'hedge',[number,number]>={broadleaf:[0,1],maple:[1,1],pine:[0,0],hedge:[1,0],woodland:[1,0],birch:[1,0],spruce:[0,0]};
+const cells:Record<TreeKind|'hedge',[number,number]>={broadleaf:[0,1],maple:[1,1],pine:[0,0],mugo:[0,0],hedge:[1,0],woodland:[1,0],birch:[1,0],spruce:[0,0]};
 const REF_H=10,REF_R=3.5;
-/** The height and crown radius each archetype is built at; woodland trees are built near their real size, so their
- * leaves keep about theirs. */
-const REF:Record<TreeKind,[number,number]>={broadleaf:[REF_H,REF_R],maple:[REF_H,REF_R],pine:[REF_H,REF_R],woodland:[20,7],birch:[20,4.5],spruce:[24,3.6]};
-const isStand=(kind:TreeKind):kind is StandKind=>kind==='woodland'||kind==='birch'||kind==='spruce';
+/** The height and crown radius each archetype is built at; woodland trees and the mugo pine are built near their real
+ * size, so their leaves keep about theirs. */
+const REF:Record<TreeKind,[number,number]>={broadleaf:[REF_H,REF_R],maple:[REF_H,REF_R],pine:[REF_H,REF_R],mugo:[2.5,2.2],woodland:[20,7],birch:[20,4.5],spruce:[24,3.6]};
+const isStand=(kind:TreeKind):kind is StandKind|'mugo'=>kind==='woodland'||kind==='birch'||kind==='spruce'||kind==='mugo';
 /** Crown style: modelled leaves shared per archetype (leaves) or a solid shaded core under a leaf-card shell (hybrid). */
 export type TreeStyle='leaves'|'hybrid';
 function random(seed:number){let s=seed>>>0;return()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};}
@@ -71,13 +71,16 @@ function archetype(kind:TreeKind,far:boolean,seed:number,style:TreeStyle,context
  const r=random(seed),H=REF_H,R=REF_R,crown=new T.Vector3(0,H-R*.95,0);
  const flat=kind==='pine'?.55:1,clusters:T.Vector3[]=[],wood:T.BufferGeometry[]=[];
  const trunkTop=new T.Vector3((r()-.5)*.3,H*.45,(r()-.5)*.3);
- wood.push(limb(new T.Vector3(0,-.3,0),trunkTop,.26,.19,far?6:9));
+ // A Japanese maple forks low into three leaning stems; other trees carry one trunk into the crown.
+ const fork=new T.Vector3(0,H*.1,0),stems=kind==='maple'?[0,1,2].map(i=>{const a=i*2.1+r()*.5;return new T.Vector3(Math.cos(a)*R*.3,H*.42,Math.sin(a)*R*.3);}):[trunkTop];
+ if(kind==='maple'){wood.push(limb(new T.Vector3(0,-.3,0),fork,.26,.22,far?6:9));for(const top of stems)wood.push(limb(fork,top,.16,.11,far?5:7));}
+ else wood.push(limb(new T.Vector3(0,-.3,0),trunkTop,.26,.19,far?6:9));
  const limbs=far?5:9;
  for(let i=0;i<limbs;i++){
-  const a=i/limbs*Math.PI*2+r()*.6,up=.25+r()*.75;
+  const a=i/limbs*Math.PI*2+r()*.6,up=.25+r()*.75,from=stems[i%stems.length];
   const tip=new T.Vector3(Math.cos(a)*R*(.55+r()*.35),crown.y+(up-.5)*R*1.2*flat,Math.sin(a)*R*(.55+r()*.35));
-  const mid=trunkTop.clone().lerp(tip,.55).add(new T.Vector3(0,.4,0));
-  wood.push(limb(trunkTop,mid,.13,.08,far?4:6),limb(mid,tip,.08,.03,far?3:5));
+  const mid=from.clone().lerp(tip,.55).add(new T.Vector3(0,.4,0));
+  wood.push(limb(from,mid,.13,.08,far?4:6),limb(mid,tip,.08,.03,far?3:5));
   clusters.push(tip,mid.clone().lerp(tip,.4));
  }
  for(let i=0;i<(far?8:26);i++){const th=r()*Math.PI*2,y=r()*1.8-.9,rad=Math.sqrt(1-y*y)*(.45+r()*.5);clusters.push(new T.Vector3(Math.cos(th)*rad*R,crown.y+y*R*.85*flat,Math.sin(th)*rad*R));}
@@ -123,15 +126,22 @@ function hybridCrown(kind:TreeKind,far:boolean,r:()=>number,clusters:T.Vector3[]
 }
 /** A woodland tree at its reference size (REF): a crown of leafy lobes over shaded clumps, closing down low as trees do
  * at a wood's edge; a silver birch's narrow crown of hanging twigs from about a third of its height; a spruce's cone of
- * drooping tiers. Leaf cards keep about their real size, and the whole tree is scaled to top out exactly at the reference
- * height, so an instance stands as tall as asked. */
-function standTree(kind:StandKind,far:boolean,seed:number){
+ * drooping tiers; a mugo pine's low dome of needle tufts on stems spreading from the ground. Leaf cards keep about their
+ * real size, and the whole tree is scaled to top out exactly at the reference height, so an instance stands as tall as
+ * asked. */
+function standTree(kind:StandKind|'mugo',far:boolean,seed:number){
  const r=random(seed),[H,R]=REF[kind],wood:T.BufferGeometry[]=[],out={p:[] as number[],n:[] as number[],uv:[] as number[],c:[] as number[]};
  const blobs:{c:T.Vector3;rad:number;stretch:number;lift:number}[]=[];
- const spruce=kind==='spruce',birch=kind==='birch',base=H*(spruce?.04:birch?.33:.09),span=H-base;
+ const spruce=kind==='spruce',birch=kind==='birch',mugo=kind==='mugo',base=H*(spruce?.04:birch?.33:mugo?.02:.09),span=H-base;
  // The crown's radius at height y.
- const reach=(y:number)=>{const t=clamp01((y-base)/span);return spruce?R*Math.pow(1-t,1.05):R*Math.pow(Math.sin(Math.PI*(.06+t*.9)),birch?.8:.6);};
- if(spruce){
+ const reach=(y:number)=>{const t=clamp01((y-base)/span);return spruce?R*Math.pow(1-t,1.05):mugo?R*Math.sqrt(Math.sin(Math.PI*(.32+t*.68))):R*Math.pow(Math.sin(Math.PI*(.06+t*.9)),birch?.8:.6);};
+ if(mugo){
+  // Tufts of needles over the dome, on stems that leave the ground and spread outward and up.
+  for(let i=0;i<(far?24:56);i++){const y=base+span*(.08+r()*.84),a=r()*Math.PI*2;blobs.push({c:new T.Vector3(Math.cos(a),0,Math.sin(a)).multiplyScalar(reach(y)*(.55+r()*.3)).setY(y),rad:.38+r()*.24,stretch:.85,lift:r()});}
+  blobs.push({c:new T.Vector3(0,H-.35,0),rad:.5,stretch:.8,lift:1});
+  for(let i=0;i<(far?4:7);i++){const a=(i+r()*.6)/7*Math.PI*2,tip=new T.Vector3(Math.cos(a)*R*.55,H*(.45+r()*.3),Math.sin(a)*R*.55),mid=new T.Vector3(Math.cos(a)*R*.25,H*.18,Math.sin(a)*R*.25);
+   wood.push(limb(new T.Vector3(0,-.1,0),mid,.09,.06,far?4:6),limb(mid,tip,.06,.03,far?3:5));}
+ }else if(spruce){
   // Tiers of drooping branches every metre or so, thinning to a spire.
   for(let y=base+.3;y<H-1.4;y+=.85+r()*.35){const rr=reach(y),n=Math.max(3,Math.round(rr*2.4));
    for(let i=0;i<n;i++){const a=(i+r()*.6)/n*Math.PI*2;blobs.push({c:new T.Vector3(Math.cos(a)*rr*.55,y-rr*.18,Math.sin(a)*rr*.55),rad:Math.max(.32,rr*.5)*(.85+r()*.3),stretch:.5,lift:0});}}
@@ -155,7 +165,7 @@ function standTree(kind:StandKind,far:boolean,seed:number){
   for(const lobe of lobes){const from=new T.Vector3(0,0,0).lerp(top,.55+r()*.4),mid=from.clone().lerp(lobe,.5).add(new T.Vector3(0,.6,0));wood.push(limb(from,mid,birch?.07:.17,birch?.05:.1,far?4:6),limb(mid,lobe,birch?.05:.1,.04,far?3:5));}
  }
  // Shaded clumps: darker underneath and inside the crown, lighter where they face up and out.
- const green=new T.Color(spruce?'#34492c':birch?'#6a8a36':'#3d5c24'),crown=new T.Vector3(0,base+span*.5,0),parts:T.BufferGeometry[]=[];
+ const green=new T.Color(spruce?'#34492c':mugo?'#46613a':birch?'#6a8a36':'#3d5c24'),crown=new T.Vector3(0,base+span*.5,0),parts:T.BufferGeometry[]=[];
  const shadeAt=(v:T.Vector3,lift:number)=>(.42+.58*clamp01((v.y-base)/span))*(.62+.38*clamp01(Math.hypot(v.x,v.z)/(reach(v.y)+.01)))*(.92+.16*lift);
  for(const b of blobs){
   const g=new T.IcosahedronGeometry(1,far?0:1),p=g.attributes.position,nrm=g.attributes.normal,colors:number[]=[],v=new T.Vector3(),u=new T.Vector3();
@@ -166,12 +176,12 @@ function standTree(kind:StandKind,far:boolean,seed:number){
    // Broken normals keep the clump from shading as a smooth ball; it reads as the crown's shadowed inside.
    const out2=v.clone().sub(crown).normalize(),n=u.clone().multiplyScalar(.4).addScaledVector(out2,.4).add(new T.Vector3(r()-.5,r()-.5,r()-.5).multiplyScalar(.45)).normalize();nrm.setXYZ(i,n.x,n.y,n.z);
    // A spruce's needles fill it to the trunk, so its inside is less dark than a broadleaf crown's.
-   const c=green.clone().multiplyScalar((spruce?.55+.45*shadeAt(v,b.lift):shadeAt(v,b.lift))*(.5+.35*Math.max(0,u.y)));colors.push(c.r,c.g,c.b);
+   const c=green.clone().multiplyScalar((spruce||mugo?.55+.45*shadeAt(v,b.lift):shadeAt(v,b.lift))*(.5+.35*Math.max(0,u.y)));colors.push(c.r,c.g,c.b);
   }
   g.setAttribute('color',new T.Float32BufferAttribute(colors,3));g.deleteAttribute('uv');parts.push(g);
  }
  // Leaf cards over each clump's exposed surface; a birch's hang, a spruce's droop.
- const count=far?(spruce?800:birch?1000:1000):(spruce?3400:birch?2200:2600),card0=far?(spruce?1.2:1.7):(spruce?1.05:birch?1.2:1.5),cell=cells[kind];
+ const count=far?(spruce?800:birch?1000:mugo?500:1000):(spruce?3400:birch?2200:mugo?1800:2600),card0=far?(spruce?1.2:mugo?.6:1.7):(spruce?1.05:birch?1.2:mugo?.42:1.5),cell=cells[kind];
  for(let placed=0,guard=0;placed<count&&guard<count*30;guard++){
   const b=blobs[Math.floor(r()*blobs.length)],dir=new T.Vector3(r()*2-1,r()*2-1,r()*2-1);if(dir.lengthSq()<.02||dir.lengthSq()>1)continue;dir.normalize();
   const center=b.c.clone().addScaledVector(dir,b.rad*(.85+r()*.4));center.y=b.c.y+(center.y-b.c.y)*b.stretch;
@@ -257,7 +267,7 @@ export function buildTrees(specs:TreeSpec[],materials:FoliageMaterials,name:stri
    const [refH,refR]=REF[kind],origin=new T.Vector3(s.x,s.base??0,s.z),scale=new T.Vector3(s.r/refR,s.height/refH,s.r/refR);
    set.matrices.push(new T.Matrix4().compose(origin,q,scale));set.origins.push(origin);
    set.centres.push(new T.Vector3(s.x,(s.base??0)+s.height*.55,s.z));set.radii.push(Math.max(s.height,s.r*2)*.62);set.leaf.push(LEAF*Math.max(scale.x,scale.y));
-   const hue=kind==='pine'?.9:kind==='spruce'?.82+r()*.12:kind==='woodland'?.72+r()*.3:.85+r()*.3;set.colors.push(new T.Color().setRGB(hue,hue*(.97+r()*.06),hue*(.85+r()*.2)));
+   const hue=kind==='pine'||kind==='mugo'?.9:kind==='spruce'?.82+r()*.12:kind==='woodland'?.72+r()*.3:.85+r()*.3;set.colors.push(new T.Color().setRGB(hue,hue*(.97+r()*.06),hue*(.85+r()*.2)));
   }
   for(const c of [...crowns,...lod??[]])c.userData.sway='leaf';
   for(const mesh of [...crowns,bark,...lod??[]]){
@@ -325,7 +335,7 @@ export function drawTrees(root:T.Object3D,cameras:T.Camera[],pixel:number,eye:T.
 }
 
 /** A clipped garden hedge: a solid, gently lumpy body, with leaf cards in the detailed model. */
-export function buildHedge(runs:[T.Vector2Like,T.Vector2Like][],options:{width:number;height:number;inset:number},materials?:FoliageMaterials){
+export function buildHedge(runs:[T.Vector2Like,T.Vector2Like][],options:{width:number;height:number;inset:number;needles?:boolean},materials?:FoliageMaterials){
  const group=new T.Group();group.name='three-sided-garden-boundary-hedge';
  const r=random(386),bodies:T.BufferGeometry[]=[],out={p:[] as number[],n:[] as number[],uv:[] as number[],c:[] as number[]};
  const {width:w,height:h,inset}=options,profile:[number,number][]=[];
@@ -343,14 +353,20 @@ export function buildHedge(runs:[T.Vector2Like,T.Vector2Like][],options:{width:n
   const k=profile.length;
   for(let s=0;s<steps;s++)for(let i=0;i<k-1;i++){const a0=s*k+i,a1=a0+1,b0=a0+k,b1=b0+1;idx.push(a0,b0,a1,a1,b0,b1);}
   const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();bodies.push(g.toNonIndexed());g.dispose();
+  // Closed ends: a fan over the profile, facing out along the run.
+  for(const [s,out] of [[0,-1],[steps,1]] as const){const ring=pos.slice(s*k*3,(s+1)*k*3),cx=(ring[0]+ring[(k-1)*3])/2,cz=(ring[2]+ring[(k-1)*3+2])/2,cap:number[]=[];
+   for(let i=0;i<k-1;i++){const a=new T.Vector3().fromArray(ring,i*3),b=new T.Vector3().fromArray(ring,i*3+3),c=new T.Vector3(cx,0,cz);
+    const facing=new T.Vector3().subVectors(a,c).cross(new T.Vector3().subVectors(b,c)).dot(new T.Vector3(tx*out,0,tz*out));cap.push(...c.toArray(),...(facing>0?[...a.toArray(),...b.toArray()]:[...b.toArray(),...a.toArray()]));}
+   const e=new T.BufferGeometry();e.setAttribute('position',new T.Float32BufferAttribute(cap,3));e.computeVertexNormals();bodies.push(e);}
   if(materials){
-   const count=Math.round(len*(w+h*2)*4.2);
+   // A low clipped hedge (a yew along a terrace) carries finer leaves, more of them, down to its foot.
+   const fine=Math.min(1,h/1.2),lift=Math.min(.2,h*.15),count=Math.round(len*(w+h*2)*4.2/(fine*fine));
    for(let i=0;i<count;i++){
     // Over the whole section: both sides from the ground up, and the rounded top.
-    const t=r(),side=r(),up=r(),[px,py]=side<2*h/(2*h+w*1.6)?[(up<.5?-1:1)*w/2,.2+r()*(h-.5)]:profile[1+Math.floor(r()*(k-2))],cx=a.x+dx*t-tz*inset,cz=a.y+dz*t+tx*inset;
-    const center=new T.Vector3(cx+nx*px*1.04,Math.max(.2,py*1.01),cz+nz*px*1.04),axis=new T.Vector3(cx,h*.45,cz);
+    const t=r(),side=r(),up=r(),[px,py]=side<2*h/(2*h+w*1.6)?[(up<.5?-1:1)*w/2,lift+r()*(h-lift-Math.min(.3,h*.25))]:profile[1+Math.floor(r()*(k-2))],cx=a.x+dx*t-tz*inset,cz=a.y+dz*t+tx*inset;
+    const center=new T.Vector3(cx+nx*px*1.04,Math.max(lift,py*1.01),cz+nz*px*1.04),axis=new T.Vector3(cx,h*.45,cz);
     const normal=center.clone().sub(axis).normalize().add(new T.Vector3(r()-.5,r()-.5,r()-.5).multiplyScalar(.7)).normalize();
-    const shade=.62+r()*.3;card(center,normal,.7+r()*.35,r()*Math.PI*2,cells.hedge,r()<.5,axis,new T.Color(shade,shade,shade*.9),out);
+    const shade=.62+r()*.3;card(center,normal,(.7+r()*.35)*fine,r()*Math.PI*2,options.needles?cells.pine:cells.hedge,r()<.5,axis,new T.Color(shade,shade,shade*.9),out);
    }
   }
  }
@@ -360,7 +376,7 @@ export function buildHedge(runs:[T.Vector2Like,T.Vector2Like][],options:{width:n
  if(materials&&out.p.length){
   const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(out.p,3));g.setAttribute('normal',new T.Float32BufferAttribute(out.n,3));g.setAttribute('uv',new T.Float32BufferAttribute(out.uv,2));g.setAttribute('color',new T.Float32BufferAttribute(out.c,3));
   const shell=new T.Mesh(g,materials.leaves);shell.name='hedge-leaf-cards';shell.castShadow=true;shell.receiveShadow=true;shell.customDepthMaterial=materials.depth;group.add(shell);
-  bodyMaterial.color.set('#243a1b');
+  bodyMaterial.color.set(options.needles?'#34481f':'#243a1b');
  }
  return group;
 }
