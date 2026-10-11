@@ -34,9 +34,15 @@ for(const realism of [false,true]){
   }
  });
  assert.equal(faults.length,0,`${realism?'detailed':'model'}: ${faults.slice(0,5).join('; ')}`);
+ // The main roof's eaves stand 2.95 m up and its ridge 8 m, as camera fits to five of the owner's photographs of the east
+ // façade read them: the slope's upper face 0.2 m in from each eave and beside the ridge, near both verges. The plain
+ // model's 15 cm slab is centred on that line.
+ {const slopes=roofs.filter(o=>o.name.startsWith('main-roof-slope')),lift=realism?0:.075/Math.cos(Math.atan2(8-2.95,6.55));assert.equal(slopes.length,2,'two main roof slopes');
+  for(const x of [-6.35,-.3,.3,6.35])for(const z of [-9,9]){ray.set(new T.Vector3(x,20,z),down);const y=ray.intersectObjects(slopes,false)[0]?.point.y-lift,want=8-(8-2.95)*Math.abs(x)/6.55;
+   assert(Math.abs(y-want)<.03,`${realism?'detailed':'model'}: the main roof at x ${x}, z ${z} stands ${y?.toFixed(2)} m up, photographed ${want.toFixed(2)} m`);}}
  // The entrance roof dies into the main and guest roofs: inside either house, none of it hangs below their roof.
  const {guestRoofFrame:gf}=await import('../tmp/roof-check/site-data.mjs');
- const mainUnder=x=>8-5.36*Math.abs(x)/6.55-.045,guestHalf=(gf.width+.18)/2;
+ const mainUnder=x=>8-(8-2.95)*Math.abs(x)/6.55-.045,guestHalf=(gf.width+.18)/2;
  const guestUnder=(x,z)=>{const dx=x-gf.center[0],dz=z-gf.center[1];return 6.75-(6.75-2.94)*Math.abs(dx*Math.cos(gf.rotation)-dz*Math.sin(gf.rotation))/guestHalf-.045;};
  const link=model.root.getObjectByName('link-roof'),inLink=[];assert(link,'entrance roof exists');link.traverse(o=>{if(o.isMesh)inLink.push(o);});
  const guestPlan=[[116,535],[475,573],[461,668],[367,671],[316,1228],[49,1208]].map(([x,z])=>p(x,z)),inside=[];

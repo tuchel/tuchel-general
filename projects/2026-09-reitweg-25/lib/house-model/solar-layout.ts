@@ -7,7 +7,7 @@ export const roofSkylights=(kind:'main'|'guest')=>kind==='main'?[
 // Guest roof windows are all on the west slope (upper plan; FDE39D63 shows none on the east).
 ]:[...[-1.15,.75,2.65].map(z=>({side:-1,z,fraction:.62}))];
 export const solarRoofs=[
- {id:'main',center:[0,0],width:13.1,length:20.2,eave:2.64,ridge:8,rotation:0,eastAzimuth:97.5},
+ {id:'main',center:[0,0],width:13.1,length:20.2,eave:2.95,ridge:8,rotation:0,eastAzimuth:97.5},
  {id:'guest',...guestRoofFrame,width:guestRoofFrame.width+.18,length:guestRoofFrame.length+.18,eave:2.94,ridge:6.75,eastAzimuth:102.8}
 ] as const;
 export type SolarPanel={roof:'main'|'guest';side:number;u:number;z:number};
