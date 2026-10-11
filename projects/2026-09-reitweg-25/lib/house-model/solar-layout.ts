@@ -1,11 +1,11 @@
 import {guestRoofFrame} from './site-data';
 export const solarModule={watts:450,width:1.134,length:1.722,area:1.134*1.722};
 export const roofSkylights=(kind:'main'|'guest')=>kind==='main'?[
- ...[[-7.5,.68],[-4.5,.68],[-1.5,.68],[-5,.28],[1.1,.45],[3.1,.45],[5.1,.45],[5.6,.68],[7.3,.68],[8.8,.68]].map(([z,fraction])=>({side:1,z,fraction})),
+ ...[[-7.85,.68],[-4.6,.68],[-2.2,.68],[-5,.14],[.1,.45],[1.7,.45],[3.25,.45],[4.85,.68],[6.45,.68],[8.05,.68]].map(([z,fraction])=>({side:1,z,fraction})),
  // West slope: the eight roof windows above the knee wall on the upper plan.
  ...[-6.57,-4.77,-2.97,-1.18,.71,2.36,6.15,7.92].map(z=>({side:-1,z,fraction:.58}))
 // Guest roof windows are all on the west slope (upper plan; FDE39D63 shows none on the east).
-]:[...[0,2,4].map(z=>({side:-1,z,fraction:.62}))];
+]:[...[-1.15,.75,2.65].map(z=>({side:-1,z,fraction:.62}))];
 export const solarRoofs=[
  {id:'main',center:[0,0],width:13.1,length:20.2,eave:2.64,ridge:8,rotation:0,eastAzimuth:97.5},
  {id:'guest',...guestRoofFrame,width:guestRoofFrame.width+.18,length:guestRoofFrame.length+.18,eave:2.94,ridge:6.75,eastAzimuth:102.8}

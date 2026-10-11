@@ -12,7 +12,7 @@ const ground=model.root.getObjectByName('ground-floor');
 assert(ground,'ground floor exists');
 assert.equal(crosses(point(1135,653),point(1135,699),[ground]).length,0,'dining to sitting room passage is open');
 assert.equal(crosses(point(214,923),point(214,964),[ground]).length,0,'yoga to wellness passage is open');
-assert.equal(crosses(point(786,305,1.2),point(802,305,1.2),[ground]).length,0,'kitchen sliding door has an open half');
+assert.equal(crosses(point(786,360,1.2),point(802,360,1.2),[ground]).length,0,'kitchen sliding door has an open south half');
 const storage=model.root.getObjectByName('entry-storage-clear-of-courtyard-door');assert(storage);assert.equal(crosses(point(755,630),point(755,685),[storage]).length,0,'storage clears courtyard door');
 assert(model.root.getObjectByName('front-door-walkway'),'front door walkway present');assert(model.root.getObjectByName('kitchen-terrace-table'),'outdoor table present');
 assert.equal(crosses(point(777,630),point(920,630),[ground]).length,0,'connector to main atrium is open through both wall planes');

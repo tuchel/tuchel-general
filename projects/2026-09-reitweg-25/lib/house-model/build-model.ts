@@ -114,13 +114,13 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
   // the open hall side, clear of the entry at the top.
   const [,gz1]=p(0,492),[,gz2]=p(0,607),[gx]=p(948.5,0),rail=(y:number,h:number)=>box(stairwell,gx,y,(gz1+gz2)/2,.04,h,gz2-gz1,m.dark);
   rail(1.1,.045);rail(.2,.03);for(let z=gz1;z<=gz2+1e-6;z+=(gz2-gz1)/Math.round((gz2-gz1)/.12))box(stairwell,gx,.12,z,.022,1,.022,m.dark);}
- function facade(parent:T.Group,a:[number,number],b:[number,number],openings:{from:number;to:number;sill:number;head:number;kind?:'garage'|'sliding'|'passage';mullion?:number;bench?:boolean}[],region:Region){
+ function facade(parent:T.Group,a:[number,number],b:[number,number],openings:{from:number;to:number;sill:number;head:number;kind?:'garage'|'sliding'|'passage'|'oak';mullion?:number;bench?:boolean}[],region:Region){
   const len=Math.hypot(b[0]-a[0],b[1]-a[1]),dx=(b[0]-a[0])/len,dz=(b[1]-a[1])/len;
   // External walls are about 0.45 m thick on the plans: the cladding face stays 0.105 m outside the traced outline and the wall grows inward.
   const center=region==='guest'?p(230,870):region==='courtyard'?p(625,620):[0,0],side=(-dz)*(center[0]-(a[0]+b[0])/2)+dx*(center[1]-(a[1]+b[1])/2)>0?1:-1;
   const part=(lo:number,hi:number,y:number,h:number,mat:T.Material)=>{if(hi<=lo||h<=0)return;const x=a[0]+dx*(lo+hi)/2-dz*side*.12,z=a[1]+dz*(lo+hi)/2+dx*side*.12;const obj=box(parent,x,y,z,hi-lo,h,mat===glass?.028:mat===m.dark?.09:mat===m.wall||mat===m.garage?.45:.47,mat,region);obj.rotation.y=-Math.atan2(dz,dx);if(realistic&&mat===m.wall){const faces:T.Material[]=Array(6).fill(m.wall);faces[side>0?4:5]=m.plaster;(obj as T.Mesh).material=faces;}if(mat===m.wall||mat===m.garage){obj.userData.base=y;obj.userData.height=h;cutWalls.push(obj)}return obj;};
   // Floor-level openings are doors: their glazing, leaves and handles let the walker through; frames stay solid.
-  let cursor=0;for(const o of openings){const door=o.sill<=.15&&o.kind!=='passage'&&o.kind!=='sliding',leaf=(obj:T.Object3D|undefined)=>{if(door&&obj)passable(obj);};part(cursor,o.from,.12,2.67,m.wall);part(o.from,o.to,.12,o.sill-(o.bench?BENCH:0),m.wall);part(o.from,o.to,.12+o.head,2.67-o.head,m.wall);if(o.kind!=='sliding'&&o.kind!=='passage')leaf(part(o.from,o.to,.12+o.sill,o.head-o.sill,o.kind==='garage'?m.garage:glass));if(o.kind==='garage'){for(let t=o.from+.12;t<o.to;t+=.15)leaf(part(t,t+.014,.12,2.2,m.edge));}for(const t of [o.from,o.to])part(t-.035,t+.035,.12+o.sill,o.head-o.sill,m.dark);for(const y of [o.sill,o.head])part(o.from,o.to,.12+y,.045,m.dark);if(o.kind==='sliding'){const middle=(o.from+o.to)/2;const pane=part(middle,o.to,.12+o.sill,o.head-o.sill,glass);if(pane)pane.name='kitchen-fixed-glass';const moving=part(middle-.22,o.to-.22,.12+o.sill,o.head-o.sill,glass);if(moving){moving.position.x+=dz*.07;moving.position.z-=dx*.07;moving.name='kitchen-sliding-leaf';}for(const t of [middle-.22,o.to-.22])part(t-.026,t+.026,.12,2.3,m.dark);part(o.from,o.to,.125,.025,m.edge);part(middle-.18,middle-.14,.96,.28,m.dark);}const bar=o.mullion??(o.from+o.to)/2;if(!o.kind&&o.to-o.from>2)leaf(part(bar-.025,bar+.025,.12+o.sill,o.head-o.sill,m.dark));if(realistic&&o.kind!=='garage'&&o.kind!=='passage'){for(const t of [o.from-.067,o.to+.067])part(t-.025,t+.025,.12+o.sill,o.head-o.sill,m.wood);if(!o.bench)part(o.from,o.to,.12+o.sill-.035,.035,m.stone);const handle=o.mullion===undefined?o.to-.12:o.mullion+(o.mullion-o.from<o.to-o.mullion?-.1:.1);leaf(part(handle-.01,handle+.01,o.bench?.12+o.sill+.55:1.07,.16,m.edge));}
+  let cursor=0;for(const o of openings){const door=o.sill<=.15&&o.kind!=='passage'&&o.kind!=='sliding'&&o.to-o.from>.6,leaf=(obj:T.Object3D|undefined)=>{if(door&&obj)passable(obj);};part(cursor,o.from,.12,2.67,m.wall);part(o.from,o.to,.12,o.sill-(o.bench?BENCH:0),m.wall);part(o.from,o.to,.12+o.head,2.67-o.head,m.wall);if(o.kind!=='sliding'&&o.kind!=='passage'){const leafPart=part(o.from,o.to,.12+o.sill,o.head-o.sill,o.kind==='garage'?m.garage:o.kind==='oak'?m.wood:glass);if(leafPart&&o.kind)leafPart.name=o.kind==='garage'?'garage-door':'oak-door';leaf(leafPart);}if(o.kind==='garage'){for(let t=o.from+.12;t<o.to;t+=.15){const batten=part(t,t+.014,.12,o.head,m.edge);if(batten)batten.name='garage-door';leaf(batten);}}for(const t of [o.from,o.to])part(t-.035,t+.035,.12+o.sill,o.head-o.sill,m.dark);for(const y of [o.sill,o.head])part(o.from,o.to,.12+y,.045,m.dark);if(o.kind==='sliding'){const middle=(o.from+o.to)/2;const pane=part(o.from,middle,.12+o.sill,o.head-o.sill,glass);if(pane)pane.name='kitchen-fixed-glass';const moving=part(o.from+.22,middle+.22,.12+o.sill,o.head-o.sill,glass);if(moving){moving.position.x+=dz*.07;moving.position.z-=dx*.07;moving.name='kitchen-sliding-leaf';}for(const t of [o.from+.22,middle+.22])part(t-.026,t+.026,.12,o.head,m.dark);part(o.from,o.to,.125,.025,m.edge);part(middle+.14,middle+.18,.96,.28,m.dark);}const bar=o.mullion??(o.from+o.to)/2;if(!o.kind&&o.to-o.from>2)leaf(part(bar-.025,bar+.025,.12+o.sill,o.head-o.sill,m.dark));if(realistic&&o.kind!=='garage'&&o.kind!=='passage'){for(const t of [o.from-.067,o.to+.067])part(t-.025,t+.025,.12+o.sill,o.head-o.sill,m.wood);if(!o.bench)part(o.from,o.to,.12+o.sill-.035,.035,m.stone);const handle=o.mullion===undefined?o.to-.12:o.mullion+(o.mullion-o.from<o.to-o.mullion?-.1:.1);leaf(part(handle-.01,handle+.01,o.bench?.12+o.sill+.55:1.07,.16,m.edge));}
    // A window bench: a timber board along the opening at the frame's foot, from the glass to just proud of the room's
    // wall face, and the outside sill beyond the glass.
    if(o.bench){const run=(lo:number,hi:number,y:number,h:number,inner:number,outer:number,mat:T.Material,name:string)=>{const mid=(lo+hi)/2,depth=(inner+outer)/2,x=a[0]+dx*mid-dz*side*depth,z=a[1]+dz*mid+dx*side*depth;const obj=box(parent,x,y,z,hi-lo,h,inner-outer,mat,region);obj.rotation.y=-Math.atan2(dz,dx);obj.name=name;return obj;};
@@ -132,13 +132,13 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // The east knee wall is 0.55 m high under a spruce sill, with the lowest roof windows just above it (owner photo of
  // the south-east room); it stands further out than the plan's line, which would make it 1.2 m high.
  const eastKnee=((8-.045-CEILING-3.07-.55)*6.55/5.36-UPPER_PLAN_X_OFFSET)/PLAN_SCALE+1012;
- capture('east',ground,()=>facade(ground,[E,N],[E,S],[{from:1.9,to:4.6,sill:.1,head:2.2},{from:5.8,to:8.15,sill:0,head:2.2},{from:10.3,to:11.15,sill:.45,head:2.2},{from:12,to:13,sill:0,head:2.2},{from:14.86,to:17.05,sill:.1,head:2.25}],'main'));
+ capture('east',ground,()=>facade(ground,[E,N],[E,S],[{from:1.9,to:4.6,sill:.1,head:2.2},{from:6.45,to:8.95,sill:0,head:2.2},{from:10.3,to:11.15,sill:.95,head:2.2},{from:12,to:13,sill:0,head:2.2},{from:15,to:17.45,sill:.1,head:2.25}],'main'));
  const kitchenSouth=p(795,464)[1],kitchenEast=p(970,182)[0],westSplit=kitchenSouth-N,northSplit=kitchenEast-W;
- capture('kitchen',ground,()=>facade(ground,[W,N],[W,kitchenSouth],[{from:2.75,to:5.74,sill:0,head:2.3,kind:'sliding'}],'kitchen'));
- facade(ground,[W,kitchenSouth],[W,S],[{from:8.95-westSplit,to:9.95-westSplit,sill:.8,head:2.1},{from:11.86-westSplit,to:12.96-westSplit,sill:0,head:2.3,kind:'passage'},{from:14.86-westSplit,to:15.94-westSplit,sill:0,head:2.2}],'main');
+ capture('kitchen',ground,()=>facade(ground,[W,N],[W,kitchenSouth],[{from:2.75,to:5.74,sill:0,head:2.1,kind:'sliding'}],'kitchen'));
+ facade(ground,[W,kitchenSouth],[W,S],[{from:9.1-westSplit,to:9.93-westSplit,sill:1.05,head:2.1},{from:11.86-westSplit,to:12.96-westSplit,sill:0,head:2.3,kind:'passage'},{from:14.86-westSplit,to:15.94-westSplit,sill:0,head:2.2}],'main');
  capture('kitchen',ground,()=>facade(ground,[W,N],[kitchenEast,N],[{from:1.8,to:3,sill:.7,head:2.15}],'kitchen'));
  // The garden bedroom's north wall, behind the bed, has no window (owner).
- facade(ground,[kitchenEast,N],[E,N],[{from:5.5-northSplit,to:6.7-northSplit,sill:0,head:2.2}],'main');
+ facade(ground,[kitchenEast,N],[E,N],[{from:5.48-northSplit,to:6.55-northSplit,sill:0,head:2.2}],'main');
  // The living room's two south windows sit low over a timber window bench, the narrow opening light on the side away
  // from the chimney (owner photographs inside and out).
  capture('east',ground,()=>facade(ground,[W,S],[E,S],[{from:1.6,to:4.2,sill:.5,head:2.2,mullion:1.6+.4*2.6,bench:true},{from:7.83,to:10.26,sill:.5,head:2.2,mullion:10.26-.4*2.43,bench:true}],'main'));
@@ -170,18 +170,18 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const guestOutline=[[116,535],[475,573],[461,668],[367,671],[316,1228],[49,1208]].map(([x,z])=>p(x,z));poly(guestOutline,.16,0,m.floor,ground,'guest');
  poly([[116,535],[475,573],[461,668],[367,671],[350,790],[106,766]].map(([x,z])=>p(x,z)),.02,.165,m.plaster,ground);
  const linkOutline=[[459,574],[811,574],[811,672],[367,671],[370,647],[449,646]].map(([x,z])=>p(x,z));poly(linkOutline,.16,0,m.tile,ground,'courtyard');
- facade(ground,p(478,574),p(811,574),[{from:.05,to:1.45,sill:0,head:2.3},{from:1.55,to:8.7,sill:0,head:2.3}],'courtyard');
- facade(ground,p(464,667),p(811,667),[{from:6.9,to:8.9,sill:0,head:2.3}],'courtyard');
- facade(ground,p(93,766),p(49,1208),[{from:3.05,to:4.2,sill:0,head:2.2},{from:5.1,to:5.8,sill:1.4,head:2.15},{from:9,to:10.1,sill:.9,head:2.15}],'guest');
+ facade(ground,p(478,574),p(811,574),[{from:.05,to:.49,sill:0,head:2.3,kind:'oak'},{from:.52,to:1.54,sill:0,head:2.3,kind:'oak'},{from:1.6,to:2,sill:0,head:2.3},{from:2,to:4.2,sill:0,head:2.3},{from:4.2,to:6.41,sill:0,head:2.3},{from:6.41,to:8.7,sill:0,head:2.3}],'courtyard');
+ facade(ground,p(464,667),p(811,667),[{from:6.9,to:8.9,sill:0,head:1.9}],'courtyard');
+ facade(ground,p(93,766),p(49,1208),[{from:3.05,to:4.2,sill:0,head:2.2},{from:5,to:5.9,sill:1,head:2.15},{from:9.1,to:10,sill:1,head:2.15}],'guest');
  facade(ground,p(367,671),p(316,1228),[{from:4.45,to:7.15,sill:0,head:2.3},{from:10.1,to:12.9,sill:0,head:2.3}],'guest');
  facade(ground,p(49,1208),p(316,1228),[],'guest');
- facade(ground,p(116,535),p(475,573),[{from:5,to:5.85,sill:1.05,head:2.1},{from:6.15,to:7,sill:1.05,head:2.1},{from:7.3,to:8.15,sill:1.05,head:2.1}],'guest');
+ facade(ground,p(116,535),p(475,573),[{from:5,to:5.85,sill:.95,head:2.05},{from:6.15,to:7,sill:.95,head:2.05},{from:7.3,to:8.15,sill:.95,head:2.05}],'guest');
  facade(ground,p(475,573),p(466,647),[{from:.15,to:1.2,sill:0,head:2.2,kind:'passage'}],'guest');
  // Garage south wall toward the loggia, cladding outside and plaster inside.
  facade(ground,p(367,671),p(464,667),[],'courtyard');
  q=at(472,580);const garageDoor=passable(box(ground,q[0]-.5,.16,q[1],1,1.05,.05,m.wood));garageDoor.name='garage-corridor-door';garageDoor.rotation.y=-.1;
  // Two opaque boarded garage doors on the west façade.
- facade(ground,p(116,535),p(93,766),[{from:.35,to:2.95,sill:0,head:2.2,kind:'garage'},{from:3.4,to:6,sill:0,head:2.2,kind:'garage'}],'guest');
+ facade(ground,p(116,535),p(93,766),[{from:.7,to:3.3,sill:0,head:2.05,kind:'garage'},{from:3.85,to:6.35,sill:0,head:2.05,kind:'garage'}],'guest');
  for(const a of [[106,766,350,790],[210,781,198,893],[92,929,193,940],[236,945,338,956],[80,987,183,997],[189,981,188,1000],[145,1000,143,1052],[80,1078,145,1082]])wall(ground,...a as [number,number,number,number]);
  // Guest WC door on its east wall, open against the WC's north wall.
  panel(188,949,160,951,.16,2.05,.045,m.wood).name='guest-wc-door';
@@ -258,7 +258,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
    const profile=[new T.Vector2(0,2.74),new T.Vector2(len,2.74),new T.Vector2(len,underside(b[0]))];
    const cross=-a[0]/dx;if(Number.isFinite(cross)&&cross>0&&cross<1)profile.push(new T.Vector2(cross*len,ridge-.045));
    profile.push(new T.Vector2(0,underside(a[0])));const shape=new T.Shape(profile);
-   const windows=kind==='main'&&index===2?[[-2.35,3.15,1.05,2.1],[2.35,3.15,1.05,2.1]]:kind==='main'&&index===0?[[-2.27,3.1,1.1,2.1],[1,3.1,1.1,2.1]]:kind==='guest'&&index===0?[[0,3.15,2.3,1.8]]:kind==='guest'&&index===4?[[0,3.05,2.4,2.25]]:[];
+   const windows=kind==='main'&&index===2?[[-2.35,3.1,.9,1.9],[2.35,3.1,.9,1.9]]:kind==='main'&&index===0?[[-2.27,3.1,1.1,2.1],[2.21,3.1,1,2.1]]:kind==='guest'&&index===0?[[0,2.95,2,2.15]]:kind==='guest'&&index===4?[[0,3.05,2.4,2.25]]:[];
    const face=new T.Group();face.position.set(a[0],0,a[1]);face.rotation.y=-Math.atan2(dz,dx);g.add(face);
    // The opened east façade glazes the master bedroom's gable (the main south gable, east of the chimney) instead of its window.
    const eastGable=kind==='main'&&index===2,holes:T.Path[]=[];
