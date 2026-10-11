@@ -25,10 +25,22 @@ assert.equal(crosses(point(850,625),point(850,580),[ground]).length,0,'hall WC s
 // The hall table stands beside the dining-room doorway, never across it: clear at table-top height over the whole opening.
 for(let z=616;z<=661;z+=5)assert.equal(crosses(point(1005,z,.97),point(1068,z,.97),[ground]).length,0,`hall to dining doorway is clear at z ${z}`);
 assert(model.root.getObjectByName('hall-table-beside-dining-door'),'hall table present');
-assert(model.root.getObjectByName('hall-wc-toilet'),'hall WC toilet exists');assert(model.root.getObjectByName('hall-wc-basin'),'hall WC basin exists');
+// The hall WC as photographed from its door: the toilet in the north bay, its cistern against the east wall and facing
+// the window; the vanity, about 1 m long, against the west face of the shaft south of it, under a black-framed mirror.
+{const toilet=model.root.getObjectByName('hall-wc-toilet'),basin=model.root.getObjectByName('hall-wc-basin'),mirror=model.root.getObjectByName('hall-wc-mirror');assert(toilet&&basin&&mirror,'hall WC toilet, vanity and mirror');
+ const [eastWall]=p(893,0),[shaft]=p(869,0),t=new T.Box3().setFromObject(toilet),v=new T.Box3().setFromObject(basin),m=new T.Box3().setFromObject(mirror);
+ assert(t.max.x<eastWall-.085&&t.max.x>eastWall-.14,`the toilet's cistern stands against the east wall (${t.max.x.toFixed(2)}, wall face ${(eastWall-.09).toFixed(2)})`);
+ assert(toilet.getWorldDirection(new T.Vector3()).x>.9,'the toilet faces west, toward the window');
+ assert(v.max.x<shaft-.085&&v.max.x>shaft-.14,`the vanity stands against the shaft (${v.max.x.toFixed(2)}, wall face ${(shaft-.09).toFixed(2)})`);
+ assert(v.max.z-v.min.z>.95&&v.max.z-v.min.z<1.15,`the vanity is about 1 m long (${(v.max.z-v.min.z).toFixed(2)})`);
+ assert(m.min.y>1.1&&m.max.y<2.2&&m.min.z>v.min.z&&m.max.z<v.max.z&&m.max.x<shaft-.085,'the mirror hangs on the shaft over the vanity');}
 assert(crosses(point(170,851),point(245,851),[ground]).length>0,'yoga partition is present');
 assert.equal(crosses(point(171,910),point(231,910),[ground]).length,0,'yoga doorway remains clear');
-assert.equal(crosses(point(455,602),point(498,602),[ground]).length,0,'garage corridor door is open');
+// The link's west end: a full-height timber door stands closed in the passage to the garage corridor (photographs from
+// the hall and the link's east end); a walker passes it like any door.
+{const door=model.root.getObjectByName('garage-corridor-door');assert(door,'the garage corridor door');const b=new T.Box3().setFromObject(door);
+ assert(b.max.y-b.min.y>2&&b.max.y-b.min.y<2.12,`the garage corridor door is full height (${(b.max.y-b.min.y).toFixed(2)} m)`);
+ assert(crosses(point(455,602),point(498,602),[door]).length>0,'the garage corridor door stands closed in its opening');assert(door.userData.passable,'a walker passes the garage corridor door');}
 const cars=model.root.getObjectByName('garage-cars');assert.equal(cars.children.length,2,'two garage cars');
 // Each car's body matches its published length, width and height within 1 cm, and its wheelbase exactly.
 for(const car of cars.children){const {length,width,height,wheelbase}=car.userData.spec,body=car.getObjectByName('car-body');body.geometry.computeBoundingBox();const size=body.geometry.boundingBox.getSize(new T.Vector3());
@@ -124,4 +136,18 @@ assert(crosses(point(835,480),point(812,525),[ground]).length>0,'a wall separate
 model.basement.visible=true;
 for(let x=920;x<=975;x+=2)for(let z=470;z<=490;z+=2)assert.equal(crosses(point(x,z,1.9),point(x,z,.3),[ground,model.basement]).filter(h=>h.object.isMesh).length,0,`the way onto the basement stair is clear at ${x}, ${z}`);
 model.basement.visible=false;
-model.dispose();console.log('Passed: dining circulation, the basement stairwell open and guarded in the hall with a clear way onto its top step, the pantry closed off from the WC, the hall doorway beside its table, the south bedroom headboard against its wall, yoga doorway, sliding door, corridor clearance, walkway, outdoor table, guest atrium, plan doorways, guest stair, basement doors and registration, roof height, upper walls to the ceiling, roof windows over the knee wall and finite model transforms.');
+// The link, as photographed from the hall and from its east end: a plastered ceiling pitched over the corridor, its
+// ridge along the middle about 3.45 m up and its feet at the wall heads about 2.85 m up; two black steel beams across at
+// the wall heads; a black track of spotlights along the ridge. It lifts off with the ground-floor ceilings.
+model.setLevel('exterior');model.root.updateMatrixWorld(true);
+{const above=(x,z)=>crosses([x,2.5,z],[x,6,z],[model.root]).find(h=>h.object.isMesh);
+ // Where the main roof's eave reaches over the link's east end, a plastered bulkhead boxes it in, 2.7 m up.
+ for(const z of [1.7,2.5,3.3]){const h=above(-6.35,z);assert(h?.object.name==='link-ceiling'&&h.point.y>2.65&&h.point.y<2.8,`the bulkhead at the link's east end (${h?.object.name}, ${h?.point.y.toFixed(2)} m)`);}
+ for(const x of [-14.3,-11,-7.5]){for(const [z,lo,hi] of [[1.7,2.85,3.05],[2.3,3.25,3.45],[2.75,3.25,3.45],[3.3,2.85,3.05]]){const h=above(x,z);
+  assert.equal(h?.object.name,'link-ceiling',`the link's ceiling over (${x}, ${z}): ${h?.object.name||h?.object.parent?.name||'nothing'}`);assert(h.point.y>lo&&h.point.y<hi,`the link's ceiling at (${x}, ${z}) is ${h.point.y.toFixed(2)} m up, photographed ${lo}–${hi} m`);}}
+ const beams=[],spots=[];model.root.traverse(o=>{if(o.name==='link-beam')beams.push(new T.Box3().setFromObject(o));if(o.name==='link-spot')spots.push(o);});
+ assert.equal(beams.length,2,'two steel beams across the link');for(const b of beams)assert(b.min.z<1.65&&b.max.z>3.35&&b.min.y>2.5&&b.max.y<2.95,'each beam spans the corridor at the wall heads');
+ const track=model.root.getObjectByName('link-light-track');assert(track,'a light track along the ridge');const tb=new T.Box3().setFromObject(track);
+ assert(tb.max.x-tb.min.x>7&&tb.max.x<-6.66&&tb.min.y>3.2&&Math.abs((tb.min.z+tb.max.z)/2-2.51)<.1,'the track runs the link along its ridge');assert(spots.length>=6,`spotlights on the track (${spots.length})`);
+ model.setLevel('ground');model.root.updateMatrixWorld(true);assert.notEqual(above(-11,2.3)?.object.name,'link-ceiling','the link ceiling lifts off in the ground-floor view');}
+model.dispose();console.log('Passed: the link\'s pitched plaster ceiling with its steel beams and track lights, the closed full-height garage corridor door, the hall WC\'s toilet against the east wall and vanity against the shaft, dining circulation, the basement stairwell open and guarded in the hall with a clear way onto its top step, the pantry closed off from the WC, the hall doorway beside its table, the south bedroom headboard against its wall, yoga doorway, sliding door, corridor clearance, walkway, outdoor table, guest atrium, plan doorways, guest stair, basement doors and registration, roof height, upper walls to the ceiling, roof windows over the knee wall and finite model transforms.');

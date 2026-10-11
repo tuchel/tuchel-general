@@ -79,8 +79,11 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  cabinets(place(ground,980,245,-Math.PI/2),2.68,2.05,m.pine,false);cabinets(place(ground,980,346,-Math.PI/2),2,2.05,m.pine,false);box(place(ground,980,301.5),0,0,0,.6,2.6,.42,m.white);
  tub(place(ground,1190,464));vanity(place(ground,1128,455,-Math.PI/2),1.85);g=place(ground,1086,487);box(g,0,0,0,.42,.43,.63,m.white,true);box(g,0,.43,-.22,.43,.5,.14,m.white,true);
  // Small hallway WC behind the stair: fixtures and doorway traced from the ground plan.
- g=place(ground,870,531,-Math.PI/2);g.name='hall-wc-toilet';box(g,0,.02,0,.39,.34,.57,m.white,true);box(g,0,.35,0,.42,.07,.6,m.white,true);box(g,0,.06,.26,.43,.75,.12,m.white,true);
- g=place(ground,881,578,-Math.PI/2);g.name='hall-wc-basin';box(g,0,.74,.02,.7,.05,.42,m.pine);box(g,0,.3,.02,.7,.03,.4,m.pine);mesh(g,ball,m.white,0,.86,0,.21,.08,.15);rod(g,[0,1.06,.23],[0,1.06,.07],.018,m.brass);box(g,0,.77,.235,.8,.9,.012,tile);
+ g=place(ground,878,531,Math.PI/2);g.name='hall-wc-toilet';box(g,0,.02,0,.39,.34,.57,m.white,true);box(g,0,.35,0,.42,.07,.6,m.white,true);box(g,0,.06,.26,.43,.75,.12,m.white,true);
+ // The vanity, a spruce top and shelf about 1 m long, stands against the shaft under a black-framed mirror (photographs
+ // from the WC door): a white vessel basin, a brass spout from the tiled wall.
+ g=place(ground,856.5,578,Math.PI/2);g.name='hall-wc-basin';box(g,0,.74,.02,1,.05,.42,m.pine);box(g,0,.3,.02,1,.03,.4,m.pine);mesh(g,ball,m.white,0,.86,0,.24,.08,.17);rod(g,[0,1.06,.23],[0,1.06,.07],.018,m.brass);box(g,0,.77,.235,1.02,.48,.012,tile);
+ {const mirror=box(g,0,1.15,.225,.6,.8,.03,m.charcoal);mirror.name='hall-wc-mirror';const silver=material('#dfe3e2','#b9bfbf',.05);silver.metalness=.9;box(g,0,1.19,.205,.52,.72,.01,silver);}
  // Dining alcove: U-shaped timber banquette, three white chairs on the open side.
  g=place(ground,1132,578);g.name='dining-alcove';g.userData.replacedBy='nook';table(g,2.65,1.02);bench(g,0,-1.14,3.7,Math.PI);bench(g,-1.6,-.23,1.6,-Math.PI/2);bench(g,1.6,-.23,1.6,Math.PI/2);for(const x of [-.9,0,.9])chair(g,x,.98);
  // Living: two facing sofas, transparent coffee table and woven chair by the garden.

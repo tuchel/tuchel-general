@@ -91,7 +91,14 @@ solid('courtyard opening head 1.9 m',...linkSouth,7.9,slab+2.05,courtyard);glass
  const bedroom=french.filter(c=>Math.abs(c.x-E)<.3&&c.z>-7.8&&c.z<-4.9);assert.equal(bedroom.length,2,'bedroom door: two steel glazed leaves');assert(Math.abs(bedroom[0].x-bedroom[1].x)<.01,'in one plane');
  assert(!leaves.some(o=>{const c=new T.Box3().setFromObject(o).getCenter(new T.Vector3());return Math.abs(c.x-E)<.3&&c.z>-7.8&&c.z<-4.9;}),'bedroom door: not lift-and-slide');
  solid('bedroom door: meeting stiles',...east,3.25,slab+1.5,main);for(const t of [2.55,3.95]){glass('bedroom door leaf',...east,t,slab+1.5,main);solid('bedroom door mid-rail',...east,t,slab+1.11,main);}
- let levers=0;root.traverse(o=>{if(o.name==='french-door-handle')levers++;});assert.equal(levers,2,'bedroom door: a lever on each face');}
+ let levers=0;root.traverse(o=>{if(o.name==='french-door-handle')levers++;});assert.equal(levers,2,'bedroom door: a lever on each face');
+ // Seen from the bedroom (owner photograph from the bed), the doors' frames are oak, black outside; linen curtains hang
+ // to the floor either side of the opening.
+ const frames=[];root.traverse(o=>{if(o.name==='french-door-frame')frames.push(o);});assert(frames.length>=8,`bedroom door: framed leaves (${frames.length} frame parts)`);
+ for(const o of frames){const faces=[o.material].flat().map(m=>m.userData.photo);assert(faces.includes('oak')&&faces.filter(f=>f==='oak').length===1,'bedroom door frames: oak on the room face only');}
+ const curtains=root.getObjectByName('bedroom-linen-curtains');assert(curtains,'bedroom curtains');const panels=[];curtains.traverse(o=>{if(o.isMesh&&o.geometry.type==='PlaneGeometry')panels.push(new T.Box3().setFromObject(o));});
+ assert.equal(panels.length,2,'two curtains at the bedroom door');for(const b of panels){assert(b.max.x<E-.3&&b.min.y<slab+.15&&b.max.y>slab+2.3,'a floor-length curtain inside the east wall');}
+ assert(panels.some(b=>b.max.z<-7.66)&&panels.some(b=>b.min.z>-5.06),'the curtains hang either side of the door, clear of the glass');}
 // The passage from the link into the hall: 0.97 m wide (z 2.31–3.28), its black steel glazed leaf hinged on the south jamb
 // and standing open into the hall.
 const westHall=[[W,p(795,464)[1]],[W,S]],westSplit=p(795,464)[1]-(-9.61);
