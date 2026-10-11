@@ -15,7 +15,7 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  const rugPink=material('#e6d2d6','#dc8f9f');rugPink.userData.finish='rug';
  const nickel=material('#d5d8d6','#c3c7c6',.25);nickel.metalness=.85;const zellige=material('#aab08a','#5f6b38',.18);const clay=material('#dccdb6','#b99c7c',.95);
  // Worktops are solid oak, without the floorboards' seams (owner photographs of the kitchen).
- const worktop=material('#c4b69f','#af8555',.55);const tile=material('#e2ddd2','#d4cbbb',.4);
+ const worktop=material('#c4b69f','#af8555',.8);const tile=material('#e2ddd2','#d4cbbb',.4);
  const clear=new T.MeshPhysicalMaterial({color:'#cfddda',roughness:.12,transparent:true,opacity:.4,depthWrite:false,side:T.DoubleSide});
  const unit=new T.BoxGeometry(1,1,1),soft=new RoundedBoxGeometry(1,1,1,2,.08),cyl=new T.CylinderGeometry(1,1,1,20),ball=new T.SphereGeometry(1,12,8);
  function mesh(parent:T.Group,geo:T.BufferGeometry,mat:T.Material,x:number,y:number,z:number,w=1,h=1,d=1){const o=new T.Mesh(geo,mat);o.position.set(x,y,z);o.scale.set(w,h,d);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o;}

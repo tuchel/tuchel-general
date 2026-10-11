@@ -9,12 +9,10 @@ export function architecturalDetails(ground:T.Group,ceilings:T.Group){
  const dark=new T.MeshStandardMaterial({color:'#252824',roughness:.42,metalness:.5});
  const box=(g:T.Object3D,x:number,y:number,z:number,w:number,h:number,d:number,mat:T.Material)=>{const mesh=new T.Mesh(new T.BoxGeometry(w,h,d),mat);mesh.position.set(x,y+h/2,z);mesh.castShadow=true;mesh.receiveShadow=true;g.add(mesh);return mesh;};
  // Pleated curtains occupy the existing living-room window reveals (IMG_1462); the opened east façade has none.
- // Every curtain folds softly, no steeper than about 45°: steeper pleats catch the window's light edge-on and glow, where
- // the owner's photographs show curtains no brighter than the walls.
  const curtains=new T.Group();curtains.name='living-room-linen-curtains';curtains.userData.replacedBy='east';group.add(curtains);
  for(const z of [5.02,7.67]){
   const geometry=new T.PlaneGeometry(.46,2.56,32,14);const pos=geometry.attributes.position;
-  for(let i=0;i<pos.count;i++){const x=pos.getX(i),y=pos.getY(i);pos.setZ(i,.022*Math.sin(x*45)+.016*Math.cos(y*3+x*4));}geometry.computeVertexNormals();
+  for(let i=0;i<pos.count;i++){const x=pos.getX(i),y=pos.getY(i);pos.setZ(i,.055*Math.sin(x*65)+.016*Math.cos(y*3+x*4));}geometry.computeVertexNormals();
   const c=new T.Mesh(geometry,linen);c.rotation.y=-Math.PI/2;c.position.set(5.57,1.48,z);c.castShadow=true;curtains.add(c);
  }
  box(curtains,5.6,2.78,6.35,.025,.025,3.2,dark);
@@ -22,7 +20,7 @@ export function architecturalDetails(ground:T.Group,ceilings:T.Group){
  for(const [lo,hi] of [[-4.4,-1.8],[1.83,4.26]]){
   for(const x of [lo-.27,hi+.27]){
    const geometry=new T.PlaneGeometry(.46,2.44,32,14);const pos=geometry.attributes.position;
-   for(let i=0;i<pos.count;i++){const u=pos.getX(i),y=pos.getY(i);pos.setZ(i,.022*Math.sin(u*45)+.016*Math.cos(y*3+u*4));}geometry.computeVertexNormals();
+   for(let i=0;i<pos.count;i++){const u=pos.getX(i),y=pos.getY(i);pos.setZ(i,.055*Math.sin(u*65)+.016*Math.cos(y*3+u*4));}geometry.computeVertexNormals();
    const c=new T.Mesh(geometry,linen);c.position.set(x,1.4,9.185);c.castShadow=true;curtains.add(c);
   }
   box(curtains,(lo+hi)/2,2.63,9.2,hi-lo+1.2,.025,.025,dark);
@@ -32,7 +30,7 @@ export function architecturalDetails(ground:T.Group,ceilings:T.Group){
  const bedroom=new T.Group();bedroom.name='bedroom-linen-curtains';group.add(bedroom);
  for(const z of [-7.96,-4.76]){
   const geometry=new T.PlaneGeometry(.46,2.56,32,14);const pos=geometry.attributes.position;
-  for(let i=0;i<pos.count;i++){const x=pos.getX(i),y=pos.getY(i);pos.setZ(i,.022*Math.sin(x*45)+.016*Math.cos(y*3+x*4));}geometry.computeVertexNormals();
+  for(let i=0;i<pos.count;i++){const x=pos.getX(i),y=pos.getY(i);pos.setZ(i,.055*Math.sin(x*65)+.016*Math.cos(y*3+x*4));}geometry.computeVertexNormals();
   const c=new T.Mesh(geometry,linen);c.rotation.y=-Math.PI/2;c.position.set(5.57,1.48,z);c.castShadow=true;bedroom.add(c);
  }
  box(bedroom,5.6,2.78,-6.36,.025,.025,3.6,dark);
@@ -72,7 +70,7 @@ export function architecturalDetails(ground:T.Group,ceilings:T.Group){
   const bulb=new T.Mesh(new T.SphereGeometry(.055,16,10),emit);bulb.position.y=1.77;pendant.add(bulb);lamps.push(bulb);}
  for(const x of [-4.42,-2.78]){
   const geometry=new T.PlaneGeometry(.4,1.6,24,10);const pos=geometry.attributes.position;
-  for(let i=0;i<pos.count;i++){const u=pos.getX(i),y=pos.getY(i);pos.setZ(i,.018*Math.sin(u*45)*(.5+.5*Math.abs(y+.3))+.012*Math.cos(y*3+u*4));}geometry.computeVertexNormals();
+  for(let i=0;i<pos.count;i++){const u=pos.getX(i),y=pos.getY(i);pos.setZ(i,.045*Math.sin(u*65)*(.5+.5*Math.abs(y+.3))+.012*Math.cos(y*3+u*4));}geometry.computeVertexNormals();
   const c=new T.Mesh(geometry,linen);c.position.set(x,1.65,-9.185);c.castShadow=true;c.name='kitchen-window-curtain';group.add(c);
  }
  box(group,-3.6,2.45,-9.2,2.3,.02,.02,dark);
@@ -82,6 +80,8 @@ export function architecturalDetails(ground:T.Group,ceilings:T.Group){
  // Fine sewn edges catch light around photographed upholstered seat cushions.
  const cushions:T.Mesh[]=[];ground.traverse(o=>{if(o instanceof T.Mesh&&o.material instanceof T.MeshStandardMaterial&&o.material.userData.photo==='linen'&&o.scale.x>.35&&o.scale.z>.3&&o.scale.y>.07&&o.scale.y<.18)cushions.push(o);});
  const piping=new T.MeshStandardMaterial({color:'#cbc7b8',roughness:.97});
- for(const cushion of cushions){const corners=[[-.43,.38,-.43],[.43,.38,-.43],[.48,.38,-.37],[.48,.38,.37],[.43,.38,.43],[-.43,.38,.43],[-.48,.38,.37],[-.48,.38,-.37]].map(v=>new T.Vector3(...v));const edge=new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(corners,true,'centripetal'),40,.004,5,true),piping);edge.name='upholstery-piping';cushion.add(edge);}
+ for(const cushion of cushions){const corners=[[-.43,.38,-.43],[.43,.38,-.43],[.48,.38,-.37],[.48,.38,.37],[.43,.38,.43],[-.43,.38,.43],[-.48,.38,.37],[-.48,.38,-.37]].map(v=>new T.Vector3(...v));const edge=new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(corners,true,'centripetal'),40,.004,5,true),piping);edge.name='upholstery-piping';edge.receiveShadow=true;cushion.add(edge);}
+ // Everything here takes the house's shadows; lit as if outdoors, curtains glowed beside windows facing away from the sun.
+ for(const parent of [group,ceilings])parent.traverse(o=>{if(o instanceof T.Mesh)o.receiveShadow=true;});
  return {ceilings,lamps,emit};
 }

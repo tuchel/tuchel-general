@@ -8,7 +8,7 @@ import {build} from 'esbuild';
 // units either side of the cooker; black cylinder lights over the island and the range; two brass pendants over the
 // breakfast table; linen curtains beside its window, on two casements. In the living room: a chimney breast standing
 // proud of the wall with a firebrick-lined firebox in a smooth limestone surround, a dark slate hearth and a sunburst
-// mirror; linen curtains either side of both south windows. Every curtain folds softly. In the gallery: a low knee wall
+// mirror; linen curtains either side of both south windows. Curtains and fittings take the house's shadows. In the gallery: a low knee wall
 // under a deep spruce shelf of books, stacks of books below, rafters over it and twin spotlights on the slope.
 await build({entryPoints:['lib/house-model/build-model.ts'],outdir:'tmp/rooms-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
 const {buildHouseModel}=await import('../tmp/rooms-check/build-model.mjs');
@@ -57,10 +57,9 @@ for(const realism of [false,true]){
   const hearth=root.getObjectByName('living-hearth');assert(hearth,'the hearth');const h=new T.Box3().setFromObject(hearth),hs=h.getSize(new T.Vector3());
   assert(lightness(hearth.material)<.35,`the hearth is dark slate (lightness ${lightness(hearth.material).toFixed(2)})`);
   assert(hs.x>1.7&&hs.x<2.05&&hs.z>.4&&hs.z<.75&&h.max.y<.22&&h.max.z<9.25,`the hearth lies before the fireplace (${hs.x.toFixed(2)} × ${hs.z.toFixed(2)} m)`);
-  // Curtains fold softly, no face turned more than 50° from the curtain's plane: steeper pleats catch the window's light
-  // edge-on and glow, where the photographs show them no brighter than the walls.
-  {const folds=[];for(const name of ['living-room-linen-curtains','bedroom-linen-curtains'])root.getObjectByName(name).traverse(o=>{if(o.isMesh&&o.geometry.type==='PlaneGeometry')folds.push(o);});root.traverse(o=>{if(o.name==='kitchen-window-curtain')folds.push(o);});
-   assert(folds.length>=10,`curtains (${folds.length})`);for(const o of folds){const n=o.geometry.attributes.normal;let least=1;for(let i=0;i<n.count;i++)least=Math.min(least,Math.abs(n.getZ(i)));assert(least>Math.cos(50*Math.PI/180),`${o.name||o.parent.name}: folds turn ${(Math.acos(least)*180/Math.PI).toFixed(0)}° from the curtain's plane`);}}
+  // Curtains, piping, the mirror and the light fittings take the house's shadows: lit as if outdoors, the curtains glowed
+  // beside windows facing away from the sun.
+  {const unshaded=[];root.getObjectByName('photo-led-interior-details').traverse(o=>{if(o.isMesh&&!o.receiveShadow)unshaded.push(o.name||o.parent.name);});assert.equal(unshaded.length,0,`meshes lit through the house's shadows: ${[...new Set(unshaded)].join(', ')}`);}
   // The chimney breast stands about 0.35 m proud of the wall (face at z 8.92); its open firebox is pale firebrick, about a
   // third of a metre deep, inside a smooth cream limestone surround.
   {const ray=new T.Raycaster(),meshes=[];root.traverse(o=>{if(o.isMesh)meshes.push(o);});const first=(x,y)=>{ray.set(new T.Vector3(x,y,7.5),new T.Vector3(0,0,1));return ray.intersectObjects(meshes,false).find(h=>!h.object.name.startsWith('living-room-linen'));};
@@ -106,4 +105,4 @@ for(const realism of [false,true]){
  }
  model.dispose();
 }
-console.log('Passed: the hall\'s sideboard, canvas, dining-room door, corridor head and stone floor; oak window frames; the kitchen\'s island top, hood, shelf units, lights, pendants and curtains; the living room\'s chimney breast, firebox, surround, hearth, mirror and curtains; soft curtain folds; and the gallery\'s knee wall, shelf, books, rafters and spotlights.');
+console.log('Passed: the hall\'s sideboard, canvas, dining-room door, corridor head and stone floor; oak window frames; the kitchen\'s island top, hood, shelf units, lights, pendants and curtains; the living room\'s chimney breast, firebox, surround, hearth, mirror and curtains; fittings in the house\'s shadows; and the gallery\'s knee wall, shelf, books, rafters and spotlights.');
