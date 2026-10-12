@@ -37,8 +37,8 @@ const WN=s(365,422),WS=s(346,610),wall=Math.hypot(WS[0]-WN[0],WS[1]-WN[1]),wd=[(
 export const OLD_WALL_LINE:[number,number][]=[[WN[0]-wd[0]*.15,WN[1]-wd[1]*.15],WS,[WS[0]+wd[1]*.45,WS[1]-wd[0]*.45],[WN[0]-wd[0]*.15+wd[1]*.45,WN[1]-wd[1]*.15-wd[0]*.45]];
 /** The lane's frontage south of the notch, as world z from 3 m north of it to 3 m south of the plot's corner. */
 export const GARAGE_FRONTAGE:[number,number]=[S[1]-3,SW[1]+3];
-/** Cobbles from the notch to the garage doors, joining the drive (world x, z). */
-export const GARAGE_APRON:[number,number][]=[S,garagePoint(0,GARAGE.v0),garagePoint(7.85,GARAGE.v0),s(337,707),s(346,610)];
+/** Cobbles from the notch to the garage doors, joining the drive, reaching 0.4 m over its old edge (world x, z). */
+export const GARAGE_APRON:[number,number][]=[S,garagePoint(0,GARAGE.v0),garagePoint(7.85,GARAGE.v0),s(343,707),s(352,610),s(346,610)];
 
 type MaterialFactory=(pale:string,natural?:string,roughness?:number)=>T.MeshStandardMaterial;
 export function buildFrontGarage(material:MaterialFactory){
