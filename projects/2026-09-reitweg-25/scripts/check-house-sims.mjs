@@ -35,6 +35,7 @@ for(const [who,spec] of Object.entries(SIMS)){
  for(const s of ['Elvaerwyn','node/1413','node/1799','node/1801','node/1256','MargaretToigo','node/1706','node/1727','Joel Palmius','node/25','grinsegold','node/877','RehmanPolanski','node/2477','MakeHuman','CC0','CC BY'])assert(credits.includes(s),`CREDITS.md credits ${s}`);}
 
 // Height in shoes, read from the decoded file: crown of the head to the soles, at the bind pose.
+const shod={};
 {const {GLTFLoader}=await import('three/addons/loaders/GLTFLoader.js'),{MeshoptDecoder}=await import('three/addons/libs/meshopt_decoder.module.js');
  for(const [who,spec] of Object.entries(SIMS)){
   // Textures are left out: decoding WebP needs a browser. The JSON is rewritten without them and the file re-packed.
@@ -48,8 +49,8 @@ for(const [who,spec] of Object.entries(SIMS)){
   const gltf=await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parseAsync(packed.buffer.slice(packed.byteOffset,packed.byteOffset+packed.length),'');
   gltf.scene.updateMatrixWorld(true);
   const box=part=>{const b=new T.Box3();gltf.scene.traverse(o=>{if(o.isSkinnedMesh&&part.test(o.name)){o.computeBoundingBox();b.union(o.boundingBox.clone().applyMatrix4(o.matrixWorld));}});return b;};
-  const top=box(/body/).max.y,soles=box(/shoes/).min.y,shod=top-soles;
-  assert(shod>spec.height-.005&&shod<spec.height+.045,`${who}: ${shod.toFixed(3)} m in shoes for ${spec.height} m`);
+  const top=box(/body/).max.y,soles=box(/shoes/).min.y;shod[who]=top-soles;
+  assert(shod[who]>spec.height-.005&&shod[who]<spec.height+.045,`${who}: ${shod[who].toFixed(3)} m in shoes for ${spec.height} m`);
   const walk=gltf.animations.find(a=>a.name==='walk'),idle=gltf.animations.find(a=>a.name==='idle');
   assert(Math.abs(walk.duration-1.1)<.05&&Math.abs(idle.duration-4)<.1,`${who}: walk ${walk.duration.toFixed(2)} s, idle ${idle.duration.toFixed(2)} s`);
  }}
@@ -60,6 +61,18 @@ const meshes=[];model.root.traverse(o=>{if(o.isMesh&&!o.isInstancedMesh&&model.r
 model.upper.visible=true;model.upper.traverse(o=>{if(o.isMesh&&!o.userData.alsoExterior)o.visible=false;});model.basement.visible=true;
 {const {terrainWithPoolOpening}=await import('../tmp/sims-check/pool.mjs'),{groundOpenings}=await import('../tmp/sims-check/site-openings.mjs');
  const stage=new T.Mesh(terrainWithPoolOpening(groundOpenings()),new T.MeshStandardMaterial());stage.position.y=-.035;stage.updateMatrixWorld(true);meshes.push(stage);}
+// As the viewer batches them: the solid surfaces in two merged meshes, opaque and see-through (glass counts as solid
+// for walking, not for the light indoors). Doors and gates stay out: the figures pass through them.
+{const {mergeGeometries}=await import('three/addons/utils/BufferGeometryUtils.js');
+ const shown=o=>{for(let a=o;a;a=a.parent)if(!a.visible)return false;return true;};
+ const parts={opaque:[],clear:[]};
+ for(const o of meshes){
+  if(o.userData.passable||!shown(o))continue;
+  const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();for(const k of Object.keys(g.attributes))if(k!=='position')g.deleteAttribute(k);
+  g.applyMatrix4(o.matrixWorld);(([o.material].flat().some(m=>m.transparent))?parts.clear:parts.opaque).push(g);
+ }
+ meshes.length=0;
+ for(const [kind,list] of Object.entries(parts))if(list.length){const m=new T.Mesh(mergeGeometries(list),new T.MeshBasicMaterial({transparent:kind==='clear'}));m.updateMatrixWorld(true);meshes.push(m);}}
 let seed=7;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
 const figures=Object.values(SIMS).map(spec=>({root:new T.Group(),speed:spec.speed,start:spec.start}));
 const sims=createWanderers(figures,()=>meshes,random);sims.step(0);   // stands each figure at its start
@@ -67,12 +80,13 @@ const inPlot=(x,z)=>{let inside=false;for(let i=0,j=plotOutline.length-1;i<plotO
 // Solid surfaces, as the walker sees them: crossing one between frames would mean walking through it.
 const solid=meshes.filter(o=>!o.userData.passable&&(()=>{for(let a=o;a;a=a.parent)if(!a.visible)return false;return true;})());
 const ray=new T.Raycaster();
-const dt=1/30,travelled=figures.map(()=>0),late=figures.map(()=>0),cells=figures.map(()=>new Set());let walking=0,frames=0;
+const dt=1/30,travelled=figures.map(()=>0),late=figures.map(()=>0),cells=figures.map(()=>new Set()),indoors=figures.map(()=>0);let walking=0,frames=0;
 for(let t=0;t<240;t+=dt){
  const before=figures.map(f=>f.root.position.clone());
  sims.step(dt);frames++;
  figures.forEach((f,i)=>{
   const p=f.root.position,step=p.distanceTo(before[i]);travelled[i]+=step;if(t>180)late[i]+=step;cells[i].add(`${Math.floor(p.x/4)},${Math.floor(p.z/4)}`);
+  if(sims.figures[i].open<.3)indoors[i]+=dt;
   assert(inPlot(p.x,p.z),`figure ${i} stays on the plot (${p.x.toFixed(2)}, ${p.z.toFixed(2)})`);
   assert(p.y>=FLOOR_RANGE[0]-1e-6&&p.y<=FLOOR_RANGE[1]+1e-6,`figure ${i} keeps to the garden and ground floor (feet at ${p.y.toFixed(2)} m)`);
   if(step>1e-4){
@@ -94,4 +108,4 @@ assert(walking/frames>.4&&walking/frames<.97,`they pause now and then (walking $
  assert(/>Sims Mode</.test(panels)&&/aria-pressed=\{p\.sims\}/.test(panels),'a Sims Mode button in More');
  assert(/\[sims,setSims\]=useState\(false\)/.test(page)&&/api\.current\?\.setSims\(sims\)/.test(page),'off by default, and passed to the viewer');
  assert(/setSims:/.test(viewer)&&/import\('\.\/sims'\)/.test(viewer),'the viewer loads the figures on demand');}
-console.log(`Passed: two figures (1.80 m and 1.65 m, in shoes ${'+'}sole), each a skinned, compressed glTF with walk and idle and credited; over four minutes they walk ${travelled.map(v=>v.toFixed(0)).join(' and ')} m, pausing now and then, through nothing solid, on the plot, the garden and the ground floor. More offers Sims Mode, off by default.`);
+console.log(`Passed: two figures, ${shod.him.toFixed(2)} m and ${shod.her.toFixed(2)} m in shoes, each a skinned, compressed glTF with walk and idle, credited; over four minutes they walk ${travelled.map(v=>v.toFixed(0)).join(' and ')} m (${indoors.map(v=>v.toFixed(0)).join(' and ')} s indoors), pausing now and then, through nothing solid, on the plot, the garden and the ground floor. More offers Sims Mode, off by default.`);

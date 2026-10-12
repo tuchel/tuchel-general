@@ -5,10 +5,11 @@ import {plotOutline,type Point} from './site-data';
 /** Sims Mode: the two of them, in Bavarian dress, wander the house and grounds. Each figure is a skinned glTF built
  * from MakeHuman's base mesh, skins and community clothes (public/assets/models/CREDITS.md), with an in-place walk
  * cycle and an idle loop. Heights are standing heights without shoes; `speed` (m/s) matches the walk cycle's stride, so
- * the feet do not slide; `start` is where each figure first stands, in the courtyard. */
+ * the feet do not slide; `start` is where each figure first stands, on the courtyard lawn a few metres in front of the
+ * courtyard's eye-level view. */
 export const SIMS={
- him:{url:'/assets/models/sims-him.glb',height:1.80,speed:.9,start:[-7.5,11] as Point},
- her:{url:'/assets/models/sims-her.glb',height:1.65,speed:.8,start:[-8.4,11.7] as Point},
+ him:{url:'/assets/models/sims-him.glb',height:1.80,speed:.9,start:[-11.2,10.1] as Point},
+ her:{url:'/assets/models/sims-her.glb',height:1.65,speed:.8,start:[-11.9,11.1] as Point},
 } as const;
 /** Feet stay between these heights (m): the garden, terraces and ground floor, not the stairs to the upper floor or the
  * basement. */
