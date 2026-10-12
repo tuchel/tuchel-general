@@ -12,7 +12,7 @@ import {passable} from './walk';
  * Along the lane south of the notch, positions are (m, v): m metres into the plot from the road line, v metres along it
  * southward from the notch's south corner. Across the notch they are (u, n): u along the road line northward from that
  * corner, n into the plot. */
-const S=s(246,626),SW=s(199,849),N=s(336,399);
+const S=s(246,626),SW=s(199,849),N=s(336,399),NW=s(441,220);
 export const LANE_LENGTH=Math.hypot(SW[0]-S[0],SW[1]-S[1]);
 const ALONG=[(SW[0]-S[0])/LANE_LENGTH,(SW[1]-S[1])/LANE_LENGTH],INWARD=[ALONG[1],-ALONG[0]];
 export const garagePoint=(m:number,v:number):[number,number]=>[S[0]+INWARD[0]*m+ALONG[0]*v,S[1]+INWARD[1]*m+ALONG[1]*v];
@@ -107,11 +107,13 @@ export function buildFrontGarage(material:MaterialFactory){
   box(bin,-.36,.36,.05,1,-.29,.29,body);box(bin,-.4,.37,1,1.07,-.3,.3,body);box(bin,-.42,-.37,.85,.9,-.22,.22,body);
   for(const z of [-.24,.24]){const w=mesh(bin,new T.CylinderGeometry(.1,.1,.05,16).rotateX(Math.PI/2),wheel);w.position.set(-.34,.1,z);}});
 
- // The fence: 2 m of the arrival wall's slats on the road line across the notch, with a sliding drive gate 4 m wide and a
- // pedestrian gate beside a letterbox and bell; along the lane either side of the garage and bin room; and from the
- // lane's south corner along the neighbour's boundary to where the hedge begins.
+ // The fence: 2 m of the arrival wall's slats along the whole west boundary. From the plot's north-west corner to the
+ // notch; on the road line across the notch, with a sliding drive gate 4 m wide and a pedestrian gate beside a letterbox
+ // and bell; along the lane either side of the garage and bin room; and from the lane's south corner along the
+ // neighbour's boundary to where the hedge begins.
  const {boards,box:post,metal}=timberBoards(material),TOP=1.955,FENCE=.08;
  const run=(a:[number,number],b:[number,number])=>{const g=new T.Group();g.position.set(a[0],0,a[1]);g.rotation.y=-Math.atan2(b[1]-a[1],b[0]-a[0]);group.add(g);return g;};
+ const north=run(NW,N);north.name='garage-fence';boards(north,0,Math.hypot(N[0]-NW[0],N[1]-NW[1]),TOP,-FENCE);
  const notch=run(roadPoint(0),roadPoint(ROAD_LENGTH));notch.name='garage-fence';
  for(const [lo,hi] of [[0,DRIVE_GATE[0]],[DRIVE_GATE[1],PEDESTRIAN_GATE[0]],[PEDESTRIAN_GATE[1],ROAD_LENGTH]])boards(notch,lo,hi,TOP,FENCE);
  for(const [[lo,hi],name] of [[DRIVE_GATE,'garage-drive-gate'],[PEDESTRIAN_GATE,'garage-pedestrian-gate']] as const){
@@ -123,6 +125,6 @@ export function buildFrontGarage(material:MaterialFactory){
  const east=[SW[0]+(1599-199)*12/181,SW[1]+(1016-849)*12/181],toEast=Math.hypot(east[0]-SW[0],east[1]-SW[1]);
  const south=run(SW,[SW[0]+(east[0]-SW[0])*2.1/toEast,SW[1]+(east[1]-SW[1])*2.1/toEast]);south.name='garage-fence';
  boards(south,0,2.1,TOP,-FENCE);
- for(const [x,z] of [S,SW])post(group,x,0,z,.12,TOP+.045,.12,metal);
+ for(const [x,z] of [NW,N,S,SW])post(group,x,0,z,.12,TOP+.045,.12,metal);
  return {group,roof};
 }
