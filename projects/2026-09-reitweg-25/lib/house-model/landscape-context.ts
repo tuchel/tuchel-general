@@ -5,6 +5,7 @@ import {alpineTerrain} from './alpine-terrain';
 import {buildTrees,buildHedge,foliageMaterials,type TreeSpec} from './foliage';
 import {NEIGHBORS} from './neighbors';
 import {distantWoods} from './forests';
+import {GARAGE_FRONTAGE} from './front-garage';
 
 /** Photo-led context, not surveyed terrain or a geographic mountain model.
  * Near vegetation has real depth; compressed distant ridges reproduce the quiet
@@ -26,7 +27,9 @@ export function landscapeContext(options:{foliage?:ReturnType<typeof foliageMate
   if(side===1&&q.y>-10&&q.y<10)continue;
   const h=13+random()*4,r=4.8+random()*1.4;
   random();// keeps the seeded sequence, so woodland positions stay as before
-  specs.push({x:q.x-side*.6,z:q.y,r,height:h,seed:11003+i*359,kind:'broadleaf'});
+  // On the house side along the front garage's frontage, a tree stands where the bin room goes: shown without it.
+  const byGarage=side===1&&q.y>GARAGE_FRONTAGE[0]&&q.y<GARAGE_FRONTAGE[1];
+  specs.push({x:q.x-side*.6,z:q.y,r,height:h,seed:11003+i*359,kind:'broadleaf',part:byGarage?'avenue-by-the-garage':undefined});
  }
  avenue.add(buildTrees(specs.splice(0),foliage,'avenue-trees'));
  // A park-edge woodland and a tree belt east of the lot stood here; the trees traced from the aerial photograph
@@ -101,7 +104,10 @@ export function boundaryHedge(foliage?:ReturnType<typeof foliageMaterials>){
  // wall to abreast of the main house's north gable (TALL_HEDGE), and at NORTH_HEDGE beyond.
  const [a,b,c,d]=plotOutline.map(([x,y])=>({x,y})),t=(TALL_HEDGE.until-a.x)/(b.x-a.x),gable={x:TALL_HEDGE.until,y:a.y+(b.y-a.y)*t};
  const group=new T.Group();group.name='garden-hedges';
- group.add(buildHedge([[a,gable]],{width:1.25,height:TALL_HEDGE.height,inset:.62},foliage),buildHedge([[gable,b]],{width:1.25,height:NORTH_HEDGE,inset:.62},foliage),buildHedge([[b,c],[c,d]],{width:1.25,height:1.35,inset:.62},foliage));
+ // The south hedge's last 2 m by the lane stand on their own: the front garage's bin room and fence take their place.
+ const toLane=Math.hypot(d.x-c.x,d.y-c.y),cut={x:d.x+(c.x-d.x)*2/toLane,y:d.y+(c.y-d.y)*2/toLane};
+ const byLane=buildHedge([[cut,d]],{width:1.25,height:1.35,inset:.62},foliage);byLane.name='south-hedge-by-the-lane';
+ group.add(buildHedge([[a,gable]],{width:1.25,height:TALL_HEDGE.height,inset:.62},foliage),buildHedge([[gable,b]],{width:1.25,height:NORTH_HEDGE,inset:.62},foliage),buildHedge([[b,c],[c,cut]],{width:1.25,height:1.35,inset:.62},foliage),byLane);
  return group;
 }
 

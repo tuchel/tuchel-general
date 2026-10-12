@@ -5,6 +5,7 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import kitchenLayout from '../../public/assets/kitchen-refined-layout-v4.json';
 import {planPoint as p,type Level} from './site-data';
 import {buildFrontWall} from './front-wall';
+import {buildFrontGarage} from './front-garage';
 import {loungeChair} from './lounge-chair';
 import {renovationState,type RenovationId,type RenovationState} from './renovation-data';
 
@@ -16,7 +17,7 @@ const K=.53*12/434;
 type MaterialFactory=(pale:string,natural?:string,roughness?:number)=>T.MeshStandardMaterial;
 export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,material:MaterialFactory){
  const groups={} as Record<RenovationId,T.Group>;
- for(const id of Object.keys(renovationState()) as RenovationId[]){const g=new T.Group();g.name='renovation-'+id;g.visible=false;(id==='front'?site:ground).add(g);groups[id]=g;}
+ for(const id of Object.keys(renovationState()) as RenovationId[]){const g=new T.Group();g.name='renovation-'+id;g.visible=false;(id==='front'||id==='garage'?site:ground).add(g);groups[id]=g;}
  const kitchenRoof=new T.Group();kitchenRoof.name='renovation-kitchen-roof';roofs.add(kitchenRoof);kitchenRoof.visible=false;
  const m={oak:material('#b49772'),stone:material('#dbd4c4'),sage:material('#939d89'),metal:material('#46524b'),linen:material('#e8e1cf'),clay:material('#ba8770'),leaf:material('#788866'),white:material('#eee9de')};
  m.oak.userData.photo='oak';m.stone.userData.photo='stone';m.linen.userData.photo='linen';
@@ -131,7 +132,9 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  {const plant=place(nook,...p(1203,552)),leaf=new T.IcosahedronGeometry(1,1);solid(plant,cyl,m.stone,0,.21,0,.19,.42,.19);
   for(let i=0;i<11;i++){const a=i*2.4,r=.06+.012*i;const o=solid(plant,leaf,m.leaf,Math.cos(a)*r,.55+i*.06,Math.sin(a)*r,.07,.2,.15);o.rotation.set(0,-a,.55);}}
  groups.front.add(buildFrontWall(material,true));
+ // The front garage stands on the site; its roof goes with the roofs, so the ground-floor cutaway looks into it.
+ const garage=buildFrontGarage(material);groups.garage.add(garage.group);roofs.add(garage.roof);garage.roof.visible=false;
  const solarRoof=buildSolar(roofs,groups.solar);
  const set=(state:RenovationState,level:Level)=>{for(const id of Object.keys(groups) as RenovationId[])groups[id].visible=state[id];kitchenRoof.visible=state.kitchen;solarRoof.visible=state.solar;for(const o of kitchen.children)if(o.name==='kitchen-retained-pier'){o.scale.y=level==='exterior'?2.55:1.01;o.position.y=.16+o.scale.y/2;}};
- return {groups,kitchenRoof,set};
+ return {groups,kitchenRoof,garageRoof:garage.roof,set};
 }

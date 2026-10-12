@@ -3,30 +3,39 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {passable} from './walk';
 import {sitePoint as s} from './site-data';
 
+type MaterialFactory=(pale:string,natural?:string)=>T.MeshStandardMaterial;
+/** The proposed boundary's language, the house's: upright slats in the main house's cladding colour and finish, both
+ * faces, over a dark backing, under a slim dark cap. `boards` fills `lo`–`hi` along a group's x axis, `z` off its line,
+ * the backing from 0.16 m to `top` and the cap 0.045 m above it; one merged mesh of slats per section. */
+export function timberBoards(material:MaterialFactory,metal=material('#727970','#343d38')){
+ const cladding=material('#8a6d57','#6e5946'),backing=material('#3d342c','#2c2520');cladding.userData.photo='cladding';
+ const geo=new T.BoxGeometry(1,1,1);
+ const box=(parent:T.Group,x:number,y:number,z:number,w:number,h:number,d:number,mat:T.Material)=>{const m=new T.Mesh(geo,mat);m.position.set(x,y+h/2,z);m.scale.set(w,h,d);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;};
+ const boards=(g:T.Group,lo:number,hi:number,top=2.1,z=0)=>{
+  box(g,(lo+hi)/2,.16,z,hi-lo,top-.16,.1,backing);
+  const count=Math.max(1,Math.round((hi-lo)/.12)),pitch=(hi-lo)/count,parts:T.BufferGeometry[]=[];
+  for(let i=0;i<count;i++)for(const side of [-1,1])parts.push(new T.BoxGeometry(.085,top-.16,.03).translate(lo+(i+.5)*pitch,(top+.16)/2,z+side*.065));
+  const slats=new T.Mesh(mergeGeometries(parts),cladding);parts.forEach(part=>part.dispose());slats.name='arrival-wall-slats';slats.castShadow=slats.receiveShadow=true;g.add(slats);
+  box(g,(lo+hi)/2,top,z,hi-lo,.045,.2,metal);
+ };
+ return {boards,box,metal};
+}
+
 /** Existing wall, not the proposed higher timber replacement.
  * Gate locations follow the overview; finish and openings follow IMG_1625/1627.
  * The photograph supplies proportions, not surveyed heights.
+ * The runs on the notch and along the lane south of it sit in a group of their own, which the front garage replaces.
  */
-export function buildFrontWall(material:(pale:string,natural?:string)=>T.MeshStandardMaterial,renovated=false){
+export function buildFrontWall(material:MaterialFactory,renovated=false){
  const group=new T.Group();group.name=renovated?'proposed-timber-roadside-wall':'existing-roadside-wall';
+ const lane=new T.Group();lane.name=(renovated?'proposed':'existing')+'-wall-on-the-notch-and-lane';lane.userData.replacedBy='garage';group.add(lane);
  const render=material('#dedcd2','#d7d2bc'),cap=material('#aaa99f','#686b65'),metal=material('#727970','#343d38'),road=material('#aaa99f','#737264');
  const grain=new Uint8Array(128*128*4);let grainSeed=433;for(let i=0;i<128*128;i++){grainSeed=(grainSeed*1664525+1013904223)>>>0;const v=210+Math.round(grainSeed/4294967296*45);grain.set([v,v,v,255],i*4);}const asphalt=new T.DataTexture(grain,128,128);asphalt.colorSpace=T.SRGBColorSpace;asphalt.wrapS=asphalt.wrapT=T.RepeatWrapping;asphalt.repeat.set(240,4);asphalt.needsUpdate=true;road.map=asphalt;road.bumpMap=asphalt;road.bumpScale=.006;
- const geo=new T.BoxGeometry(1,1,1);
- const box=(parent:T.Group,x:number,y:number,z:number,w:number,h:number,d:number,mat:T.Material)=>{const m=new T.Mesh(geo,mat);m.position.set(x,y+h/2,z);m.scale.set(w,h,d);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;};
- // The proposed wall takes the house's language: upright slats in the main house's cladding colour and finish, both
- // faces, over a dark backing, under a slim dark cap. One merged mesh of slats per section.
- const cladding=material('#8a6d57','#6e5946'),backing=material('#3d342c','#2c2520');cladding.userData.photo='cladding';
- const boards=(g:T.Group,lo:number,hi:number)=>{
-  box(g,(lo+hi)/2,.16,0,hi-lo,1.94,.1,backing);
-  const count=Math.max(1,Math.round((hi-lo)/.12)),pitch=(hi-lo)/count,parts:T.BufferGeometry[]=[];
-  for(let i=0;i<count;i++)for(const side of [-1,1])parts.push(new T.BoxGeometry(.085,1.94,.03).translate(lo+(i+.5)*pitch,1.13,side*.065));
-  const slats=new T.Mesh(mergeGeometries(parts),cladding);parts.forEach(part=>part.dispose());slats.name='arrival-wall-slats';slats.castShadow=slats.receiveShadow=true;g.add(slats);
-  box(g,(lo+hi)/2,2.1,0,hi-lo,.045,.2,metal);
- };
- const run=(start:[number,number],end:[number,number],height=1.25)=>{const a=s(...start),b=s(...end),len=Math.hypot(b[0]-a[0],b[1]-a[1]);const g=new T.Group();g.position.set(a[0],0,a[1]);g.rotation.y=-Math.atan2(b[1]-a[1],b[0]-a[0]);group.add(g);if(renovated){boards(g,0,len);return g;}box(g,len/2,0,0,len,.18,.3,cap);box(g,len/2,.18,0,len,height-.18,.26,render);box(g,len/2,height,0,len+.04,.045,.33,cap);return g;};
- run([441,220],[336,399]);run([336,399],[365,422]);
+ const {boards,box}=timberBoards(material,metal);
+ const run=(start:[number,number],end:[number,number],parent=group,height=1.25)=>{const a=s(...start),b=s(...end),len=Math.hypot(b[0]-a[0],b[1]-a[1]);const g=new T.Group();g.position.set(a[0],0,a[1]);g.rotation.y=-Math.atan2(b[1]-a[1],b[0]-a[0]);parent.add(g);if(renovated){boards(g,0,len);return g;}box(g,len/2,0,0,len,.18,.3,cap);box(g,len/2,.18,0,len,height-.18,.26,render);box(g,len/2,height,0,len+.04,.045,.33,cap);return g;};
+ run([441,220],[336,399]);run([336,399],[365,422],lane);
  // Recessed arrival frontage, north to south: pedestrian gate, service doors, vehicle gate.
- const a=s(365,422),b=s(346,610),len=Math.hypot(b[0]-a[0],b[1]-a[1]);const g=new T.Group();g.position.set(a[0],0,a[1]);g.rotation.y=-Math.atan2(b[1]-a[1],b[0]-a[0]);group.add(g);
+ const a=s(365,422),b=s(346,610),len=Math.hypot(b[0]-a[0],b[1]-a[1]);const g=new T.Group();g.position.set(a[0],0,a[1]);g.rotation.y=-Math.atan2(b[1]-a[1],b[0]-a[0]);lane.add(g);
  const wall=(lo:number,hi:number)=>{if(renovated){boards(g,lo,hi);return;}box(g,(lo+hi)/2,0,0,hi-lo,.18,.31,cap);box(g,(lo+hi)/2,.18,0,hi-lo,1.14,.28,render);box(g,(lo+hi)/2,1.32,0,hi-lo+.035,.045,.34,cap);};
  wall(0,1.15);wall(2.45,3.45);wall(5.7,7.65);wall(11.85,len);
  // Gate leaves let the walker through; the posts stay solid.
@@ -34,7 +43,7 @@ export function buildFrontWall(material:(pale:string,natural?:string)=>T.MeshSta
  const leaf=(lo:number,hi:number,barred:boolean)=>{if(renovated){boards(g,lo+.05,hi-.05);box(g,hi-.18,.92,-.17,.045,.27,.04,metal);return;}if(barred){for(let x=lo+.12;x<hi;x+=.13)box(g,x,.16,0,.035,1.04,.055,metal);for(const y of [.16,1.2])box(g,(lo+hi)/2,y,0,hi-lo,.065,.065,metal);}else{box(g,(lo+hi)/2,.08,0,hi-lo-.07,1.21,.06,metal);box(g,hi-.14,.71,-.055,.12,.03,.025,cap);}};
  gate(1.15,2.45,false);gate(3.45,5.7,false);gate(7.65,11.85,true);
  box(g,2.98,.88,-.16,.31,.36,.06,metal); // inset mailbox/intercom, facing the road
- run([346,610],[246,626]);run([246,626],[199,849]);
+ run([346,610],[246,626],lane);run([246,626],[199,849],lane);
  // Road and cobbled approach, just outside the source-plan boundary.
  const strip=(start:[number,number],end:[number,number],w:number,mat:T.Material,y:number)=>{const u=s(...start),v=s(...end);const m=box(group,(u[0]+v[0])/2,y,(u[1]+v[1])/2,Math.hypot(v[0]-u[0],v[1]-u[1]),.04,w,mat);m.rotation.y=-Math.atan2(v[1]-u[1],v[0]-u[0]);};
  strip([995,-1430],[-451,2487],4.4,road,-.055);

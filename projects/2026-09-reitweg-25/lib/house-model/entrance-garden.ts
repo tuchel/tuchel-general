@@ -1,5 +1,6 @@
 import * as T from 'three';
 import {sitePoint as s,planPoint as p} from './site-data';
+import {GARAGE_APRON,BIN_PATH,BIN_PATH_WIDTH,garagePoint} from './front-garage';
 
 // Photo-led dimensions, not a survey. The route joins the existing pedestrian
 // gate to the first entrance-link door, leaving soil and grasses beside the gable.
@@ -15,6 +16,8 @@ function ribbon(points:[number,number][],width:number){
  const sides=[-1,1].map(side=>points.map((q,i)=>{const before=points[Math.max(0,i-1)],after=points[Math.min(points.length-1,i+1)];const normals=[];for(const [a,b] of [[before,q],[q,after]]){const len=Math.hypot(b[0]-a[0],b[1]-a[1]);if(len)normals.push(new T.Vector2(-(b[1]-a[1])/len,(b[0]-a[0])/len));}const n=normals.reduce((v,n)=>v.add(n),new T.Vector2()).normalize();const reach=width/2/Math.max(.5,n.dot(normals[0]));return [q[0]+side*n.x*reach,q[1]+side*n.y*reach] as [number,number];}));return [...sides[0],...sides[1].reverse()];
 }
 export const entranceFootprint=ribbon(entranceRoute,entranceWidth);
+/** With the front garage: its apron, and the path from it to the bin room. */
+export const binPathFootprint=ribbon(BIN_PATH.map(([m,v])=>garagePoint(m,v)),BIN_PATH_WIDTH);
 export function buildEntranceGarden(realistic:boolean){
  const group=new T.Group();group.name='front-door-walkway';
  const stone=new T.MeshStandardMaterial({color:'#8c8879',roughness:.96}),joints=new T.MeshStandardMaterial({color:'#737364',roughness:1}),soil=new T.MeshStandardMaterial({color:'#665a42',roughness:1}),gravel=new T.MeshStandardMaterial({color:'#c2bb9e',roughness:1}),wood=new T.MeshStandardMaterial({color:'#78654a',roughness:.9});
@@ -29,6 +32,9 @@ export function buildEntranceGarden(realistic:boolean){
  let seed=821;const rand=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
  const dummy=new T.Object3D(),color=new T.Color(),cobbleGeometry=new T.BoxGeometry(.166,.032,.116),dx=.18,dz=.13;
  const paved=(x:number,z:number)=>insideEntrancePolygon(x,z,entranceFootprint)||insideEntrancePolygon(x,z,drivewayFootprint)||insideEntrancePolygon(x,z,roadsideInset);
+ const corners=[[-.082,-.057],[.082,-.057],[.082,.057],[-.082,.057]];
+ const lay=(stones:{x:number;z:number;y:number}[],name:string)=>{const cobbles=new T.InstancedMesh(cobbleGeometry,stone,stones.length);cobbles.name=name;cobbles.receiveShadow=true;cobbles.castShadow=realistic;
+  stones.forEach((q,i)=>{dummy.position.set(q.x,q.y+(rand()-.5)*.004,q.z);dummy.rotation.set(0,(rand()-.5)*.025,0);dummy.scale.set(.97+rand()*.05,1,.97+rand()*.05);dummy.updateMatrix();cobbles.setMatrixAt(i,dummy.matrix);const light=.93+rand()*.13;color.setRGB(light,light,.96*light);cobbles.setColorAt(i,color);});return cobbles;};
  // One world-aligned bond and shared material make the join continuous.
  for(const [points,name,drive] of [[entranceFootprint,'individual-entrance-cobbles',false],[drivewayFootprint,'individual-driveway-cobbles',true],[roadsideInset,'individual-roadside-inset-cobbles',true]] as const){
   const minX=Math.min(...points.map(q=>q[0])),maxX=Math.max(...points.map(q=>q[0])),minZ=Math.min(...points.map(q=>q[1])),maxZ=Math.max(...points.map(q=>q[1]));
@@ -36,10 +42,21 @@ export function buildEntranceGarden(realistic:boolean){
   for(let row=Math.floor(minZ/dz);row*dz<maxZ;row++)for(let col=Math.floor(minX/dx);col*dx<maxX;col++){
    const x=col*dx+(row%2)*dx/2,z=row*dz;
    if(!insideEntrancePolygon(x,z,points)||(drive&&insideEntrancePolygon(x,z,entranceFootprint)))continue;
-   if([[-.082,-.057],[.082,-.057],[.082,.057],[-.082,.057]].every(([a,b])=>paved(x+a,z+b)))stones.push({x,z,y:insideEntrancePolygon(x,z,landing)?.146:.061});
+   if(corners.every(([a,b])=>paved(x+a,z+b)))stones.push({x,z,y:insideEntrancePolygon(x,z,landing)?.146:.061});
   }
-  const cobbles=new T.InstancedMesh(cobbleGeometry,stone,stones.length);cobbles.name=name;cobbles.receiveShadow=true;cobbles.castShadow=realistic;
-  stones.forEach((q,i)=>{dummy.position.set(q.x,q.y+(rand()-.5)*.004,q.z);dummy.rotation.set(0,(rand()-.5)*.025,0);dummy.scale.set(.97+rand()*.05,1,.97+rand()*.05);dummy.updateMatrix();cobbles.setMatrixAt(i,dummy.matrix);const light=.93+rand()*.13;color.setRGB(light,light,.96*light);cobbles.setColorAt(i,color);});group.add(cobbles);
+  group.add(lay(stones,name));
+ }
+ // The front garage's apron and bin path, in the same bond: their own stones, and the ones along the old edges that the
+ // wider paving now carries. Shown with the garage.
+ {const garage=new T.Group();garage.name='garage-cobbles';garage.visible=false;group.add(garage);const areas=[GARAGE_APRON,binPathFootprint] as [number,number][][];
+  for(const [points,name] of [[GARAGE_APRON,'garage-apron-cobble-base'],[binPathFootprint,'bin-path-cobble-base']] as const)garage.add(poly(points,.013,.03,joints,name));
+  const wider=(x:number,z:number)=>paved(x,z)||areas.some(a=>insideEntrancePolygon(x,z,a)),laid=(x:number,z:number)=>(paved(x,z)&&corners.every(([a,b])=>paved(x+a,z+b)));
+  const xs=areas.flat().map(q=>q[0]),zs=areas.flat().map(q=>q[1]),stones:{x:number;z:number;y:number}[]=[];
+  for(let row=Math.floor((Math.min(...zs)-.2)/dz);row*dz<Math.max(...zs)+.2;row++)for(let col=Math.floor((Math.min(...xs)-.2)/dx)-1;col*dx<Math.max(...xs)+.2;col++){
+   const x=col*dx+(row%2)*dx/2,z=row*dz;
+   if(wider(x,z)&&!laid(x,z)&&corners.every(([a,b])=>wider(x+a,z+b)))stones.push({x,z,y:.061});
+  }
+  garage.add(lay(stones.filter(q=>!insideEntrancePolygon(q.x,q.z,binPathFootprint)),'garage-apron-cobbles'),lay(stones.filter(q=>insideEntrancePolygon(q.x,q.z,binPathFootprint)),'bin-path-cobbles'));
  }
  // A narrow wall-side bed and a deeper, scalloped lawn-side island.
  const wallBed=[[-24.4,-1.37],[-15.02,-.36],[-15.02,.91],[-24.4,-.08]];

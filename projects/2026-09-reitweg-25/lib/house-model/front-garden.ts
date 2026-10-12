@@ -16,6 +16,13 @@ const PATH:[number,number][]=[[478,688],[471,735],[378,758]];
  * the garden trees are built with the rest (build-model.ts). */
 export const FRUIT_TREES:[number,number,number][]=[[398,740,1.5],[300,722,1.4],[300,812,1.6],[396,804,1.3]];
 export const SHRUBS:[number,number,number,number][]=[[445,752,.55,1.1],[420,772,.5,1],[362,732,.6,1.2],[300,745,.7,1.3],[300,786,.6,1.1],[362,812,.55,1.1],[398,782,.5,1],[455,774,.45,.9]];
+/** With the front garage the well garden, its hedges and its trees give way to open lawn: the large tree where the apron
+ * goes, the fruit trees and shrubs round the well, and the three small trees along the south boundary, two of them in
+ * the way of the bin path. Site coordinates, as in treePositions. */
+export const GARAGE_CLEARS:[number,number][]=[[246,690],[256,833],[308,839],[357,846],...FRUIT_TREES,...SHRUBS].map(([x,z])=>[x,z]);
+/** Three cherries in bloom stand in the lawn instead, crowns about 4 m across, clear of the bin path and the guest wing:
+ * [x, z, crown radius, height, kind]. */
+export const CHERRIES:[number,number,number,number,'cherry'][]=[[373,752,2.1,4.8,'cherry'],[431,782,1.9,4.4,'cherry'],[385,824,2,4.6,'cherry']];
 
 export function buildFrontGarden(foliage?:FoliageMaterials){
  const ground=new T.Group();ground.name='front-garden-ground';

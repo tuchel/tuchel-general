@@ -15,6 +15,8 @@ export const BASEMENT_PLAN_X_OFFSET = -20 * PLAN_SCALE;
 // Guest roof eaves on the upper spread, registered to the ground plan.
 // Includes the roof over the courtyard-side loggia.
 export const guestRoofCorners:Point[] = [[160,535],[525,570],[466,1247],[92,1213]].map(([x,z])=>planPoint(x-52,z));
+/** The guest roof's eave and ridge heights (m) and how far its slopes reach past the traced eave outline, each side. */
+export const GUEST_ROOF={eave:2.94,ridge:6.75,overhang:.09};
 export const guestRoofFrame = (()=>{
  const [nw,ne,se,sw]=guestRoofCorners;
  const north:Point=[(nw[0]+ne[0])/2,(nw[1]+ne[1])/2];
@@ -80,7 +82,10 @@ export const viewpoints = {
  top:{label:'Plan view',position:[-5,85,6.01],target:[-5,0,6],span:45},
  // Low over the far verge of the road, between two avenue trees, the arrival wall in front; `reach` keeps narrow screens
  // this close, clear of the trees beyond.
- wall:{label:'Arrival wall',position:[-45,2.8,2.5],target:[-34.4,1.2,-1],span:8,reach:16}
+ wall:{label:'Arrival wall',position:[-45,2.8,2.5],target:[-34.4,1.2,-1],span:8,reach:16},
+ // From high over the lane's far side, south-west of the plot and clear of the avenue's crowns: the front garage, its bin
+ // room and the lawn beyond.
+ garage:{label:'Front garage',position:[-49.4,24.2,28.3],target:[-37,1.2,13.5],span:17.5,reach:30}
 } as const;
 export type Viewpoint = keyof typeof viewpoints;
 export type Level = 'exterior'|'ground'|'upper'|'basement';
