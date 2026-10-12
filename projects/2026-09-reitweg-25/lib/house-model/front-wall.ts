@@ -24,16 +24,16 @@ export function timberBoards(material:MaterialFactory,metal=material('#727970','
 /** Existing wall, not the proposed higher timber replacement.
  * Gate locations follow the overview; finish and openings follow IMG_1625/1627.
  * The photograph supplies proportions, not surveyed heights.
- * The runs on the notch and along the lane south of it sit in a group of their own, which the front garage replaces.
+ * The runs along the road line, the whole west boundary, sit in a group of their own, which the front garage replaces.
  */
 export function buildFrontWall(material:MaterialFactory,renovated=false){
  const group=new T.Group();group.name=renovated?'proposed-timber-roadside-wall':'existing-roadside-wall';
- const lane=new T.Group();lane.name=(renovated?'proposed':'existing')+'-wall-on-the-notch-and-lane';lane.userData.replacedBy='garage';group.add(lane);
+ const lane=new T.Group();lane.name=(renovated?'proposed':'existing')+'-wall-on-the-road-line';lane.userData.replacedBy='garage';group.add(lane);
  const render=material('#dedcd2','#d7d2bc'),cap=material('#aaa99f','#686b65'),metal=material('#727970','#343d38'),road=material('#aaa99f','#737264');
  const grain=new Uint8Array(128*128*4);let grainSeed=433;for(let i=0;i<128*128;i++){grainSeed=(grainSeed*1664525+1013904223)>>>0;const v=210+Math.round(grainSeed/4294967296*45);grain.set([v,v,v,255],i*4);}const asphalt=new T.DataTexture(grain,128,128);asphalt.colorSpace=T.SRGBColorSpace;asphalt.wrapS=asphalt.wrapT=T.RepeatWrapping;asphalt.repeat.set(240,4);asphalt.needsUpdate=true;road.map=asphalt;road.bumpMap=asphalt;road.bumpScale=.006;
  const {boards,box}=timberBoards(material,metal);
  const run=(start:[number,number],end:[number,number],parent=group,height=1.25)=>{const a=s(...start),b=s(...end),len=Math.hypot(b[0]-a[0],b[1]-a[1]);const g=new T.Group();g.position.set(a[0],0,a[1]);g.rotation.y=-Math.atan2(b[1]-a[1],b[0]-a[0]);parent.add(g);if(renovated){boards(g,0,len);return g;}box(g,len/2,0,0,len,.18,.3,cap);box(g,len/2,.18,0,len,height-.18,.26,render);box(g,len/2,height,0,len+.04,.045,.33,cap);return g;};
- run([441,220],[336,399]);run([336,399],[365,422],lane);
+ run([441,220],[336,399],lane);run([336,399],[365,422],lane);
  // Recessed arrival frontage, north to south: pedestrian gate, service doors, vehicle gate.
  const a=s(365,422),b=s(346,610),len=Math.hypot(b[0]-a[0],b[1]-a[1]);const g=new T.Group();g.position.set(a[0],0,a[1]);g.rotation.y=-Math.atan2(b[1]-a[1],b[0]-a[0]);lane.add(g);
  const wall=(lo:number,hi:number)=>{if(renovated){boards(g,lo,hi);return;}box(g,(lo+hi)/2,0,0,hi-lo,.18,.31,cap);box(g,(lo+hi)/2,.18,0,hi-lo,1.14,.28,render);box(g,(lo+hi)/2,1.32,0,hi-lo+.035,.045,.34,cap);};

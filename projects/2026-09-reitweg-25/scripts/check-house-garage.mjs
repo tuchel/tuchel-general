@@ -116,11 +116,18 @@ for(const realistic of [false,true]){
  // gate and a pedestrian gate the walker passes; the old recessed wall and its returns are gone.
  for(let u=.3;u<ROAD_LENGTH-.2;u+=.25){const [x,z]=roadPoint(u,.08),hit=first(new T.Vector3(x,4,z),new T.Vector3(x,0,z),root);
   assert(hit&&hit.point.y<=2.001&&hit.point.y>1.8,`fence ${hit?.point.y.toFixed(2)} m tall at ${u.toFixed(2)} m along the notch`);}
+ // The fence runs the whole west line: from the plot's north-west corner to the notch, and along the lane to its south-west
+ // corner wherever the garage and bin room are not.
+ {const fenceAt=(x,z)=>{const hit=first(new T.Vector3(x,4,z),new T.Vector3(x,0,z),root);return hit&&hit.point.y<=2.001&&hit.point.y>1.8;};
+  const [nx,nz]=sitePoint(441,220),[mx,mz]=sitePoint(336,399),len=Math.hypot(mx-nx,mz-nz),inward=[(mz-nz)/len,-(mx-nx)/len];
+  // The first 1.3 m from the corner stand under the north hedge.
+  for(let t=.1;t<=.99;t+=.01){const p=[nx+(mx-nx)*t+.08*inward[0],nz+(mz-nz)*t+.08*inward[1]];assert(fenceAt(...p),`the fence runs north to the corner, at ${p.map(q=>q.toFixed(2))}`);}
+  for(const v of [.4,2.5,4.8,14.3,14.9]){const [x,z]=garagePoint(.08,v);assert(fenceAt(x,z),`the fence runs along the lane at ${v} m`);}}
  for(const [name,[a,b]] of [['garage-drive-gate',DRIVE_GATE],['garage-pedestrian-gate',PEDESTRIAN_GATE]]){const leaf=root.getObjectByName(name);assert(leaf&&visible(leaf),name);
   leaf.traverse(o=>{if(o.isMesh)assert(o.userData.passable,`${name} lets the walker through`);});
   const [x,z]=roadPoint((a+b)/2,.08),hit=first(new T.Vector3(x,3,z),new T.Vector3(x,0,z),root);assert(hit&&named(hit.object,name),`${name} spans its opening`);}
  for(const front of [false,true]){on({garage:true,front});
-  for(const [x,z] of [sitePoint(355,516),sitePoint(296,618),sitePoint(352,410)]){const hit=first(new T.Vector3(x,4,z),new T.Vector3(x,0,z),root);
+  for(const [x,z] of [sitePoint(355,516),sitePoint(296,618),sitePoint(352,410),sitePoint(388,300)]){const hit=first(new T.Vector3(x,4,z),new T.Vector3(x,0,z),root);
    assert(!hit||hit.point.y<.3,`with the arrival wall ${front?'on':'off'}, the old recessed wall is gone at ${[x,z].map(n=>n.toFixed(1))}`);}}
  on({front:true});{const [x,z]=sitePoint(355,516),hit=first(new T.Vector3(x,4,z),new T.Vector3(x,0,z),root);assert(hit&&hit.point.y>1.8,'the arrival wall alone keeps the recessed line');}
  on({});model.dispose();
