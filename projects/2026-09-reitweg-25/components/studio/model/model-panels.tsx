@@ -93,6 +93,8 @@ export type MoreActions={
  clouds?:boolean;onClouds:(on:boolean)=>void;
  /** Whether the neighbors' buildings are shown. */
  neighbors:boolean;onNeighbors:(on:boolean)=>void;
+ /** Whether the two figures wander the house and grounds (Sims Mode). */
+ sims:boolean;onSims:(on:boolean)=>void;
 };
 export function MorePanel(p:MoreActions){
  const realistic=p.quality!=='model',busy=p.capture.busy||p.capture.recording;
@@ -108,6 +110,7 @@ export function MorePanel(p:MoreActions){
    {realistic&&<button aria-pressed={p.capture.sound} title="Designed ambience, not a recording" onClick={()=>p.onSound(!p.capture.sound)}>Garden sound</button>}
    {p.clouds!==undefined&&<button aria-pressed={p.clouds} title="Drifting clouds and their shadows; off, the sun's light reads alone" onClick={()=>p.onClouds(!p.clouds)}>Clouds</button>}
    <button aria-pressed={p.neighbors} title="The neighbors' buildings to the north and south, in plain massing from the state survey" onClick={()=>p.onNeighbors(!p.neighbors)}>Neighbors</button>
+   <button aria-pressed={p.sims} title="Two figures in Bavarian dress wander the house and garden" onClick={()=>p.onSims(!p.sims)}>Sims Mode</button>
   </div>
   <div className="model-segments" role="radiogroup" aria-label="Detail">
    {([...(p.computer?[['extreme','Extreme']] as const:[]),['detailed','Detailed'],['balanced','Balanced'],['model','Model']] as const).map(([id,label])=><button key={id} role="radio" aria-checked={p.quality===id} title={id==='extreme'?'Path-traced when the camera rests, where the browser has WebGPU; asks a lot of the graphics card':p.detected===id?'Suits this device':undefined} onClick={()=>p.onQuality(id)}>{label}{p.detected===id&&<small aria-label="suits this device"/>}</button>)}
