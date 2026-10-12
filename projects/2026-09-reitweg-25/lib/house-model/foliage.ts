@@ -6,16 +6,17 @@ import {addShaderFeature} from './shader-features';
  * leaves; phones draw a solid shaded core under a shell of leaf cards cut from the
  * generated leaf atlas, which distant woodland uses everywhere. Every tree of one
  * archetype is a single draw. */
-export type TreeKind='broadleaf'|'maple'|'hawthorn'|'pine'|'mugo'|StandKind;
+export type TreeKind='broadleaf'|'maple'|'hawthorn'|'pine'|'mugo'|'cherry'|StandKind;
 /** The woods round the garden: broadleaves grown in a stand, silver birch, spruce. */
 export type StandKind='woodland'|'birch'|'spruce';
-/** `lean`: how far (x, z, m) the crown's top stands off the trunk's foot, for a tree grown away from a wall. */
-export type TreeSpec={x:number;z:number;r:number;height:number;seed:number;kind:TreeKind;far?:boolean;base?:number;tint?:readonly [number,number,number];lean?:readonly [number,number]};
-const cells:Record<TreeKind|'hedge',[number,number]>={broadleaf:[0,1],maple:[1,1],hawthorn:[0,1],pine:[0,0],mugo:[0,0],hedge:[1,0],woodland:[1,0],birch:[1,0],spruce:[0,0]};
+/** `lean`: how far (x, z, m) the crown's top stands off the trunk's foot, for a tree grown away from a wall. `part`: a
+ * group of its own for the tree (buildTrees). */
+export type TreeSpec={x:number;z:number;r:number;height:number;seed:number;kind:TreeKind;far?:boolean;base?:number;tint?:readonly [number,number,number];lean?:readonly [number,number];part?:string};
+const cells:Record<TreeKind|'hedge',[number,number]>={broadleaf:[0,1],maple:[1,1],hawthorn:[0,1],cherry:[0,1],pine:[0,0],mugo:[0,0],hedge:[1,0],woodland:[1,0],birch:[1,0],spruce:[0,0]};
 const REF_H=10,REF_R=3.5;
 /** The height and crown radius each archetype is built at; woodland trees and the mugo pine are built near their real
  * size, so their leaves keep about theirs. */
-const REF:Record<TreeKind,[number,number]>={broadleaf:[REF_H,REF_R],maple:[REF_H,REF_R],hawthorn:[REF_H,REF_R],pine:[REF_H,REF_R],mugo:[2.5,2.2],woodland:[20,7],birch:[20,4.5],spruce:[24,3.6]};
+const REF:Record<TreeKind,[number,number]>={broadleaf:[REF_H,REF_R],maple:[REF_H,REF_R],hawthorn:[REF_H,REF_R],cherry:[REF_H,REF_R],pine:[REF_H,REF_R],mugo:[2.5,2.2],woodland:[20,7],birch:[20,4.5],spruce:[24,3.6]};
 const isStand=(kind:TreeKind):kind is StandKind|'mugo'=>kind==='woodland'||kind==='birch'||kind==='spruce'||kind==='mugo';
 /** Crown style: modelled leaves shared per archetype (leaves) or a solid shaded core under a leaf-card shell (hybrid). */
 export type TreeStyle='leaves'|'hybrid';
@@ -72,11 +73,12 @@ function archetype(kind:TreeKind,far:boolean,seed:number,style:TreeStyle,context
  const r=random(seed),H=REF_H,R=REF_R,crown=new T.Vector3(0,H-R*.95,0);
  const flat=kind==='pine'?.55:1,clusters:T.Vector3[]=[],wood:T.BufferGeometry[]=[];
  const trunkTop=new T.Vector3((r()-.5)*.3,H*.45,(r()-.5)*.3);
- // A maple forks low into three slim leaning stems; a hawthorn grows five slim stems from the ground, leaning out
- // under a broad crown; other trees carry one trunk into the crown.
- const fork=new T.Vector3(0,H*.1,0),stems=kind==='maple'?[0,1,2].map(i=>{const a=i*2.1+r()*.5;return new T.Vector3(Math.cos(a)*R*.3,H*.42,Math.sin(a)*R*.3);}):
+ // A maple forks low into three slim leaning stems; a cherry's short trunk forks into four limbs spreading upward; a
+ // hawthorn grows five slim stems from the ground, leaning out under a broad crown; other trees carry one trunk into the
+ // crown.
+ const fork=new T.Vector3(0,H*(kind==='cherry'?.26:.1),0),stems=kind==='cherry'?[0,1,2,3].map(i=>{const a=i*1.57+r()*.5;return new T.Vector3(Math.cos(a)*R*.42,H*.5,Math.sin(a)*R*.42);}):kind==='maple'?[0,1,2].map(i=>{const a=i*2.1+r()*.5;return new T.Vector3(Math.cos(a)*R*.3,H*.42,Math.sin(a)*R*.3);}):
   kind==='hawthorn'?[0,1,2,3,4].map(i=>{const a=i*1.26+r()*.4;return new T.Vector3(Math.cos(a)*R*(.3+r()*.12),H*(.36+r()*.08),Math.sin(a)*R*(.3+r()*.12));}):[trunkTop];
- if(kind==='maple'){wood.push(limb(new T.Vector3(0,-.3,0),fork,.17,.15,far?6:9));for(const top of stems)wood.push(limb(fork,top,.1,.07,far?5:7));}
+ if(kind==='maple'||kind==='cherry'){const cherry=kind==='cherry';wood.push(limb(new T.Vector3(0,-.3,0),fork,cherry?.24:.17,cherry?.2:.15,far?6:9));for(const top of stems)wood.push(limb(fork,top,cherry?.13:.1,.07,far?5:7));}
  else if(kind==='hawthorn')stems.forEach((top,i)=>{const a=i*1.26+.3;wood.push(limb(new T.Vector3(Math.cos(a)*R*.05,-.3,Math.sin(a)*R*.05),top,.12,.08,far?5:7));});
  else wood.push(limb(new T.Vector3(0,-.3,0),trunkTop,.26,.19,far?6:9));
  const limbs=far?5:9;
@@ -104,7 +106,7 @@ const clamp01=(v:number)=>T.MathUtils.clamp(v,0,1);
  * crown's mass; leaf cards cover only their exposed outer surface for a leafy silhouette. */
 function hybridCrown(kind:TreeKind,far:boolean,r:()=>number,clusters:T.Vector3[],crown:T.Vector3,flat:number,cell:[number,number],out:{p:number[];n:number[];uv:number[];c:number[]}){
  const R=REF_R,blobs=clusters.map(c=>({c,rad:R*(far?.36:.26)*(.8+r()*.4)})),parts:T.BufferGeometry[]=[];
- const green=new T.Color(kind==='pine'?'#34502a':kind==='maple'?'#56703a':'#4a6a2e');
+ const green=new T.Color(kind==='pine'?'#34502a':kind==='maple'?'#56703a':kind==='cherry'?'#e2bfca':'#4a6a2e');
  const shadeAt=(v:T.Vector3)=>(.5+.5*clamp01((v.y-(crown.y-R*.9*flat))/(R*1.8*flat)))*(.7+.3*clamp01(v.distanceTo(crown)/R));
  for(const b of blobs){
   const g=new T.IcosahedronGeometry(1,far?1:2),p=g.attributes.position,n=g.attributes.normal,colors:number[]=[],v=new T.Vector3(),u=new T.Vector3();
@@ -116,7 +118,8 @@ function hybridCrown(kind:TreeKind,far:boolean,r:()=>number,clusters:T.Vector3[]
   }
   g.setAttribute('color',new T.Float32BufferAttribute(colors,3));g.deleteAttribute('uv');parts.push(g);
  }
- const count=far?480:kind==='pine'?2600:3200;
+ // A cherry in bloom keeps only its pink mass: the leaf atlas is green.
+ const count=kind==='cherry'?0:far?480:kind==='pine'?2600:3200;
  for(let placed=0,guard=0;placed<count&&guard<count*30;guard++){
   const b=blobs[Math.floor(r()*blobs.length)],dir=new T.Vector3(r()*2-1,r()*2-1,r()*2-1);if(dir.lengthSq()<.02||dir.lengthSq()>1)continue;dir.normalize();
   const center=b.c.clone().addScaledVector(dir,b.rad*(.95+r()*.45));center.y=b.c.y+(center.y-b.c.y)*flat;
@@ -212,15 +215,18 @@ function modelledLeaves(kind:TreeKind,context:boolean,r:()=>number,clusters:T.Ve
  const count=context?(kind==='pine'?11000:10000):(kind==='pine'?16000:14000),scale=context?1.45:1;
  const pos=new Float32Array(count*36),nor=new Float32Array(count*36),col=new Float32Array(count*36);
  const green=new T.Color(kind==='pine'?'#435a3d':kind==='maple'?'#7a8742':'#718144');
+ // A cherry in bloom: pale pink and white blossom, smaller than leaves, with a few fresh leaves among it.
+ const cherry=kind==='cherry',blossom=['#f7e6ea','#f2d3dc','#ebc0cd','#fbf3f3'].map(c=>new T.Color(c)),fresh=new T.Color('#8c9c4c');
  const m=new T.Matrix4(),q=new T.Quaternion(),v=new T.Vector3(),up=new T.Vector3(0,1,0),spin=new T.Quaternion();
  for(let i=0;i<count;i++){
   const c=clusters[i%clusters.length],spread=R*.34,th=r()*Math.PI*2,y=r()*2-1,rad=Math.sqrt(1-y*y)*Math.cbrt(r());
   const center=new T.Vector3(c.x+Math.cos(th)*rad*spread,c.y+y*spread*.9*flat,c.z+Math.sin(th)*rad*spread);
   const outward=center.clone().sub(crown).normalize(),normal=outward.clone().multiplyScalar(.6).add(new T.Vector3(r()-.5,r()-.5,r()-.5).multiplyScalar(.9)).normalize();
   q.setFromUnitVectors(up,normal);spin.setFromAxisAngle(normal,r()*Math.PI*2);q.premultiply(spin);
-  const size=(.1+r()*.1)*scale;m.compose(center,q,kind==='pine'?new T.Vector3(size*.3,size,size*1.7):new T.Vector3(size,size,size));
-  const shade=(.62+r()*.5)*(.35+.65*clamp01((center.y-(crown.y-R*.9*flat))/(R*1.8*flat)))*(.6+.4*clamp01(center.distanceTo(crown)/R));
-  const tint=green.clone().multiplyScalar(shade);tint.g*=.97+r()*.08;tint.b*=.8+r()*.2;
+  const size=(.1+r()*.1)*scale*(cherry?.75:1);m.compose(center,q,kind==='pine'?new T.Vector3(size*.3,size,size*1.7):new T.Vector3(size,size,size));
+  const height=clamp01((center.y-(crown.y-R*.9*flat))/(R*1.8*flat)),depth=clamp01(center.distanceTo(crown)/R);
+  const shade=cherry?(.8+r()*.25)*(.6+.4*height)*(.75+.25*depth):(.62+r()*.5)*(.35+.65*height)*(.6+.4*depth);
+  const tint=(cherry?(r()<.12?fresh:blossom[Math.floor(r()*blossom.length)]):green).clone().multiplyScalar(shade);if(cherry)tint.g*=.98+r()*.04;else{tint.g*=.97+r()*.08;tint.b*=.8+r()*.2;}
   const shading=normal.clone().multiplyScalar(.5).addScaledVector(outward,.5).normalize();
   tris.forEach((k,j)=>{v.fromArray(blade[k]).applyMatrix4(m);const o=i*36+j*3;pos[o]=v.x;pos[o+1]=v.y;pos[o+2]=v.z;nor[o]=shading.x;nor[o+1]=shading.y;nor[o+2]=shading.z;col[o]=tint.r;col[o+1]=tint.g;col[o+2]=tint.b;});
  }
@@ -244,25 +250,32 @@ function drawnCount(mesh:T.InstancedMesh,total:number,casts:boolean){
  * get a leaf-card crown for when they are too far away for single leaves to show (drawTrees). */
 export function buildTrees(specs:TreeSpec[],materials:FoliageMaterials,name:string){
  const group=new T.Group();group.name=name;
- const context=name!=='garden-trees';
+ const context=!name.startsWith('garden-trees');
+ // Trees with a `part` go into a child group of that name, so they can be shown and hidden on their own; they share
+ // their archetypes with the rest.
+ const parts=new Map<string,T.Group>([['',group]]);
+ const partOf=(part='')=>{let g=parts.get(part);if(!g){g=new T.Group();g.name=part;g.userData.treeSets=[];group.add(g);parts.set(part,g);}return g;};
  const byKey=new Map<string,TreeSpec[]>();
  for(const s of specs){const key=`${s.kind}-${s.far?'far':'near'}-${s.seed%3}`;(byKey.get(key)??byKey.set(key,[]).get(key)!).push(s);}
- const q=new T.Quaternion(),sets:TreeSet[]=[];
- for(const [key,list] of byKey){
+ const q=new T.Quaternion(),sets:TreeSet[]=[];group.userData.treeSets=sets;
+ for(const [key,all] of byKey){
   const [kind,detail,variant]=key.split('-') as [TreeKind,string,string];
   const seed=9173+Number(variant)*7919+kind.length*31,arch=archetype(kind,detail==='far',seed,materials.style,context);
+  // Modelled trees keep a leaf-card crown of the same archetype for distance; it casts no shadow (the modelled tree
+  // does) and the path tracer never sees it.
+  const far=arch.solid?archetype(kind,false,seed,'hybrid',context):undefined;far?.bark.dispose();
+  const byPart=new Map<string,TreeSpec[]>();for(const s of all)(byPart.get(s.part??'')??byPart.set(s.part??'',[]).get(s.part??'')!).push(s);
+  for(const [part,list] of byPart){
   const bark=new T.InstancedMesh(arch.bark,kind==='birch'?materials.birchBark:materials.bark,list.length);bark.name='tree-bark';
   const crowns:T.InstancedMesh[]=[];
   if(arch.leaves){const leaves=new T.InstancedMesh(arch.leaves,materials.leaves,list.length);leaves.name='tree-leaf-cards';leaves.customDepthMaterial=materials.depth;crowns.push(leaves);}
   if(arch.core){const core=new T.InstancedMesh(arch.core,materials.core,list.length);core.name='tree-crown-core';crowns.push(core);}
   if(arch.solid){const solid=new T.InstancedMesh(arch.solid,materials.solid,list.length);solid.name='tree-leaves';crowns.push(solid);}
-  // Modelled trees keep a leaf-card crown of the same archetype for distance; it casts no shadow (the modelled tree
-  // does) and the path tracer never sees it.
   let lod:T.InstancedMesh[]|undefined;
-  if(arch.solid){
-   const crown=archetype(kind,false,seed,'hybrid',context);crown.bark.dispose();lod=[];
-   if(crown.core){const core=new T.InstancedMesh(crown.core,materials.core,list.length);core.name='tree-lod-core';lod.push(core);}
-   if(crown.leaves){const cards=new T.InstancedMesh(crown.leaves,materials.leaves,list.length);cards.name='tree-lod-cards';cards.customDepthMaterial=materials.depth;lod.push(cards);}
+  if(far){
+   lod=[];
+   if(far.core){const core=new T.InstancedMesh(far.core,materials.core,list.length);core.name='tree-lod-core';lod.push(core);}
+   if(far.leaves){const cards=new T.InstancedMesh(far.leaves,materials.leaves,list.length);cards.name='tree-lod-cards';cards.customDepthMaterial=materials.depth;lod.push(cards);}
   }
   const set:TreeSet={kind,matrices:[],colors:[],origins:[],centres:[],radii:[],leaf:[],crowns,bark,lod,order:new Map()};
   for(const s of list){
@@ -274,19 +287,22 @@ export function buildTrees(specs:TreeSpec[],materials:FoliageMaterials,name:stri
    if(s.lean)matrix.premultiply(new T.Matrix4().makeTranslation(-origin.x,-origin.y,-origin.z)).premultiply(new T.Matrix4().makeShear(0,0,s.lean[0]/s.height,s.lean[1]/s.height,0,0)).premultiply(new T.Matrix4().makeTranslation(origin.x,origin.y,origin.z));
    set.matrices.push(matrix);set.origins.push(origin);
    set.centres.push(new T.Vector3(s.x+(s.lean?.[0]??0)*.55,(s.base??0)+s.height*.55,s.z+(s.lean?.[1]??0)*.55));set.radii.push(Math.max(s.height,s.r*2)*.62);set.leaf.push(LEAF*Math.max(scale.x,scale.y));
-   const hue=kind==='pine'||kind==='mugo'?.9:kind==='spruce'?.82+r()*.12:kind==='woodland'?.72+r()*.3:.85+r()*.3;const color=new T.Color().setRGB(hue,hue*(.97+r()*.06),hue*(.85+r()*.2));if(s.tint)color.multiply(new T.Color().setRGB(...s.tint));set.colors.push(color);
+   // Blossom stays near white; leaves vary in green.
+   const hue=kind==='pine'||kind==='mugo'?.9:kind==='spruce'?.82+r()*.12:kind==='woodland'?.72+r()*.3:kind==='cherry'?.95+r()*.08:.85+r()*.3;
+   const color=kind==='cherry'?new T.Color().setRGB(hue,hue*(.97+r()*.04),hue*(.98+r()*.04)):new T.Color().setRGB(hue,hue*(.97+r()*.06),hue*(.85+r()*.2));if(s.tint)color.multiply(new T.Color().setRGB(...s.tint));set.colors.push(color);
   }
   for(const c of [...crowns,...lod??[]])c.userData.sway='leaf';
+  const home=partOf(part);
   for(const mesh of [...crowns,bark,...lod??[]]){
    const casts=!lod?.includes(mesh);
    set.matrices.forEach((m,i)=>{mesh.setMatrixAt(i,m);if(mesh!==bark)mesh.setColorAt(i,set.colors[i]);});
    mesh.castShadow=casts;mesh.receiveShadow=true;mesh.computeBoundingSphere();drawnCount(mesh,list.length,casts);
    if(!casts){mesh.userData.skipPhotographic=true;mesh.userData.drawn=0;mesh.count=0;}
-   group.add(mesh);
+   home.add(mesh);
   }
-  sets.push(set);
+  (home.userData.treeSets as TreeSet[]).push(set);
+  }
  }
- group.userData.treeSets=sets;
  return group;
 }
 

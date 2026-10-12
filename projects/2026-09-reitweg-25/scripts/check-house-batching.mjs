@@ -25,18 +25,19 @@ for(const realistic of [false,true]){
   for(const [uuid,count] of expected[s])assert.equal(Math.round(by.get(uuid)||0),Math.round(count),`state ${s}: batched triangles match source for each material`);
   for(const uuid of by.keys())assert(expected[s].has(uuid),`state ${s}: no batch shows a hidden material`);
  }
- // Renovations toggled outside the states (Layout Updates): batches follow their groups, on and off, on every floor.
+ // Renovations toggled outside the states (Layout Updates, the front garage): batches follow their groups, on and off,
+ // on every floor, with the state-driven renovations around them (the east façade, the arrival wall).
  const {renovationState}=await import('../tmp/batch-check/renovation-data.mjs');
  const count=()=>{const source=new Map(),merged=new Map(),add=(map,uuid,n)=>map.set(uuid,(map.get(uuid)||0)+n);
   model.root.traverse(o=>{if(!(o instanceof T.Mesh)||o instanceof T.InstancedMesh||o.userData.batch||o.userData.dynamic||!model.rendered(o))return;const mats=[o.material].flat();
    if(Array.isArray(o.material)&&o.geometry.groups.length)for(const g of o.geometry.groups)add(source,mats[g.materialIndex].uuid,g.count/3);else add(source,mats[0].uuid,triangles(o.geometry));});
   for(const b of batches.meshes){let shown=b.visible;for(let o=b;o;o=o.parent)if(!o.visible&&o!==model.upper)shown=false;if(shown)add(merged,b.material.uuid,triangles(b.geometry));}return [source,merged];};
- for(const level of ['exterior','ground','upper'])for(const nook of [true,false])for(const east of [false,true]){const state={...renovationState(),east,nook};
+ for(const level of ['exterior','ground','upper'])for(const nook of [true,false])for(const east of [false,true])for(const garage of [false,true])for(const front of [false,true]){const state={...renovationState(),east,nook,garage,front};
   model.setLevel(level);model.setRenovations(state);batches.sync(model.stateOf(level,state));const [source,merged]=count();
-  for(const uuid of new Set([...source.keys(),...merged.keys()]))assert.equal(Math.round(merged.get(uuid)||0),Math.round(source.get(uuid)||0),`${level}, nook ${nook}, east ${east}: batched triangles match the scene for each material`);}
+  for(const uuid of new Set([...source.keys(),...merged.keys()]))assert.equal(Math.round(merged.get(uuid)||0),Math.round(source.get(uuid)||0),`${level}, nook ${nook}, east ${east}, garage ${garage}, front ${front}: batched triangles match the scene for each material`);}
  let sources=0;model.root.traverse(o=>{if(o instanceof T.Mesh&&!(o instanceof T.InstancedMesh)&&!o.userData.batch&&!o.userData.dynamic){sources++;assert(!o.layers.isEnabled(0),'source meshes leave the render layer');}});
  for(const b of batches.meshes){assert(b.layers.isEnabled(0));for(const n of b.matrixWorld.elements)assert(Number.isFinite(n));}
  assert(batches.meshes.length*5<sources,`${batches.meshes.length} batches replace ${sources} meshes`);
- console.log(`Passed (${realistic?'realism':'natural'}): ${sources} meshes → ${batches.meshes.length} batches; triangles per material match in all ${model.stateCount} floor × renovation states and with Layout Updates on or off.`);
+ console.log(`Passed (${realistic?'realism':'natural'}): ${sources} meshes → ${batches.meshes.length} batches; triangles per material match in all ${model.stateCount} floor × renovation states and with Layout Updates and the front garage on or off.`);
  model.dispose();
 }

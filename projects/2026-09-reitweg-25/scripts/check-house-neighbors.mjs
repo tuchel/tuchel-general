@@ -20,7 +20,8 @@ const cell=.25,raster=(a,b,c,out)=>{const area=(b[0]-a[0])*(c[1]-a[1])-(c[0]-a[0
   const x=(i+.5)*cell,y=(j+.5)*cell,w0=((b[0]-x)*(c[1]-y)-(c[0]-x)*(b[1]-y))/area,w1=((c[0]-x)*(a[1]-y)-(a[0]-x)*(c[1]-y))/area;if(w0>=0&&w1>=0&&1-w0-w1>=0)out.add(i+','+j);}};
 const model=buildHouseModel(false);model.setLevel('exterior');model.root.updateMatrixWorld(true);
 const roofs=new Set(),skip=new Set([model.trees,model.site]),v=[0,1,2].map(()=>new T.Vector3()),e1=new T.Vector3(),e2=new T.Vector3();
-model.root.traverse(o=>{if(!o.isMesh||!o.visible)return;for(let p=o;p;p=p.parent)if(skip.has(p))return;
+// Only roofs shown: the renovations' roofs (winter garden, front garage) stay off.
+model.root.traverse(o=>{if(!o.isMesh)return;for(let p=o;p;p=p.parent)if(skip.has(p)||!p.visible)return;
  const pos=o.geometry.attributes.position,idx=o.geometry.index,n=idx?idx.count:pos.count;
  for(let t=0;t+2<n;t+=3){for(let k=0;k<3;k++)v[k].fromBufferAttribute(pos,idx?idx.getX(t+k):t+k).applyMatrix4(o.matrixWorld);
   if(Math.min(v[0].y,v[1].y,v[2].y)<2.3||Math.abs(e1.subVectors(v[1],v[0]).cross(e2.subVectors(v[2],v[0])).normalize().y)<.2)continue;
