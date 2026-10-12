@@ -31,6 +31,10 @@ export const DRIVE_GATE:[number,number]=[6.5,10.5],PEDESTRIAN_GATE:[number,numbe
  * door; 0.9 m wide. */
 export const BIN_PATH:[number,number][]=[[7.35,5],[7.35,12.6],[BIN_ROOM.m1,12.6]];
 export const BIN_PATH_WIDTH=.9;
+/** Where the old recessed wall stood between the notch and the drive: a band 0.45 m into the plot from its line, which
+ * the cobbles close over once it comes down (world x, z). */
+const WN=s(365,422),WS=s(346,610),wall=Math.hypot(WS[0]-WN[0],WS[1]-WN[1]),wd=[(WS[0]-WN[0])/wall,(WS[1]-WN[1])/wall];
+export const OLD_WALL_LINE:[number,number][]=[[WN[0]-wd[0]*.15,WN[1]-wd[1]*.15],WS,[WS[0]+wd[1]*.45,WS[1]-wd[0]*.45],[WN[0]-wd[0]*.15+wd[1]*.45,WN[1]-wd[1]*.15-wd[0]*.45]];
 /** The lane's frontage south of the notch, as world z from 3 m north of it to 3 m south of the plot's corner. */
 export const GARAGE_FRONTAGE:[number,number]=[S[1]-3,SW[1]+3];
 /** Cobbles from the notch to the garage doors, joining the drive (world x, z). */

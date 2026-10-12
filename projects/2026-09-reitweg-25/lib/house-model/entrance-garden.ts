@@ -1,6 +1,6 @@
 import * as T from 'three';
 import {sitePoint as s,planPoint as p} from './site-data';
-import {GARAGE_APRON,BIN_PATH,BIN_PATH_WIDTH,garagePoint} from './front-garage';
+import {GARAGE_APRON,BIN_PATH,BIN_PATH_WIDTH,OLD_WALL_LINE,garagePoint} from './front-garage';
 
 // Photo-led dimensions, not a survey. The route joins the existing pedestrian
 // gate to the first entrance-link door, leaving soil and grasses beside the gable.
@@ -46,10 +46,10 @@ export function buildEntranceGarden(realistic:boolean){
   }
   group.add(lay(stones,name));
  }
- // The front garage's apron and bin path, in the same bond: their own stones, and the ones along the old edges that the
- // wider paving now carries. Shown with the garage.
- {const garage=new T.Group();garage.name='garage-cobbles';garage.visible=false;group.add(garage);const areas=[GARAGE_APRON,binPathFootprint] as [number,number][][];
-  for(const [points,name] of [[GARAGE_APRON,'garage-apron-cobble-base'],[binPathFootprint,'bin-path-cobble-base']] as const)garage.add(poly(points,.013,.03,joints,name));
+ // The front garage's apron and bin path, and the old recessed wall's line, in the same bond: their own stones, and the
+ // ones along the old edges that the wider paving now carries. Shown with the garage.
+ {const garage=new T.Group();garage.name='garage-cobbles';garage.visible=false;group.add(garage);const areas=[GARAGE_APRON,binPathFootprint,OLD_WALL_LINE] as [number,number][][];
+  for(const [points,name] of [[GARAGE_APRON,'garage-apron-cobble-base'],[binPathFootprint,'bin-path-cobble-base'],[OLD_WALL_LINE,'old-wall-line-cobble-base']] as const)garage.add(poly(points,.013,.03,joints,name));
   const wider=(x:number,z:number)=>paved(x,z)||areas.some(a=>insideEntrancePolygon(x,z,a)),laid=(x:number,z:number)=>(paved(x,z)&&corners.every(([a,b])=>paved(x+a,z+b)));
   const xs=areas.flat().map(q=>q[0]),zs=areas.flat().map(q=>q[1]),stones:{x:number;z:number;y:number}[]=[];
   for(let row=Math.floor((Math.min(...zs)-.2)/dz);row*dz<Math.max(...zs)+.2;row++)for(let col=Math.floor((Math.min(...xs)-.2)/dx)-1;col*dx<Math.max(...xs)+.2;col++){

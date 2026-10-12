@@ -92,6 +92,8 @@ for(const realistic of [false,true]){
  // The apron joins the existing drive: cobbles all the way from the parking to the garage doors.
  {const from=sitePoint(345,700),to=garagePoint(GARAGE.m1-1,GARAGE.v0-.3),n=30;assert(insideEntrancePolygon(...from,drivewayFootprint),'starts on the drive');
   for(let k=0;k<=n;k++)assert(cobbled([from[0]+(to[0]-from[0])*k/n,from[1]+(to[1]-from[1])*k/n]),'cobbled from the drive to the garage doors');}
+ // Where the old recessed wall stood, the notch's cobbles run on into the drive without a gap.
+ {const a=sitePoint(365,422),b=sitePoint(346,610);for(let t=.02;t<=.98;t+=.01){const p=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];assert(cobbled(p),`cobbles where the old wall stood, at ${p.map(q=>q.toFixed(2))}`);}}
  // The well garden, its hedges and its trees give way to open lawn; three cherries stand in it, in bloom.
  for(const name of garden)assert(!visible(root.getObjectByName(name)),`${name} gives way to lawn`);
  {const hedges=[];root.traverse(o=>{if(o.isMesh&&visible(o)&&(()=>{for(let a=o;a;a=a.parent)if(/hedge/.test(a.name))return true;return false;})())hedges.push(o);});
