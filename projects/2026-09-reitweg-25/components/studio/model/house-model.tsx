@@ -42,7 +42,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
   return offeredState(ids);
  });
  // Clouds start off, so the sun's light reads alone while the time of day is scanned.
- const [sun,setSun]=useState(START),[clouds,setClouds]=useState(false),[neighbors,setNeighbors]=useState(false),[capture,setCapture]=useState<CaptureState>(initialCapture);
+ const [sun,setSun]=useState(START),[clouds,setClouds]=useState(false),[neighbors,setNeighbors]=useState(false),[sims,setSims]=useState(false),[capture,setCapture]=useState<CaptureState>(initialCapture);
  // A place's caption is taken down once the walker leaves where it starts (the viewer reports it), until a place is
  // chosen again.
  const [wandered,setWandered]=useState(false);
@@ -92,6 +92,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
  useEffect(()=>{if(ready)api.current?.setSun({enabled:true,...sun});},[ready,sun]);
  useEffect(()=>{if(ready)api.current?.setClouds(clouds);},[ready,clouds]);
  useEffect(()=>{if(ready)api.current?.setNeighbors(neighbors);},[ready,neighbors]);
+ useEffect(()=>{if(ready)api.current?.setSims(sims);},[ready,sims]);
  // Extreme's path tracing waits while a panel or the About dialog is open, so menus stay quick.
  useEffect(()=>{if(ready)api.current?.setInterface(!!panel||about);},[ready,panel,about]);
  useEffect(()=>{
@@ -163,7 +164,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
     {panel==='floor'&&<FloorPanel level={level} onLevel={chooseLevel}/>}
     {panel==='changes'&&<div className="model-panel-body"><RenovationControls value={changes} onChange={setChanges} onFocus={focusRenovation} level={level} ready={ready&&!failed}/></div>}
     {panel==='light'&&<LightPanel day={sun.day} minutes={sun.minutes} onChange={(day,minutes)=>setSun({day,minutes})}/>}
-    {panel==='more'&&<MorePanel quality={quality} detected={detected} computer={computer} onQuality={chooseQuality} capture={capture} heavy={tiers[quality].photographic} eyeLevel={!!place} clouds={tiers[quality].clouds?clouds:undefined} onClouds={setClouds} neighbors={neighbors} onNeighbors={setNeighbors}
+    {panel==='more'&&<MorePanel quality={quality} detected={detected} computer={computer} onQuality={chooseQuality} capture={capture} heavy={tiers[quality].photographic} eyeLevel={!!place} clouds={tiers[quality].clouds?clouds:undefined} onClouds={setClouds} neighbors={neighbors} onNeighbors={setNeighbors} sims={sims} onSims={setSims}
      onSave={limit=>{setPanel(null);void api.current?.saveImage(limit);}} onPhotograph={pano=>{setPanel(null);void api.current?.captures?.photograph(pano);}} onFilm={()=>{setPanel(null);if(place)chooseView('courtyard');api.current?.captures?.film();}}
      onExport={()=>{setPanel(null);void api.current?.captures?.exportModel();}} onBreeze={on=>api.current?.captures?.breeze(on)} onSound={on=>void api.current?.captures?.sound(on)} onAbout={()=>{setPanel(null);setAbout(true);}}/>}
    </section>}
@@ -182,6 +183,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
    <div className="model-about-photos">{photoChecks.map(photo=><a key={photo.file} href={'/assets/'+photo.file} target="_blank" rel="noreferrer"><img loading="lazy" src={'/assets/'+photo.file} alt={photo.label}/><span>{photo.label}</span></a>)}</div>
    <ul>{sourceNotes.map(note=><li key={note}>{note}</li>)}
     <li>The garage’s cars are “2026 Tesla Model Y Performance” by BloxBloger (CC BY-NC 4.0) and “FREE 1975 Porsche 911 (930) Turbo” by Lionsharp Studios (CC BY 4.0), both from Sketchfab, scaled to their published lengths and compressed.</li>
+    <li>The two figures of Sims Mode are built from MakeHuman’s base mesh, skins and system assets (CC0) and clothes from the MakeHuman community (makehumancommunity.org): the shirt, short trousers, trilby and blouse by Elvaerwyn (CC BY); the bodice and skirt by MargaretToigo, the knee socks by Joel Palmius, the beard by grinsegold and the hair bun by RehmanPolanski (CC0).</li>
     <li>The neighbors’ buildings come from the Bavarian survey’s 3D building models (LoD2), © Bayerische Vermessungsverwaltung, geodaten.bayern.de, CC BY 4.0, shown as plain massing on the model’s ground.</li>
     <li>The distant land, the Alps included, stands at its true bearing and height as seen from the house, from Terrain Tiles (Mapzen, on AWS Open Data): Europe terrain data produced using Copernicus data and information funded by the European Union – EU-DEM layers; Austria terrain data © offene Daten Österreichs – Digitales Geländemodell (DGM) Österreich; SRTM terrain data courtesy of the U.S. Geological Survey.</li>
     <li>The woods beyond the neighbors’ gardens and the east pasture follow OpenStreetMap’s woodland outlines, © OpenStreetMap contributors, ODbL, at a stand’s height on the land’s own height.</li>

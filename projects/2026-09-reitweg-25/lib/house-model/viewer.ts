@@ -33,6 +33,7 @@ import {tierFor,type Quality} from './device-tier';
 import {createPerfReadout} from './perf-readout';
 import {neighborHouses} from './neighbors';
 import {renovationState,type RenovationState} from './renovation-data';
+import type {createWanderers,loadSims} from './sims';
 import {viewpoints,type Level,type Region,type Viewpoint} from './site-data';
 
 export type ViewerOptions={
@@ -140,9 +141,13 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // The neighbors' buildings (neighbors.ts), built the first time they are shown; with the setting, outside only.
  let neighbors:T.Mesh|undefined,neighborsOn=false;
  const showNeighbors=()=>{if(neighbors)neighbors.visible=neighborsOn&&level==='exterior';};
+ // Sims Mode (sims.ts): the two figures, loaded the first time it is turned on; they keep to the garden and ground floor,
+ // so the basement view leaves them out.
+ let sims:{group:T.Group;wander:ReturnType<typeof createWanderers>;figures:Awaited<ReturnType<typeof loadSims>>['figures']}|undefined,simsOn=false,simsLoading=false;
+ const showSims=()=>{if(sims)sims.group.visible=simsOn&&level!=='basement';};
  const applyState=()=>{
   model.setLevel(level);model.setRenovations(renovations);batches.sync(model.stateOf(level,renovations));
-  stage.visible=level!=='basement';showNeighbors();renderer.shadowMap.needsUpdate=true;
+  stage.visible=level!=='basement';showNeighbors();showSims();renderer.shadowMap.needsUpdate=true;
   bake?.request();bounce?.request();probes?.request();live?.invalidate();invalidate();
  };
  applyState();
@@ -302,6 +307,12 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   }
   if(controls.enabled&&controls.update(delta))moving=true;
   if(moving)changed();
+  // The figures walk on every frame; the view redraws whole each time, at full resolution, without path tracing.
+  if(sims?.group.visible&&!captures?.active){
+   sims.wander.step(delta);
+   sims.wander.figures.forEach((w,i)=>{for(const m of sims!.figures[i].materials)m.envMapIntensity=(m.userData.envBase??1)*(.25+.75*w.open);});
+   post?.reset();needsFrame=true;
+  }
   if(lighting&&baked('sky',()=>lighting.update(camera,now))){post?.reset();needsFrame=true;}
   if(!elsewhere){if(bake&&baked('sky bake',()=>bake.update()))changed();if(bounce&&baked('bounce bake',()=>bounce.update()))changed();}
   const motion=!!(captures?.breezing||captures?.recording||film);
@@ -417,6 +428,17 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    if(on===neighborsOn)return;neighborsOn=on;
    if(on&&!neighbors){neighbors=neighborHouses(x=>stage.position.y+terrain(x));scene.add(neighbors);clouds?.shade([neighbors]);}
    showNeighbors();renderer.shadowMap.needsUpdate=true;live?.invalidate();changed();
+  },
+  /** Sims Mode on or off: the two figures wander the house and grounds (sims.ts). */
+  setSims:(on:boolean)=>{
+   simsOn=on;showSims();changed();
+   if(!on||sims||simsLoading)return;
+   simsLoading=true;
+   void import('./sims').then(async m=>{
+    const {group,figures}=await m.loadSims();if(disposed)return;
+    sims={group,figures,wander:m.createWanderers(figures,()=>[...batches.meshes,stage])};
+    scene.add(group);showSims();changed();
+   }).catch(error=>console.warn('Sims Mode',error)).finally(()=>{simsLoading=false;});
   },
   get lightReading(){return lighting?.reading;},
   /** A panel or dialog is open over the view (path tracing waits for it to close). */
