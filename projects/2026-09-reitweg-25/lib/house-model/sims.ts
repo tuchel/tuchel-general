@@ -100,27 +100,36 @@ function contactShadow(){
  mesh.renderOrder=1;mesh.name='contact-shadow';return mesh;
 }
 
-/** Both figures, loaded, with their materials finished for the viewer: hair, beard, brows and the chamois tuft cut out
- * by alpha, the eyes' clear cornea blended; the figures take the scene's shadows and light but cast only their soft
- * contact shadows. A file that fails to load leaves its figure out. */
+/** A figure's materials finished for the viewer. Hair, beard, brows, lashes and the chamois tuft are cut out by alpha;
+ * the eyes' clear cornea is blended; everything else, skin included, is opaque (the exporter marks MakeHuman's
+ * materials as blended). Fabric sheen is left out: as exported it is full white, which washes the cloth out. The
+ * figure takes the scene's shadows and light but casts none (its contact shadow stands in), and stays out of the path
+ * tracer and its photographs, which read static meshes only (photographic-scene.ts). */
+export function finishFigure(scene:T.Object3D){
+ const materials=new Set<T.MeshStandardMaterial>();
+ scene.traverse(o=>{
+  if(!(o instanceof T.Mesh))return;
+  o.castShadow=false;o.receiveShadow=true;o.frustumCulled=false;o.userData.skipPhotographic=true;
+  for(const m of [o.material].flat())if(m instanceof T.MeshStandardMaterial)materials.add(m);
+ });
+ for(const m of materials){
+  if(m instanceof T.MeshPhysicalMaterial){m.sheen=0;m.clearcoat=0;}
+  if(/hair|beard|eyebrow|eyelash|tuft/.test(m.name)){m.transparent=false;m.alphaTest=.5;m.depthWrite=true;m.side=T.DoubleSide;}
+  else if(/high-poly/.test(m.name)){m.transparent=true;m.depthWrite=false;}
+  else{m.transparent=false;m.alphaTest=0;m.opacity=1;m.depthWrite=true;}
+  m.userData.envBase=m.envMapIntensity;
+ }
+ return [...materials];
+}
+
+/** Both figures, loaded and finished (finishFigure). A file that fails to load leaves its figure out. */
 export async function loadSims(){
  const [{GLTFLoader},{MeshoptDecoder}]=await Promise.all([import('three/addons/loaders/GLTFLoader.js'),import('three/addons/libs/meshopt_decoder.module.js')]);
  const loader=new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
  const group=new T.Group();group.name='sims';
  const loaded=await Promise.allSettled(Object.entries(SIMS).map(async([name,spec])=>{
   const gltf=await loader.loadAsync(spec.url),root=new T.Group();root.name=`sims-${name}`;root.add(gltf.scene);
-  const materials=new Set<T.MeshStandardMaterial>();
-  gltf.scene.traverse(o=>{
-   if(!(o instanceof T.Mesh))return;
-   // The path tracer and its photographs read static meshes only (photographic-scene.ts); the figures stay out of them.
-   o.castShadow=false;o.receiveShadow=true;o.frustumCulled=false;o.userData.skipPhotographic=true;
-   for(const m of [o.material].flat())if(m instanceof T.MeshStandardMaterial)materials.add(m);
-  });
-  for(const m of materials){
-   if(/hair|beard|eyebrow|eyelash|tuft/.test(m.name)){m.transparent=false;m.alphaTest=.5;m.depthWrite=true;m.side=T.DoubleSide;}
-   else if(/high-poly/.test(m.name)){m.transparent=true;m.depthWrite=false;}
-   m.userData.envBase=m.envMapIntensity;
-  }
+  const materials=finishFigure(gltf.scene);
   const shadow=contactShadow();shadow.userData.skipPhotographic=true;root.add(shadow);
   const mixer=new T.AnimationMixer(gltf.scene),clip=(n:string)=>gltf.animations.find(a=>a.name===n);
   const walk=clip('walk')?mixer.clipAction(clip('walk')!):undefined,idle=clip('idle')?mixer.clipAction(clip('idle')!):undefined;

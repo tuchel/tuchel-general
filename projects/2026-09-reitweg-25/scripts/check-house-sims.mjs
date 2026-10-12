@@ -7,7 +7,7 @@ import {build} from 'esbuild';
 // 1.80 m and 1.65 m plus a sole. Wandering uses the walker's own collision: walls and furniture turn the figures, doors
 // let them through, drops (the pool, stairwells) stop them; they keep to the plot, the garden and the ground floor.
 await build({entryPoints:['lib/house-model/sims.ts','lib/house-model/build-model.ts','lib/house-model/site-data.ts','lib/house-model/pool.ts','lib/house-model/site-openings.ts','lib/house-model/walk.ts'],outdir:'tmp/sims-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
-const {SIMS,createWanderers,FLOOR_RANGE}=await import('../tmp/sims-check/sims.mjs');
+const {SIMS,createWanderers,FLOOR_RANGE,finishFigure}=await import('../tmp/sims-check/sims.mjs');
 const {buildHouseModel}=await import('../tmp/sims-check/build-model.mjs');
 const {plotOutline}=await import('../tmp/sims-check/site-data.mjs');
 
@@ -51,6 +51,14 @@ const shod={};
   const box=part=>{const b=new T.Box3();gltf.scene.traverse(o=>{if(o.isSkinnedMesh&&part.test(o.name)){o.computeBoundingBox();b.union(o.boundingBox.clone().applyMatrix4(o.matrixWorld));}});return b;};
   const top=box(/body/).max.y,soles=box(/shoes/).min.y;shod[who]=top-soles;
   assert(shod[who]>spec.height-.005&&shod[who]<spec.height+.045,`${who}: ${shod[who].toFixed(3)} m in shoes for ${spec.height} m`);
+  // Finished for the viewer: skin and cloth opaque, without the exporter's white sheen; hair and brows cut out; the
+  // cornea blended; nothing casts a shadow or enters the path tracer.
+  const materials=finishFigure(gltf.scene),named=re=>materials.filter(m=>re.test(m.name));
+  assert(materials.every(m=>!m.sheen),`${who}: no fabric sheen`);
+  assert(named(/body$/).length===1&&named(/body$/).every(m=>!m.transparent&&m.depthWrite),`${who}: opaque skin`);
+  assert(named(/hair|eyebrow/).length>=2&&named(/hair|eyebrow/).every(m=>m.alphaTest===.5&&!m.transparent),`${who}: hair and brows cut out`);
+  assert(named(/high-poly/).every(m=>m.transparent&&!m.depthWrite),`${who}: the cornea blended`);
+  gltf.scene.traverse(o=>{if(o.isMesh)assert(!o.castShadow&&o.userData.skipPhotographic,`${who}: ${o.name} casts no shadow and is not traced`);});
   const walk=gltf.animations.find(a=>a.name==='walk'),idle=gltf.animations.find(a=>a.name==='idle');
   assert(Math.abs(walk.duration-1.1)<.05&&Math.abs(idle.duration-4)<.1,`${who}: walk ${walk.duration.toFixed(2)} s, idle ${idle.duration.toFixed(2)} s`);
  }}
