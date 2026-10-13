@@ -436,6 +436,12 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    simsLoading=true;
    void import('./sims').then(async m=>{
     const {group,figures}=await m.loadSims();if(disposed)return;
+    // Their shaders compile in the background, for the evening lamps off and on, before they appear: compiled on the
+    // first draw instead, they stall the page.
+    const lamps=lighting?.lamps,lit=lamps?.visible??false;
+    const compiled=[lit,!lit].map(on=>{if(lamps)lamps.visible=on;return post?post.compileAsync(group):renderer.compileAsync(group,camera,scene);});
+    if(lamps)lamps.visible=lit;
+    await Promise.all(compiled).catch(()=>{});if(disposed)return;
     sims={group,figures,wander:m.createWanderers(figures,()=>[...batches.meshes,stage])};
     scene.add(group);showSims();changed();
    }).catch(error=>console.warn('Sims Mode',error)).finally(()=>{simsLoading=false;});

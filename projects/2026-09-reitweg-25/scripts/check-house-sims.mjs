@@ -35,11 +35,12 @@ for(const [who,spec] of Object.entries(SIMS)){
  for(const s of ['Elvaerwyn','node/1413','node/1799','node/1801','node/1256','MargaretToigo','node/1706','node/1727','Joel Palmius','node/25','grinsegold','node/877','RehmanPolanski','node/2477','MakeHuman','CC0','CC BY'])assert(credits.includes(s),`CREDITS.md credits ${s}`);}
 
 // Height in shoes, read from the decoded file: crown of the head to the soles, at the bind pose.
-const shod={};
+const shod={},programs=new Set();
 {const {GLTFLoader}=await import('three/addons/loaders/GLTFLoader.js'),{MeshoptDecoder}=await import('three/addons/libs/meshopt_decoder.module.js');
  for(const [who,spec] of Object.entries(SIMS)){
   // Textures are left out: decoding WebP needs a browser. The JSON is rewritten without them and the file re-packed.
   const {buffer,json}=glb(spec.url),bin=buffer.subarray(20+buffer.readUInt32LE(12));
+  const textured=new Map((json.materials??[]).map(m=>[m.name,{map:!!m.pbrMetallicRoughness?.baseColorTexture,normal:!!m.normalTexture}]));
   delete json.images;delete json.textures;delete json.samplers;
   for(const m of json.materials??[]){for(const k of Object.keys(m.pbrMetallicRoughness??{}))if(k.endsWith('Texture'))delete m.pbrMetallicRoughness[k];for(const k of Object.keys(m))if(k.endsWith('Texture'))delete m[k];delete m.extensions;}
   json.extensionsRequired=(json.extensionsRequired??[]).filter(e=>e!=='EXT_texture_webp');json.extensionsUsed=(json.extensionsUsed??[]).filter(e=>e!=='EXT_texture_webp');
@@ -51,17 +52,22 @@ const shod={};
   const box=part=>{const b=new T.Box3();gltf.scene.traverse(o=>{if(o.isSkinnedMesh&&part.test(o.name)){o.computeBoundingBox();b.union(o.boundingBox.clone().applyMatrix4(o.matrixWorld));}});return b;};
   const top=box(/body/).max.y,soles=box(/shoes/).min.y;shod[who]=top-soles;
   assert(shod[who]>spec.height-.005&&shod[who]<spec.height+.045,`${who}: ${shod[who].toFixed(3)} m in shoes for ${spec.height} m`);
-  // Finished for the viewer: skin and cloth opaque, without the exporter's white sheen; hair and brows cut out; the
-  // cornea blended; nothing casts a shadow or enters the path tracer.
+  // Finished for the viewer (with stand-ins for the textures left out): skin and cloth opaque, without the exporter's
+  // white sheen; hair, brows and the clear cornea cut out; nothing casts a shadow or enters the path tracer.
+  gltf.scene.traverse(o=>{if(o.isMesh){const t=textured.get(o.material.name);if(t?.map)o.material.map=new T.Texture();if(t?.normal)o.material.normalMap=new T.Texture();}});
   const materials=finishFigure(gltf.scene),named=re=>materials.filter(m=>re.test(m.name));
   assert(materials.every(m=>!m.sheen),`${who}: no fabric sheen`);
   assert(named(/body$/).length===1&&named(/body$/).every(m=>!m.transparent&&m.depthWrite),`${who}: opaque skin`);
-  assert(named(/hair|eyebrow/).length>=2&&named(/hair|eyebrow/).every(m=>m.alphaTest===.5&&!m.transparent),`${who}: hair and brows cut out`);
-  assert(named(/high-poly/).every(m=>m.transparent&&!m.depthWrite),`${who}: the cornea blended`);
+  assert(named(/hair|eyebrow|high-poly/).length>=3&&named(/hair|eyebrow|high-poly/).every(m=>m.alphaTest===.5&&!m.transparent),`${who}: hair, brows and cornea cut out`);
   gltf.scene.traverse(o=>{if(o.isMesh)assert(!o.castShadow&&o.userData.skipPhotographic,`${who}: ${o.name} casts no shadow and is not traced`);});
+  // The features that set a material's shader program apart; each program compiles the first time it is drawn.
+  gltf.scene.traverse(o=>{if(o.isMesh){const m=o.material;programs.add([m.type,!!m.map,!!m.normalMap,!!m.roughnessMap,!!m.metalnessMap,!!m.emissiveMap,!!m.aoMap,!!m.alphaMap,m.alphaTest>0,m.transparent,m.side,m.vertexColors,m.sheen>0,m.clearcoat>0,m.transmission>0,m.iridescence>0,m.flatShading,o.isSkinnedMesh,!!o.morphTargetInfluences].join());}});
   const walk=gltf.animations.find(a=>a.name==='walk'),idle=gltf.animations.find(a=>a.name==='idle');
   assert(Math.abs(walk.duration-1.1)<.05&&Math.abs(idle.duration-4)<.1,`${who}: walk ${walk.duration.toFixed(2)} s, idle ${idle.duration.toFixed(2)} s`);
  }}
+// Turning Sims Mode on adds few shader programs, and the viewer compiles them in the background before the figures
+// appear: compiling one stalls the page, on some computers for a second or more.
+assert(programs.size<=3,`the figures share ${programs.size} shader programs, at most 3 (opaque, cut out, the tuft's vertex colours)`);
 
 // Wandering, over the merged scene's surfaces as the walk check builds them, for four simulated minutes.
 const model=buildHouseModel(true);model.setLevel('exterior');model.root.updateMatrixWorld(true);
@@ -115,5 +121,7 @@ assert(walking/frames>.4&&walking/frames<.97,`they pause now and then (walking $
 {const panels=fs.readFileSync('components/studio/model/model-panels.tsx','utf8'),page=fs.readFileSync('components/studio/model/house-model.tsx','utf8'),viewer=fs.readFileSync('lib/house-model/viewer.ts','utf8');
  assert(/>Sims Mode</.test(panels)&&/aria-pressed=\{p\.sims\}/.test(panels),'a Sims Mode button in More');
  assert(/\[sims,setSims\]=useState\(false\)/.test(page)&&/api\.current\?\.setSims\(sims\)/.test(page),'off by default, and passed to the viewer');
- assert(/setSims:/.test(viewer)&&/import\('\.\/sims'\)/.test(viewer),'the viewer loads the figures on demand');}
-console.log(`Passed: two figures, ${shod.him.toFixed(2)} m and ${shod.her.toFixed(2)} m in shoes, each a skinned, compressed glTF with walk and idle, credited; over four minutes they walk ${travelled.map(v=>v.toFixed(0)).join(' and ')} m (${indoors.map(v=>v.toFixed(0)).join(' and ')} s indoors), pausing now and then, through nothing solid, on the plot, the garden and the ground floor. More offers Sims Mode, off by default.`);
+ assert(/setSims:/.test(viewer)&&/import\('\.\/sims'\)/.test(viewer),'the viewer loads the figures on demand');
+ const compiled=viewer.search(/compileAsync\(group/),added=viewer.search(/scene\.add\(group\)/);
+ assert(compiled>0&&compiled<added,'the viewer compiles the figures\' shaders before adding them to the scene');}
+console.log(`Passed: two figures, ${shod.him.toFixed(2)} m and ${shod.her.toFixed(2)} m in shoes, each a skinned, compressed glTF with walk and idle, credited, drawn with ${programs.size} shader programs compiled before they appear; over four minutes they walk ${travelled.map(v=>v.toFixed(0)).join(' and ')} m (${indoors.map(v=>v.toFixed(0)).join(' and ')} s indoors), pausing now and then, through nothing solid, on the plot, the garden and the ground floor. More offers Sims Mode, off by default.`);
