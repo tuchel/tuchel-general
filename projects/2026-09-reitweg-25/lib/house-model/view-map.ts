@@ -4,26 +4,30 @@ import {places,type Place} from './experience-data';
 /** The Views map: the exposé site and floor plans, with a dot where each eye-level view stands and an arrow on the frame
  * for each overview. The sheets are 2200 px wide; tracing used their 1888 px-wide presentation (site-data.ts). */
 const K=2200/1888;
-export type Sheet='grounds'|'ground'|'upper';
+export type Sheet='grounds'|'ground'|'upper'|'guest';
 /** Where a name sits beside its dot; 'above-left' ends just past the dot, for dots near a map's right edge. */
 export type Side='left'|'right'|'above'|'below'|'above-left';
-/** crop: [x, y, width, height] in sheet pixels. The floor crops cover the same ground: the upper sheet is drawn 52 trace
- * pixels east of the ground sheet. */
+/** crop: [x, y, width, height] in sheet pixels. The ground and upper crops cover the same ground: the upper sheet is drawn
+ * 52 trace pixels east of the ground sheet. The guest wing's upper floor is a crop of its own from the upper sheet, as
+ * tall as the others and shown at their scale. */
+const upperSheet=(x:number,z:number):[number,number]=>[((x-UPPER_PLAN_X_OFFSET)/PLAN_SCALE+1012)*K,(z/PLAN_SCALE+529.5)*K];
 export const sheets:Record<Sheet,{src:string;title:string;crop:[number,number,number,number];toSheet:(x:number,z:number)=>[number,number]}>={
  grounds:{src:'grounds.png',title:'Grounds',crop:[110,250,1265,810],toSheet:(x,z)=>[(x*181/12+874)*K,(z*181/12+531.5)*K]},
  ground:{src:'ground-floor.png',title:'Ground floor',crop:[905,190,555,880],toSheet:(x,z)=>[(x/PLAN_SCALE+1012)*K,(z/PLAN_SCALE+529.5)*K]},
- upper:{src:'upper-floor.png',title:'Upper floor',crop:[966,190,555,880],toSheet:(x,z)=>[((x-UPPER_PLAN_X_OFFSET)/PLAN_SCALE+1012)*K,(z/PLAN_SCALE+529.5)*K]},
+ upper:{src:'upper-floor.png',title:'Upper floor',crop:[966,190,555,880],toSheet:upperSheet},
+ guest:{src:'upper-floor.png',title:'Guest wing',crop:[100,625,450,880],toSheet:upperSheet},
 };
 /** The sheet each place stands on, and the side of its dot the name sits (clear of the way it looks). */
 const placeSheets:Record<Place,[Sheet,Side]>={
  lane:['grounds','above'],entrance:['grounds','above'],pool:['grounds','left'],court:['grounds','below'],
  living:['ground','below'],dining:['ground','left'],kitchen:['ground','right'],
- bedroom:['upper','above-left'],
+ bedroom:['upper','above-left'],guest:['guest','below'],
 };
 /** Overviews that look across the house from one side; the whole lot and the plan view look at everything. */
 const overviews:Partial<Record<Viewpoint,Side>>={courtyard:'left',east:'left',arrival:'left'};
 export const wholeViews:Viewpoint[]=['estate','top'];
-/** Sizes in CSS pixels, shared with globals.css (.view-map-*); `whole` is the corner holding the whole-lot and plan views. */
+/** Sizes in CSS pixels, shared with globals.css (.view-map-*); `whole` is the corner holding the whole-lot and plan views.
+ * `pair` is the gap between the two floor maps. */
 export const MARKER={dot:14,air:24,gap:6,pad:6,labelHeight:20,pair:8,overhang:10,whole:{inset:6,gap:4,height:24,pad:10}};
 export type MapMarker={id:Place|Viewpoint;label:string;kind:'eye'|'air';x:number;y:number;heading:number;side:Side};
 

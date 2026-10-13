@@ -13,6 +13,7 @@ const on=(id)=>all.find(m=>m.id===id);
 for(const id of ['lane','entrance','pool','court'])assert.equal(on(id).sheet,'grounds',`${id} is outside`);
 for(const id of ['living','dining','kitchen'])assert.equal(on(id).sheet,'ground',`${id} is on the ground floor`);
 assert.deepEqual(mapMarkers('upper',false).map(m=>m.id),['bedroom'],'the upper floor has the master bedroom');
+assert.deepEqual(mapMarkers('guest',false).map(m=>m.id),['guest'],'the guest wing has the guest suite');
 // Overviews from one side sit on the frame of the grounds map, pointing at what they look at; the whole lot and the plan view are buttons.
 for(const id of ['courtyard','east','arrival']){const m=on(id);assert.equal(m.sheet,'grounds');assert.equal(m.kind,'air');assert(Math.min(m.x,1-m.x,m.y,1-m.y)<.08,`${id} is on the frame`);}
 assert.equal(all.filter(m=>m.kind==='air').length,3);assert.deepEqual(wholeViews,['estate','top']);
@@ -22,6 +23,7 @@ assert.equal(mapMarkers('grounds',false).filter(m=>m.kind==='air').length,0,'ove
 const K=2200/1888,near=(a,b,msg)=>assert(Math.hypot(a[0]-b[0],a[1]-b[1])<1e-6,msg);
 near(sheets.ground.toSheet(...planPoint(1100,611)),[1100*K,611*K],'ground floor');
 near(sheets.upper.toSheet(planPoint(1165,700)[0]+UPPER_PLAN_X_OFFSET,planPoint(1165,700)[1]),[1165*K,700*K],'upper floor');
+near(sheets.guest.toSheet(planPoint(282,1101)[0]+UPPER_PLAN_X_OFFSET,planPoint(282,1101)[1]),[282*K,1101*K],'guest wing');
 near(sheets.grounds.toSheet(0,0),[874*K,531.5*K],'site plan');
 // Headings follow the view: the family room looks toward the garden (east-south-east), the kitchen northwest, the courtyard west.
 const heading=id=>on(id).heading;
@@ -29,12 +31,17 @@ assert(heading('living')>0&&heading('living')<45,'family room looks east-south-e
 assert(heading('kitchen')<-100&&heading('kitchen')>-170,'kitchen looks northwest');
 assert(Math.abs(Math.abs(heading('court'))-180)<20,'courtyard looks west');
 assert(heading('bedroom')>60&&heading('bedroom')<120,'bedroom looks south');
+assert(heading('guest')<-60&&heading('guest')>-120,'guest suite looks north to its door');
+// The guest wing map is drawn at the floor maps' scale: as tall a crop, half the pair's width times its crop's share.
+const floorWidth=width=>(width-MARKER.pair)/2,guestWidth=width=>floorWidth(width)*sheets.guest.crop[2]/sheets.upper.crop[2];
+assert.equal(sheets.guest.crop[3],sheets.upper.crop[3],'the guest wing crop is as tall as the floor crops');
+assert(fs.readFileSync('app/globals.css','utf8').includes(`.view-map-guest{width:calc((100% - ${MARKER.pair}px) / 2 * ${sheets.guest.crop[2]} / ${sheets.upper.crop[2]});`),'the guest wing map width follows its crop');
 
 // At phone and computer widths, every dot, arrow and label sits inside its map and clear of the others.
 // Label widths are estimated at 6.4 px per character plus padding (11.5 px system font).
 for(const width of [331,384,434]){
  for(const sheet of Object.keys(sheets)){
-  const [,,cw,ch]=sheets[sheet].crop,w=sheet==='grounds'?width:(width-MARKER.pair)/2,h=w*ch/cw,boxes=[];
+  const [,,cw,ch]=sheets[sheet].crop,w=sheet==='grounds'?width:sheet==='guest'?guestWidth(width):floorWidth(width),h=w*ch/cw,boxes=[];
   for(const m of mapMarkers(sheet,true)){
    const cx=m.x*w,cy=m.y*h,r=m.kind==='air'?MARKER.air/2:MARKER.dot/2,lw=m.label.length*6.4+2*MARKER.pad,lh=MARKER.labelHeight,g=r+MARKER.gap;
    const label=m.side==='right'?[cx+g,cy-lh/2,lw,lh]:m.side==='left'?[cx-g-lw,cy-lh/2,lw,lh]:m.side==='above'?[cx-lw/2,cy-g-lh,lw,lh]:m.side==='above-left'?[cx+MARKER.overhang-lw,cy-g-lh,lw,lh]:[cx-lw/2,cy+g,lw,lh];
@@ -55,4 +62,4 @@ for(const width of [331,384,434]){
  assert(/export const SHOWN=\{referencePhotos:false,roomShortcuts:false\}/.test(panels),'both hidden');
  assert(/\{SHOWN\.roomShortcuts&&!whole&&<div className="model-chips">/.test(panels),'the shortcuts follow the switch');
  assert(/\{SHOWN\.referencePhotos&&place&&<a /.test(page)&&/\{SHOWN\.referencePhotos&&room&&<div className="model-caption-photos">/.test(page),'the caption photographs follow the switch');}
-console.log('Passed: eight eye-level places and three side overviews on the site and floor plans, registered to the model, pointing the way each view looks, with labels clear of one another at 331–434 px.');
+console.log('Passed: nine eye-level places and three side overviews on the site, floor and guest wing plans, registered to the model, pointing the way each view looks, with labels clear of one another at 331–434 px.');
