@@ -1,92 +1,99 @@
 import * as T from 'three';
 import {createMover} from './walk';
-import {plotOutline,type Point} from './site-data';
+import type {Point} from './site-data';
+import {ROUTINES,type Step} from './sims-routines';
 
-/** Sims Mode: the two of them, in Bavarian dress, wander the house and grounds. Each figure is a skinned glTF built
- * from MakeHuman's base mesh, skins and community clothes (public/assets/models/CREDITS.md), with an in-place walk
- * cycle and an idle loop. Heights are standing heights without shoes; `speed` (m/s) matches the walk cycle's stride, so
- * the feet do not slide; `start` is where each figure first stands, on the courtyard lawn a few metres in front of the
- * courtyard's eye-level view. */
+/** Sims Mode: the two of them, in Bavarian dress, go about a five-minute day of their own in the house and garden
+ * (sims-routines.ts), from the start each time it is turned on. Each figure is a skinned glTF built from MakeHuman's base
+ * mesh, skins and community clothes (public/assets/models/CREDITS.md), with an in-place walk cycle and loops for
+ * standing, working with the hands and sitting. Heights are standing heights without shoes; `speed` (m/s) matches the
+ * walk cycle's stride, so the feet do not slide. */
 export const SIMS={
- him:{url:'/assets/models/sims-him.glb',height:1.80,speed:.9,start:[-11.2,10.1] as Point},
- her:{url:'/assets/models/sims-her.glb',height:1.65,speed:.8,start:[-11.9,11.1] as Point},
+ him:{url:'/assets/models/sims-him.glb',height:1.80,speed:.9,routine:ROUTINES.him},
+ her:{url:'/assets/models/sims-her.glb',height:1.65,speed:.8,routine:ROUTINES.her},
 } as const;
-/** Feet stay between these heights (m): the garden, terraces and ground floor, not the stairs to the upper floor or the
- * basement. */
-export const FLOOR_RANGE=[-.5,.75] as const;
-const TURN=2.6,FADE=.35,RADIUS=.28,APART=.9;
+/** The loops each figure plays. */
+export const CLIPS=['walk','idle','work','sit'] as const;
+export type Clip=typeof CLIPS[number];
+/** The largest step up or down a figure takes between floors (m), as the eye-level walker does (walk.ts). */
+const STEP=.45,TURN=4,FADE=.4,SETTLE=.6;
 
-export type Figure={root:T.Object3D;speed:number;start:Point;mixer?:T.AnimationMixer;walk?:T.AnimationAction;idle?:T.AnimationAction};
-type Wanderer=Figure&{mode:'idle'|'walk';until:number;heading:number;target:number;stuck:number;open:number;sky:number};
+export type Figure={root:T.Object3D;speed:number;routine:readonly Step[];mixer?:T.AnimationMixer;actions?:Partial<Record<Clip,T.AnimationAction>>};
+type Leg={walk:true;points:Point[];at:number[];length:number;pace:number;start:number;end:number}|{walk:false;clip:Clip;from:Point;spot:Point;face:Point;start:number;end:number};
 
-const inPlot=(x:number,z:number,margin:number)=>{
- let inside=false;
- for(let i=0,j=plotOutline.length-1;i<plotOutline.length;j=i++){const [xi,zi]=plotOutline[i],[xj,zj]=plotOutline[j];if((zi>z)!==(zj>z)&&x<(xj-xi)*(z-zi)/(zj-zi)+xi)inside=!inside;}
- if(!inside||!margin)return inside;
- // Keep clear of the boundary hedges and fences.
- for(let i=0,j=plotOutline.length-1;i<plotOutline.length;j=i++){
-  const [ax,az]=plotOutline[j],[bx,bz]=plotOutline[i],dx=bx-ax,dz=bz-az,t=T.MathUtils.clamp(((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz),0,1);
-  if(Math.hypot(x-ax-dx*t,z-az-dz*t)<margin)return false;
+/** A routine as a timetable: each walk takes its length at the figure's speed (times its pace), each stay its seconds. */
+export function timetable(routine:readonly Step[],speed:number){
+ const legs:Leg[]=[];let time=0,last:Point|undefined;
+ for(const step of routine){
+  if('path' in step){
+   const at=[0];for(let i=1;i<step.path.length;i++)at.push(at[i-1]+Math.hypot(step.path[i][0]-step.path[i-1][0],step.path[i][1]-step.path[i-1][1]));
+   const pace=step.pace??1,length=at.at(-1)!;legs.push({walk:true,points:step.path,at,length,pace,start:time,end:time+=length/(speed*pace)});last=step.path.at(-1);
+  }else{
+   const from=last??(routine.find((s):s is Extract<Step,{path:Point[]}>=>'path' in s)!.path[0]);
+   legs.push({walk:false,clip:step.stay,from,spot:step.at??from,face:step.face,start:time,end:time+=step.seconds});
+  }
  }
- return true;
+ return {legs,length:time};
+}
+const along=(leg:Extract<Leg,{walk:true}>,d:number):[number,number,number]=>{
+ let i=1;while(i<leg.at.length-1&&leg.at[i]<d)i++;
+ const [ax,az]=leg.points[i-1],[bx,bz]=leg.points[i],span=leg.at[i]-leg.at[i-1],t=span?T.MathUtils.clamp((d-leg.at[i-1])/span,0,1):1;
+ return [ax+(bx-ax)*t,az+(bz-az)*t,Math.atan2(bx-ax,bz-az)];
 };
-const PLOT_CENTRE=plotOutline.reduce((c,[x,z])=>[c[0]+x/plotOutline.length,c[1]+z/plotOutline.length],[0,0]);
 
-/** Wandering: each figure walks a while in one direction, turning smoothly, then stands a few seconds and sets off
- * again. Walls and furniture slide it aside and, if it makes no headway, turn it; doors let it through; drops stop it,
- * as for the eye-level walker (walk.ts). It keeps to the plot, the garden and the ground floor, and steps round the
- * other figure. `random` is Math.random in the viewer, seeded in the check. */
-export function createWanderers(figures:Figure[],surfaces:()=>T.Mesh[],random=Math.random){
- const mover=createMover(surfaces,RADIUS),move=new T.Vector3(),chest=new T.Vector3();let time=0,placed=false,meshes:T.Mesh[]=[],gathered=-1;
- const between=(a:number,b:number)=>a+(b-a)*random();
- const ws:Wanderer[]=figures.map(f=>({...f,mode:'idle',until:between(.5,2),heading:between(-Math.PI,Math.PI),target:0,stuck:0,open:1,sky:0}));
- ws.forEach(w=>{w.target=w.heading;w.root.rotation.y=w.heading;});
- const play=(w:Wanderer,mode:'idle'|'walk')=>{
-  w.mode=mode;const on=mode==='walk'?w.walk:w.idle,off=mode==='walk'?w.idle:w.walk;
+/** The figures following their routines over the scene's surfaces: walks follow their paths, the feet on the floor below
+ * (a stair one tread at a time); a stay turns the figure to face its point and, to sit, settles it onto the seat. A floor
+ * that is hidden (the upper floor in the ground-floor cutaway) holds the figure at its height rather than dropping it. */
+export function createRoutines(figures:Figure[],surfaces:()=>T.Mesh[]){
+ const mover=createMover(surfaces);let meshes:T.Mesh[]=[],gathered=-1,clock=0;
+ const ws=figures.map(f=>({...f,table:timetable(f.routine,f.speed),time:0,y:0,heading:0,clip:undefined as Clip|undefined,open:1,sky:0,x:0,z:0}));
+ const play=(w:typeof ws[number],clip:Clip)=>{
+  if(w.clip===clip)return;const on=w.actions?.[clip],off=w.clip&&w.actions?.[w.clip];w.clip=clip;
   if(on){on.enabled=true;on.setEffectiveWeight(1);on.reset().fadeIn(FADE).play();}off?.fadeOut(FADE);
  };
- const place=(meshes:T.Mesh[])=>{
-  for(const w of ws){const [x,z]=w.start,y=mover.groundAt(x,z,1.5,meshes)??0;w.root.position.set(x,y,z);w.idle?.play();w.walk?.play().setEffectiveWeight(0);}
-  placed=true;
+ // Where a figure stands at `time`: [x, z, heading or undefined, the leg].
+ const at=(w:typeof ws[number],time:number)=>{
+  const t=((time%w.table.length)+w.table.length)%w.table.length,leg=w.table.legs.find(l=>t<l.end)??w.table.legs.at(-1)!;
+  if(leg.walk){const [x,z,h]=along(leg,(t-leg.start)*w.speed*leg.pace);return {x,z,heading:h,leg};}
+  // Settle onto the seat at the start of a stay and back off it at the end.
+  const k=Math.min(T.MathUtils.smoothstep(t-leg.start,0,SETTLE),T.MathUtils.smoothstep(leg.end-t,0,SETTLE));
+  return {x:leg.from[0]+(leg.spot[0]-leg.from[0])*k,z:leg.from[1]+(leg.spot[1]-leg.from[1])*k,heading:Math.atan2(leg.face[0]-leg.from[0],leg.face[1]-leg.from[1]),leg};
+ };
+ // Feet onto the floor below, a little at a time along the way so a stair is climbed tread by tread.
+ const settle=(w:typeof ws[number],x:number,z:number)=>{
+  const n=Math.max(1,Math.ceil(Math.hypot(x-w.x,z-w.z)/.15));
+  for(let i=1;i<=n;i++){const px=w.x+(x-w.x)*i/n,pz=w.z+(z-w.z)*i/n,y=mover.groundAt(px,pz,w.y+STEP,meshes);if(y!==undefined&&y>w.y-STEP)w.y=y;}
+  w.x=x;w.z=z;
+ };
+ const restart=()=>{
+  meshes=mover.solids();gathered=clock;
+  for(const w of ws){
+   w.time=0;w.clip=undefined;for(const a of Object.values(w.actions??{}))a?.stop();
+   const p=at(w,0),first=w.table.legs.find(l=>l.walk);w.x=p.x;w.z=p.z;w.y=mover.groundAt(p.x,p.z,1.5,meshes)??0;w.heading=p.heading;
+   if(first?.walk)w.heading=along(first,0)[2];
+   w.root.position.set(w.x,w.y,w.z);w.root.rotation.y=w.heading;w.sky=0;
+  }
  };
  return {
-  figures:ws as readonly Wanderer[],
-  /** Advances every figure by `dt` seconds; returns true (they are always moving, if only breathing). */
+  figures:ws as readonly typeof ws[number][],
+  /** Starts both from the beginning of their routines. */
+  restart,
+  /** Advances every figure by `dt` seconds. */
   step:(dt:number)=>{
+   clock+=dt;if(gathered<0)restart();
    // What is solid is gathered twice a second: floors and renovations change only on a click.
-   if(!placed||time-gathered>.5){meshes=mover.solids();gathered=time;}
-   if(!placed)place(meshes);time+=dt;
+   if(clock-gathered>.5){meshes=mover.solids();gathered=clock;}
    for(const w of ws){
-    const p=w.root.position;
-    if(w.mode==='idle'&&time>w.until){
-     // Set off: a fresh direction, leaning toward the middle of the plot from near its edge.
-     w.target=between(-Math.PI,Math.PI);
-     if(!inPlot(p.x,p.z,4))w.target=Math.atan2(PLOT_CENTRE[0]-p.x,PLOT_CENTRE[1]-p.z)+between(-.6,.6);
-     w.until=time+between(6,16);w.stuck=0;play(w,'walk');
-    }
-    if(w.mode==='walk'){
-     // Turn smoothly toward the chosen heading; step round the other figure when close.
-     for(const o of ws)if(o!==w&&o.root.position.distanceTo(p)<APART){const away=Math.atan2(p.x-o.root.position.x,p.z-o.root.position.z);w.target=away+between(-.5,.5);}
-     const diff=Math.atan2(Math.sin(w.target-w.heading),Math.cos(w.target-w.heading));
-     w.heading+=Math.sign(diff)*Math.min(Math.abs(diff),TURN*dt);
-     const pace=w.speed*(Math.abs(diff)>1.2?.4:1);
-     move.set(Math.sin(w.heading),0,Math.cos(w.heading)).multiplyScalar(pace*dt);
-     const wanted=move.length(),next=mover.slide(p,move,meshes);
-     const ok=!!next&&next.y>=FLOOR_RANGE[0]&&next.y<=FLOOR_RANGE[1]&&inPlot(next.x,next.z,.6);
-     const progress=ok?Math.hypot(next.x-p.x,next.z-p.z):0;
-     if(ok)p.copy(next);
-     // No headway (a wall head-on, a drop, the boundary or a stair): turn well away.
-     if(progress<.35*wanted)w.stuck+=dt;else w.stuck=Math.max(0,w.stuck-dt);
-     if(w.stuck>.4){w.target=w.heading+Math.PI*between(.5,1.5)*(random()<.5?-1:1);w.stuck=0;}
-     if(w.walk)w.walk.timeScale=T.MathUtils.clamp(progress/Math.max(1e-6,w.speed*dt),.3,1);
-     if(time>w.until){w.until=time+between(2,6);play(w,'idle');}
-    }
-    w.root.rotation.y=w.heading;
+    w.time+=dt;const p=at(w,w.time),leg=p.leg;
+    if(leg.walk)settle(w,p.x,p.z);else{w.x=p.x;w.z=p.z;}
+    play(w,leg.walk?'walk':leg.clip);
+    if(leg.walk&&w.actions?.walk)w.actions.walk.timeScale=leg.pace;
+    const diff=Math.atan2(Math.sin(p.heading-w.heading),Math.cos(p.heading-w.heading));w.heading+=Math.sign(diff)*Math.min(Math.abs(diff),TURN*dt);
+    w.root.position.set(w.x,w.y,w.z);w.root.rotation.y=w.heading;
     // Light indoors: how much sky the figure sees, eased, so it dims inside as the rooms do (read every half second).
-    if(time>w.sky){w.sky=time+.5;w.open=mover.openness(chest.copy(p).setY(p.y+1.3));}
+    if(clock>w.sky){w.sky=clock+.5;w.open=mover.openness(new T.Vector3(w.x,w.y+1.3,w.z));}
     w.mixer?.update(dt);
    }
-   return true;
   },
  };
 }
@@ -135,10 +142,10 @@ export async function loadSims(){
   const gltf=await loader.loadAsync(spec.url),root=new T.Group();root.name=`sims-${name}`;root.add(gltf.scene);
   const materials=finishFigure(gltf.scene);
   const shadow=contactShadow();shadow.userData.skipPhotographic=true;root.add(shadow);
-  const mixer=new T.AnimationMixer(gltf.scene),clip=(n:string)=>gltf.animations.find(a=>a.name===n);
-  const walk=clip('walk')?mixer.clipAction(clip('walk')!):undefined,idle=clip('idle')?mixer.clipAction(clip('idle')!):undefined;
+  const mixer=new T.AnimationMixer(gltf.scene),actions:Partial<Record<Clip,T.AnimationAction>>={};
+  for(const name of CLIPS){const clip=gltf.animations.find(a=>a.name===name);if(clip)actions[name]=mixer.clipAction(clip);}
   group.add(root);
-  return {root,speed:spec.speed,start:spec.start,mixer,walk,idle,materials:[...materials]} satisfies Figure&{materials:T.MeshStandardMaterial[]};
+  return {root,speed:spec.speed,routine:spec.routine,mixer,actions,materials:[...materials]} satisfies Figure&{materials:T.MeshStandardMaterial[]};
  }));
  for(const r of loaded)if(r.status==='rejected')console.warn('Sims figure unavailable',r.reason);
  return {group,figures:loaded.flatMap(r=>r.status==='fulfilled'?[r.value]:[])};
