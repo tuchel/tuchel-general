@@ -9,7 +9,7 @@ await build({entryPoints:['lib/house-model/landscape-context.ts','lib/house-mode
 const {buildHouseModel}=await import('../tmp/garage-check/build-model.mjs');
 const {landscapeContext}=await import('../tmp/garage-check/landscape-context.mjs');
 const {renovations,offered,renovationState}=await import('../tmp/garage-check/renovation-data.mjs');
-const {garagePoint,roadPoint,GARAGE,BIN_ROOM,BIN_PATH,DRIVE_GATE,PEDESTRIAN_GATE,ROAD_LENGTH,FORECOURT_LAWN,ROSE_GARDEN,ROSE_BEDS,ROSE_EDGING,ROSE_OPENINGS,GARAGE_BEDS}=await import('../tmp/garage-check/front-garage.mjs');
+const {garagePoint,roadPoint,GARAGE,BIN_ROOM,BIN_PATH,DRIVE_GATE,PEDESTRIAN_GATE,ROAD_LENGTH,FORECOURT_LAWN,ROSE_GARDEN,ROSE_BEDS,ROSE_EDGING,ROSE_OPENINGS,GARAGE_BEDS,ISLAND_LAWN,ISLAND_STRIP}=await import('../tmp/garage-check/front-garage.mjs');
 const {sitePoint,viewpoints,treePositions}=await import('../tmp/garage-check/site-data.mjs');
 const {FRUIT_TREES,SHRUBS,CHERRIES}=await import('../tmp/garage-check/front-garden.mjs');
 const {drivewayFootprint,roadsideInset,insideEntrancePolygon}=await import('../tmp/garage-check/entrance-garden.mjs');
@@ -37,7 +37,9 @@ const forecourt=[];for(let x=-35.5;x<=-28;x+=.4)for(let z=5.3;z<=12.5;z+=.4){con
 const wingStrip=[];{const [a,b]=[drivewayFootprint[10],drivewayFootprint[11]];for(let t=.05;t<=.95;t+=.05)wingStrip.push([a[0]+(b[0]-a[0])*t-1.2,a[1]+(b[1]-a[1])*t]);}
 // Points 0.15 m and more inside each of the beds the garage plants where the drive was, on a 0.25 m grid.
 const inBeds=GARAGE_BEDS.map(bed=>{const out=[],xs=bed.map(q=>q[0]),zs=bed.map(q=>q[1]);for(let x=Math.min(...xs);x<=Math.max(...xs);x+=.25)for(let z=Math.min(...zs);z<=Math.max(...zs);z+=.25)if(insideEntrancePolygon(x,z,bed)&&edge([x,z],bed)>=.15)out.push([x,z]);return out;});
-const planted=p=>GARAGE_BEDS.some(b=>insideEntrancePolygon(...p,b));
+const planted=p=>[...GARAGE_BEDS,ISLAND_LAWN].some(b=>insideEntrancePolygon(...p,b));
+// And on the lawn between the island's strip and the lane.
+const onLawn=[],[lx,lz]=[ISLAND_LAWN.map(q=>q[0]),ISLAND_LAWN.map(q=>q[1])];for(let x=Math.min(...lx);x<=Math.max(...lx);x+=.25)for(let z=Math.min(...lz);z<=Math.max(...lz);z+=.25)if(insideEntrancePolygon(x,z,ISLAND_LAWN)&&edge([x,z],ISLAND_LAWN)>=.15)onLawn.push([x,z]);
 const removedTrees=[[246,690],[256,833],[308,839],[357,846],...FRUIT_TREES,...SHRUBS].map(([x,z])=>sitePoint(x,z));
 
 let roseCount=0;
@@ -65,7 +67,7 @@ for(const realistic of [false,true]){
   {const g=root.getObjectByName('forecourt-rose-garden');assert(g&&!visible(g),'the rose garden is built and shown only with the garage');}
   // and the drive and the notch cobbled where the garage plants its beds.
   {const g=root.getObjectByName('garage-beds');assert(g&&!visible(g),'the beds are built and shown only with the garage');}
-  for(const p of inBeds.flat())if([drivewayFootprint,roadsideInset].some(a=>insideEntrancePolygon(...p,a)&&edge(p,a)>.3))assert(on_(stones,p),`today's cobbles at ${p.map(n=>n.toFixed(1))}`);}
+  for(const p of [...inBeds.flat(),...onLawn])if([drivewayFootprint,roadsideInset].some(a=>insideEntrancePolygon(...p,a)&&edge(p,a)>.3))assert(on_(stones,p),`today's cobbles at ${p.map(n=>n.toFixed(1))}`);}
 
  on({garage:true});
  const garage=root.getObjectByName('front-garage');assert(visible(garage),'the garage stands');
@@ -133,7 +135,14 @@ for(const realistic of [false,true]){
   inBeds.forEach((points,i)=>{assert(points.length>=3,`bed ${i} is tested at ${points.length} points`);for(const p of points){
    assert(!cobbled(p),`no cobbles in bed ${i}, at ${p.map(q=>q.toFixed(2))}`);
    const hit=first(v3(p,1),v3(p,-.1),root);assert(hit&&named(hit.object,'garage-beds'),`soil in bed ${i} at ${p.map(q=>q.toFixed(2))} (${hit?.object.name})`);
-   assert(tufts.some(t=>Math.hypot(t[0]-p[0],t[1]-p[1])<.6),`grasses all over bed ${i}, at ${p.map(q=>q.toFixed(2))}`);}});}
+   assert(tufts.some(t=>Math.hypot(t[0]-p[0],t[1]-p[1])<.6),`grasses all over bed ${i}, at ${p.map(q=>q.toFixed(2))}`);}});
+  // Between the walk's strip and the lane, lawn: no cobbles and no grasses. The strip is 1.3 m deep across the walk.
+  assert(onLawn.length>=20,`the lawn is tested at ${onLawn.length} points`);
+  for(const p of onLawn){assert(!cobbled(p),`no cobbles on the lawn, at ${p.map(q=>q.toFixed(2))}`);
+   const hit=first(v3(p,1),v3(p,-.1),root);assert(hit&&hit.object.material.userData.photo==='lawn'&&named(hit.object,'garage-beds'),`lawn at ${p.map(q=>q.toFixed(2))} (${hit?.object.name})`);
+   {const t=tufts.find(t=>Math.hypot(t[0]-p[0],t[1]-p[1])<.1);assert(!t,`no grasses on the lawn, at ${p.map(q=>q.toFixed(2))} (${t})`);}}
+  {const [a,b]=[GARAGE_BEDS[0][1],GARAGE_BEDS[0][2]];for(let t=.1;t<=.9;t+=.1){const p=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t],len=Math.hypot(b[0]-a[0],b[1]-a[1]),n=[-(b[1]-a[1])/len,(b[0]-a[0])/len];
+   const at=d=>[p[0]+n[0]*d,p[1]+n[1]*d];assert(insideEntrancePolygon(...at(ISLAND_STRIP-.1),GARAGE_BEDS[0])&&insideEntrancePolygon(...at(ISLAND_STRIP+.1),ISLAND_LAWN),`the strip is ${ISLAND_STRIP} m deep along the walk`);}}}
 // The drive's south end, where cars no longer stand, is lawn; the strip along the guest wing stays cobbled to its garden
  // door. With the well garden's lawn it makes one rose garden: a border of roses all round, edged in box on the lawn
  // side, open to the drive and opposite the garden door, and the cherries down its middle.

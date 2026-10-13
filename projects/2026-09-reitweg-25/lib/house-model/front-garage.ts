@@ -67,9 +67,20 @@ export const ROSE_OPENINGS:[[number,number],number][]=[[[(LAWN_NE[0]+LAWN_NW[0])
  * grasses (entrance-garden.ts), in three beds: from the fence to the guest wing between the walk and the lane, its edge
  * following the lane's curve and stopping 1.6 m short of the wing so the walk still reaches the bay; the notch's tip north
  * of the walk, which now crosses the notch to the pedestrian gate; and along the fence from the drive gate to the garage,
- * up to 1.1 m deep, narrowing to 0.45 m where cars run straight in at the left-hand door (world x, z). */
+ * up to 1.1 m deep, narrowing to 0.45 m where cars run straight in at the left-hand door (world x, z). The first is planted
+ * only in a strip 1.3 m deep along the walk, about as deep as the bed beside the guest wing's gable; from there to the
+ * lane it is lawn (ISLAND_LAWN). */
+export const ISLAND_STRIP=1.3;
+export const [GARAGE_ISLAND,ISLAND_LAWN]=(()=>{
+ const walk:[number,number][]=[roadPoint(PEDESTRIAN_GATE[0]-.25,.15),[-34.3,-4.62],[-26.3,-1.68]],wing:[number,number]=[-26.3,1],fence=roadPoint(DRIVE_GATE[1]+.2,.15);
+ const lane:[number,number][]=[wing,[-27.5,1.7],[-29.5,1.9],[-31.5,1.4],[-33.5,.4],[-35.1,-1.05],[-36.5,-2.35],fence];
+ // The walk's edge moved 1.3 m toward the lane, its ends on the fence and on the island's end by the guest wing.
+ const lines=walk.slice(1).map((b,i)=>{const a=walk[i],len=Math.hypot(b[0]-a[0],b[1]-a[1]),n=[-(b[1]-a[1])/len*ISLAND_STRIP,(b[0]-a[0])/len*ISLAND_STRIP];return [[a[0]+n[0],a[1]+n[1]],[b[0]+n[0],b[1]+n[1]]] as [number,number][];});
+ const edge=[meet(lines[0][0],lines[0][1],walk[0],fence),meet(lines[0][0],lines[0][1],lines[1][0],lines[1][1]),meet(lines[1][0],lines[1][1],walk[2],wing)];
+ return [[...walk,...edge.slice().reverse()],[...edge,...lane]];
+})();
 export const GARAGE_BEDS:[number,number][][]=[
- [roadPoint(PEDESTRIAN_GATE[0]-.25,.15),[-34.3,-4.62],[-26.3,-1.68],[-26.3,1],[-27.5,1.7],[-29.5,1.9],[-31.5,1.4],[-33.5,.4],[-35.1,-1.05],[-36.5,-2.35],roadPoint(DRIVE_GATE[1]+.2,.15)],
+ GARAGE_ISLAND,
  [roadPoint(PEDESTRIAN_GATE[1]+.25,.15),roadPoint(ROAD_LENGTH-.4,.15),[-33.95,-7.3],[-33.6,-6.45]],
  [roadPoint(DRIVE_GATE[0]-.2,.15),roadPoint(5.4,.9),roadPoint(4,1.1),roadPoint(2.2,1),roadPoint(.6,.6),garagePoint(.45,1),garagePoint(.45,4.7),garagePoint(.25,GARAGE.v0-.1),garagePoint(.15,GARAGE.v0-.1),garagePoint(.15,0),roadPoint(0,.15)],
 ];
