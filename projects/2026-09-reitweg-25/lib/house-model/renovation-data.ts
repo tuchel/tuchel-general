@@ -7,11 +7,12 @@ export const renovations = [
  {id:'courtyard',title:'Lounge by the fire',detail:'The fireside lounge, long table under the eaves and a wall-side serving counter.',view:'courtyard',center:[-13.7,7],span:20},
  {id:'front',title:'Arrival Wall',detail:'A taller boundary in the house’s upright timber cladding, with matching gates.',view:'wall',center:[-35,0],span:35},
  {id:'garage',title:'Front Garage',detail:'A two-car garage on the lane, under a slate roof at the guest wing’s pitch, reached from a new gate by one lane curving round to its doors. Beside it, a bin room for four bins opens to the lane, with a cobbled path from the drive. A 2 m timber fence and gates close the notch. The rest of the old drive and the notch is planted with ornamental grasses, like the island beside the walk. The well garden and the drive’s south end, where cars no longer park, become one lawn bordered with roses edged in box, three cherry trees down its middle.',view:'garage',center:[-37,13],span:24},
+ {id:'skylights',title:'Guest Wing Skylights',detail:'Four more roof windows in the guest wing’s west slope: two over the study and two over the bedroom, in line with the three over the landing and shower room and at their 1.9 m spacing.',view:'guestRoof',center:[-21,10],span:20},
  {id:'solar',title:'Solar & battery storage',detail:'50 panels on the main roof · 22.5 kWp, with two battery placeholders. Gas heating retained; annual electricity balance, with winter grid support.',view:'east',center:[-7,2],span:38},
 ] as const;
 export type RenovationId=typeof renovations[number]['id'];
 export type RenovationState=Record<RenovationId,boolean>;
-export const renovationState=(enabled=false):RenovationState=>({kitchen:enabled,east:enabled,nook:enabled,terrace:enabled,courtyard:enabled,front:enabled,garage:enabled,solar:enabled});
+export const renovationState=(enabled=false):RenovationState=>({kitchen:enabled,east:enabled,nook:enabled,terrace:enabled,courtyard:enabled,front:enabled,garage:enabled,skylights:enabled,solar:enabled});
 /** Kept in the model but not offered for now: out of the panel, and off with "All on" or when a link names them. */
 export const setAside:ReadonlySet<RenovationId>=new Set<RenovationId>(['terrace','courtyard','solar']);
 export const offered=renovations.filter(r=>!setAside.has(r.id));

@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {roofSlopeWithOpenings,roofLining} from './roof-openings';
+import {roofSlopeWithOpenings,roofLining,type Skylight} from './roof-openings';
 import {architecturalDetails} from './architectural-details';
 import {roofTrim} from './realism-details';
 import {garageCars} from './garage-cars';
@@ -15,7 +15,7 @@ import {buildFrontGarden,buildRoseGarden,FRUIT_TREES,SHRUBS,GARAGE_CLEARS,CHERRI
 import {buildEastGarden,EAST_GARDEN_TREES} from './east-garden';
 import {buildNorthGarden} from './north-garden';
 import {furnishHouse} from './interiors';
-import {roofSkylights} from './solar-layout';
+import {roofSkylights,guestSkylightsAdded} from './solar-layout';
 import {buildRenovations} from './renovations';
 import {renovationState,type RenovationId,type RenovationState} from './renovation-data';
 import {planPoint as p,sitePoint as s,plotOutline,treePositions,MEADOW_TREES,guestRoofFrame,GUEST_ROOF,UPPER_PLAN_X_OFFSET,BASEMENT_PLAN_X_OFFSET,PLAN_SCALE,type Level,type Region} from './site-data';
@@ -308,7 +308,15 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  function pitchedRoof(cx:number,cz:number,width:number,length:number,eave:number,ridge:number,rotation=0,kind:'main'|'guest'|'link'='main',footprint?:[number,number][],above:((x:number,z:number)=>number)[]=[]){
   const g=new T.Group();g.name=kind+'-roof';g.position.set(cx,0,cz);g.rotation.y=rotation;roofs.add(g);const rise=ridge-eave,half=width/2,slope=Math.atan2(rise,half),span=Math.hypot(half,rise);
   const windows=kind==='link'?[]:roofSkylights(kind);
-  for(const side of [-1,1]){const mesh=realistic?add(roofSlopeWithOpenings(half,length,eave,ridge,side,windows),m.roof,g,'main'):box(g,side*half/2,(eave+ridge)/2-.075,0,span,.15,length,m.roof,'main');if(!realistic)mesh.rotation.z=-side*slope;mesh.name=kind+'-roof-slope-'+side;outline(mesh);box(g,side*half,eave-.06,0,.14,.18,length,m.edge).name='roof-eave-fascia';}
+  // The Guest Wing Skylights renovation adds windows to the guest roof's west slope. That slope and its ceiling are drawn
+  // twice, as they are and with the new openings, each version in a group of its own with the new windows' frames and
+  // reveals; the renovation shows one group or the other.
+  const added=kind==='guest'?guestSkylightsAdded:[],swap=added.length?[false,true].map(on=>{const t=new T.Group();t.name=on?'guest-skylights-added':'guest-skylights-original';g.add(t);((on?additions:originals).skylights??=[]).push(t);return t;}):[];
+  const versions=(side:number,openings:Skylight[]):[T.Group,Skylight[]][]=>swap.length&&added.some(w=>w.side===side)?[[swap[0],openings],[swap[1],[...openings,...added]]]:[[g,openings]];
+  for(const side of [-1,1]){
+   if(realistic)for(const [parent,openings] of versions(side,windows)){const mesh=add(roofSlopeWithOpenings(half,length,eave,ridge,side,openings),m.roof,parent,'main');mesh.name=kind+'-roof-slope-'+side;outline(mesh);}
+   else{const mesh=box(g,side*half/2,(eave+ridge)/2-.075,0,span,.15,length,m.roof,'main');mesh.rotation.z=-side*slope;mesh.name=kind+'-roof-slope-'+side;outline(mesh);}
+   box(g,side*half,eave-.06,0,.14,.18,length,m.edge).name='roof-eave-fascia';}
   // A downpipe or gutter never stands inside a building: test eave points against the main and guest footprints.
   if(realistic)roofTrim(g,half,length,eave,(side,z)=>{const lx=side*(half-.1),x=cx+lx*Math.cos(rotation)+z*Math.sin(rotation),wz=cz-lx*Math.sin(rotation)+z*Math.cos(rotation);return !indoors(x,wz);});
   // Close the whole upper envelope on the actual wall planes. Roof eaves
@@ -356,7 +364,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
   }
   // The east roof has three groups and one high window; the photos rule out an even row.
   const skylights=kind==='link'?[]:roofSkylights(kind);
-  for(const {side,z,fraction} of skylights){const x=side*half*fraction,y=ridge-rise*fraction;if(realistic){const frame=new T.Group();frame.position.set(x,y,z);frame.rotation.z=-side*slope;frame.name='open-roof-window';g.add(frame);passable(frame);for(const a of [-.655,.655])box(frame,a,-.03,0,.09,.12,.78,m.dark);for(const a of [-.345,.345])box(frame,0,-.03,a,1.4,.12,.09,m.dark);box(frame,0,.05,0,1.32,.028,.7,glass);}else{const win=box(g,x,y-.03,z,1.4,.11,.78,m.dark);win.rotation.z=-side*slope;const pane=box(g,x,y+.02,z,1.3,.04,.7,glass);pane.rotation.z=-side*slope;}}
+  const roofWindow=(g:T.Group,{side,z,fraction}:Skylight)=>{const x=side*half*fraction,y=ridge-rise*fraction;if(realistic){const frame=new T.Group();frame.position.set(x,y,z);frame.rotation.z=-side*slope;frame.name='open-roof-window';g.add(frame);passable(frame);for(const a of [-.655,.655])box(frame,a,-.03,0,.09,.12,.78,m.dark);for(const a of [-.345,.345])box(frame,0,-.03,a,1.4,.12,.09,m.dark);box(frame,0,.05,0,1.32,.028,.7,glass);}else{const win=box(g,x,y-.03,z,1.4,.11,.78,m.dark);win.rotation.z=-side*slope;const pane=box(g,x,y+.02,z,1.3,.04,.7,glass);pane.rotation.z=-side*slope;}};
+  for(const w of skylights)roofWindow(g,w);for(const w of added)roofWindow(swap[1],w);
 
   box(g,0,ridge-.01,0,.15,.12,length,m.edge).name='roof-ridge-cap';
   // Inside, a plastered ceiling hangs a build-up below the slab, with plastered reveals and blinds at the roof windows,
@@ -367,9 +376,9 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
    // The main roof overhangs its gables; its ceiling and ridge beam stop at the gable walls' inner faces.
    const ceiling=(x:number)=>ridge-rise*Math.abs(x)/half-.045-CEILING,depth=CEILING*half/span,lined=footprint?length:S-N-.21;
    // Ceilings and reveals never stop a walk: the knee walls do, and a walk back in from a roof window passes under them.
-   for(const side of [-1,1]){const lining=passable(add(roofLining(half,lined,eave,ridge,side,skylights,depth,half-.3),m.upperPlaster,g));lining.castShadow=false;lining.name=kind+'-ceiling-'+side;}
-   for(const {side,z,fraction} of skylights){
-    const reveal=new T.Group();reveal.position.set(side*half*fraction,ridge-rise*fraction,z);reveal.rotation.z=-side*slope;g.add(reveal);const y=-.15-depth;
+   for(const side of [-1,1])for(const [parent,openings] of versions(side,skylights)){const lining=passable(add(roofLining(half,lined,eave,ridge,side,openings,depth,half-.3),m.upperPlaster,parent));lining.castShadow=false;lining.name=kind+'-ceiling-'+side;}
+   for(const [parent,list] of [[g,skylights],[swap[1],added]] as const)for(const {side,z,fraction} of list){
+    const reveal=new T.Group();reveal.position.set(side*half*fraction,ridge-rise*fraction,z);reveal.rotation.z=-side*slope;parent.add(reveal);const y=-.15-depth;
     for(const d of [-1,1]){box(reveal,0,y,d*.415,1.47,depth,.03,m.upperPlaster).castShadow=false;box(reveal,d*.735,y,0,.03,depth,.86,m.upperPlaster).castShadow=false;}
     // The rolled blind sits up inside the reveal at the window head.
     box(reveal,-side*.63,y+.02,0,.12,.1,.84,m.blind).castShadow=false;
@@ -589,7 +598,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // A renovation whose parts each sit in a group of their own (its group and its additions), as do its originals, toggles
  // outside the states: all those groups stay shown while states are enumerated, and the batches parented to them follow
  // their visibility, on top of the states of any group around them (the east façade's centred dining table).
- const renovationIds=Object.keys(renovationState()) as RenovationId[],grouped=new Set<RenovationId>(['nook','garage']);
+ const renovationIds=Object.keys(renovationState()) as RenovationId[],grouped=new Set<RenovationId>(['nook','garage','skylights']);
  const stateIds=renovationIds.filter(id=>!grouped.has(id)),combinations=1<<stateIds.length;
  const toggled=[...grouped].flatMap(id=>[renovation.groups[id],...(originals[id]??[]),...(additions[id]??[])]);
  const stateOf=(level:Level,state:RenovationState)=>levels.indexOf(level)*combinations+stateIds.reduce((bits,id,i)=>bits|(state[id]?1<<i:0),0);
