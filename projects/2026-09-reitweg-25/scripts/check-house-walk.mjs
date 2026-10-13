@@ -65,14 +65,14 @@ assert(down.y-1.65<-2,`walker goes down the basement stair from the hall (feet a
 // At the foot of the stair the basement hall opens to the east: the walk carries on into it.
 {const [fx,fz]=p(926,620),feet=stroll([fx,-2.3+1.65,fz],[fx+10,-2.3+1.65,fz],-2.3,[[1.5,{forward:1,strafe:0}]]);
  assert(feet<-2&&camera.position.x-fx>2,`walker carries on into the basement hall (${(camera.position.x-fx).toFixed(2)} m, feet at ${feet.toFixed(2)} m)`);}
-// Starting places: the courtyard lawn and the master bedroom upstairs each start on their floor with room to walk;
+// Starting places: the courtyard lawn, the master bedroom and the guest suite upstairs each start on their floor with room to walk;
 // a walking pace covers about 2.1 m a second (1.5× an everyday 1.4 m/s), so a second's walk from the lawn is over 2 m.
 // Curbside stands on the road outside the front wall and looks east across it to the house.
 {const q=places.lane;assert.equal(q.short,'Curbside');assert(q.position[0]<-37&&q.target[0]>q.position[0]+10,`curbside looks east from the road (${q.position[0]} → ${q.target[0]})`);}
-for(const [key,floor] of [['court',0],['bedroom',3.07],['lane',0]]){const q=places[key];assert(q,`${key} place exists`);
+for(const [key,floor] of [['court',0],['bedroom',3.07],['guest',3.1],['lane',0]]){const q=places[key];assert(q,`${key} place exists`);
  const start=new T.Vector3(...q.position),end=walk(q.position,q.target,1),moved=Math.hypot(end.x-start.x,end.z-start.z);
  assert(Math.abs(end.y-1.65-floor)<.35,`${key}: the walk starts on its floor (feet at ${(end.y-1.65).toFixed(2)} m)`);
- assert(moved>(key==='bedroom'?.8:2),`${key}: a second's walk covers ${moved.toFixed(2)} m`);}
+ assert(moved>(key==='bedroom'||key==='guest'?.8:2),`${key}: a second's walk covers ${moved.toFixed(2)} m`);}
 // Exposure follows where the walker stands: the family room sees almost no sky and keeps the room exposure (4×); out
 // through the garden door, the terrace is exposed as outdoors.
 const {roomExposure}=await import('../tmp/walk-check/lighting.mjs');
@@ -86,4 +86,4 @@ assert(outside<1.1,`the terrace is exposed as outdoors (×${outside.toFixed(2)})
  const wander=+(viewer.match(/const WANDER=([\d.]+)/)?.[1]??NaN);assert(wander>=.5&&wander<=1.5,`the caption goes after ${wander} m`);
  assert(/placeStart\.copy\(rig\.lens\.position\);wandered=false;options\.onWander\?\.\(false\);/.test(viewer)&&/if\(!wandered&&rig\.lens\.position\.distanceTo\(placeStart\)>WANDER\)\{wandered=true;options\.onWander\?\.\(true\);\}/.test(viewer),'the viewer reports leaving the start of a place');
  assert(/onWander:setWandered/.test(page)&&/caption&&!selected&&!\(place&&wandered\)/.test(page),'the page hides the caption until a place is chosen again');}
-console.log(`Passed: the curbside, courtyard and master bedroom places start on their floors at a 2.1 m/s pace; the garden door, hall doors and front gate let the walker through, a wall stops it (${south.z.toFixed(2)} m), and the main stair reaches the upper floor (feet at ${(top.y-1.65).toFixed(2)} m) and the basement (feet at ${(down.y-1.65).toFixed(2)} m); the family room keeps the room exposure (×${inside.toFixed(2)}) and the terrace is exposed as outdoors (×${outside.toFixed(2)}).`);
+console.log(`Passed: the curbside, courtyard, master bedroom and guest suite places start on their floors at a 2.1 m/s pace; the garden door, hall doors and front gate let the walker through, a wall stops it (${south.z.toFixed(2)} m), and the main stair reaches the upper floor (feet at ${(top.y-1.65).toFixed(2)} m) and the basement (feet at ${(down.y-1.65).toFixed(2)} m); the family room keeps the room exposure (×${inside.toFixed(2)}) and the terrace is exposed as outdoors (×${outside.toFixed(2)}).`);

@@ -18,15 +18,17 @@ export const SHOWN={referencePhotos:false,roomShortcuts:false};
 
 export function ViewsPanel({level,view,onView}:{level:Level;view:ViewKey|null;onView:(v:ViewKey)=>void}){
  const rooms=interiorRooms.filter(r=>r.level===level),whole=level==='exterior';
- const [inside,setInside]=useState(()=>{const sheet=view?sheetOf(view):undefined;return sheet==='ground'||sheet==='upper';});
+ const [tab,setTab]=useState<'outside'|'inside'|'guest'>(()=>{const sheet=view?sheetOf(view):undefined;return sheet==='ground'||sheet==='upper'?'inside':sheet==='guest'?'guest':'outside';});
  const chip=(id:ViewKey,label:string)=><button key={id} className="model-chip" aria-pressed={view===id} onClick={()=>onView(id)}>{label}</button>;
  return <div className="model-panel-body">
   {SHOWN.roomShortcuts&&!whole&&<div className="model-chips">{[chip('top','Whole floor'),...rooms.map(r=>chip(`room:${r.id}`,r.label))]}</div>}
   <div className="view-map-tabs" role="tablist" aria-label="Map">
-   <button role="tab" aria-selected={!inside} onClick={()=>setInside(false)}>Outside</button>
-   <button role="tab" aria-selected={inside} onClick={()=>setInside(true)}>Inside</button>
+   <button role="tab" aria-selected={tab==='outside'} onClick={()=>setTab('outside')}>Outside</button>
+   <button role="tab" aria-selected={tab==='inside'} onClick={()=>setTab('inside')}>Inside</button>
+   <button role="tab" aria-selected={tab==='guest'} onClick={()=>setTab('guest')}>Guest wing</button>
   </div>
-  {inside?<div className="view-map-pair">{(['ground','upper'] as const).map(sheet=><ViewMap key={sheet} sheet={sheet} overviews={false} view={view} onView={onView}/>)}</div>
+  {tab==='guest'?<div className="view-map-guest"><ViewMap sheet="guest" overviews={false} view={view} onView={onView}/></div>
+   :tab==='inside'?<div className="view-map-pair">{(['ground','upper'] as const).map(sheet=><ViewMap key={sheet} sheet={sheet} overviews={false} view={view} onView={onView}/>)}</div>
    :<ViewMap sheet="grounds" overviews={whole} view={view} onView={onView}>{whole&&<div className="view-map-whole">{wholeViews.map(id=>chip(id,viewpoints[id].label))}</div>}</ViewMap>}
  </div>;
 }
