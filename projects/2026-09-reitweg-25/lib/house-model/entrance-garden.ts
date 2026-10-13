@@ -1,6 +1,6 @@
 import * as T from 'three';
 import {sitePoint as s,planPoint as p} from './site-data';
-import {GARAGE_APRON,BIN_PATH,BIN_PATH_WIDTH,OLD_WALL_LINE,FORECOURT_LAWN,garagePoint,meet} from './front-garage';
+import {GARAGE_APRON,BIN_PATH,BIN_PATH_WIDTH,OLD_WALL_LINE,FORECOURT_LAWN,GARAGE_BEDS,garagePoint,meet} from './front-garage';
 
 // Photo-led dimensions, not a survey. The route joins the existing pedestrian
 // gate to the first entrance-link door, leaving soil and grasses beside the gable.
@@ -41,6 +41,7 @@ export function buildEntranceGarden(realistic:boolean){
  let seed=821;const rand=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
  const dummy=new T.Object3D(),color=new T.Color(),cobbleGeometry=new T.BoxGeometry(.166,.032,.116),dx=.18,dz=.13;
  const paved=(x:number,z:number)=>insideEntrancePolygon(x,z,entranceFootprint)||insideEntrancePolygon(x,z,drivewayFootprint)||insideEntrancePolygon(x,z,roadsideInset);
+ const planted=(x:number,z:number)=>GARAGE_BEDS.some(bed=>insideEntrancePolygon(x,z,bed));
  const corners=[[-.082,-.057],[.082,-.057],[.082,.057],[-.082,.057]];
  const lay=(stones:{x:number;z:number;y:number}[],name:string)=>{const cobbles=new T.InstancedMesh(cobbleGeometry,stone,stones.length);cobbles.name=name;cobbles.receiveShadow=true;cobbles.castShadow=realistic;
   stones.forEach((q,i)=>{dummy.position.set(q.x,q.y+(rand()-.5)*.004,q.z);dummy.rotation.set(0,(rand()-.5)*.025,0);dummy.scale.set(.97+rand()*.05,1,.97+rand()*.05);dummy.updateMatrix();cobbles.setMatrixAt(i,dummy.matrix);const light=.93+rand()*.13;color.setRGB(light,light,.96*light);cobbles.setColorAt(i,color);});return cobbles;};
@@ -53,9 +54,10 @@ export function buildEntranceGarden(realistic:boolean){
    if(!insideEntrancePolygon(x,z,points)||(drive&&insideEntrancePolygon(x,z,entranceFootprint)))continue;
    if(corners.every(([a,b])=>paved(x+a,z+b)))stones.push({x,z,y:insideEntrancePolygon(x,z,landing)?.146:.061});
   }
-  const lawn=(q:{x:number;z:number})=>drive&&insideEntrancePolygon(q.x,q.z,FORECOURT_LAWN);
-  group.add(lay(stones.filter(q=>!lawn(q)),name));
-  if(stones.some(lawn))forecourt.add(lay(stones.filter(lawn),'forecourt-driveway-cobbles'));
+  // The garage takes up the stones where it lays lawn or plants its beds.
+  const lifted=(q:{x:number;z:number})=>drive&&(insideEntrancePolygon(q.x,q.z,FORECOURT_LAWN)||planted(q.x,q.z));
+  group.add(lay(stones.filter(q=>!lifted(q)),name));
+  if(stones.some(lifted))forecourt.add(lay(stones.filter(lifted),'forecourt-driveway-cobbles'));
  }
  // The front garage's apron and bin path, and the old recessed wall's line, in the same bond: their own stones, and the
  // ones along the old edges that the wider paving now carries. Shown with the garage.
@@ -65,7 +67,7 @@ export function buildEntranceGarden(realistic:boolean){
   const xs=areas.flat().map(q=>q[0]),zs=areas.flat().map(q=>q[1]),stones:{x:number;z:number;y:number}[]=[];
   for(let row=Math.floor((Math.min(...zs)-.2)/dz);row*dz<Math.max(...zs)+.2;row++)for(let col=Math.floor((Math.min(...xs)-.2)/dx)-1;col*dx<Math.max(...xs)+.2;col++){
    const x=col*dx+(row%2)*dx/2,z=row*dz;
-   if(wider(x,z)&&!laid(x,z)&&corners.every(([a,b])=>wider(x+a,z+b)))stones.push({x,z,y:.061});
+   if(wider(x,z)&&!laid(x,z)&&!planted(x,z)&&corners.every(([a,b])=>wider(x+a,z+b)))stones.push({x,z,y:.061});
   }
   garage.add(lay(stones.filter(q=>!insideEntrancePolygon(q.x,q.z,binPathFootprint)),'garage-apron-cobbles'),lay(stones.filter(q=>insideEntrancePolygon(q.x,q.z,binPathFootprint)),'bin-path-cobbles'));
  }
@@ -81,10 +83,22 @@ export function buildEntranceGarden(realistic:boolean){
  const bladeGeo=new T.BufferGeometry();bladeGeo.setAttribute('position',new T.Float32BufferAttribute(blades,3));bladeGeo.setIndex(index);bladeGeo.computeVertexNormals();const leaf=new T.MeshStandardMaterial({color:'#658342',roughness:.94,side:T.DoubleSide});
  const clumps:[number,number][]=[];
  for(const bed of beds){const xs=bed.map(q=>q[0]),zs=bed.map(q=>q[1]);for(let x=Math.min(...xs)+.15;x<Math.max(...xs);x+=.5)for(let z=Math.min(...zs)+.15;z<Math.max(...zs);z+=.49){const a=x+(rand()-.5)*.25,b=z+(rand()-.5)*.25;if(insideEntrancePolygon(a,b,bed))clumps.push([a,b]);}}
- const count=realistic?48:24,grass=new T.InstancedMesh(bladeGeo,leaf,clumps.length*count);grass.name='entrance-arching-ornamental-grasses';grass.castShadow=realistic;grass.receiveShadow=true;let i=0;
- for(const [x,z] of clumps)for(let j=0;j<count;j++){const scale=.66+rand()*.53;dummy.position.set(x+(rand()-.5)*.12,.036,z+(rand()-.5)*.12);dummy.scale.set(scale,.7+rand()*.45,scale);dummy.rotation.set(0,rand()*Math.PI*2,0);dummy.updateMatrix();grass.setMatrixAt(i,dummy.matrix);const light=.78+rand()*.4;grass.setColorAt(i++,color.setRGB(light,light,.83*light));}group.add(grass);
+ const count=realistic?48:24;
+ const tufted=(at:[number,number][],y:number,name:string)=>{const grass=new T.InstancedMesh(bladeGeo,leaf,at.length*count);grass.name=name;grass.castShadow=realistic;grass.receiveShadow=true;let i=0;
+  for(const [x,z] of at)for(let j=0;j<count;j++){const scale=.66+rand()*.53;dummy.position.set(x+(rand()-.5)*.12,y,z+(rand()-.5)*.12);dummy.scale.set(scale,.7+rand()*.45,scale);dummy.rotation.set(0,rand()*Math.PI*2,0);dummy.updateMatrix();grass.setMatrixAt(i,dummy.matrix);const light=.78+rand()*.4;grass.setColorAt(i++,color.setRGB(light,light,.83*light));}
+  return grass;};
+ group.add(tufted(clumps,.036,'entrance-arching-ornamental-grasses'));
  const box=(x:number,z:number,w:number,h:number,d:number,mat:T.Material)=>{const mesh=new T.Mesh(new T.BoxGeometry(w,h,d),mat);mesh.position.set(x,h/2+.02,z);mesh.castShadow=true;group.add(mesh);};
  // Unlit timber bollards, as photographed along the wall-side planting.
  for(const x of [-23.6,-20.2,-16.8])box(x,-2.22+(x+25.1)*1.17/11.05+.99,.12,.61,.12,wood);
+ // With the garage, its beds where the drive was (front-garage.ts): soil just above the cobbles' bed, and the island's
+ // grasses in tufts about 0.5 m apart, filling narrow ends too and keeping clear of the island's own.
+ {const beds=new T.Group();beds.name='garage-beds';beds.visible=false;group.add(beds);
+  GARAGE_BEDS.forEach((bed,i)=>beds.add(poly(bed,.03,.022,soil,'garage-bed-'+i)));
+  const tufts:[number,number][]=[],clear=[[0,0],[.12,0],[-.12,0],[0,.12],[0,-.12]];
+  for(const bed of GARAGE_BEDS){const xs=bed.map(q=>q[0]),zs=bed.map(q=>q[1]);
+   for(let z=Math.min(...zs)+.12;z<Math.max(...zs);z+=.25)for(let x=Math.min(...xs)+.12;x<Math.max(...xs);x+=.25){const a=x+(rand()-.5)*.12,b=z+(rand()-.5)*.12;
+    if(clear.every(([dx,dz])=>insideEntrancePolygon(a+dx,b+dz,bed))&&[...clumps,...tufts].every(([c,d])=>Math.hypot(c-a,d-b)>.46))tufts.push([a,b]);}}
+  const grass=tufted(tufts,.052,'garage-bed-grasses');grass.userData.sway='grass';beds.add(grass);}
  return group;
 }

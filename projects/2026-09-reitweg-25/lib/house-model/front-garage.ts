@@ -61,6 +61,18 @@ export const FORECOURT_LAWN:[number,number][]=[strip(12.6),LAWN_NE,LAWN_NW,[-35.
  * its middle (front-garden.ts). */
 export const ROSE_GARDEN:[number,number][]=[LAWN_NE,LAWN_NW,garagePoint(7.9,GARAGE.v0),garagePoint(7.9,12.79),strip(21.22)];
 export const ROSE_OPENINGS:[[number,number],number][]=[[[(LAWN_NE[0]+LAWN_NW[0])/2,(LAWN_NE[1]+LAWN_NW[1])/2],1.4],[strip(10.15),1.3]];
+/** With the garage the drive keeps what a car needs: a lane from the drive gate sweeping round to the doors (1.2 m either
+ * side of a car turning in at the gate on a 5 m radius), the bay in front of the rose garden to turn in, and the apron.
+ * The rest of the old drive and of the roadside notch is planted like the island beside the walk, in soil and arching
+ * grasses (entrance-garden.ts), in three beds: from the fence to the guest wing between the walk and the lane, its edge
+ * following the lane's curve and stopping 1.6 m short of the wing so the walk still reaches the bay; the notch's tip north
+ * of the walk, which now crosses the notch to the pedestrian gate; and along the fence from the drive gate to the garage,
+ * up to 1.1 m deep, narrowing to 0.45 m where cars run straight in at the left-hand door (world x, z). */
+export const GARAGE_BEDS:[number,number][][]=[
+ [roadPoint(PEDESTRIAN_GATE[0]-.25,.15),[-34.3,-4.62],[-26.3,-1.68],[-26.3,1],[-27.5,1.7],[-29.5,1.9],[-31.5,1.4],[-33.5,.4],[-35.1,-1.05],[-36.5,-2.35],roadPoint(DRIVE_GATE[1]+.2,.15)],
+ [roadPoint(PEDESTRIAN_GATE[1]+.25,.15),roadPoint(ROAD_LENGTH-.4,.15),[-33.95,-7.3],[-33.6,-6.45]],
+ [roadPoint(DRIVE_GATE[0]-.2,.15),roadPoint(5.4,.9),roadPoint(4,1.1),roadPoint(2.2,1),roadPoint(.6,.6),garagePoint(.45,1),garagePoint(.45,4.7),garagePoint(.25,GARAGE.v0-.1),garagePoint(.15,GARAGE.v0-.1),garagePoint(.15,0),roadPoint(0,.15)],
+];
 /** The bed in pieces, side by side round the garden, and the box edging's runs along the lawn side and the bed's ends at
  * the openings (world x, z). */
 export const [ROSE_BEDS,ROSE_EDGING]=(()=>{
