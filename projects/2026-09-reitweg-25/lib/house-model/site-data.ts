@@ -85,7 +85,9 @@ export const viewpoints = {
  wall:{label:'Arrival wall',position:[-45,2.8,2.5],target:[-34.4,1.2,-1],span:8,reach:16},
  // From the south, over the neighbour's garden and clear of the avenue's crowns: the bin room and the garage's south gable,
  // the path and the lawn with its cherries, the drive and the gates beyond.
- garage:{label:'Front garage',position:[-37,18.4,35.6],target:[-37,1.2,13.5],span:17.5,reach:30}
+ garage:{label:'Front garage',position:[-37,18.4,35.6],target:[-37,1.2,13.5],span:17.5,reach:30},
+ // From high over the forecourt to the west: the guest roof's west slope and its row of roof windows end to end.
+ guestRoof:{label:'Guest wing roof',position:[-44,19,13],target:[-23.5,3.8,9.6],span:21,reach:34}
 } as const;
 export type Viewpoint = keyof typeof viewpoints;
 export type Level = 'exterior'|'ground'|'upper'|'basement';
