@@ -35,8 +35,9 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  // floor at `base` and its head stays at 2.71 m: the winter garden's floor is 0.16 m, the house's slab 0.12 m.
  function glazing(g:T.Group,a:number[],b:number[],privateBand=false,base=.16){const len=Math.hypot(b[0]-a[0],b[1]-a[1]),bay=place(g,a[0],a[1],-Math.atan2(b[1]-a[1],b[0]-a[0]),base);const n=Math.ceil(len/1.65),h=2.71-base;for(let i=0;i<n;i++){const x=(i+.5)*len/n;box(bay,x,0,0,len/n-.055,privateBand?1.25:h,.026,privateBand?privacy:clear);if(privateBand)box(bay,x,1.25,0,len/n-.055,h-1.25,.026,clear);}for(let i=0;i<=n;i++)box(bay,i*len/n,0,0,.055,h,.09,m.metal);for(const y of [0,h])box(bay,len/2,y,0,len,.065,.12,m.metal);return bay;}
  const east=groups.east,SLAB=.12;
- // Bedroom / bathroom / dining / living divisions keep their original alignment.
- for(const [from,to,privateBand] of [[182,388,0],[388,524,1],[524,669,0],[669,877,0]])glazing(east,p(1229,from),p(1229,to),!!privateBand,SLAB);
+ // Bedroom / bathroom / living divisions keep their original alignment; the dining alcove between them keeps its wall
+ // (Office Nook Window Expansion opens it, build-model.ts).
+ for(const [from,to,privateBand] of [[182,388,0],[388,524,1],[669,877,0]])glazing(east,p(1229,from),p(1229,to),!!privateBand,SLAB);
  // The south wall is glazed on both sides of the retained fireplace; build-model keeps the piers beside it solid.
  for(const [from,to] of [[-6,-.93],[.82,6]])glazing(east,[from,9.61],[to,9.61],false,SLAB);
  // Layout Updates sets a dining table where the east sofa stood (interiors.ts), centred between the room's north wall and
@@ -48,7 +49,7 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  const skin=material('#8a6d57','#6e5946');skin.userData.photo='cladding';
  const head=(a:number[],b:number[],inside:number)=>{const g=place(east,(a[0]+b[0])/2,(a[1]+b[1])/2,-Math.atan2(b[1]-a[1],b[0]-a[0]),2.63),len=Math.hypot(b[0]-a[0],b[1]-a[1])+.24;box(g,0,0,.06*inside,len,.16,.12,m.oak);box(g,0,0,-.06*inside,len,.16,.12,skin);};
  // The east run's inside lies to the west (its local +z); the south runs' inside lies to the north (local -z).
- head(p(1229,182),p(1229,877),1);for(const [from,to] of [[-6,-.93],[.82,6]])head([from,9.61],[to,9.61],-1);
+ head(p(1229,182),p(1229,524),1);head(p(1229,669),p(1229,877),1);for(const [from,to] of [[-6,-.93],[.82,6]])head([from,9.61],[to,9.61],-1);
  for(const z of [182,388,524,669]){const [x,pz]=p(1229,z);box(east,x-.06,SLAB,pz,.12,2.63-SLAB,.14,m.oak);box(east,x+.06,SLAB,pz,.12,2.63-SLAB,.14,skin);}
  for(const x of [-6,-.93,.82]){box(east,x,SLAB,9.55,.14,2.63-SLAB,.12,m.oak);box(east,x,SLAB,9.67,.14,2.63-SLAB,.12,skin);}
  box(east,5.94,SLAB,9.55,.12,2.63-SLAB,.12,m.oak);box(east,6.06,SLAB,9.61,.12,2.63-SLAB,.24,skin);box(east,5.94,SLAB,9.67,.12,2.63-SLAB,.12,skin);

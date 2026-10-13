@@ -146,7 +146,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
     if(realistic&&d>0){const lever=shift(part(stile-.0125,stile+.0125,y+.95,.3,m.edge,.03),.09);if(lever)lever.name='lift-slide-handle';leaf(lever);}}};
   // Floor-level openings are doors: their glazing, leaves and handles let the walker through; frames stay solid. Fixed
   // glazing is not a door.
-  let cursor=0;for(const o of openings){const door=o.sill<=.15&&o.kind!=='passage'&&o.kind!=='sliding'&&o.kind!=='fixed'&&o.to-o.from>.6,leaf=(obj:T.Object3D|undefined)=>{if(door&&obj)passable(obj);};part(cursor,o.from,.12,2.67,m.wall);part(o.from,o.to,.12,o.sill-(o.bench?BENCH:0),m.wall);part(o.from,o.to,.12+o.head,2.67-o.head,m.wall);if(o.kind!=='sliding'&&o.kind!=='passage'&&o.kind!=='lift'&&o.kind!=='french'){const leafPart=part(o.from,o.to,.12+o.sill,o.head-o.sill,o.kind==='garage'?m.garage:o.kind==='oak'?m.wood:glass);if(leafPart&&(o.kind==='garage'||o.kind==='oak'))leafPart.name=o.kind==='garage'?'garage-door':'oak-door';leaf(leafPart);}if(o.kind==='lift')liftSlide(o.from,o.to,.12+o.sill,o.head-o.sill,o.slides??'to',leaf);if(o.kind==='french')frenchDoor(o.from,o.to,.12+o.sill,o.head-o.sill,leaf);if(o.kind==='garage'){for(let t=o.from+.12;t<o.to;t+=.15){const batten=part(t,t+.014,.12,o.head,m.edge);if(batten)batten.name='garage-door';leaf(batten);}}const trim=o.kind==='french'||o.kind==='lift'||((!o.kind||o.kind==='sliding')&&(region==='main'||region==='kitchen'))?oakInside:(obj:T.Object3D|undefined)=>obj;for(const t of [o.from,o.to])trim(part(t-.035,t+.035,.12+o.sill,o.head-o.sill,m.dark));for(const y of [o.sill,o.head])trim(part(o.from,o.to,.12+y,.045,m.dark));
+  let cursor=0;for(const o of openings){const door=o.sill<=.15&&o.kind!=='passage'&&o.kind!=='sliding'&&o.kind!=='fixed'&&o.to-o.from>.6,leaf=(obj:T.Object3D|undefined)=>{if(door&&obj)passable(obj);};part(cursor,o.from,.12,2.67,m.wall);part(o.from,o.to,.12,o.sill-(o.bench?BENCH:0),m.wall);part(o.from,o.to,.12+o.head,2.67-o.head,m.wall);if(o.kind!=='sliding'&&o.kind!=='passage'&&o.kind!=='lift'&&o.kind!=='french'){const leafPart=part(o.from,o.to,.12+o.sill,o.head-o.sill,o.kind==='garage'?m.garage:o.kind==='oak'?m.wood:glass);if(leafPart&&(o.kind==='garage'||o.kind==='oak'))leafPart.name=o.kind==='garage'?'garage-door':'oak-door';leaf(leafPart);}if(o.kind==='lift')liftSlide(o.from,o.to,.12+o.sill,o.head-o.sill,o.slides??'to',leaf);if(o.kind==='french')frenchDoor(o.from,o.to,.12+o.sill,o.head-o.sill,leaf);if(o.kind==='garage'){for(let t=o.from+.12;t<o.to;t+=.15){const batten=part(t,t+.014,.12,o.head,m.edge);if(batten)batten.name='garage-door';leaf(batten);}}const trim=o.kind==='french'||o.kind==='lift'||((!o.kind||o.kind==='sliding'||o.kind==='fixed')&&(region==='main'||region==='kitchen'))?oakInside:(obj:T.Object3D|undefined)=>obj;for(const t of [o.from,o.to])trim(part(t-.035,t+.035,.12+o.sill,o.head-o.sill,m.dark));for(const y of [o.sill,o.head])trim(part(o.from,o.to,.12+y,.045,m.dark));
    // Reveals are plastered from the frame to the room (the cladding wraps in only outside the glass); a passage between two
    // rooms is plastered through the wall (owner photographs from the hall, the kitchen and the living room).
    if(realistic&&o.kind!=='garage'){const [inner,outer]=o.kind==='passage'?[-.105,.345]:[.165,.345],liner=(lo:number,hi:number,y:number,h:number)=>{const obj=shift(part(lo,hi,y,h,m.plaster,outer-inner),(inner+outer)/2-.12);if(obj){obj.name='reveal-plaster';obj.castShadow=false;passable(obj);}};
@@ -165,7 +165,11 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // The west knee wall, along the gallery, is 0.4 m high under a deep spruce shelf of books, the rafters landing on it
  // (owner photographs of the gallery); on the plan's line it would be 1.1 m high.
  const WEST_KNEE=.4,westKnee=(-(8-.045-CEILING-3.07-WEST_KNEE)*6.55/(8-2.95)-UPPER_PLAN_X_OFFSET)/PLAN_SCALE+1012;
- capture('east',ground,()=>facade(ground,[E,N],[E,S],[{from:1.9,to:4.6,sill:.1,head:2.2,kind:'french'},{from:6.45,to:8.95,sill:0,head:2.2,kind:'lift'},{from:10.3,to:11.15,sill:.95,head:2.2},{from:12,to:13,sill:0,head:2.2},{from:15,to:17.45,sill:.1,head:2.25,kind:'lift'}],'main'));
+ // The dining alcove's stretch of the east wall, between its partitions, belongs to Office Nook Window Expansion, not to
+ // the east façade: its window and garden door stay as they are until that option makes them one pane.
+ const alcoveNorth=p(1229,524)[1]-N,alcoveSouth=p(1229,669)[1]-N;
+ capture('east',ground,()=>{facade(ground,[E,N],[E,N+alcoveNorth],[{from:1.9,to:4.6,sill:.1,head:2.2,kind:'french'},{from:6.45,to:8.95,sill:0,head:2.2,kind:'lift'}],'main');facade(ground,[E,N+alcoveSouth],[E,S],[{from:15-alcoveSouth,to:17.45-alcoveSouth,sill:.1,head:2.25,kind:'lift'}],'main');});
+ capture('nookWindow',ground,()=>facade(ground,[E,N+alcoveNorth],[E,N+alcoveSouth],[{from:10.3-alcoveNorth,to:11.15-alcoveNorth,sill:.95,head:2.2},{from:12-alcoveNorth,to:13-alcoveNorth,sill:0,head:2.2}],'main'));
  const kitchenSouth=p(795,464)[1],kitchenEast=p(970,182)[0],westSplit=kitchenSouth-N,northSplit=kitchenEast-W;
  capture('kitchen',ground,()=>facade(ground,[W,N],[W,kitchenSouth],[{from:2.75,to:5.74,sill:0,head:2.1,kind:'sliding'}],'kitchen'));
  facade(ground,[W,kitchenSouth],[W,S],[{from:9.1-westSplit,to:9.93-westSplit,sill:1.05,head:2.1},{from:11.92-westSplit,to:12.89-westSplit,sill:0,head:2.3,kind:'passage'},{from:14.86-westSplit,to:15.94-westSplit,sill:0,head:2.2}],'main');
@@ -545,6 +549,9 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const renovation=buildRenovations(ground,roofs,site,material);
  // The retained fireplace and a pier either side of it, between the two runs of south glazing (renovations.ts).
  facade(renovation.groups.east,[-.93,S],[.82,S],[],'main');
+ // Office Nook Window Expansion: the alcove's window and garden door become one fixed pane from the floor, from the
+ // window's north jamb to the door's south jamb, in the oak-and-black frame.
+ facade(renovation.groups.nookWindow,[E,N+alcoveNorth],[E,N+alcoveSouth],[{from:10.3-alcoveNorth,to:13-alcoveNorth,sill:0,head:2.2,kind:'fixed'}],'main');
  for(const part of [ground,site])part.traverse(o=>{const id=o.userData.replacedBy as RenovationId|undefined;if(id)(originals[id]??=[]).push(o);});
  // The front garage's roof and cobbles, built with the roofs and the drive.
  additions.garage!.push(renovation.garageRoof,site.getObjectByName('garage-cobbles')!,site.getObjectByName('garage-beds')!);
@@ -598,7 +605,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // A renovation whose parts each sit in a group of their own (its group and its additions), as do its originals, toggles
  // outside the states: all those groups stay shown while states are enumerated, and the batches parented to them follow
  // their visibility, on top of the states of any group around them (the east façade's centred dining table).
- const renovationIds=Object.keys(renovationState()) as RenovationId[],grouped=new Set<RenovationId>(['nook','garage','skylights']);
+ const renovationIds=Object.keys(renovationState()) as RenovationId[],grouped=new Set<RenovationId>(['nook','nookWindow','garage','skylights']);
  const stateIds=renovationIds.filter(id=>!grouped.has(id)),combinations=1<<stateIds.length;
  const toggled=[...grouped].flatMap(id=>[renovation.groups[id],...(originals[id]??[]),...(additions[id]??[])]);
  const stateOf=(level:Level,state:RenovationState)=>levels.indexOf(level)*combinations+stateIds.reduce((bits,id,i)=>bits|(state[id]?1<<i:0),0);

@@ -7,10 +7,10 @@ await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/sola
 const {buildHouseModel}=await import('../tmp/renovation-check/build-model.mjs');
 const {solarPanels,solarRoofs,solarModule,roofSkylights}=await import('../tmp/renovation-check/solar-layout.mjs');
 const {renovations,renovationState,offered,offeredState}=await import('../tmp/renovation-check/renovation-data.mjs');
-// The panel offers six renovations for now; the terrace dining, fireside lounge and solar stay in the model, set aside:
+// The panel offers seven renovations for now; the terrace dining, fireside lounge and solar stay in the model, set aside:
 // off with "All on" and when a link names them.
-assert.deepEqual(offered.map(r=>r.id),['kitchen','east','nook','front','garage','skylights'],'offered renovations');
-assert.deepEqual(offered.map(r=>r.title),['Winter Garden','East Façade Windows','Layout Updates','Arrival Wall','Front Garage','Guest Wing Skylights'],'short names in the Changes panel');
+assert.deepEqual(offered.map(r=>r.id),['kitchen','east','nookWindow','nook','front','garage','skylights'],'offered renovations');
+assert.deepEqual(offered.map(r=>r.title),['Winter Garden','East Façade Windows','Office Nook Window Expansion','Layout Updates','Arrival Wall','Front Garage','Guest Wing Skylights'],'short names in the Changes panel');
 for(const id of ['terrace','courtyard','solar'])assert.equal(offeredState()[id],false,`${id} stays off with All on`);
 // Looking closer at the arrival wall flies low over the far verge of the road, the wall square in front: an overview,
 // not an eye-level place, held close enough on a narrow screen to stay clear of the trees beyond the road.
@@ -67,24 +67,25 @@ assert(southAt(-.7).some(h=>[h.object.material].flat().some(m=>!m.transparent)),
 // Light oak frames the opened façade, as in the portal render: a head along the top of the glass and a post at the
 // south-east corner, where the east and south glass meet.
 {const oak=model.root.getObjectByName('living-dining-table').children[0].material.color.getHexString(),first=(from,to)=>{const u=new T.Vector3(...from),v=new T.Vector3(...to);southRay.set(u,v.clone().sub(u).normalize());southRay.far=u.distanceTo(v);return southRay.intersectObject(model.root,true).find(h=>h.object.isMesh&&visible(h.object));};
- for(const z of [-6,0,6]){const head=first([5.9,1.5,z],[5.9,3,z]);assert(head&&head.object.material.color.getHexString()===oak&&head.point.y<2.72,`an oak head runs along the top of the east glass at z ${z} (${head?.object.material.color.getHexString()} at ${head?.point.y.toFixed(2)} m)`);}
+ for(const z of [-6,-2,6]){const head=first([5.9,1.5,z],[5.9,3,z]);assert(head&&head.object.material.color.getHexString()===oak&&head.point.y<2.72,`an oak head runs along the top of the east glass at z ${z} (${head?.object.material.color.getHexString()} at ${head?.point.y.toFixed(2)} m)`);}
  const post=first([5.3,1.5,8.9],[6.2,1.5,9.8]);assert(post&&post.object.material.color.getHexString()===oak,`an oak post stands at the south-east corner (${post?.object.material.color.getHexString()})`);
  // Outside, the same frame wears the house's cladding.
  const skin=model.root.getObjectByName('main-roof-wall-0').material.color.getHexString();
- for(const z of [-6,0,6]){const head=first([6.4,2.71,z],[5.5,2.71,z]);assert(head&&head.object.material.color.getHexString()===skin,`outside, the head is clad like the house at z ${z} (${head?.object.material.color.getHexString()})`);}
+ for(const z of [-6,-2,6]){const head=first([6.4,2.71,z],[5.5,2.71,z]);assert(head&&head.object.material.color.getHexString()===skin,`outside, the head is clad like the house at z ${z} (${head?.object.material.color.getHexString()})`);}
  for(const [from,to,where] of [[[6.8,1.5,10.4],[5.95,1.5,9.55],'south-east corner'],[[6.6,1.5,-3.91],[5.5,1.5,-3.91],'east post'],[[-.93,1.5,10.3],[-.93,1.5,9.2],'post by the fireplace']]){
   const hit=first(from,to);assert(hit&&hit.object.material.color.getHexString()===skin,`outside, the ${where} is clad like the house (${hit?.object.material.color.getHexString()})`);}}
 // Opening the east façade takes away the outside wall the partitions stopped at; each runs on to the glass, with no gap
-// between its end and the post at the glass (bedroom and bath, bath and dining, the dining alcove's pier).
+// between its end and the post at the glass (bedroom and bath, bath and dining, the dining alcove's pier). The alcove keeps
+// its own wall, so its pier is approached from the living room.
 {const ray=new T.Raycaster(),gaps=[];
- for(const plan of [388,524,669]){const z=(plan-529.5)*12/434;
-  for(const x of [5.7,5.78,5.85])for(const y of [.5,1.5,2.5]){ray.set(new T.Vector3(x,y,z-.5),new T.Vector3(0,0,1));ray.far=1;
+ for(const [plan,d] of [[388,1],[524,1],[669,-1]]){const z=(plan-529.5)*12/434;
+  for(const x of [5.7,5.78,5.85])for(const y of [.5,1.5,2.5]){ray.set(new T.Vector3(x,y,z-.5*d),new T.Vector3(0,0,d));ray.far=1;
    const hit=ray.intersectObject(model.root,true).find(h=>h.object.isMesh&&visible(h.object)&&![h.object.material].flat().some(m=>m.transparent));
    if(!hit||Math.abs(hit.point.z-z)>.15)gaps.push(`${plan}: x ${x}, y ${y}`);}}
  assert.equal(gaps.length,0,`partitions reach the east glass (open: ${gaps.join('; ')})`);}
 // The glass stands on the floor slab: no slot under it to the lawn, along the east run and both south runs.
 {const ray=new T.Raycaster(),slots=[];
- const runs=[...[-8.5,-6,-2,1.5,6,8.5].map(z=>({at:[5.75,z],dir:[1,0],line:6})),...[-4.5,-2.5,2.5,4.5].map(x=>({at:[x,9.36],dir:[0,1],line:9.61}))];
+ const runs=[...[-8.5,-6,-2,-1,6,8.5].map(z=>({at:[5.75,z],dir:[1,0],line:6})),...[-4.5,-2.5,2.5,4.5].map(x=>({at:[x,9.36],dir:[0,1],line:9.61}))];
  for(const {at,dir,line} of runs)for(const y of [.125,.14,.155]){
   ray.set(new T.Vector3(at[0],y,at[1]),new T.Vector3(dir[0],0,dir[1]));ray.far=1;
   const hit=ray.intersectObject(model.root,true).find(h=>h.object.isMesh&&visible(h.object)),reach=hit&&(dir[0]?hit.point.x:hit.point.z);
