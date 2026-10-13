@@ -270,11 +270,10 @@ him_body = find(him_rig, '.body'); him_axis = torso_axis(him_body, him_rig.locat
 shirt_o = find(him_rig, 'shirt_tie'); trousers_o = find(him_rig, 'trouser_short'); hat_o = find(him_rig, 'trilby'); hair_o = find(him_rig, 'short02')
 _tr = coords(trousers_o); _top = float(_tr[(np.abs(_tr[:, 0] - him_rig.location.x) < .09) & (_tr[:, 1] < 0), 2].max())
 layer(shirt_o, [trousers_o], .004, False, him_axis, .04, zmax=_top - .004)              # shirt tucked into the trousers
-# The shoe asset carries its own ankle sock (the atlas's top-right patch); the knee socks replace it. Its faces go,
-# with the strip along the patch's edge that would stand above the leather; the sole's faces there stay.
-shoe_o = find(him_rig, 'shoes01'); suv = shoe_o.data.uv_layers.active.data; mw = shoe_o.matrix_world
-patch = lambda poly: [suv[l].uv.x > .8 and suv[l].uv.y > .8 for l in poly.loop_indices]
-delete_faces(shoe_o, [p.index for p in shoe_o.data.polygons if all(patch(p)) or (any(patch(p)) and max((mw @ shoe_o.data.vertices[i].co).z for i in p.vertices) > .02)])
+# The shoe asset carries its own ankle sock (the atlas's top-right corner); the knee socks replace it. Its faces go,
+# with the strip just below the corner that would stand up behind the ankle as a flap; the sole's faces beside it stay.
+shoe_o = find(him_rig, 'shoes01'); suv = shoe_o.data.uv_layers.active.data
+delete_faces(shoe_o, [p.index for p in shoe_o.data.polygons if all(suv[l].uv.x > .8 and suv[l].uv.y > .7 for l in p.loop_indices)])
 # The knee socks run down into the shoes, just inside the leather (as fitted they push through it), to the insole. The
 # skin under socks and shoes stays hidden, so the ankle shows sock all the way round down to the shoe's collar.
 socks_o = find(him_rig, 'high_socks'); collar = float(coords(shoe_o)[:, 2].max())
