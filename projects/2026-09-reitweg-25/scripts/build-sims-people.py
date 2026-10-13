@@ -191,6 +191,8 @@ def parts_of(obj):
 def delete_verts(obj, gone):
     if not gone: return
     bm = bmesh.new(); bm.from_mesh(obj.data); bm.verts.ensure_lookup_table(); bmesh.ops.delete(bm, geom=[bm.verts[i] for i in sorted(set(gone))], context='VERTS'); bm.to_mesh(obj.data); bm.free()
+def delete_faces(obj, gone):
+    bm = bmesh.new(); bm.from_mesh(obj.data); bm.faces.ensure_lookup_table(); bmesh.ops.delete(bm, geom=[bm.faces[i] for i in sorted(set(gone))], context='FACES'); bm.to_mesh(obj.data); bm.free()
 def drop(obj, keep):
     """Deletes the loose parts of a garment for which keep(indices, coords) is False."""
     co = np.array([v.co for v in obj.data.vertices]); gone = []
@@ -224,12 +226,12 @@ def waist_of(body, px, height):
         wdt = np.ptp(s[:, 0])
         if best is None or wdt < best[0]: best = (wdt, z)
     return best[1]
-def layer(obj, others, gap, outside, axis, reach, zmin=-1., zmax=9.):
+def layer(obj, others, gap, outside, axis, reach, zmin=-1., zmax=9., where=lambda p: True):
     """Keeps a garment outside (or inside) other garments, along rays out from the torso axis at each height."""
     tree = bvh(*others); mw = obj.matrix_world; inv = mw.inverted(); moved = 0
     for v in obj.data.vertices:
         p = mw @ v.co
-        if not zmin <= p.z <= zmax: continue
+        if not zmin <= p.z <= zmax or not where(p): continue
         cx, cy = axis(p.z); d = Vector((p.x - cx, p.y - cy, 0)); r = d.length
         if r < 1e-3: continue
         d /= r; o = Vector((cx, cy, p.z)); hits = []; start = 0.
@@ -268,13 +270,19 @@ him_body = find(him_rig, '.body'); him_axis = torso_axis(him_body, him_rig.locat
 shirt_o = find(him_rig, 'shirt_tie'); trousers_o = find(him_rig, 'trouser_short'); hat_o = find(him_rig, 'trilby'); hair_o = find(him_rig, 'short02')
 _tr = coords(trousers_o); _top = float(_tr[(np.abs(_tr[:, 0] - him_rig.location.x) < .09) & (_tr[:, 1] < 0), 2].max())
 layer(shirt_o, [trousers_o], .004, False, him_axis, .04, zmax=_top - .004)              # shirt tucked into the trousers
-# The knee socks run down inside the shoes and push through the leather: below the shoe's own collar they go.
-# The shoe asset carries its own ankle sock (the atlas's top-right patch); the knee socks replace it.
+# The shoe asset carries its own ankle sock (the atlas's top-right corner); the knee socks replace it. Its faces go,
+# with the strip just below the corner that would stand up behind the ankle as a flap; the sole's faces beside it stay.
 shoe_o = find(him_rig, 'shoes01'); suv = shoe_o.data.uv_layers.active.data
-delete_verts(shoe_o, sorted({i for poly in shoe_o.data.polygons if all(suv[l].uv.x > .8 and suv[l].uv.y > .8 for l in poly.loop_indices) for i in poly.vertices}))
-socks_o = find(him_rig, 'high_socks'); shoe_top = float(coords(shoe_o)[:, 2].max()) - .03   # the sock runs 3 cm into the shoe
-mw = socks_o.matrix_world; delete_verts(socks_o, [v.index for v in socks_o.data.vertices if (mw @ v.co).z < shoe_top])
-print('SOCKS trimmed below', round(shoe_top, 3))
+delete_faces(shoe_o, [p.index for p in shoe_o.data.polygons if all(suv[l].uv.x > .8 and suv[l].uv.y > .7 for l in p.loop_indices)])
+# The knee socks run down into the shoes, just inside the leather (as fitted they push through it), to the insole. The
+# skin under socks and shoes stays hidden, so the ankle shows sock all the way round down to the shoe's collar.
+socks_o = find(him_rig, 'high_socks'); collar = float(coords(shoe_o)[:, 2].max())
+mw = socks_o.matrix_world; delete_verts(socks_o, [v.index for v in socks_o.data.vertices if (mw @ v.co).z < .03])
+_sk = coords(socks_o); _sk = _sk[(_sk[:, 2] > .15) & (_sk[:, 2] < .3)]; mid = him_rig.location.x
+for side in (-1, 1):
+    _leg = _sk[np.sign(_sk[:, 0] - mid) == side]; ax = (float(_leg[:, 0].mean()), float(_leg[:, 1].mean()))
+    layer(socks_o, [shoe_o], .003, False, lambda z, ax=ax: ax, .08, zmax=collar + .01, where=lambda p, side=side: np.sign(p.x - mid) == side)
+print('SOCKS into the shoes, collar', round(collar, 3))
 # The hat as fitted rides above the head: settle its inner band at the forehead line, a size smaller.
 hat_pts = coords(hat_o); head_top = float(body_coords(him_body)[:, 2].max()); ctr = hat_pts.mean(0)
 hz0 = hat_pts[:, 2]; hr0 = np.hypot(hat_pts[:, 0] - ctr[0], hat_pts[:, 1] - ctr[1]); r0 = float(np.percentile(hr0[hz0 > np.percentile(hz0, 70)], 90))
