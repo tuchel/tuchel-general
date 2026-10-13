@@ -33,7 +33,7 @@ import {tierFor,type Quality} from './device-tier';
 import {createPerfReadout} from './perf-readout';
 import {neighborHouses} from './neighbors';
 import {renovationState,type RenovationState} from './renovation-data';
-import type {createWanderers,loadSims} from './sims';
+import type {createRoutines,loadSims} from './sims';
 import {endStaleTouches} from './touches';
 import {viewpoints,type Level,type Region,type Viewpoint} from './site-data';
 
@@ -142,9 +142,9 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // The neighbors' buildings (neighbors.ts), built the first time they are shown; with the setting, outside only.
  let neighbors:T.Mesh|undefined,neighborsOn=false;
  const showNeighbors=()=>{if(neighbors)neighbors.visible=neighborsOn&&level==='exterior';};
- // Sims Mode (sims.ts): the two figures, loaded the first time it is turned on; they keep to the garden and ground floor,
- // so the basement view leaves them out.
- let sims:{group:T.Group;wander:ReturnType<typeof createWanderers>;figures:Awaited<ReturnType<typeof loadSims>>['figures']}|undefined,simsOn=false,simsLoading=false;
+ // Sims Mode (sims.ts): the two figures, loaded the first time it is turned on and set off on their routines from the
+ // start each time. The basement view leaves them out; the ground-floor cutaway, whichever of them is upstairs.
+ let sims:{group:T.Group;routines:ReturnType<typeof createRoutines>;figures:Awaited<ReturnType<typeof loadSims>>['figures']}|undefined,simsOn=false,simsLoading=false;
  const showSims=()=>{if(sims)sims.group.visible=simsOn&&level!=='basement';};
  const applyState=()=>{
   model.setLevel(level);model.setRenovations(renovations);batches.sync(model.stateOf(level,renovations));
@@ -310,8 +310,10 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(moving)changed();
   // The figures walk on every frame; the view redraws whole each time, at full resolution, without path tracing.
   if(sims?.group.visible&&!captures?.active){
-   sims.wander.step(delta);
-   sims.wander.figures.forEach((w,i)=>{for(const m of sims!.figures[i].materials)m.envMapIntensity=(m.userData.envBase??1)*(.25+.75*w.open);});
+   sims.routines.step(delta);
+   // Tests can read how far into their routines the figures are, in whole seconds.
+   const simsTime=String(Math.floor(sims.routines.figures[0]?.time??0));if(canvas.dataset.simsTime!==simsTime)canvas.dataset.simsTime=simsTime;
+   sims.routines.figures.forEach((w,i)=>{w.root.visible=level!=='ground'||w.y<2;for(const m of sims!.figures[i].materials)m.envMapIntensity=(m.userData.envBase??1)*(.25+.75*w.open);});
    post?.reset();needsFrame=true;
   }
   if(lighting&&baked('sky',()=>lighting.update(camera,now))){post?.reset();needsFrame=true;}
@@ -431,9 +433,9 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    if(on&&!neighbors){neighbors=neighborHouses(x=>stage.position.y+terrain(x));scene.add(neighbors);clouds?.shade([neighbors]);}
    showNeighbors();renderer.shadowMap.needsUpdate=true;live?.invalidate();changed();
   },
-  /** Sims Mode on or off: the two figures wander the house and grounds (sims.ts). */
+  /** Sims Mode on or off: the two figures go about their routines in the house and garden, from the start (sims.ts). */
   setSims:(on:boolean)=>{
-   simsOn=on;showSims();changed();
+   simsOn=on;if(on)sims?.routines.restart();showSims();changed();
    if(!on||sims||simsLoading)return;
    simsLoading=true;
    void import('./sims').then(async m=>{
@@ -444,7 +446,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
     const compiled=[lit,!lit].map(on=>{if(lamps)lamps.visible=on;return post?post.compileAsync(group):renderer.compileAsync(group,camera,scene);});
     if(lamps)lamps.visible=lit;
     await Promise.all(compiled).catch(()=>{});if(disposed)return;
-    sims={group,figures,wander:m.createWanderers(figures,()=>[...batches.meshes,stage])};
+    sims={group,figures,routines:m.createRoutines(figures,()=>[...batches.meshes,stage])};
     scene.add(group);showSims();changed();
    }).catch(error=>console.warn('Sims Mode',error)).finally(()=>{simsLoading=false;});
   },

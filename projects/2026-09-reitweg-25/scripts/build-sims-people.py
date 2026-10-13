@@ -698,7 +698,7 @@ if RENDER:
 HIP = [(0, 25), (.1, 22), (.3, 6), (.5, -10), (.6, -6), (.7, 8), (.85, 24), (1, 25)]
 KNEE = [(0, 4), (.12, 16), (.4, 4), (.6, 32), (.72, 58), (.88, 22), (1, 4)]
 ANKLE = [(0, 0), (.08, -6), (.4, 9), (.6, -18), (.7, -8), (.9, 0), (1, 0)]
-FPS, WALK_SECONDS, IDLE_SECONDS = 30, 1.1, 4.
+FPS, WALK_SECONDS, IDLE_SECONDS, WORK_SECONDS, SIT_SECONDS = 30, 1.1, 4., 3., 6.
 def curve(keys, p): return math.radians(float(np.interp(p % 1, [k[0] for k in keys], [k[1] for k in keys])))
 def rest_dir(rig, name): b = rig.data.bones[name]; return (b.tail_local - b.head_local).normalized()
 def Rx(a): return Matrix.Rotation(a, 3, 'X')
@@ -730,6 +730,27 @@ def idle(rig, t, out):
     rest(rig); w = math.radians(2) * math.sin(2 * math.pi * t); arms(rig, out, (w, -w), (math.radians(6), math.radians(6)))
     turn(rig, 'spine_03', Vector((1, 0, 0)), -math.radians(1.2) * math.sin(4 * math.pi * t))         # breathing, twice a loop
     turn(rig, 'head', Vector((0, 0, 1)), math.radians(14) * math.sin(2 * math.pi * t)); plant(rig)    # a slow look around
+def work(rig, t, out):
+    """Standing at a counter, a bed or a border: hands together in front at about hip height, working in small strokes,
+    leaning in a little and looking down at the work."""
+    rest(rig); a = math.sin(2 * math.pi * t); b = math.sin(4 * math.pi * t + 1)
+    for s, w in ((1, a), (-1, b)):
+        side = 'l' if s > 0 else 'r'
+        aim(rig, f'upperarm_{side}', (s * .14, -.38 - .04 * w, -.92)); aim(rig, f'lowerarm_{side}', (-s * .42, -.88, -.22 + .08 * w))
+        aim(rig, f'hand_{side}', (-s * .3, -.9, -.35))
+    turn(rig, 'spine_02', Vector((1, 0, 0)), math.radians(7)); turn(rig, 'head', Vector((1, 0, 0)), math.radians(16) + math.radians(3) * a); plant(rig)
+def sit(rig, t, out):
+    """Seated: thighs level, shins upright, hands resting on the thighs; breathing and a slow look around."""
+    rest(rig)
+    for side in ('l', 'r'):
+        h, k = math.radians(88), math.radians(90)
+        aim(rig, f'thigh_{side}', Rx(-h) @ rest_dir(rig, f'thigh_{side}')); aim(rig, f'calf_{side}', Rx(-(h - k)) @ rest_dir(rig, f'calf_{side}'))
+        aim(rig, f'foot_{side}', Rx(-(h - k)) @ rest_dir(rig, f'foot_{side}'))
+    for s in (1, -1):
+        side = 'l' if s > 0 else 'r'
+        aim(rig, f'upperarm_{side}', (s * max(.12, out * .6), -.22, -.97)); aim(rig, f'lowerarm_{side}', (s * .05, -.93, -.36)); aim(rig, f'hand_{side}', (s * .03, -.85, -.53))
+    turn(rig, 'spine_03', Vector((1, 0, 0)), -math.radians(1.2) * math.sin(4 * math.pi * t))
+    turn(rig, 'head', Vector((0, 0, 1)), math.radians(10) * math.sin(2 * math.pi * t)); plant(rig)
 def bake(rig, name, seconds, pose, step=1):
     frames = round(seconds * FPS); rig.animation_data_create(); act = bpy.data.actions.new(name); rig.animation_data.action = act
     for pb in rig.pose.bones: pb.rotation_mode = 'QUATERNION'
@@ -741,6 +762,16 @@ def bake(rig, name, seconds, pose, step=1):
     rig.animation_data.action = None; track = rig.animation_data.nla_tracks.new(); track.name = name; track.strips.new(name, 1, act)
     return act
 
+if RENDER:
+    # The working and seated poses, from the front three-quarter; the seats are 0.45 m blocks.
+    for who, rig, out in (('him', him_rig, .16), ('her', her_rig, .27)): work(rig, .25, out)
+    him_rig.location.y = her_rig.location.y = 0; bpy.context.view_layer.update(); shot('work', (-3.4, -4.0, 1.4), (0, 0, .85), 50, 1100, 800)
+    for who, rig, out in (('him', him_rig, .16), ('her', her_rig, .27)):
+        sit(rig, .25, out); seat = bpy.data.objects.new(f'seat-{who}', bpy.data.meshes.new(f'seat-{who}')); bm = bmesh.new(); bmesh.ops.create_cube(bm, size=1); bm.to_mesh(seat.data); bm.free()
+        seat.scale = (.55, .5, .45); seat.location = (rig.location.x, .2, .225); bpy.context.scene.collection.objects.link(seat)
+    bpy.context.view_layer.update(); shot('sit', (-3.4, -4.0, 1.3), (0, 0, .65), 50, 1100, 800)
+    for o in [o for o in bpy.data.objects if o.name.startswith('seat-')]: bpy.data.objects.remove(o)
+
 if EXPORT:
     import subprocess
     bpy.context.scene.render.fps = FPS
@@ -750,6 +781,8 @@ if EXPORT:
         rig.location = (0, 0, 0); rest(rig)
         bake(rig, 'walk', WALK_SECONDS, lambda p, r=rig, o=out: gait(r, p, o))
         bake(rig, 'idle', IDLE_SECONDS, lambda t, r=rig, o=out: idle(r, t, o), step=4)
+        bake(rig, 'work', WORK_SECONDS, lambda t, r=rig, o=out: work(r, t, o), step=3)
+        bake(rig, 'sit', SIT_SECONDS, lambda t, r=rig, o=out: sit(r, t, o), step=6)
         rest(rig)
         bpy.ops.object.select_all(action='DESELECT'); rig.select_set(True)
         for c in rig.children: c.select_set(True)
