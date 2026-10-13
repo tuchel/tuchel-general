@@ -9,10 +9,10 @@ await build({entryPoints:['lib/house-model/landscape-context.ts','lib/house-mode
 const {buildHouseModel}=await import('../tmp/garage-check/build-model.mjs');
 const {landscapeContext}=await import('../tmp/garage-check/landscape-context.mjs');
 const {renovations,offered,renovationState}=await import('../tmp/garage-check/renovation-data.mjs');
-const {garagePoint,roadPoint,GARAGE,BIN_ROOM,BIN_PATH,DRIVE_GATE,PEDESTRIAN_GATE,ROAD_LENGTH,FORECOURT_LAWN,ROSE_GARDEN,ROSE_BEDS,ROSE_EDGING,ROSE_OPENINGS}=await import('../tmp/garage-check/front-garage.mjs');
+const {garagePoint,roadPoint,GARAGE,BIN_ROOM,BIN_PATH,DRIVE_GATE,PEDESTRIAN_GATE,ROAD_LENGTH,FORECOURT_LAWN,ROSE_GARDEN,ROSE_BEDS,ROSE_EDGING,ROSE_OPENINGS,GARAGE_BEDS}=await import('../tmp/garage-check/front-garage.mjs');
 const {sitePoint,viewpoints,treePositions}=await import('../tmp/garage-check/site-data.mjs');
 const {FRUIT_TREES,SHRUBS,CHERRIES}=await import('../tmp/garage-check/front-garden.mjs');
-const {drivewayFootprint,insideEntrancePolygon}=await import('../tmp/garage-check/entrance-garden.mjs');
+const {drivewayFootprint,roadsideInset,insideEntrancePolygon}=await import('../tmp/garage-check/entrance-garden.mjs');
 
 const option=renovations.find(r=>r.id==='garage');
 assert(option&&offered.includes(option),'the front garage is offered in the Changes panel');
@@ -35,6 +35,9 @@ const edge=(p,poly)=>Math.min(...poly.map((a,i)=>toSegment(p,a,poly[(i+1)%poly.l
 const forecourt=[];for(let x=-35.5;x<=-28;x+=.4)for(let z=5.3;z<=12.5;z+=.4){const p=[x,z];if(insideEntrancePolygon(x,z,FORECOURT_LAWN)&&insideEntrancePolygon(x,z,drivewayFootprint)&&edge(p,FORECOURT_LAWN)>.3&&edge(p,drivewayFootprint)>.3)forecourt.push(p);}
 // The strip kept along the guest wing: 1.2 m in from the drive's east edge, the length of the wing.
 const wingStrip=[];{const [a,b]=[drivewayFootprint[10],drivewayFootprint[11]];for(let t=.05;t<=.95;t+=.05)wingStrip.push([a[0]+(b[0]-a[0])*t-1.2,a[1]+(b[1]-a[1])*t]);}
+// Points 0.15 m and more inside each of the beds the garage plants where the drive was, on a 0.25 m grid.
+const inBeds=GARAGE_BEDS.map(bed=>{const out=[],xs=bed.map(q=>q[0]),zs=bed.map(q=>q[1]);for(let x=Math.min(...xs);x<=Math.max(...xs);x+=.25)for(let z=Math.min(...zs);z<=Math.max(...zs);z+=.25)if(insideEntrancePolygon(x,z,bed)&&edge([x,z],bed)>=.15)out.push([x,z]);return out;});
+const planted=p=>GARAGE_BEDS.some(b=>insideEntrancePolygon(...p,b));
 const removedTrees=[[246,690],[256,833],[308,839],[357,846],...FRUIT_TREES,...SHRUBS].map(([x,z])=>sitePoint(x,z));
 
 let roseCount=0;
@@ -59,7 +62,10 @@ for(const realistic of [false,true]){
   assert(!shown.some(t=>t[2]==='cherry'),'no cherries without the garage');}
  // Without it, today's drive: cobbled across its south end, and no roses.
  {const stones=laid();for(const p of forecourt)assert(on_(stones,p),`today's cobbles at ${p.map(n=>n.toFixed(1))}`);
-  {const g=root.getObjectByName('forecourt-rose-garden');assert(g&&!visible(g),'the rose garden is built and shown only with the garage');}}
+  {const g=root.getObjectByName('forecourt-rose-garden');assert(g&&!visible(g),'the rose garden is built and shown only with the garage');}
+  // and the drive and the notch cobbled where the garage plants its beds.
+  {const g=root.getObjectByName('garage-beds');assert(g&&!visible(g),'the beds are built and shown only with the garage');}
+  for(const p of inBeds.flat())if([drivewayFootprint,roadsideInset].some(a=>insideEntrancePolygon(...p,a)&&edge(p,a)>.3))assert(on_(stones,p),`today's cobbles at ${p.map(n=>n.toFixed(1))}`);}
 
  on({garage:true});
  const garage=root.getObjectByName('front-garage');assert(visible(garage),'the garage stands');
@@ -104,7 +110,30 @@ for(const realistic of [false,true]){
  {const from=[-34.5,3],to=garagePoint(GARAGE.m1-1,GARAGE.v0-.3),n=30;assert(insideEntrancePolygon(...from,drivewayFootprint),'starts on the drive');
   for(let k=0;k<=n;k++)assert(cobbled([from[0]+(to[0]-from[0])*k/n,from[1]+(to[1]-from[1])*k/n]),'cobbled from the drive to the garage doors');}
  // Where the old recessed wall stood, and along the drive's old edge, the cobbles run on without a gap.
- for(const [a,b] of [[sitePoint(365,422),sitePoint(346,610)],[sitePoint(346,610),sitePoint(337,707)]])for(let t=.02;t<=.98;t+=.01){const p=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];assert(cobbled(p),`cobbles where the old wall stood and along the drive's edge, at ${p.map(q=>q.toFixed(2))}`);}
+ for(const [a,b] of [[sitePoint(365,422),sitePoint(346,610)],[sitePoint(346,610),sitePoint(337,707)]])for(let t=.02;t<=.98;t+=.01){const p=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];assert(cobbled(p)||planted(p),`cobbles or planting where the old wall stood and along the drive's edge, at ${p.map(q=>q.toFixed(2))}`);}
+ // The drive keeps what a car needs and the walk its ways; the rest is planted. Paved: the walk across the notch to the
+ // pedestrian gate, and along the guest wing to the bay; the lane, 1.2 m either side of a car's path as it turns in at
+ // the drive gate on a 5 m radius (a Model Y turns in a 12.1 m circle kerb to kerb) until it straightens for the doors;
+ // 5 m straight in at each door.
+ {const along=(a,b,step=.15)=>{const n=Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/step);return Array.from({length:n+1},(_,k)=>[a[0]+(b[0]-a[0])*k/n,a[1]+(b[1]-a[1])*k/n]);};
+  const paved=(p,what)=>assert(cobbled(p)&&!planted(p),`${what}, at ${p.map(q=>q.toFixed(2))}`);
+  for(const p of along([-33.93,-5.47],roadPoint((PEDESTRIAN_GATE[0]+PEDESTRIAN_GATE[1])/2,.3)))paved(p,'the walk crosses the notch to the pedestrian gate');
+  for(const p of along([-25.5,-1.3],[-25.5,2.5]))paved(p,'the walk reaches the bay along the guest wing');
+  const unit=([x,z])=>{const l=Math.hypot(x,z);return [x/l,z/l];},o=roadPoint(0),inward=unit([roadPoint(0,1)[0]-o[0],roadPoint(0,1)[1]-o[1]]),south=unit([garagePoint(0,1)[0]-garagePoint(0,0)[0],garagePoint(0,1)[1]-garagePoint(0,0)[1]]);
+  const gate=roadPoint((DRIVE_GATE[0]+DRIVE_GATE[1])/2,.4),dot=south[0]*inward[0]+south[1]*inward[1],n=unit([south[0]-dot*inward[0],south[1]-dot*inward[1]]),c=[gate[0]+5*n[0],gate[1]+5*n[1]];
+  const turn=Math.atan2(inward[0]*south[1]-inward[1]*south[0],dot);
+  for(let k=0;k<=20;k++){const a=turn*.8*k/20,r0=[-n[0],-n[1]],d=[r0[0]*Math.cos(a)-r0[1]*Math.sin(a),r0[0]*Math.sin(a)+r0[1]*Math.cos(a)];
+   for(const r of [3.8,5,6.2])paved([c[0]+d[0]*r,c[1]+d[1]*r],`the lane sweeps round from the drive gate, ${r} m from the turn's centre`);}
+  for(const [a,b] of [[GARAGE.m0+.4,GARAGE.m0+2.9],[GARAGE.m0+3.5,GARAGE.m0+6]])for(let m=a+.3;m<=b-.3;m+=.3)for(let v=GARAGE.v0-5;v<=GARAGE.v0-.1;v+=.3)paved(garagePoint(m,v),'straight in at the door');}
+ // Each bed: soil, no cobbles, and the island's own grasses all over it.
+ {const beds=root.getObjectByName('garage-beds');assert(beds&&visible(beds),'the beds are planted with the garage');
+  const grasses=beds.getObjectByName('garage-bed-grasses'),island=root.getObjectByName('entrance-arching-ornamental-grasses');
+  assert(grasses?.isInstancedMesh&&grasses.geometry===island.geometry&&grasses.material===island.material,"the beds take the island's grasses");
+  const tufts=[],m=new T.Matrix4(),at=new T.Vector3();for(const g of [grasses,island])for(let i=0;i<g.count;i++){g.getMatrixAt(i,m);at.setFromMatrixPosition(m);tufts.push([at.x,at.z]);}
+  inBeds.forEach((points,i)=>{assert(points.length>=3,`bed ${i} is tested at ${points.length} points`);for(const p of points){
+   assert(!cobbled(p),`no cobbles in bed ${i}, at ${p.map(q=>q.toFixed(2))}`);
+   const hit=first(v3(p,1),v3(p,-.1),root);assert(hit&&named(hit.object,'garage-beds'),`soil in bed ${i} at ${p.map(q=>q.toFixed(2))} (${hit?.object.name})`);
+   assert(tufts.some(t=>Math.hypot(t[0]-p[0],t[1]-p[1])<.6),`grasses all over bed ${i}, at ${p.map(q=>q.toFixed(2))}`);}});}
 // The drive's south end, where cars no longer stand, is lawn; the strip along the guest wing stays cobbled to its garden
  // door. With the well garden's lawn it makes one rose garden: a border of roses all round, edged in box on the lawn
  // side, open to the drive and opposite the garden door, and the cherries down its middle.

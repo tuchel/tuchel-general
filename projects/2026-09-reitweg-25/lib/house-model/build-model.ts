@@ -538,7 +538,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  facade(renovation.groups.east,[-.93,S],[.82,S],[],'main');
  for(const part of [ground,site])part.traverse(o=>{const id=o.userData.replacedBy as RenovationId|undefined;if(id)(originals[id]??=[]).push(o);});
  // The front garage's roof and cobbles, built with the roofs and the drive.
- additions.garage!.push(renovation.garageRoof,site.getObjectByName('garage-cobbles')!);
+ additions.garage!.push(renovation.garageRoof,site.getObjectByName('garage-cobbles')!,site.getObjectByName('garage-beds')!);
  // Furniture a renovation adds outside its own group (Layout Updates' family room and living room) is shown with it.
  ground.traverse(o=>{const id=o.userData.addedBy as RenovationId|undefined;if(id)(additions[id]??=[]).push(o);});
  // Ground-floor ceilings over the whole footprint, open above the two stairs. They close the ground floor
