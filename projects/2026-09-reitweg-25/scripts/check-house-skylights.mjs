@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import * as T from 'three';
 import {build} from 'esbuild';
-// Guest Wing Skylights (renovation option): two more roof windows over the guest study and two over the guest bedroom, in
-// the west slope's row on the three existing windows' rhythm, each pair as central in its room as that rhythm allows.
+// Guest Wing Skylights (renovation option): two more roof windows over the guest study and two over the guest bedroom, on
+// the three existing windows' rhythm in the west slope, each pair as central in its room as that rhythm allows.
 await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/renovation-data.ts','lib/house-model/site-data.ts','lib/house-model/solar-layout.ts'],outdir:'tmp/skylights-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
 const {buildHouseModel}=await import('../tmp/skylights-check/build-model.mjs');
 const {renovations,offered,renovationState}=await import('../tmp/skylights-check/renovation-data.mjs');
@@ -24,8 +24,15 @@ const rooms={study:[along([222,544])+.1,along([207,780])-.1],bedroom:[along([186
 const REVEAL=.43,existing=roofSkylights('guest'),added=guestSkylightsAdded,row=[...existing,...added];
 const step=existing[1].z-existing[0].z;
 assert(Math.abs(step-1.9)<.01&&Math.abs(existing[2].z-existing[1].z-step)<.01,'the three windows stand 1.9 m apart');
-for(const w of row){assert.equal(w.side,-1,'on the west slope');assert.equal(w.fraction,existing[0].fraction,'in the same row');
+for(const w of row){assert.equal(w.side,-1,'on the west slope');
  const k=(w.z-existing[0].z)/step;assert(Math.abs(k-Math.round(k))<.005,`on the 1.9 m rhythm (${w.z})`);}
+// The new windows sit high enough to open from the room: the bottom of the ceiling opening at shoulder height, about 1.5 m
+// above the guest floor, and the whole opening above the knee wall, which stands 0.9 m high about 3.3 m out from the ridge.
+{const half=(guestRoofFrame.width+GUEST_ROOF.overhang*2)/2,rise=GUEST_ROOF.ridge-GUEST_ROOF.eave,span=Math.hypot(half,rise),sin=rise/span,cos=half/span;
+ const CEILING=.28,FLOOR=3.1,t=.15+CEILING*cos;
+ for(const w of added){const u=w.fraction*span,sill=GUEST_ROOF.ridge-(u+.72)*sin-t*cos-FLOOR,out=(u+.72)*cos+t*sin;
+  assert(Math.abs(sill-1.5)<.05,`the window at ${w.z} opens from shoulder height (${sill.toFixed(2)} m above the floor)`);
+  assert(out<3.2,`the window at ${w.z} is clear of the knee wall (${out.toFixed(2)} m out)`);}}
 for(const [name,[a,b]] of Object.entries(rooms)){
  const mine=added.filter(w=>w.z-REVEAL>=a&&w.z+REVEAL<=b);assert.equal(mine.length,2,`two new windows over the ${name}`);
  // As central as the rhythm allows: no other pair of neighbouring places on it, inside the room, sits nearer its middle.
