@@ -34,6 +34,7 @@ import {createPerfReadout} from './perf-readout';
 import {neighborHouses} from './neighbors';
 import {renovationState,type RenovationState} from './renovation-data';
 import type {createWanderers,loadSims} from './sims';
+import {endStaleTouches} from './touches';
 import {viewpoints,type Level,type Region,type Viewpoint} from './site-data';
 
 export type ViewerOptions={
@@ -84,7 +85,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const scene=new T.Scene();scene.background=realistic?null:new T.Color('#edece5');
  const camera=realistic?new T.PerspectiveCamera(36,1,.1,3000):new T.OrthographicCamera(-35,35,25,-25,.1,450);
  camera.position.set(34,32,47);
- const controls=new OrbitControls(camera,canvas);
+ const touches=endStaleTouches(canvas),controls=new OrbitControls(camera,canvas);
  Object.assign(controls,{enableDamping:true,dampingFactor:.085,minDistance:4,maxDistance:320,minZoom:.45,maxZoom:5,maxPolarAngle:Math.PI/2-.05,minPolarAngle:.025,panSpeed:.8,rotateSpeed:.6,zoomToCursor:true,screenSpacePanning:true,zoomSpeed:.85});
  controls.touches.ONE=T.TOUCH.ROTATE;controls.touches.TWO=T.TOUCH.DOLLY_PAN;controls.target.set(-8,1,9);
  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -245,7 +246,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  };
  const up=(e:PointerEvent)=>{
   pointers.delete(e.pointerId);pinch=0;
-  if(rig.eyeLevel||Math.hypot(e.clientX-press[0],e.clientY-press[1])>5)return;
+  if(e.type==='pointercancel'||rig.eyeLevel||Math.hypot(e.clientX-press[0],e.clientY-press[1])>5)return;
   const rect=canvas.getBoundingClientRect(),ray=new T.Raycaster();
   ray.setFromCamera(new T.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1),camera);
   const hit=ray.intersectObjects(pickables,false).find(h=>{for(let o:T.Object3D|null=h.object;o;o=o.parent)if(!o.visible)return false;return true;});
@@ -456,7 +457,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   snapshot:rig.snapshot,
   restore:(s:Parameters<typeof rig.restore>[0])=>{rig.restore(s);changed();},
   dispose:()=>{
-   disposed=true;cancelAnimationFrame(frame);perf?.dispose();occlusion?.dispose();steer?.dispose();probes?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);clearTimeout(cloudSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
+   disposed=true;cancelAnimationFrame(frame);touches();perf?.dispose();occlusion?.dispose();steer?.dispose();probes?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);clearTimeout(cloudSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
    canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('wheel',wheel);canvas.removeEventListener('keydown',key);
    bake?.dispose();bounce?.dispose();clouds?.dispose();grass?.dispose();post?.dispose();lighting?.dispose();textures?.dispose();environment?.dispose();
    const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
