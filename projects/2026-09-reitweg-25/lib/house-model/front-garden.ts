@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {buildHedge,shrubLeaves,type FoliageMaterials} from './foliage';
+import {buildHedge,type FoliageMaterials} from './foliage';
 import {sitePoint as s} from './site-data';
 import {ROSE_BED,ROSE_ARCS} from './front-garage';
 import {insideEntrancePolygon} from './entrance-garden';
@@ -69,8 +69,7 @@ export function buildFrontGarden(foliage?:FoliageMaterials){
 }
 
 /** With the front garage, the rose bed on the drive's old south end (front-garage.ts): bark mulch, clipped box along both
- * arcs, and shrub roses about 0.7 m tall and 0.5 m apart, in leaf (as the hedges are, with detailed foliage) and in bloom,
- * one colour to each stretch of the curve. */
+ * arcs, and shrub roses about 0.7 m tall and 0.5 m apart, in bloom, one colour to each stretch of the curve. */
 export function buildRoseGarden(foliage?:FoliageMaterials){
  const group=new T.Group();group.name='forecourt-rose-garden';
  const bed=new T.Mesh(new T.ExtrudeGeometry(new T.Shape(ROSE_BED.map(([x,z])=>new T.Vector2(x,-z))),{depth:.015,bevelEnabled:false}).rotateX(-Math.PI/2),new T.MeshStandardMaterial({color:'#4b3a2b',roughness:1}));
@@ -84,22 +83,21 @@ export function buildRoseGarden(foliage?:FoliageMaterials){
  for(let row=0,z=Math.min(...zs);z<Math.max(...zs);z+=.43,row++)for(let x=x0+(row%2)*.25;x<x1;x+=.5){const a=x+(random()-.5)*.1,b=z+(random()-.5)*.1;if(insideEntrancePolygon(a,b,ROSE_BED)&&edge(a,b)>.3)places.push([a,b]);}
  // Deep red, rose pink, blush, cream and apricot, from the guest wing round to the lawn.
  const colours=['#8e1a2b','#cf6585','#f0c3ca','#f2e8d5','#e89c62'].map(c=>new T.Color(c));
- const bushes=new T.InstancedMesh(mound(),new T.MeshStandardMaterial({color:foliage?'#243a1b':'#3f5a2b',roughness:.9}),places.length),shapes:[number,number,number,number][]=[];
+ const bushes=new T.InstancedMesh(mound(),new T.MeshStandardMaterial({color:'#3f5a2b',roughness:.9}),places.length);
  const flower=new T.IcosahedronGeometry(1,1),blooms=new T.InstancedMesh(flower,new T.MeshStandardMaterial({color:'#ffffff',roughness:.75}),places.length*12);
  const dummy=new T.Object3D(),tint=new T.Color();let k=0;
  places.forEach(([x,z],i)=>{
-  const r=.27+random()*.07,h=.62+random()*.16,colour=colours[Math.min(4,Math.floor((x1-x)/(x1-x0)*5))];shapes.push([x,z,r,h]);
+  const r=.27+random()*.07,h=.62+random()*.16,colour=colours[Math.min(4,Math.floor((x1-x)/(x1-x0)*5))];
   dummy.position.set(x,.02,z);dummy.rotation.set(0,random()*Math.PI*2,0);dummy.scale.set(r,h/1.12,r);dummy.updateMatrix();bushes.setMatrixAt(i,dummy.matrix);
   const g=.85+random()*.25;bushes.setColorAt(i,tint.setRGB(g,g,g));
   for(let j=0;j<12;j++){
    const theta=random()*Math.PI*2,phi=(.25+random()*.6)*Math.PI/2;
-   dummy.position.set(x+Math.cos(phi)*Math.cos(theta)*r*1.08,.03+Math.sin(phi)*h*1.02,z+Math.cos(phi)*Math.sin(theta)*r*1.08);
-   dummy.rotation.set(random(),random(),random());const size=.05+random()*.025;dummy.scale.set(size,size*.75,size);dummy.updateMatrix();blooms.setMatrixAt(k,dummy.matrix);
+   dummy.position.set(x+Math.cos(phi)*Math.cos(theta)*r*.95,.02+Math.sin(phi)*h*.92,z+Math.cos(phi)*Math.sin(theta)*r*.95);
+   dummy.rotation.set(random(),random(),random());const size=.045+random()*.02;dummy.scale.set(size,size*.75,size);dummy.updateMatrix();blooms.setMatrixAt(k,dummy.matrix);
    const l=.92+random()*.12;blooms.setColorAt(k++,tint.copy(colour).multiplyScalar(l));
   }
  });
  bushes.name='forecourt-roses';blooms.name='forecourt-rose-blooms';
  for(const o of [bushes,blooms]){o.castShadow=true;o.receiveShadow=true;group.add(o);}
- if(foliage)group.add(shrubLeaves(shapes,foliage));
  return group;
 }
