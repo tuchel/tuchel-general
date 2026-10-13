@@ -1,8 +1,7 @@
 import * as T from 'three';
-import {buildHedge,type FoliageMaterials} from './foliage';
+import {buildHedge,shrubLeaves,type FoliageMaterials} from './foliage';
 import {sitePoint as s} from './site-data';
-import {ROSE_BED,ROSE_ARCS} from './front-garage';
-import {insideEntrancePolygon} from './entrance-garden';
+import {ROSE_BEDS,ROSE_EDGING} from './front-garage';
 
 /** The garden between the parking bays and the granite well. Positions follow the grounds plan; hedge heights,
  * planting and the trough are read from the owner's photographs, and species are not surveyed.
@@ -22,9 +21,9 @@ export const SHRUBS:[number,number,number,number][]=[[445,752,.55,1.1],[420,772,
  * goes, the fruit trees and shrubs round the well, and the three small trees along the south boundary, two of them in
  * the way of the bin path. Site coordinates, as in treePositions. */
 export const GARAGE_CLEARS:[number,number][]=[[246,690],[256,833],[308,839],[357,846],...FRUIT_TREES,...SHRUBS].map(([x,z])=>[x,z]);
-/** Three cherries in bloom stand in the lawn instead, crowns about 4 m across, clear of the bin path and the guest wing:
- * [x, z, crown radius, height, kind]. */
-export const CHERRIES:[number,number,number,number,'cherry'][]=[[373,752,2.1,4.8,'cherry'],[431,782,1.9,4.4,'cherry'],[385,824,2,4.6,'cherry']];
+/** Three cherries in bloom stand in the lawn instead, down the middle of the rose garden (front-garage.ts), crowns about
+ * 4 m across: [x, z, crown radius, height, kind]. */
+export const CHERRIES:[number,number,number,number,'cherry'][]=[[394.6,675.3,2,4.6,'cherry'],[387.6,732,2.1,4.8,'cherry'],[380.6,788.7,1.9,4.4,'cherry']];
 
 /** A lumpy, leafy mound rather than a ball: each vertex pushed in or out by a fixed hash of its direction. */
 function mound(){
@@ -68,36 +67,40 @@ export function buildFrontGarden(foliage?:FoliageMaterials){
  return {ground,planting};
 }
 
-/** With the front garage, the rose bed on the drive's old south end (front-garage.ts): bark mulch, clipped box along both
- * arcs, and shrub roses about 0.7 m tall and 0.5 m apart, in bloom, one colour to each stretch of the curve. */
+/** With the front garage, the rose garden's border (front-garage.ts): bark mulch, clipped box on the lawn side, and two
+ * staggered rows of shrub roses about 0.7 m tall and 0.55 m apart, in leaf (as the hedges are, with detailed foliage) and
+ * in bloom, the colour changing every couple of metres. */
 export function buildRoseGarden(foliage?:FoliageMaterials){
  const group=new T.Group();group.name='forecourt-rose-garden';
- const bed=new T.Mesh(new T.ExtrudeGeometry(new T.Shape(ROSE_BED.map(([x,z])=>new T.Vector2(x,-z))),{depth:.015,bevelEnabled:false}).rotateX(-Math.PI/2),new T.MeshStandardMaterial({color:'#4b3a2b',roughness:1}));
- bed.position.y=.008;bed.receiveShadow=true;bed.name='forecourt-rose-bed';group.add(bed);
- const edging=buildHedge(ROSE_ARCS.flatMap(arc=>arc.slice(1).map((q,i)=>[{x:arc[i][0],y:arc[i][1]},{x:q[0],y:q[1]}] as [T.Vector2Like,T.Vector2Like])),{width:.24,height:.3,inset:0},foliage);
+ const mulch=new T.MeshStandardMaterial({color:'#4b3a2b',roughness:1});
+ for(const bed of ROSE_BEDS){const m=new T.Mesh(new T.ExtrudeGeometry(new T.Shape(bed.map(([x,z])=>new T.Vector2(x,-z))),{depth:.015,bevelEnabled:false}).rotateX(-Math.PI/2),mulch);m.position.y=.008;m.receiveShadow=true;m.name='forecourt-rose-bed';group.add(m);}
+ const edging=buildHedge(ROSE_EDGING.map(([a,b])=>[{x:a[0],y:a[1]},{x:b[0],y:b[1]}] as [T.Vector2Like,T.Vector2Like]),{width:.24,height:.3,inset:0},foliage);
  edging.name='forecourt-rose-edging';group.add(edging);
- // Planted on a staggered half-metre grid, a hand's width off the edging.
- const edge=(x:number,z:number)=>Math.min(...ROSE_BED.map(([ax,az],i)=>{const [bx,bz]=ROSE_BED[(i+1)%ROSE_BED.length],dx=bx-ax,dz=bz-az,t=T.MathUtils.clamp(((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz),0,1);return Math.hypot(x-ax-dx*t,z-az-dz*t);}));
+ // Each bed piece runs from its outer edge (corners 0, 1) to the lawn side (corners 3, 2): rows a quarter and three
+ // quarters of the way across, the roses 0.3 m in from the piece's ends.
  let seed=4177;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
- const xs=ROSE_BED.map(q=>q[0]),zs=ROSE_BED.map(q=>q[1]),x0=Math.min(...xs),x1=Math.max(...xs),places:[number,number][]=[];
- for(let row=0,z=Math.min(...zs);z<Math.max(...zs);z+=.43,row++)for(let x=x0+(row%2)*.25;x<x1;x+=.5){const a=x+(random()-.5)*.1,b=z+(random()-.5)*.1;if(insideEntrancePolygon(a,b,ROSE_BED)&&edge(a,b)>.3)places.push([a,b]);}
- // Deep red, rose pink, blush, cream and apricot, from the guest wing round to the lawn.
- const colours=['#8e1a2b','#cf6585','#f0c3ca','#f2e8d5','#e89c62'].map(c=>new T.Color(c));
- const bushes=new T.InstancedMesh(mound(),new T.MeshStandardMaterial({color:'#3f5a2b',roughness:.9}),places.length);
- const flower=new T.IcosahedronGeometry(1,1),blooms=new T.InstancedMesh(flower,new T.MeshStandardMaterial({color:'#ffffff',roughness:.75}),places.length*12);
+ const colours=['#8e1a2b','#cf6585','#f0c3ca','#f2e8d5','#e89c62'].map(c=>new T.Color(c)),places:[number,number,T.Color][]=[];let block=0;
+ for(const [o0,o1,i1,i0] of ROSE_BEDS)for(const [row,f] of [[0,.27],[1,.73]] as const){
+  const a=[o0[0]+(i0[0]-o0[0])*f,o0[1]+(i0[1]-o0[1])*f],b=[o1[0]+(i1[0]-o1[0])*f,o1[1]+(i1[1]-o1[1])*f],len=Math.hypot(b[0]-a[0],b[1]-a[1]);
+  for(let d=.3+row*.275;d<=len-.3;d+=.55){const t=d/len;places.push([a[0]+(b[0]-a[0])*t+(random()-.5)*.06,a[1]+(b[1]-a[1])*t+(random()-.5)*.06,colours[(block+Math.floor(d/2.2))%5]]);}
+  if(row)block+=2;
+ }
+ const bushes=new T.InstancedMesh(mound(),new T.MeshStandardMaterial({color:foliage?'#243a1b':'#3f5a2b',roughness:.9}),places.length),shapes:[number,number,number,number][]=[];
+ const blooms=new T.InstancedMesh(new T.IcosahedronGeometry(1,1),new T.MeshStandardMaterial({color:'#ffffff',roughness:.75}),places.length*12);
  const dummy=new T.Object3D(),tint=new T.Color();let k=0;
- places.forEach(([x,z],i)=>{
-  const r=.27+random()*.07,h=.62+random()*.16,colour=colours[Math.min(4,Math.floor((x1-x)/(x1-x0)*5))];
+ places.forEach(([x,z,colour],i)=>{
+  const r=.27+random()*.07,h=.62+random()*.16;shapes.push([x,z,r,h]);
   dummy.position.set(x,.02,z);dummy.rotation.set(0,random()*Math.PI*2,0);dummy.scale.set(r,h/1.12,r);dummy.updateMatrix();bushes.setMatrixAt(i,dummy.matrix);
   const g=.85+random()*.25;bushes.setColorAt(i,tint.setRGB(g,g,g));
   for(let j=0;j<12;j++){
    const theta=random()*Math.PI*2,phi=(.25+random()*.6)*Math.PI/2;
-   dummy.position.set(x+Math.cos(phi)*Math.cos(theta)*r*.95,.02+Math.sin(phi)*h*.92,z+Math.cos(phi)*Math.sin(theta)*r*.95);
-   dummy.rotation.set(random(),random(),random());const size=.045+random()*.02;dummy.scale.set(size,size*.75,size);dummy.updateMatrix();blooms.setMatrixAt(k,dummy.matrix);
+   dummy.position.set(x+Math.cos(phi)*Math.cos(theta)*r*1.08,.03+Math.sin(phi)*h*1.02,z+Math.cos(phi)*Math.sin(theta)*r*1.08);
+   dummy.rotation.set(random(),random(),random());const size=.05+random()*.025;dummy.scale.set(size,size*.75,size);dummy.updateMatrix();blooms.setMatrixAt(k,dummy.matrix);
    const l=.92+random()*.12;blooms.setColorAt(k++,tint.copy(colour).multiplyScalar(l));
   }
  });
  bushes.name='forecourt-roses';blooms.name='forecourt-rose-blooms';
  for(const o of [bushes,blooms]){o.castShadow=true;o.receiveShadow=true;group.add(o);}
+ if(foliage)group.add(shrubLeaves(shapes,foliage));
  return group;
 }

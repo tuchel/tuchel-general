@@ -1,6 +1,6 @@
 import * as T from 'three';
 import {sitePoint as s,planPoint as p} from './site-data';
-import {GARAGE_APRON,BIN_PATH,BIN_PATH_WIDTH,OLD_WALL_LINE,FORECOURT_LAWN,garagePoint} from './front-garage';
+import {GARAGE_APRON,BIN_PATH,BIN_PATH_WIDTH,OLD_WALL_LINE,FORECOURT_LAWN,garagePoint,meet} from './front-garage';
 
 // Photo-led dimensions, not a survey. The route joins the existing pedestrian
 // gate to the first entrance-link door, leaving soil and grasses beside the gable.
@@ -19,7 +19,6 @@ export const entranceFootprint=ribbon(entranceRoute,entranceWidth);
 /** The drive in two parts: its south end, which the front garage turns to lawn (FORECOURT_LAWN), and the rest. The lawn's
  * east side, on the strip kept along the guest wing, meets the drive's south edge; its west side runs up the apron's
  * edge to it. */
-const meet=([ax,az]:number[],[bx,bz]:number[],[cx,cz]:number[],[dx,dz]:number[]):[number,number]=>{const t=((cx-ax)*(dz-cz)-(cz-az)*(dx-cx))/((bx-ax)*(dz-cz)-(bz-az)*(dx-cx));return [ax+(bx-ax)*t,az+(bz-az)*t];};
 const southEdge=[drivewayFootprint[11],drivewayFootprint[12]],lawnEast=meet(southEdge[0],southEdge[1],FORECOURT_LAWN[0],FORECOURT_LAWN[1]),lawnWest=meet(southEdge[0],southEdge[1],FORECOURT_LAWN.at(-2)!,FORECOURT_LAWN.at(-1)!);
 const keptDriveway=[...drivewayFootprint.slice(0,12),lawnEast,...FORECOURT_LAWN.slice(1,-1),drivewayFootprint[12]];
 const reclaimedDriveway=[lawnEast,...FORECOURT_LAWN.slice(1,-1),lawnWest];

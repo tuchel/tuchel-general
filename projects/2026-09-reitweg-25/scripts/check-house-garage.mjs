@@ -9,7 +9,7 @@ await build({entryPoints:['lib/house-model/landscape-context.ts','lib/house-mode
 const {buildHouseModel}=await import('../tmp/garage-check/build-model.mjs');
 const {landscapeContext}=await import('../tmp/garage-check/landscape-context.mjs');
 const {renovations,offered,renovationState}=await import('../tmp/garage-check/renovation-data.mjs');
-const {garagePoint,roadPoint,GARAGE,BIN_ROOM,BIN_PATH,DRIVE_GATE,PEDESTRIAN_GATE,ROAD_LENGTH,FORECOURT_LAWN,ROSE_BED,ROSE_ARCS}=await import('../tmp/garage-check/front-garage.mjs');
+const {garagePoint,roadPoint,GARAGE,BIN_ROOM,BIN_PATH,DRIVE_GATE,PEDESTRIAN_GATE,ROAD_LENGTH,FORECOURT_LAWN,ROSE_GARDEN,ROSE_BEDS,ROSE_EDGING,ROSE_OPENINGS}=await import('../tmp/garage-check/front-garage.mjs');
 const {sitePoint,viewpoints,treePositions}=await import('../tmp/garage-check/site-data.mjs');
 const {FRUIT_TREES,SHRUBS,CHERRIES}=await import('../tmp/garage-check/front-garden.mjs');
 const {drivewayFootprint,insideEntrancePolygon}=await import('../tmp/garage-check/entrance-garden.mjs');
@@ -105,27 +105,43 @@ for(const realistic of [false,true]){
   for(let k=0;k<=n;k++)assert(cobbled([from[0]+(to[0]-from[0])*k/n,from[1]+(to[1]-from[1])*k/n]),'cobbled from the drive to the garage doors');}
  // Where the old recessed wall stood, and along the drive's old edge, the cobbles run on without a gap.
  for(const [a,b] of [[sitePoint(365,422),sitePoint(346,610)],[sitePoint(346,610),sitePoint(337,707)]])for(let t=.02;t<=.98;t+=.01){const p=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];assert(cobbled(p),`cobbles where the old wall stood and along the drive's edge, at ${p.map(q=>q.toFixed(2))}`);}
-// The drive's south end, where cars no longer stand, is lawn with a rose bed; the strip along the guest wing stays
- // cobbled to its garden door.
+// The drive's south end, where cars no longer stand, is lawn; the strip along the guest wing stays cobbled to its garden
+ // door. With the well garden's lawn it makes one rose garden: a border of roses all round, edged in box on the lawn
+ // side, open to the drive and opposite the garden door, and the cherries down its middle.
  {const stones=laid();for(const p of forecourt)assert(!on_(stones,p),`lawn, not cobbles, at ${p.map(n=>n.toFixed(1))}`);
   for(const p of wingStrip)assert(on_(stones,p),`the strip along the guest wing stays cobbled, at ${p.map(n=>n.toFixed(1))}`);
-  for(const p of forecourt.filter(p=>!insideEntrancePolygon(...p,ROSE_BED)&&edge(p,ROSE_BED)>.4)){const hit=first(v3(p,3),v3(p,-.1),root);
+  const inBed=p=>ROSE_BEDS.some(b=>insideEntrancePolygon(...p,b)),toBed=p=>Math.min(...ROSE_BEDS.map(b=>edge(p,b)));
+  const trunks=CHERRIES.map(([x,z])=>sitePoint(x,z));
+  for(const p of forecourt.filter(p=>!inBed(p)&&toBed(p)>.4&&trunks.every(t=>Math.hypot(t[0]-p[0],t[1]-p[1])>.6))){const hit=first(v3(p,3),v3(p,-.1),root);
    assert(hit&&hit.point.y<.03&&hit.object.material.userData.photo==='lawn',`lawn at ${p.map(n=>n.toFixed(1))} (${hit?.object.name} at ${hit?.point.y.toFixed(3)})`);}
   const garden=root.getObjectByName('forecourt-rose-garden');assert(garden&&visible(garden),'the rose garden');
   const roses=garden.getObjectByName('forecourt-roses'),blooms=garden.getObjectByName('forecourt-rose-blooms');
-  assert(roses?.isInstancedMesh&&roses.count>=20,`at least 20 roses (${roses?.count})`);roseCount=roses.count;
-  const m=new T.Matrix4(),at=new T.Vector3();
-  for(let i=0;i<roses.count;i++){roses.getMatrixAt(i,m);at.setFromMatrixPosition(m);assert(insideEntrancePolygon(at.x,at.z,ROSE_BED)&&edge([at.x,at.z],ROSE_BED)>.25,`rose ${i} stands in the bed`);}
+  assert(roses?.isInstancedMesh&&roses.count>=60,`a border of roses (${roses?.count})`);roseCount=roses.count;
+  const m=new T.Matrix4(),at=new T.Vector3(),planted=[];
+  for(let i=0;i<roses.count;i++){roses.getMatrixAt(i,m);at.setFromMatrixPosition(m);const p=[at.x,at.z];planted.push(p);
+   assert(inBed(p)&&edge(p,ROSE_GARDEN)>.25&&Math.min(...ROSE_EDGING.map(([a,b])=>toSegment(p,a,b)))>.2,`rose ${i} stands in the border, clear of the paving and the box`);}
+  // All the way round: along every side, 0.6 m in, a rose within 0.6 m every metre, but at the two openings.
+  ROSE_GARDEN.forEach((a,i)=>{const b=ROSE_GARDEN[(i+1)%ROSE_GARDEN.length],len=Math.hypot(b[0]-a[0],b[1]-a[1]),[cx,cz]=ROSE_GARDEN.reduce((c,q)=>[c[0]+q[0]/ROSE_GARDEN.length,c[1]+q[1]/ROSE_GARDEN.length],[0,0]);
+   const n=[-(b[1]-a[1])/len,(b[0]-a[0])/len],k=(n[0]*(cx-a[0])+n[1]*(cz-a[1]))>0?.6:-.6;
+   for(let d=.6;d<len-.6;d+=1){const p=[a[0]+(b[0]-a[0])*d/len+n[0]*k,a[1]+(b[1]-a[1])*d/len+n[1]*k];if(ROSE_OPENINGS.some(([o,w])=>Math.hypot(o[0]-p[0],o[1]-p[1])<w/2+.6))continue;
+    assert(planted.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<.6),`roses along side ${i}, at ${p.map(v=>v.toFixed(1))}`);}});
+  for(const [[x,z],w] of ROSE_OPENINGS){assert(!planted.some(q=>Math.hypot(q[0]-x,q[1]-z)<w/2),`the opening at ${[x,z].map(v=>v.toFixed(1))} is clear`);
+   const hit=first(v3([x,z],2),v3([x,z],0),root);assert(!hit||!named(hit.object,'forecourt-rose-edging'),'no box across an opening');}
   // In bloom, in several colours, at shrub-rose height.
   assert(blooms?.isInstancedMesh&&blooms.count>=roses.count*8,'roses in bloom');
   const colours=new Set();for(let i=0;i<blooms.count;i++){const c=new T.Color();blooms.getColorAt(i,c);colours.add(c.getHexString());blooms.getMatrixAt(i,m);at.setFromMatrixPosition(m);assert(at.y>.25&&at.y<1.1,`a bloom at ${at.y.toFixed(2)} m`);}
   assert(colours.size>=3,`blooms in ${colours.size} colours`);
-  // Clipped box along both arcs, knee-low.
-  for(const arc of ROSE_ARCS)for(const p of arc.slice(1,-1)){const hit=first(v3(p,2),v3(p,0),root);assert(hit&&named(hit.object,'forecourt-rose-edging')&&hit.point.y>.18&&hit.point.y<.45,`box edging at ${p.map(n=>n.toFixed(1))} (${hit?.object.name})`);}}
+  // Clipped box along the lawn side, knee-low (the roses' leaves spill over it).
+  const box=garden.getObjectByName('forecourt-rose-edging');
+  for(const [a,b] of ROSE_EDGING){const p=[(a[0]+b[0])/2,(a[1]+b[1])/2],hit=first(v3(p,2),v3(p,0),box);assert(hit&&hit.point.y>.18&&hit.point.y<.45,`box edging at ${p.map(n=>n.toFixed(1))} (${hit?.point.y.toFixed(2)})`);}
+  // The cherries stand down the middle, inside the border.
+  const [ne,nw,,sw,se]=ROSE_GARDEN,top=[(ne[0]+nw[0])/2,(ne[1]+nw[1])/2],bottom=[(sw[0]+se[0])/2,(sw[1]+se[1])/2];
+  for(const t of trunks){assert(toSegment(t,top,bottom)<.3,`a cherry on the garden's middle line (${t.map(v=>v.toFixed(1))})`);assert(insideEntrancePolygon(...t,ROSE_GARDEN)&&!inBed(t)&&toBed(t)>1.4,'a cherry in the lawn, clear of the roses');}}
  // The well garden, its hedges and its trees give way to open lawn; three cherries stand in it, in bloom.
  for(const name of garden)assert(!visible(root.getObjectByName(name)),`${name} gives way to lawn`);
  {const hedges=[];root.traverse(o=>{if(o.isMesh&&visible(o)&&(()=>{for(let a=o;a;a=a.parent)if(/hedge/.test(a.name))return true;return false;})())hedges.push(o);});
-  for(let x=-35.5;x<=-28.5;x+=.5)for(let z=12.8;z<=20.2;z+=.5){ray.set(new T.Vector3(x,6,z),new T.Vector3(0,-1,0));ray.far=7;assert.equal(ray.intersectObjects(hedges,false).length,0,`no hedge in the lawn at ${x}, ${z}`);}}
+  // Only the rose garden's clipped box stands on it.
+  for(let x=-35.5;x<=-28.5;x+=.5)for(let z=12.8;z<=20.2;z+=.5){ray.set(new T.Vector3(x,6,z),new T.Vector3(0,-1,0));ray.far=7;assert(ray.intersectObjects(hedges,false).every(h=>named(h.object,'forecourt-rose-garden')),`no hedge in the lawn at ${x}, ${z}`);}}
  const shown=trees();
  for(const p of removedTrees)assert(!near(shown,p,.5),`the tree at ${p.map(n=>n.toFixed(1))} gives way`);
  const cherries=shown.filter(t=>t[2]==='cherry');assert.equal(cherries.length,CHERRIES.length,'the cherries stand');assert(cherries.length>=3);
@@ -159,5 +175,5 @@ for(const realistic of [false,true]){
    assert(!hit||hit.point.y<.3,`with the arrival wall ${front?'on':'off'}, the old recessed wall is gone at ${[x,z].map(n=>n.toFixed(1))}`);}}
  on({front:true});{const [x,z]=sitePoint(355,516),hit=first(new T.Vector3(x,4,z),new T.Vector3(x,0,z),root);assert(hit&&hit.point.y>1.8,'the arrival wall alone keeps the recessed line');}
  on({});model.dispose();
- console.log(`Passed (${realistic?'realism':'natural'}): garage ${(BIN_ROOM.v1-GARAGE.v0).toFixed(1)} m on the road line at ${(garagePitch*180/Math.PI).toFixed(1)}°; ${bins.length} bins; ${cherries.length} cherries in bloom; ${roseCount} roses on the drive's old south end.`);
+ console.log(`Passed (${realistic?'realism':'natural'}): garage ${(BIN_ROOM.v1-GARAGE.v0).toFixed(1)} m on the road line at ${(garagePitch*180/Math.PI).toFixed(1)}°; ${bins.length} bins; ${cherries.length} cherries in bloom; ${roseCount} roses round the rose garden.`);
 }
