@@ -52,6 +52,20 @@ const shod={},programs=new Set();
   const box=part=>{const b=new T.Box3();gltf.scene.traverse(o=>{if(o.isSkinnedMesh&&part.test(o.name)){o.computeBoundingBox();b.union(o.boundingBox.clone().applyMatrix4(o.matrixWorld));}});return b;};
   const top=box(/body/).max.y,soles=box(/shoes/).min.y;shod[who]=top-soles;
   assert(shod[who]>spec.height-.005&&shod[who]<spec.height+.045,`${who}: ${shod[who].toFixed(3)} m in shoes for ${spec.height} m`);
+  // Ankles: the skin under socks and shoes is hidden, so the knee socks run into the shoes all the way round each
+  // ankle, and nothing of a shoe's own sock stands above its leather.
+  const at=re=>{const out=[],v=new T.Vector3();gltf.scene.traverse(o=>{if(o.isSkinnedMesh&&re.test(o.name))for(let i=0;i<o.geometry.attributes.position.count;i++)out.push(o.getVertexPosition(i,v).applyMatrix4(o.matrixWorld).clone());});return out;};
+  const socks=at(/socks/),shoes=at(/shoes/),middle=box(/body/).getCenter(new T.Vector3()).x;
+  for(const side of socks.length?[-1,1]:[]){
+   const leg=p=>Math.sign(p.x-middle)===side,ankle=socks.filter(p=>leg(p)&&p.y>.15&&p.y<.3);
+   const cx=ankle.reduce((s,p)=>s+p.x,0)/ankle.length,cz=ankle.reduce((s,p)=>s+p.z,0)/ankle.length;
+   const sector=p=>Math.floor((Math.atan2(p.z-cz,p.x-cx)+Math.PI)/(Math.PI/4))%8,near=p=>leg(p)&&Math.hypot(p.x-cx,p.z-cz)<.08;
+   const collar=Array(8).fill(-1),hem=Array(8).fill(9);
+   for(const p of shoes)if(near(p))collar[sector(p)]=Math.max(collar[sector(p)],p.y);
+   for(const p of socks)if(near(p))hem[sector(p)]=Math.min(hem[sector(p)],p.y);
+   assert(Math.max(...collar)<.12,`${who}: ${side<0?'right':'left'} shoe ${Math.max(...collar).toFixed(3)} m high at the ankle, all leather`);
+   collar.forEach((c,i)=>assert(hem[i]<c,`${who}: ${side<0?'right':'left'} sock ends at ${hem[i].toFixed(3)} m, above the shoe at ${c.toFixed(3)} m (${i*45-180}° round the ankle)`));
+  }
   // Finished for the viewer (with stand-ins for the textures left out): skin and cloth opaque, without the exporter's
   // white sheen; hair, brows and the clear cornea cut out; nothing casts a shadow or enters the path tracer.
   gltf.scene.traverse(o=>{if(o.isMesh){const t=textured.get(o.material.name);if(t?.map)o.material.map=new T.Texture();if(t?.normal)o.material.normalMap=new T.Texture();}});
