@@ -4,8 +4,9 @@ export const roofSkylights=(kind:'main'|'guest')=>kind==='main'?[
  ...[[-7.85,.68],[-4.6,.68],[-2.2,.68],[-5,.14],[.1,.45],[1.7,.45],[3.25,.45],[4.85,.68],[6.45,.68],[8.05,.68]].map(([z,fraction])=>({side:1,z,fraction})),
  // West slope: the eight roof windows above the knee wall on the upper plan.
  ...[-6.57,-4.77,-2.97,-1.18,.71,2.36,6.15,7.92].map(z=>({side:-1,z,fraction:.58}))
-// Guest roof windows are all on the west slope (upper plan; FDE39D63 shows none on the east).
-]:[...[-1.15,.75,2.65].map(z=>({side:-1,z,fraction:.62}))];
+// Guest roof windows are all on the west slope (upper plan; FDE39D63 shows none on the east), their centres 0.52 of the
+// slope down from the ridge (owner photograph of the guest wing, front on).
+]:[...[-1.15,.75,2.65].map(z=>({side:-1,z,fraction:.52}))];
 /** With the Guest Wing Skylights renovation, four more in the guest roof's west slope: two over the study and two over the
  * bedroom, on the 1.9 m rhythm of the three over the landing and shower room. They skip the two places
  * a partition meets the roof; each pair is as central in its room as the rhythm allows. They sit higher up the slope than

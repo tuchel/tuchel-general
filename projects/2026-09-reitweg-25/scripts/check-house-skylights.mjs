@@ -26,6 +26,11 @@ const step=existing[1].z-existing[0].z;
 assert(Math.abs(step-1.9)<.01&&Math.abs(existing[2].z-existing[1].z-step)<.01,'the three windows stand 1.9 m apart');
 for(const w of row){assert.equal(w.side,-1,'on the west slope');
  const k=(w.z-existing[0].z)/step;assert(Math.abs(k-Math.round(k))<.005,`on the 1.9 m rhythm (${w.z})`);}
+// The three existing windows' centres sit 0.52 of the slope down from the ridge. In the owner's front-on photograph of the
+// guest wing, taken from just outside the roadside wall, the middle window's glass is centred 0.48 of the way from ridge
+// to eave in the image; the model, seen from the same place (roof-to-wall height ratio 0.96 against the photograph's
+// 0.94 to 1.06), shows 0.44 for windows at 0.48 and 0.51 for windows at 0.55.
+for(const w of existing)assert(Math.abs(w.fraction-.52)<.03,`the window at ${w.z} sits where the photograph shows (${w.fraction})`);
 // The new windows sit high enough to open from the room: the bottom of the ceiling opening at shoulder height, about 1.5 m
 // above the guest floor, and the whole opening above the knee wall, which stands 0.9 m high about 3.3 m out from the ridge.
 {const half=(guestRoofFrame.width+GUEST_ROOF.overhang*2)/2,rise=GUEST_ROOF.ridge-GUEST_ROOF.eave,span=Math.hypot(half,rise),sin=rise/span,cos=half/span;
