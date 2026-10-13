@@ -381,14 +381,15 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  };
  // Shaders for the upper floor's section cut, every renovation, eye-level grass and dusk lamps compile in the
  // background after the first frame, so the first visit to each has no stall. Everything is shown for the moment the
- // materials are gathered, then put back exactly as it was.
+ // materials are gathered, then put back exactly as it was. With a post stack they compile as its scene pass draws them,
+ // into its own target (post.ts).
  const precompile=async()=>{
   if(!lighting)return;
   for(const [floor,lamps] of [['upper',false],['upper',true],['exterior',true]] as const){
    if(disposed)return;
    const shown=new Map<T.Object3D,boolean>();scene.traverse(o=>shown.set(o,o.visible));
    model.setLevel(floor);scene.traverse(o=>{o.visible=true;});lighting.lamps.visible=lamps;
-   const done=renderer.compileAsync(scene,camera);
+   const done=post?post.compileAsync(scene):renderer.compileAsync(scene,camera);
    model.setLevel(level);for(const [o,v] of shown)o.visible=v;
    await done.catch(()=>{});
   }

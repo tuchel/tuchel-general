@@ -26,4 +26,7 @@ assert(/const SUN_SETTLE=150/.test(viewer),'150 ms');
 // 9. Shaders for every floor, renovation, eye level and dusk compile in the background after the first frame.
 assert(/const precompile=async\(\)=>/.test(viewer)&&/for\(const \[floor,lamps\] of \[\['upper',false\],\['upper',true\],\['exterior',true\]\]/.test(viewer),'upper floor and dusk variants');
 assert(/canvas\.dataset\.programs=/.test(viewer),'tests can read how many programs exist');
+// With a post stack the scene is drawn into its own target, without tone mapping: compiled for the screen instead, the
+// programs would not be the ones the scene pass uses, and each floor's first visit would compile its own again.
+assert(/const done=post\?post\.compileAsync\(scene\):renderer\.compileAsync\(scene,camera\)/.test(viewer),'precompiled as the scene pass draws');
 console.log(`Passed: tracing and bakes pause while the browser is not focused; moving frames at ${tiers.extreme.motionScale}× on computers; bounce and tracing follow a dragged sun after 150 ms; shaders for other floors and dusk compile ahead.`);
