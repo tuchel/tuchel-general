@@ -40,6 +40,19 @@ export const GARAGE_FRONTAGE:[number,number]=[S[1]-3,SW[1]+3];
 /** Cobbles from the notch to the garage doors, joining the drive, reaching 0.4 m over its old edge (world x, z). */
 export const GARAGE_APRON:[number,number][]=[S,garagePoint(0,GARAGE.v0),garagePoint(7.85,GARAGE.v0),s(343,707),s(352,610),s(346,610)];
 
+/** With the garage the old drive's south end, where cars no longer stand, becomes lawn with a rose bed: from a 2.4 m
+ * strip of cobbles kept along the guest wing, which still leads to its garden door, across to the apron, and from the
+ * lawn's edge 5–6.5 m north (world x, z). */
+const quad=(a:[number,number],c:[number,number],b:[number,number],n:number)=>Array.from({length:n+1},(_,i)=>{const t=i/n,u=1-t;return [u*u*a[0]+2*u*t*c[0]+t*t*b[0],u*u*a[1]+2*u*t*c[1]+t*t*b[1]] as [number,number];});
+const strip=(z:number):[number,number]=>[-28.7-.1198*(z-11.94),z];
+const LAWN_NORTH=[...quad(strip(7.6),[-28.03,6.3],[-29.5,6.1],4),...quad([-29.5,6.1],[-32.2,5.6],[-34.63,5.45],8).slice(1)];
+export const FORECOURT_LAWN:[number,number][]=[strip(12.6),...LAWN_NORTH,[-35.2,11.64],[-35.2,12.6]];
+/** The rose bed: a broad curve, about 2 m across, from the cobbled strip by the guest wing round to the lawn's north
+ * edge, between two arcs edged in clipped box (world x, z). */
+const W1=LAWN_NORTH[10],W2=LAWN_NORTH[6];
+export const ROSE_ARCS:[number,number][][]=[quad(strip(10.6),[-31.83,8.94],W1,12),quad(strip(8.5),[-29.97,7.69],W2,8)];
+export const ROSE_BED:[number,number][]=[...ROSE_ARCS[0],...LAWN_NORTH.slice(7,10).reverse(),...[...ROSE_ARCS[1]].reverse()];
+
 type MaterialFactory=(pale:string,natural?:string,roughness?:number)=>T.MeshStandardMaterial;
 export function buildFrontGarage(material:MaterialFactory){
  const group=new T.Group();group.name='front-garage';

@@ -11,7 +11,7 @@ import {buildPool,poolHole} from './pool';
 import {boundaryHedge} from './landscape-context';
 import {buildTrees,foliageMaterials,type TreeSpec,type TreeKind} from './foliage';
 import {buildFrontWall} from './front-wall';
-import {buildFrontGarden,FRUIT_TREES,SHRUBS,GARAGE_CLEARS,CHERRIES} from './front-garden';
+import {buildFrontGarden,buildRoseGarden,FRUIT_TREES,SHRUBS,GARAGE_CLEARS,CHERRIES} from './front-garden';
 import {buildEastGarden,EAST_GARDEN_TREES} from './east-garden';
 import {buildNorthGarden} from './north-garden';
 import {furnishHouse} from './interiors';
@@ -530,6 +530,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const frontGarden=buildFrontGarden(foliage);trees.add(frontGarden.planting);site.add(frontGarden.ground);
  // The front garage clears the well garden to lawn, and the last of the south hedge by the lane.
  originals.garage!.push(frontGarden.planting,frontGarden.ground,trees.getObjectByName('south-hedge-by-the-lane')!);
+ // It also turns the drive's south end to lawn with a rose bed; the drive's cobbles there go with its originals.
+ const roses=buildRoseGarden(foliage);roses.visible=false;site.add(roses);additions.garage!.push(roses);
  trees.add(buildEastGarden(foliage));
  const renovation=buildRenovations(ground,roofs,site,material);
  // The retained fireplace and a pier either side of it, between the two runs of south glazing (renovations.ts).

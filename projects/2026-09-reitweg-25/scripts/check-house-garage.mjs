@@ -9,7 +9,7 @@ await build({entryPoints:['lib/house-model/landscape-context.ts','lib/house-mode
 const {buildHouseModel}=await import('../tmp/garage-check/build-model.mjs');
 const {landscapeContext}=await import('../tmp/garage-check/landscape-context.mjs');
 const {renovations,offered,renovationState}=await import('../tmp/garage-check/renovation-data.mjs');
-const {garagePoint,roadPoint,GARAGE,BIN_ROOM,BIN_PATH,DRIVE_GATE,PEDESTRIAN_GATE,ROAD_LENGTH}=await import('../tmp/garage-check/front-garage.mjs');
+const {garagePoint,roadPoint,GARAGE,BIN_ROOM,BIN_PATH,DRIVE_GATE,PEDESTRIAN_GATE,ROAD_LENGTH,FORECOURT_LAWN,ROSE_BED,ROSE_ARCS}=await import('../tmp/garage-check/front-garage.mjs');
 const {sitePoint,viewpoints,treePositions}=await import('../tmp/garage-check/site-data.mjs');
 const {FRUIT_TREES,SHRUBS,CHERRIES}=await import('../tmp/garage-check/front-garden.mjs');
 const {drivewayFootprint,insideEntrancePolygon}=await import('../tmp/garage-check/entrance-garden.mjs');
@@ -30,8 +30,14 @@ const named=(o,name)=>{for(;o;o=o.parent)if(o.name===name)return true;return fal
 // Garage frame: m into the plot from the lane's road line, v along it southward.
 const local=(x,z)=>{const o=garagePoint(0,0),i=garagePoint(1,0),a=garagePoint(0,1),dx=x-o[0],dz=z-o[1];return [dx*(i[0]-o[0])+dz*(i[1]-o[1]),dx*(a[0]-o[0])+dz*(a[1]-o[1])];};
 const toSegment=([x,z],[ax,az],[bx,bz])=>{const dx=bx-ax,dz=bz-az,t=Math.max(0,Math.min(1,((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz)));return Math.hypot(x-ax-t*dx,z-az-t*dz);};
+const edge=(p,poly)=>Math.min(...poly.map((a,i)=>toSegment(p,a,poly[(i+1)%poly.length])));
+// The drive's south end that the garage turns to lawn: points on it at least 0.3 m in from its edges and the drive's.
+const forecourt=[];for(let x=-35.5;x<=-28;x+=.4)for(let z=5.3;z<=12.5;z+=.4){const p=[x,z];if(insideEntrancePolygon(x,z,FORECOURT_LAWN)&&insideEntrancePolygon(x,z,drivewayFootprint)&&edge(p,FORECOURT_LAWN)>.3&&edge(p,drivewayFootprint)>.3)forecourt.push(p);}
+// The strip kept along the guest wing: 1.2 m in from the drive's east edge, the length of the wing.
+const wingStrip=[];{const [a,b]=[drivewayFootprint[10],drivewayFootprint[11]];for(let t=.05;t<=.95;t+=.05)wingStrip.push([a[0]+(b[0]-a[0])*t-1.2,a[1]+(b[1]-a[1])*t]);}
 const removedTrees=[[246,690],[256,833],[308,839],[357,846],...FRUIT_TREES,...SHRUBS].map(([x,z])=>sitePoint(x,z));
 
+let roseCount=0;
 for(const realistic of [false,true]){
  const model=buildHouseModel(realistic,realistic?landscapeContext().group:undefined),root=model.root;model.setLevel('exterior');
  const on=state=>{model.setRenovations({...renovationState(),...state});root.updateMatrixWorld(true);};
@@ -41,6 +47,8 @@ for(const realistic of [false,true]){
    for(const set of o.userData.treeSets??[])for(const m of set.matrices){const p=new T.Vector3().setFromMatrixPosition(m).applyMatrix4(o.matrixWorld);out.push([p.x,p.z,set.kind]);}
    if(o.userData.gardenTree)out.push([o.userData.gardenTree[0],o.userData.gardenTree[1],o.userData.gardenTree[2]]);});return out;};
  const near=(list,[x,z],d=1)=>list.some(t=>Math.hypot(t[0]-x,t[1]-z)<d);
+ const laid=()=>{const out=[];root.traverse(o=>{if(o.isInstancedMesh&&/cobbles/.test(o.name)&&visible(o)){const m=new T.Matrix4();for(let i=0;i<o.count;i++){o.getMatrixAt(i,m);out.push(new T.Vector3().setFromMatrixPosition(m).applyMatrix4(o.matrixWorld));}}});return out;};
+ const on_=(stones,[x,z])=>stones.some(q=>Math.abs(q.x-x)<.13&&Math.abs(q.z-z)<.1);
 
  // Off: today's front garden, its hedges and trees; no garage.
  on({});
@@ -49,6 +57,9 @@ for(const realistic of [false,true]){
  {const shown=trees();for(const p of removedTrees)assert(near(shown,p),`today's tree at ${p.map(n=>n.toFixed(1))}`);
   if(realistic)assert(visible(root.getObjectByName('avenue-by-the-garage')),'the avenue tree by the lane stands without the garage');
   assert(!shown.some(t=>t[2]==='cherry'),'no cherries without the garage');}
+ // Without it, today's drive: cobbled across its south end, and no roses.
+ {const stones=laid();for(const p of forecourt)assert(on_(stones,p),`today's cobbles at ${p.map(n=>n.toFixed(1))}`);
+  {const g=root.getObjectByName('forecourt-rose-garden');assert(g&&!visible(g),'the rose garden is built and shown only with the garage');}}
 
  on({garage:true});
  const garage=root.getObjectByName('front-garage');assert(visible(garage),'the garage stands');
@@ -90,10 +101,27 @@ for(const realistic of [false,true]){
   for(let k=0;k<=n;k++){const t=k/n*end,p=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];assert(cobbled(p),`cobbles at ${p.map(q=>q.toFixed(2))}`);}}
  {const door=path.at(-1);assert(stones.some(s=>Math.hypot(s.x-door[0],s.z-door[1])<.3),'the cobbles reach the bin room door');}
  // The apron joins the existing drive: cobbles all the way from the parking to the garage doors.
- {const from=sitePoint(345,700),to=garagePoint(GARAGE.m1-1,GARAGE.v0-.3),n=30;assert(insideEntrancePolygon(...from,drivewayFootprint),'starts on the drive');
+ {const from=[-34.5,3],to=garagePoint(GARAGE.m1-1,GARAGE.v0-.3),n=30;assert(insideEntrancePolygon(...from,drivewayFootprint),'starts on the drive');
   for(let k=0;k<=n;k++)assert(cobbled([from[0]+(to[0]-from[0])*k/n,from[1]+(to[1]-from[1])*k/n]),'cobbled from the drive to the garage doors');}
  // Where the old recessed wall stood, and along the drive's old edge, the cobbles run on without a gap.
  for(const [a,b] of [[sitePoint(365,422),sitePoint(346,610)],[sitePoint(346,610),sitePoint(337,707)]])for(let t=.02;t<=.98;t+=.01){const p=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];assert(cobbled(p),`cobbles where the old wall stood and along the drive's edge, at ${p.map(q=>q.toFixed(2))}`);}
+// The drive's south end, where cars no longer stand, is lawn with a rose bed; the strip along the guest wing stays
+ // cobbled to its garden door.
+ {const stones=laid();for(const p of forecourt)assert(!on_(stones,p),`lawn, not cobbles, at ${p.map(n=>n.toFixed(1))}`);
+  for(const p of wingStrip)assert(on_(stones,p),`the strip along the guest wing stays cobbled, at ${p.map(n=>n.toFixed(1))}`);
+  for(const p of forecourt.filter(p=>!insideEntrancePolygon(...p,ROSE_BED)&&edge(p,ROSE_BED)>.4)){const hit=first(v3(p,3),v3(p,-.1),root);
+   assert(hit&&hit.point.y<.03&&hit.object.material.userData.photo==='lawn',`lawn at ${p.map(n=>n.toFixed(1))} (${hit?.object.name} at ${hit?.point.y.toFixed(3)})`);}
+  const garden=root.getObjectByName('forecourt-rose-garden');assert(garden&&visible(garden),'the rose garden');
+  const roses=garden.getObjectByName('forecourt-roses'),blooms=garden.getObjectByName('forecourt-rose-blooms');
+  assert(roses?.isInstancedMesh&&roses.count>=20,`at least 20 roses (${roses?.count})`);roseCount=roses.count;
+  const m=new T.Matrix4(),at=new T.Vector3();
+  for(let i=0;i<roses.count;i++){roses.getMatrixAt(i,m);at.setFromMatrixPosition(m);assert(insideEntrancePolygon(at.x,at.z,ROSE_BED)&&edge([at.x,at.z],ROSE_BED)>.25,`rose ${i} stands in the bed`);}
+  // In bloom, in several colours, at shrub-rose height.
+  assert(blooms?.isInstancedMesh&&blooms.count>=roses.count*8,'roses in bloom');
+  const colours=new Set();for(let i=0;i<blooms.count;i++){const c=new T.Color();blooms.getColorAt(i,c);colours.add(c.getHexString());blooms.getMatrixAt(i,m);at.setFromMatrixPosition(m);assert(at.y>.25&&at.y<1.1,`a bloom at ${at.y.toFixed(2)} m`);}
+  assert(colours.size>=3,`blooms in ${colours.size} colours`);
+  // Clipped box along both arcs, knee-low.
+  for(const arc of ROSE_ARCS)for(const p of arc.slice(1,-1)){const hit=first(v3(p,2),v3(p,0),root);assert(hit&&named(hit.object,'forecourt-rose-edging')&&hit.point.y>.18&&hit.point.y<.45,`box edging at ${p.map(n=>n.toFixed(1))} (${hit?.object.name})`);}}
  // The well garden, its hedges and its trees give way to open lawn; three cherries stand in it, in bloom.
  for(const name of garden)assert(!visible(root.getObjectByName(name)),`${name} gives way to lawn`);
  {const hedges=[];root.traverse(o=>{if(o.isMesh&&visible(o)&&(()=>{for(let a=o;a;a=a.parent)if(/hedge/.test(a.name))return true;return false;})())hedges.push(o);});
@@ -131,5 +159,5 @@ for(const realistic of [false,true]){
    assert(!hit||hit.point.y<.3,`with the arrival wall ${front?'on':'off'}, the old recessed wall is gone at ${[x,z].map(n=>n.toFixed(1))}`);}}
  on({front:true});{const [x,z]=sitePoint(355,516),hit=first(new T.Vector3(x,4,z),new T.Vector3(x,0,z),root);assert(hit&&hit.point.y>1.8,'the arrival wall alone keeps the recessed line');}
  on({});model.dispose();
- console.log(`Passed (${realistic?'realism':'natural'}): garage ${(BIN_ROOM.v1-GARAGE.v0).toFixed(1)} m on the road line at ${(garagePitch*180/Math.PI).toFixed(1)}°; ${bins.length} bins; ${cherries.length} cherries in bloom.`);
+ console.log(`Passed (${realistic?'realism':'natural'}): garage ${(BIN_ROOM.v1-GARAGE.v0).toFixed(1)} m on the road line at ${(garagePitch*180/Math.PI).toFixed(1)}°; ${bins.length} bins; ${cherries.length} cherries in bloom; ${roseCount} roses on the drive's old south end.`);
 }
