@@ -100,26 +100,30 @@ function contactShadow(){
  mesh.renderOrder=1;mesh.name='contact-shadow';return mesh;
 }
 
-/** A figure's materials finished for the viewer. Hair, beard, brows, lashes and the chamois tuft are cut out by alpha;
- * the eyes' clear cornea is blended; everything else, skin included, is opaque (the exporter marks MakeHuman's
- * materials as blended). Fabric sheen is left out: as exported it is full white, which washes the cloth out. The
- * figure takes the scene's shadows and light but casts none (its contact shadow stands in), and stays out of the path
- * tracer and its photographs, which read static meshes only (photographic-scene.ts). */
+/** A figure's materials finished for the viewer. Each set of material features is a shader program of its own, and
+ * every program compiles the first time it is drawn, which stalls the page; so the figure keeps to three: everything is
+ * a plain standard material, two-sided, with a colour map (white where it has none) and no normal map; hair, beard,
+ * brows, lashes and the eyes' clear cornea are cut out by alpha; the rest, skin included, is opaque (the exporter marks
+ * MakeHuman's materials as blended); the chamois tuft keeps its vertex colours. Fabric sheen is left out: as exported
+ * it is full white, which washes the cloth out. The figure takes the scene's shadows and light but casts none (its
+ * contact shadow stands in), and stays out of the path tracer and its photographs, which read static meshes only
+ * (photographic-scene.ts). */
 export function finishFigure(scene:T.Object3D){
- const materials=new Set<T.MeshStandardMaterial>();
+ const finished=new Map<T.Material,T.MeshStandardMaterial>(),white=new T.DataTexture(new Uint8Array([255,255,255,255]),1,1);
+ white.colorSpace=T.SRGBColorSpace;white.needsUpdate=true;
+ const finish=(source:T.Material)=>{
+  let m=finished.get(source);if(m)return m;
+  m=new T.MeshStandardMaterial().copy(source as T.MeshStandardMaterial);
+  m.map??=white;m.normalMap=null;m.side=T.DoubleSide;m.transparent=false;m.opacity=1;m.depthWrite=true;
+  m.alphaTest=/hair|beard|eyebrow|eyelash|high-poly/.test(m.name)?.5:0;
+  m.userData.envBase=m.envMapIntensity;finished.set(source,m);return m;
+ };
  scene.traverse(o=>{
   if(!(o instanceof T.Mesh))return;
   o.castShadow=false;o.receiveShadow=true;o.frustumCulled=false;o.userData.skipPhotographic=true;
-  for(const m of [o.material].flat())if(m instanceof T.MeshStandardMaterial)materials.add(m);
+  o.material=Array.isArray(o.material)?o.material.map(finish):finish(o.material);
  });
- for(const m of materials){
-  if(m instanceof T.MeshPhysicalMaterial){m.sheen=0;m.clearcoat=0;}
-  if(/hair|beard|eyebrow|eyelash|tuft/.test(m.name)){m.transparent=false;m.alphaTest=.5;m.depthWrite=true;m.side=T.DoubleSide;}
-  else if(/high-poly/.test(m.name)){m.transparent=true;m.depthWrite=false;}
-  else{m.transparent=false;m.alphaTest=0;m.opacity=1;m.depthWrite=true;}
-  m.userData.envBase=m.envMapIntensity;
- }
- return [...materials];
+ return [...finished.values()];
 }
 
 /** Both figures, loaded and finished (finishFigure). A file that fails to load leaves its figure out. */

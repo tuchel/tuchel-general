@@ -239,6 +239,12 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
   /** The chain's passes by name, for the performance readout (perf-readout.ts). */
   passes:([['scene',scenePass],['depth',depth],['ao',ao],['bloom',bloom],['shafts',shafts],['meter',meter],['accumulate',accumulate],['focus',focusPass],['output',output]] as [string,Pass|undefined][]).filter((p):p is [string,Pass]=>!!p[1]),
   setSize:(width:number,height:number,ratio:number)=>{composer.setPixelRatio(ratio);composer.setSize(width,height);},
+  /** Compiles `object`'s shaders in the background (renderer.compileAsync) as the scene pass draws it: into the chain's
+   * own target, so without tone mapping or output encoding, which belong to the last pass. */
+  compileAsync:(object:T.Object3D)=>{
+   const previous=renderer.getRenderTarget();renderer.setRenderTarget(target);
+   const done=renderer.compileAsync(object,camera,scene);renderer.setRenderTarget(previous);return done;
+  },
   /** Moving frames skip AO and accumulation; still frames refine towards a clean image. `indoor` (0–1) eases in the
    * interior finish (look.ts). With the lens, exposure follows the meter while the view moves and for the first frames
    * of a rest, then holds, so a settling image never changes brightness. */
