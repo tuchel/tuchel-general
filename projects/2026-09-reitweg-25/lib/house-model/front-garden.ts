@@ -1,6 +1,7 @@
 import * as T from 'three';
-import {buildHedge,type FoliageMaterials} from './foliage';
+import {buildHedge,shrubLeaves,type FoliageMaterials} from './foliage';
 import {sitePoint as s} from './site-data';
+import {ROSE_BEDS,ROSE_EDGING} from './front-garage';
 
 /** The garden between the parking bays and the granite well. Positions follow the grounds plan; hedge heights,
  * planting and the trough are read from the owner's photographs, and species are not surveyed.
@@ -20,9 +21,16 @@ export const SHRUBS:[number,number,number,number][]=[[445,752,.55,1.1],[420,772,
  * goes, the fruit trees and shrubs round the well, and the three small trees along the south boundary, two of them in
  * the way of the bin path. Site coordinates, as in treePositions. */
 export const GARAGE_CLEARS:[number,number][]=[[246,690],[256,833],[308,839],[357,846],...FRUIT_TREES,...SHRUBS].map(([x,z])=>[x,z]);
-/** Three cherries in bloom stand in the lawn instead, crowns about 4 m across, clear of the bin path and the guest wing:
- * [x, z, crown radius, height, kind]. */
-export const CHERRIES:[number,number,number,number,'cherry'][]=[[373,752,2.1,4.8,'cherry'],[431,782,1.9,4.4,'cherry'],[385,824,2,4.6,'cherry']];
+/** Three cherries in bloom stand in the lawn instead, down the middle of the rose garden (front-garage.ts), crowns about
+ * 4 m across: [x, z, crown radius, height, kind]. */
+export const CHERRIES:[number,number,number,number,'cherry'][]=[[394.6,675.3,2,4.6,'cherry'],[387.6,732,2.1,4.8,'cherry'],[380.6,788.7,1.9,4.4,'cherry']];
+
+/** A lumpy, leafy mound rather than a ball: each vertex pushed in or out by a fixed hash of its direction. */
+function mound(){
+ const clump=new T.IcosahedronGeometry(1,2),p=clump.attributes.position;
+ for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),h=Math.sin(x*12.9898+y*78.233+z*37.719)*43758.5453,k=.78+.34*(h-Math.floor(h));p.setXYZ(i,x*k,Math.max(y,-.2)*k,z*k);}
+ clump.computeVertexNormals();return clump;
+}
 
 export function buildFrontGarden(foliage?:FoliageMaterials){
  const ground=new T.Group();ground.name='front-garden-ground';
@@ -37,9 +45,7 @@ export function buildFrontGarden(foliage?:FoliageMaterials){
   const strip=new T.Mesh(new T.BoxGeometry(len+1.1,.03,1.1),gravel);strip.position.set((ax+bx)/2,.015,(az+bz)/2);strip.rotation.y=-Math.atan2(bz-az,bx-ax);strip.receiveShadow=true;strip.name='well-garden-gravel-path';ground.add(strip);
  }
  // Perennials along both edges of the path: grey-lilac catmint and yellow-green lady's mantle clumps.
- // A lumpy, leafy mound rather than a ball: each vertex pushed in or out by a fixed hash of its direction.
- const clump=new T.IcosahedronGeometry(1,2),colours=['#7f809c','#939f5c','#c9c5b6'],dummy=new T.Object3D(),tint=new T.Color();
- {const p=clump.attributes.position;for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),h=Math.sin(x*12.9898+y*78.233+z*37.719)*43758.5453,k=.78+.34*(h-Math.floor(h));p.setXYZ(i,x*k,Math.max(y,-.2)*k,z*k);}clump.computeVertexNormals();}
+ const clump=mound(),colours=['#7f809c','#939f5c','#c9c5b6'],dummy=new T.Object3D(),tint=new T.Color();
  let seed=911;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
  const places:[number,number,number][]=[];
  for(let i=1;i<PATH.length;i++){
@@ -59,4 +65,42 @@ export function buildFrontGarden(foliage?:FoliageMaterials){
  board(0,-.55,2.4,.06);board(0,.55,2.4,.06);board(-1.17,0,.06,1.1);board(1.17,0,.06,1.1);
  const bed=new T.Mesh(new T.BoxGeometry(2.28,.04,1.04),soil);bed.position.y=.64;bed.receiveShadow=true;trough.add(bed);
  return {ground,planting};
+}
+
+/** With the front garage, the rose garden's border (front-garage.ts): bark mulch, clipped box on the lawn side, and two
+ * staggered rows of shrub roses about 0.7 m tall and 0.55 m apart, in leaf (as the hedges are, with detailed foliage) and
+ * in bloom, the colour changing every couple of metres. */
+export function buildRoseGarden(foliage?:FoliageMaterials){
+ const group=new T.Group();group.name='forecourt-rose-garden';
+ const mulch=new T.MeshStandardMaterial({color:'#4b3a2b',roughness:1});
+ for(const bed of ROSE_BEDS){const m=new T.Mesh(new T.ExtrudeGeometry(new T.Shape(bed.map(([x,z])=>new T.Vector2(x,-z))),{depth:.015,bevelEnabled:false}).rotateX(-Math.PI/2),mulch);m.position.y=.008;m.receiveShadow=true;m.name='forecourt-rose-bed';group.add(m);}
+ const edging=buildHedge(ROSE_EDGING.map(([a,b])=>[{x:a[0],y:a[1]},{x:b[0],y:b[1]}] as [T.Vector2Like,T.Vector2Like]),{width:.24,height:.3,inset:0},foliage);
+ edging.name='forecourt-rose-edging';group.add(edging);
+ // Each bed piece runs from its outer edge (corners 0, 1) to the lawn side (corners 3, 2): rows a quarter and three
+ // quarters of the way across, the roses 0.3 m in from the piece's ends.
+ let seed=4177;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+ const colours=['#8e1a2b','#cf6585','#f0c3ca','#f2e8d5','#e89c62'].map(c=>new T.Color(c)),places:[number,number,T.Color][]=[];let block=0;
+ for(const [o0,o1,i1,i0] of ROSE_BEDS)for(const [row,f] of [[0,.27],[1,.73]] as const){
+  const a=[o0[0]+(i0[0]-o0[0])*f,o0[1]+(i0[1]-o0[1])*f],b=[o1[0]+(i1[0]-o1[0])*f,o1[1]+(i1[1]-o1[1])*f],len=Math.hypot(b[0]-a[0],b[1]-a[1]);
+  for(let d=.3+row*.275;d<=len-.3;d+=.55){const t=d/len;places.push([a[0]+(b[0]-a[0])*t+(random()-.5)*.06,a[1]+(b[1]-a[1])*t+(random()-.5)*.06,colours[(block+Math.floor(d/2.2))%5]]);}
+  if(row)block+=2;
+ }
+ const bushes=new T.InstancedMesh(mound(),new T.MeshStandardMaterial({color:foliage?'#243a1b':'#3f5a2b',roughness:.9}),places.length),shapes:[number,number,number,number][]=[];
+ const blooms=new T.InstancedMesh(new T.IcosahedronGeometry(1,1),new T.MeshStandardMaterial({color:'#ffffff',roughness:.75}),places.length*12);
+ const dummy=new T.Object3D(),tint=new T.Color();let k=0;
+ places.forEach(([x,z,colour],i)=>{
+  const r=.27+random()*.07,h=.62+random()*.16;shapes.push([x,z,r,h]);
+  dummy.position.set(x,.02,z);dummy.rotation.set(0,random()*Math.PI*2,0);dummy.scale.set(r,h/1.12,r);dummy.updateMatrix();bushes.setMatrixAt(i,dummy.matrix);
+  const g=.85+random()*.25;bushes.setColorAt(i,tint.setRGB(g,g,g));
+  for(let j=0;j<12;j++){
+   const theta=random()*Math.PI*2,phi=(.25+random()*.6)*Math.PI/2;
+   dummy.position.set(x+Math.cos(phi)*Math.cos(theta)*r*1.08,.03+Math.sin(phi)*h*1.02,z+Math.cos(phi)*Math.sin(theta)*r*1.08);
+   dummy.rotation.set(random(),random(),random());const size=.05+random()*.025;dummy.scale.set(size,size*.75,size);dummy.updateMatrix();blooms.setMatrixAt(k,dummy.matrix);
+   const l=.92+random()*.12;blooms.setColorAt(k++,tint.copy(colour).multiplyScalar(l));
+  }
+ });
+ bushes.name='forecourt-roses';blooms.name='forecourt-rose-blooms';
+ for(const o of [bushes,blooms]){o.castShadow=true;o.receiveShadow=true;group.add(o);}
+ if(foliage)group.add(shrubLeaves(shapes,foliage));
+ return group;
 }

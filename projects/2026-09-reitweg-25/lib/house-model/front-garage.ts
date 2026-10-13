@@ -40,6 +40,45 @@ export const GARAGE_FRONTAGE:[number,number]=[S[1]-3,SW[1]+3];
 /** Cobbles from the notch to the garage doors, joining the drive, reaching 0.4 m over its old edge (world x, z). */
 export const GARAGE_APRON:[number,number][]=[S,garagePoint(0,GARAGE.v0),garagePoint(7.85,GARAGE.v0),s(343,707),s(352,610),s(346,610)];
 
+/** Where two lines (each through two points) cross. */
+export const meet=([ax,az]:number[],[bx,bz]:number[],[cx,cz]:number[],[dx,dz]:number[]):[number,number]=>{const t=((cx-ax)*(dz-cz)-(cz-az)*(dx-cx))/((bx-ax)*(dz-cz)-(bz-az)*(dx-cx));return [ax+(bx-ax)*t,az+(bz-az)*t];};
+/** A polygon with every side moved `d` inward, its corners mitred. */
+const inset=(poly:[number,number][],d:number)=>{
+ const k=poly.reduce((a,[x,z],i)=>{const [x2,z2]=poly[(i+1)%poly.length];return a+x*z2-x2*z;},0)>0?d:-d;
+ const lines=poly.map((p,i)=>{const q=poly[(i+1)%poly.length],len=Math.hypot(q[0]-p[0],q[1]-p[1]),nx=-(q[1]-p[1])/len*k,nz=(q[0]-p[0])/len*k;return [[p[0]+nx,p[1]+nz],[q[0]+nx,q[1]+nz]] as [number,number][];});
+ return poly.map((_,i)=>{const [a,b]=lines[(i+poly.length-1)%poly.length],[c,d]=lines[i];return meet(a,b,c,d);});
+};
+/** With the garage the old drive's south end, where cars no longer stand, becomes lawn: from a 2.4 m strip of cobbles kept
+ * along the guest wing, which still leads to its garden door, across to the apron, its north edge straight across from
+ * the apron's corner (world x, z). */
+const strip=(z:number):[number,number]=>[-28.7-.1198*(z-11.94),z];
+const LAWN_NE=strip(6.1),LAWN_NW:[number,number]=[-34.63,5.45];
+export const FORECOURT_LAWN:[number,number][]=[strip(12.6),LAWN_NE,LAWN_NW,[-35.2,11.64],[-35.2,12.6]];
+/** The rose garden: that lawn and the well garden's beyond it, one lawn about 6.6 by 15 m from the drive to the south
+ * hedge, between the strip and the bin path. Corners from the north-east, on the paving's edges and 0.35 m clear of the
+ * hedge (world x, z). A bed of roses runs round it, 0.1 to 1.2 m in from its edge and edged in clipped box on the lawn
+ * side, with openings 1.3–1.4 m wide from the drive and opposite the guest wing's garden door; the cherries stand down
+ * its middle (front-garden.ts). */
+export const ROSE_GARDEN:[number,number][]=[LAWN_NE,LAWN_NW,garagePoint(7.9,GARAGE.v0),garagePoint(7.9,12.79),strip(21.22)];
+export const ROSE_OPENINGS:[[number,number],number][]=[[[(LAWN_NE[0]+LAWN_NW[0])/2,(LAWN_NE[1]+LAWN_NW[1])/2],1.4],[strip(10.15),1.3]];
+/** The bed in pieces, side by side round the garden, and the box edging's runs along the lawn side and the bed's ends at
+ * the openings (world x, z). */
+export const [ROSE_BEDS,ROSE_EDGING]=(()=>{
+ const outer=inset(ROSE_GARDEN,.1),inner=inset(ROSE_GARDEN,1.2),n=ROSE_GARDEN.length,beds:[number,number][][]=[],edging:[[number,number],[number,number]][]=[];
+ const at=(a:[number,number],b:[number,number],t:number):[number,number]=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+ for(let i=0;i<n;i++){
+  const j=(i+1)%n,[a,b]=[ROSE_GARDEN[i],ROSE_GARDEN[j]],len=Math.hypot(b[0]-a[0],b[1]-a[1]),cuts:[number,number][]=[];
+  for(const [[x,z],w] of ROSE_OPENINGS){const t=((x-a[0])*(b[0]-a[0])+(z-a[1])*(b[1]-a[1]))/len/len,[px,pz]=at(a,b,t);if(t>0&&t<1&&Math.hypot(px-x,pz-z)<.5)cuts.push([t-w/2/len,t+w/2/len]);}
+  let t0=0;
+  for(const [c0,c1] of [...cuts.sort((p,q)=>p[0]-q[0]),[1,1] as [number,number]]){
+   if(c0>t0){beds.push([at(outer[i],outer[j],t0),at(outer[i],outer[j],c0),at(inner[i],inner[j],c0),at(inner[i],inner[j],t0)]);edging.push([at(inner[i],inner[j],t0),at(inner[i],inner[j],c0)]);
+    if(t0>0)edging.push([at(inner[i],inner[j],t0),at(outer[i],outer[j],t0)]);if(c0<1)edging.push([at(inner[i],inner[j],c0),at(outer[i],outer[j],c0)]);}
+   t0=c1;
+  }
+ }
+ return [beds,edging] as const;
+})();
+
 type MaterialFactory=(pale:string,natural?:string,roughness?:number)=>T.MeshStandardMaterial;
 export function buildFrontGarage(material:MaterialFactory){
  const group=new T.Group();group.name='front-garage';

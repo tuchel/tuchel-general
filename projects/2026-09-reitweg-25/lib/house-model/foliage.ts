@@ -404,6 +404,22 @@ export function buildHedge(runs:[T.Vector2Like,T.Vector2Like][],options:{width:n
  return group;
 }
 
+/** A shell of leaf cards over small domed shrubs (roses in a bed), as a clipped hedge carries: [x, z, radius, height]. */
+export function shrubLeaves(shrubs:[number,number,number,number][],materials:FoliageMaterials){
+ const r=random(613),out={p:[] as number[],n:[] as number[],uv:[] as number[],c:[] as number[]};
+ for(const [x,z,rad,h] of shrubs){
+  const axis=new T.Vector3(x,h*.4,z);
+  for(let i=0;i<44;i++){
+   const theta=r()*Math.PI*2,up=Math.sqrt(r())*.95,round=Math.sqrt(1-up*up);
+   const center=new T.Vector3(x+Math.cos(theta)*round*rad,.03+up*h,z+Math.sin(theta)*round*rad);
+   const normal=center.clone().sub(axis).normalize().add(new T.Vector3(r()-.5,r()-.5,r()-.5).multiplyScalar(.7)).normalize();
+   const shade=.6+r()*.3;card(center,normal,.2+r()*.1,r()*Math.PI*2,cells.hedge,r()<.5,axis,new T.Color(shade,shade,shade*.9),out);
+  }
+ }
+ const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(out.p,3));g.setAttribute('normal',new T.Float32BufferAttribute(out.n,3));g.setAttribute('uv',new T.Float32BufferAttribute(out.uv,2));g.setAttribute('color',new T.Float32BufferAttribute(out.c,3));
+ const shell=new T.Mesh(g,materials.leaves);shell.name='shrub-leaf-cards';shell.castShadow=true;shell.receiveShadow=true;shell.customDepthMaterial=materials.depth;return shell;
+}
+
 /** Applies the leaf atlas and bark set once textures exist. */
 export function finishFoliage(root:T.Object3D,leaf:{color:T.Texture;normal:T.Texture},bark:{color:T.Texture;normal:T.Texture;metres?:number}){
  // A scanned bark set covers its own real size rather than one tile.

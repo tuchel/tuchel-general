@@ -1,6 +1,6 @@
 import * as T from 'three';
 import {sitePoint as s,planPoint as p} from './site-data';
-import {GARAGE_APRON,BIN_PATH,BIN_PATH_WIDTH,OLD_WALL_LINE,garagePoint} from './front-garage';
+import {GARAGE_APRON,BIN_PATH,BIN_PATH_WIDTH,OLD_WALL_LINE,FORECOURT_LAWN,garagePoint,meet} from './front-garage';
 
 // Photo-led dimensions, not a survey. The route joins the existing pedestrian
 // gate to the first entrance-link door, leaving soil and grasses beside the gable.
@@ -16,6 +16,12 @@ function ribbon(points:[number,number][],width:number){
  const sides=[-1,1].map(side=>points.map((q,i)=>{const before=points[Math.max(0,i-1)],after=points[Math.min(points.length-1,i+1)];const normals=[];for(const [a,b] of [[before,q],[q,after]]){const len=Math.hypot(b[0]-a[0],b[1]-a[1]);if(len)normals.push(new T.Vector2(-(b[1]-a[1])/len,(b[0]-a[0])/len));}const n=normals.reduce((v,n)=>v.add(n),new T.Vector2()).normalize();const reach=width/2/Math.max(.5,n.dot(normals[0]));return [q[0]+side*n.x*reach,q[1]+side*n.y*reach] as [number,number];}));return [...sides[0],...sides[1].reverse()];
 }
 export const entranceFootprint=ribbon(entranceRoute,entranceWidth);
+/** The drive in two parts: its south end, which the front garage turns to lawn (FORECOURT_LAWN), and the rest. The lawn's
+ * east side, on the strip kept along the guest wing, meets the drive's south edge; its west side runs up the apron's
+ * edge to it. */
+const southEdge=[drivewayFootprint[11],drivewayFootprint[12]],lawnEast=meet(southEdge[0],southEdge[1],FORECOURT_LAWN[0],FORECOURT_LAWN[1]),lawnWest=meet(southEdge[0],southEdge[1],FORECOURT_LAWN.at(-2)!,FORECOURT_LAWN.at(-1)!);
+const keptDriveway=[...drivewayFootprint.slice(0,12),lawnEast,...FORECOURT_LAWN.slice(1,-1),drivewayFootprint[12]];
+const reclaimedDriveway=[lawnEast,...FORECOURT_LAWN.slice(1,-1),lawnWest];
 /** With the front garage: its apron, and the path from it to the bin room. */
 export const binPathFootprint=ribbon(BIN_PATH.map(([m,v])=>garagePoint(m,v)),BIN_PATH_WIDTH);
 export function buildEntranceGarden(realistic:boolean){
@@ -23,7 +29,10 @@ export function buildEntranceGarden(realistic:boolean){
  const stone=new T.MeshStandardMaterial({color:'#8c8879',roughness:.96}),joints=new T.MeshStandardMaterial({color:'#737364',roughness:1}),soil=new T.MeshStandardMaterial({color:'#665a42',roughness:1}),gravel=new T.MeshStandardMaterial({color:'#c2bb9e',roughness:1}),wood=new T.MeshStandardMaterial({color:'#78654a',roughness:.9});
  const poly=(points:number[][],y:number,depth:number,mat:T.Material,name:string)=>{const shape=new T.Shape(points.map(([x,z])=>new T.Vector2(x,-z)));const geo=new T.ExtrudeGeometry(shape,{depth,bevelEnabled:false});geo.rotateX(-Math.PI/2);const m=new T.Mesh(geo,mat);m.position.y=y;m.name=name;m.receiveShadow=true;group.add(m);return m;};
  poly(entranceFootprint,.014,.03,joints,'narrow-entrance-cobble-base');
- poly(drivewayFootprint,.013,.03,joints,'driveway-cobble-base');
+ poly(keptDriveway,.013,.03,joints,'driveway-cobble-base');
+ // The drive's south end, in a group of its own: the front garage turns it to lawn.
+ const forecourt=new T.Group();forecourt.name='forecourt-drive';forecourt.userData.replacedBy='garage';group.add(forecourt);
+ forecourt.add(poly(reclaimedDriveway,.013,.03,joints,'forecourt-cobble-base'));
  poly(roadsideInset,.013,.03,joints,'roadside-inset-cobble-base');
  // The last short approach rises one shallow step to the entrance threshold.
  const stepX=-16.0,stepZ=-2.22+(stepX+25.1)*1.17/11.05;
@@ -44,7 +53,9 @@ export function buildEntranceGarden(realistic:boolean){
    if(!insideEntrancePolygon(x,z,points)||(drive&&insideEntrancePolygon(x,z,entranceFootprint)))continue;
    if(corners.every(([a,b])=>paved(x+a,z+b)))stones.push({x,z,y:insideEntrancePolygon(x,z,landing)?.146:.061});
   }
-  group.add(lay(stones,name));
+  const lawn=(q:{x:number;z:number})=>drive&&insideEntrancePolygon(q.x,q.z,FORECOURT_LAWN);
+  group.add(lay(stones.filter(q=>!lawn(q)),name));
+  if(stones.some(lawn))forecourt.add(lay(stones.filter(lawn),'forecourt-driveway-cobbles'));
  }
  // The front garage's apron and bin path, and the old recessed wall's line, in the same bond: their own stones, and the
  // ones along the old edges that the wider paving now carries. Shown with the garage.
