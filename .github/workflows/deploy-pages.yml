@@ -13,6 +13,8 @@ on:
       - 'projects/2026-09-drone-guide/web/**'
       - 'projects/2026-09-reitweg-25/**'
       - 'daycare-search/**'
+      - 'projects/2026-10-spcx-portal/web/**'
+      - 'shared/charts/src/**'
       - '.github/workflows/deploy-pages.yml'
       - '.github/workflows/deploy-metro-budget-tax.yml'
   # Re-bake Bluesky social.json even when no code landed (PSW day threads move hourly)
@@ -52,6 +54,8 @@ jobs:
             projects/2026-09-drone-guide/web/package-lock.json
             projects/2026-09-reitweg-25/package-lock.json
             daycare-search/package-lock.json
+            projects/2026-10-spcx-portal/web/package-lock.json
+            shared/charts/package-lock.json
 
       - name: Install & build Metro Budget Tax
         working-directory: projects/2026-07-metro-budget-tax/web
@@ -109,10 +113,19 @@ jobs:
           npm ci
           npm run build
 
+      # The portal imports the shared chart kit, whose types come from its own devDependencies.
+      # build:public leaves out figures from client-licensed bank research.
+      - name: Install & build SPCX portal
+        run: |
+          (cd shared/charts && npm ci)
+          cd projects/2026-10-spcx-portal/web
+          npm ci
+          npm run build:public
+
       - name: Stage Pages artifact
         run: |
           SITE="${{ github.workspace }}/_site"
-          mkdir -p "$SITE/tax" "$SITE/metro-budget-tax" "$SITE/star-mind" "$SITE/whale" "$SITE/storytime" "$SITE/gyms" "$SITE/drone" "$SITE/reitweg-25" "$SITE/daycare-search"
+          mkdir -p "$SITE/tax" "$SITE/metro-budget-tax" "$SITE/star-mind" "$SITE/whale" "$SITE/storytime" "$SITE/gyms" "$SITE/drone" "$SITE/reitweg-25" "$SITE/daycare-search" "$SITE/spcx"
           cp -a projects/2026-07-metro-budget-tax/web/dist/. "$SITE/tax/"
           cp -a projects/2026-07-star-mind/game/dist/. "$SITE/star-mind/"
           cp -a projects/2026-07-san-juan-whale-map/web/dist/. "$SITE/whale/"
@@ -121,6 +134,7 @@ jobs:
           cp -a projects/2026-09-drone-guide/web/dist/. "$SITE/drone/"
           cp -a projects/2026-09-reitweg-25/dist-pages/. "$SITE/reitweg-25/"
           cp -a daycare-search/dist/. "$SITE/daycare-search/"
+          cp -a projects/2026-10-spcx-portal/web/dist/. "$SITE/spcx/"
 
           # Keep old metro path working as a redirect
           cat > "$SITE/metro-budget-tax/index.html" <<'HTML'
@@ -181,6 +195,7 @@ jobs:
                   <li><a href="drone/">Hunter&#39;s Drone Workshop</a> — interactive 3D quadcopter guide</li>
                   <li><a href="reitweg-25/">Reitweg 25 Design Studio</a> — renovation concepts and interactive house model</li>
                   <li><a href="daycare-search/">Schools for Finn</a> — ranked daycare explorer from West Lake Hills</li>
+                  <li><a href="spcx/">SPCX Portal</a> — SpaceX revenue, share price and analyst targets</li>
                 </ul>
               </main>
             </body>
