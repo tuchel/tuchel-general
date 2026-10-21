@@ -198,10 +198,14 @@ export type TargetPoint = {
   date: string;
   target: number;
   source: Source;
+  /** When the target was set, if earlier than `date` (a target restated in a later report). */
+  set?: string;
+  /** The date the target is for, when the firm states it; otherwise 12 months after it was set. */
+  horizon?: string;
 };
 export type Firm = { firm: string; rating: string; points: TargetPoint[] };
 
-const pt = (date: string, target: number, source: Source): TargetPoint => ({ date, target, source });
+const pt = (date: string, target: number, source: Source, more: Pick<TargetPoint, 'set' | 'horizon'> = {}): TargetPoint => ({ date, target, source, ...more });
 
 /**
  * Price targets by firm, oldest first. Oct 20 points are the "prior" targets that
@@ -209,7 +213,7 @@ const pt = (date: string, target: number, source: Source): TargetPoint => ({ dat
  * when each was set is not in the sources.
  */
 export const FIRMS: Firm[] = [
-  { firm: 'J.P. Morgan', rating: 'Overweight', points: [pt('2026-07-07', 225, SRC.jpm), pt('2026-08-05', 240, SRC.jpm), pt('2026-10-20', 240, SRC.jpm), pt('2026-10-21', 500, SRC.jpm)] },
+  { firm: 'J.P. Morgan', rating: 'Overweight', points: [pt('2026-07-07', 225, SRC.jpm), pt('2026-08-05', 240, SRC.jpm), pt('2026-10-20', 240, SRC.jpm, { set: '2026-08-05' }), pt('2026-10-21', 500, SRC.jpm, { horizon: '2027-12-31' })] },
   { firm: 'Morgan Stanley', rating: 'Overweight', points: [pt('2026-07-07', 300, SRC.coverageMs), pt('2026-10-04', 300, SRC.ms), pt('2026-10-21', 300, SRC.ms3q)] },
   { firm: 'Cantor Fitzgerald', rating: 'Overweight', points: [pt('2026-10-20', 246, SRC.cantorQ3), pt('2026-10-21', 345, SRC.cantorQ3)] },
   { firm: 'Barclays', rating: 'Overweight', points: [pt('2026-10-20', 254, SRC.q3Moves), pt('2026-10-21', 300, SRC.q3Moves)] },

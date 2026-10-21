@@ -5,6 +5,9 @@
  *
  * One pointer layer covers the plot: over a trading day it lights that day's
  * close and its quarter; before the IPO it lights the quarter alone.
+ *
+ * With analyst targets on, each target sits at the date it is for, joined to the
+ * price on the day it was set, and the time axis runs on to the latest horizon.
  */
 import { useState, type PointerEvent } from 'react';
 
@@ -57,6 +60,9 @@ const lastWord = last.intraday ? 'trades' : 'closed';
 
 const TARGETS = Object.fromEntries(VINTAGES.map((v) => [v.id, targetsAt(v.id)])) as Record<VintageId, TargetAt[]>;
 const MEDIANS = VINTAGES.map((v) => ({ ...v, median: median(TARGETS[v.id].map((d) => d.target)) }));
+// With targets on, the axis ends a month past the latest horizon of any vintage, so switching vintages never rescales.
+const LAST_HORIZON = Object.values(TARGETS).flat().reduce((a, d) => (d.horizon > a ? d.horizon : a), '');
+const TARGETS_END = Date.UTC(Number(LAST_HORIZON.slice(0, 4)), Number(LAST_HORIZON.slice(5, 7)), 1);
 
 // The headline and takeaways state claims; fail the render if the data stops supporting them.
 const y26 = QUARTERS.filter((q) => q.start >= '2026');
@@ -69,9 +75,13 @@ if (!y26.every((q, i) => i === 0 || q.revenue > y26[i - 1].revenue) || maxTarget
 const usd0 = (v: number) => `$${Math.round(v)}`;
 function targetTip(d: TargetAt, date: string): Tip {
   const px = priceOn(date);
-  const rows: Array<[string, string]> = [['Target', usd0(d.target)], ['Rating', d.rating], ['Versus price that day', pct(d.target / px.close - 1)]];
+  const rows: Array<[string, string]> = [
+    ['Target', usd0(d.target)], ['For', `${fmtDay(d.horizon)}${d.stated ? '' : ', 12 months assumed'}`], ['Rating', d.rating],
+    [`Versus price on ${fmtDay(date)}`, pct(d.target / px.close - 1)],
+  ];
   if (d.before !== undefined && d.before !== d.target) rows.push(['Previous', usd0(d.before)]);
-  return { title: d.firm, rows, note: d.reported ? d.source.label : `Carried from ${fmtDay(d.since)}; ${d.source.label}` };
+  const when = d.set !== d.since ? `Set ${fmtDay(d.set)}, restated ${fmtDay(d.since)}` : d.reported ? undefined : `Carried from ${fmtDay(d.since)}`;
+  return { title: d.firm, rows, note: when ? `${when}; ${d.source.label}` : d.source.label };
 }
 
 function quarterTip(q: Quarter): Tip {
@@ -139,6 +149,19 @@ function Scrub({ x, from, end, y0, y1, left, right }: { x: (v: number) => number
   );
 }
 
+/** Thin lines from the price on the day each target was set to the target; the hovered one darkens. */
+function Connectors({ data }: { data: Array<{ id: string; x1: number; y1: number; x2: number; y2: number }> }) {
+  const ctx = useFigure();
+  return (
+    <g pointerEvents="none">
+      {data.map((d) => (
+        <line key={d.id} x1={d.x1} y1={d.y1} x2={d.x2} y2={d.y2} stroke={c('series2')} strokeWidth={1}
+          opacity={ctx.active === d.id ? 0.9 : ctx.active?.startsWith('t-') ? 0.08 : 0.22} className="fig-fade" />
+      ))}
+    </g>
+  );
+}
+
 export function RevenuePrice({ mode, view: initial = 'year', targets: initialTargets = null }: { mode?: RenderMode; view?: View; targets?: VintageId | null }) {
   const [view, setView] = useState<View>(initial);
   const [show, setShow] = useState(initialTargets !== null);
@@ -148,11 +171,12 @@ export function RevenuePrice({ mode, view: initial = 'year', targets: initialTar
   const med = MEDIANS.find((m) => m.id === vid)!.median;
   const pxThen = priceOn(vin.date).close;
   const carried = tv.filter((d) => !d.reported).length;
+  const stated = tv.filter((d) => d.stated);
   const raised = TARGETS.oct21.filter((d) => d.reported && d.before !== undefined && d.target > d.before).length;
   const pxMax = show ? PX_MAX_TARGETS : PX_MAX;
   const V = VIEWS[view];
   const from = t(V.from);
-  const end = t(V.end);
+  const end = show ? TARGETS_END : t(V.end);
   const ahead = view === 'outlook' ? AHEAD : [];
   const shown = QUARTERS.filter((q) => t(q.start) >= from);
   const q0 = shown[0];
@@ -177,11 +201,15 @@ export function RevenuePrice({ mode, view: initial = 'year', targets: initialTar
         ` from ${q0.label} to ${latest.label}; the stock ${lastWord} `, { value: Math.abs(sinceFirst) * 100, format: (v) => `${v.toFixed(0)}%`, from: 0 },
         ` ${sinceFirst >= 0 ? 'above' : 'below'} its first close`,
       ]}
-      dek="Quarterly revenue (bars, left scale) and daily closing share price (line, right scale). Both scales start at zero."
+      dek={show
+        ? 'Quarterly revenue (bars, left scale), daily share price (line, right scale), and analysts\' price targets at the dates they are for. Both scales start at zero.'
+        : 'Quarterly revenue (bars, left scale) and daily closing share price (line, right scale). Both scales start at zero.'}
       takeaways={show ? {
-        look: `The ${vin.label} column of targets against the price line: a ${usd0(med)} median against ${usd(pxThen)}.`,
+        look: `The targets out to the right against the end of the price line: a ${usd0(med)} median against ${usd(pxThen)} on ${vin.label}.`,
         learn: `The median target went from ${usd0(MEDIANS[0].median)} at initiation to ${usd0(MEDIANS[MEDIANS.length - 1].median)} after Q3, when ${raised} of ${TARGETS.oct21.filter((d) => d.reported).length} reporting firms raised.`,
-        scrutinize: `Hollow dots, ${carried} of ${tv.length} here, are carried from an earlier report and may be stale; the sources do not date targets set between July and October.`,
+        scrutinize: stated.length
+          ? `Only ${stated.length} target states its date (${fmtDay(stated[0].horizon)}); the rest sit 12 months after they were set, and ${carried} hollow dots may be stale.`
+          : `No firm here states a horizon, so each target sits 12 months after it was set; ${carried} of ${tv.length} are hollow, carried from an earlier report.`,
       } : view === 'outlook' ? {
         look: `The Q1 2027 band against the ${latest.label} bar: ${billions(Q1_27_GUIDE.low)}–${billions(Q1_27_GUIDE.high)} guided against ${billions(latest.revenue)} reported.`,
         learn: `Two analysts' full-year models imply Q4 2026 revenue of ${billions(AHEAD[0].low)} to ${billions(AHEAD[0].high)}, the quarter before the guided one.`,
@@ -194,7 +222,7 @@ export function RevenuePrice({ mode, view: initial = 'year', targets: initialTar
           : `${latest.label} includes $${CURSOR_Q3}M from Cursor, acquired Aug 14, 2026; without it, ${latest.label} revenue is ${billions(cursorless)}.`,
       }}
       note={show
-        ? `Dots are each firm's 12-month price target; filled dots were reported on ${vin.label}, hollow ones are the firm's latest earlier report. The dashed line joins the median at each date.`
+        ? `Each dot is a firm's price target, placed at the date it is for (12 months after it was set, unless the firm states a date) and joined to the price on the day it was set. Filled dots were reported on ${vin.label}; hollow ones are the firm's latest earlier report.`
         : `Prices are daily closes in US dollars${last.intraday ? `, with ${fmtDay(last.date)} at ${last.intraday}` : ''}; the IPO priced at $${IPO.price} on ${fmtDay(IPO.date)}. Super Intelligence was reported as AI before Q3 2026.`}
       label={`Quarterly revenue bars rising through 2026, with the daily share price from the June 12, 2026 IPO through ${fmtDay(last.date)} drawn over them${show ? `, and analysts' price targets as of ${vin.label}` : ''}.`}
       controls={(
@@ -206,8 +234,8 @@ export function RevenuePrice({ mode, view: initial = 'year', targets: initialTar
       )}
       data={show ? {
         caption: `Price targets as of ${fmtDay(vin.date)}, ${vin.name.toLowerCase()}`,
-        columns: ['Firm', 'Rating', 'Target ($)', 'Reported'],
-        rows: tv.map((d) => [d.firm, d.rating, d.target, fmtDay(d.since)]),
+        columns: ['Firm', 'Rating', 'Target ($)', 'Set', 'For'],
+        rows: tv.map((d) => [d.firm, d.rating, d.target, fmtDay(d.set), `${fmtDay(d.horizon)}${d.stated ? '' : ' (assumed)'}`]),
       } : {
         columns: ['Quarter', 'Revenue ($M)', 'Year earlier ($M)', 'Last close in quarter ($)'],
         rows: QUARTERS.map((q) => {
@@ -272,29 +300,40 @@ export function RevenuePrice({ mode, view: initial = 'year', targets: initialTar
         const run = pts.slice(-15).map((p) => p[1]);
         const ly = show ? Math.max(...run) + 13 : Math.min(...run) - 12;
 
-        // Targets: one column of dots at the vintage date; equal targets fan out sideways.
+        // Targets: each at its horizon date; equal targets on the same date fan out sideways.
         const cx = x(t(vin.date));
-        const seen = new Map<number, number>();
-        const targetDots: Dot[] = show ? tv.map((d) => {
-          const k = seen.get(d.target) ?? 0;
-          seen.set(d.target, k + 1);
+        const seen = new Map<string, number>();
+        const placed = show ? tv.map((d) => {
+          const key = `${d.target}|${d.horizon}`;
+          const k = seen.get(key) ?? 0;
+          seen.set(key, k + 1);
           const dx = k === 0 ? 0 : (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 7;
-          return {
-            id: `t-${d.firm}`, cx: cx + dx, cy: yP(d.target), r: 4,
-            fill: d.reported ? c('series2') : c('halo'), stroke: c('series2'), strokeWidth: 1.5, hit: 8,
-            label: `${d.firm} target ${usd0(d.target)}`, tip: targetTip(d, vin.date),
-          };
+          return { d, x: x(t(d.horizon)) + dx, y: yP(d.target) };
         }) : [];
-        const medPath = MEDIANS.map((mm) => [x(t(mm.date)), yP(mm.median)] as const);
+        const targetDots: Dot[] = placed.map(({ d, x: tx, y: ty }) => ({
+          id: `t-${d.firm}`, cx: tx, cy: ty, r: 4,
+          fill: d.reported ? c('series2') : c('halo'), stroke: c('series2'), strokeWidth: 1.5, hit: 8,
+          label: `${d.firm} target ${usd0(d.target)} for ${fmtDay(d.horizon)}`, tip: targetTip(d, vin.date),
+        }));
+        const connectors = placed.map(({ d, x: tx, y: ty }) => ({ id: `t-${d.firm}`, x1: x(t(d.set)), y1: yP(priceOn(d.set).close), x2: tx, y2: ty }));
+        const medEnd = Math.max(...placed.map((p) => p.x), cx);
         const ends: Label[] = [
-          { id: 'last', x: lx, y: ly, text: usd(last.close), anchor: 'end', size: 12.5, weight: 600, fill: c('ink'), halo: c('halo') },
+          { id: 'last', x: lx, y: ly, text: usd(last.close), anchor: 'end', size: 12.5, weight: 600, fill: c('ink'), halo: c('halo'), opacity: show && narrow && view === 'outlook' ? 0 : 1 },
           // On a phone the outlook compresses the price run; the rule and the note carry the IPO price there.
           { id: 'ipo', x: lx, y: yP(IPO.price) + 11, text: `IPO $${IPO.price}`, anchor: 'end', size: 11.5, fill: c('slate'), halo: c('halo'), opacity: show || (narrow && view === 'outlook') ? 0 : 1 },
           // Scale titles, flush with each axis's outer edge.
           { id: 'rev', x: 0, y: m.t - 16, text: 'Revenue', anchor: 'start', size: 11.5, weight: 600, fill: c('series1') },
           { id: 'px', x: width, y: m.t - 16, text: show ? 'Price and targets' : 'Share price', anchor: 'end', size: 11.5, weight: 600, fill: c('ink') },
         ];
-        if (show) ends.push({ id: 'median', x: cx - 16, y: yP(med), text: `Median ${usd0(med)}`, value: med, format: (v) => `Median ${usd0(v)}`, anchor: 'end', size: 12.5, weight: 600, fill: c('series2'), halo: c('halo') });
+        // The median label starts at the vintage date, or past the outlook's quarters when they fill that space.
+        const medX = Math.max(cx, ahead.length ? x(t(ahead[ahead.length - 1].end) + DAY) : cx) + 4;
+        if (show) ends.push({ id: 'median', x: medX, y: yP(med) - 8, text: `Median ${usd0(med)}`, value: med, format: (v) => `Median ${usd0(v)}`, anchor: 'start', size: 12.5, weight: 600, fill: c('series2'), halo: c('halo') });
+        // With targets on, ticks run every January, and every July when there is room.
+        const ticks = show
+          ? d3.range(Number(V.from.slice(0, 4)), new Date(TARGETS_END).getUTCFullYear() + 1)
+            .flatMap((yr) => (narrow ? [Date.UTC(yr, 0, 1)] : [Date.UTC(yr, 0, 1), Date.UTC(yr, 6, 1)]))
+            .filter((v) => v >= from && v <= end)
+          : V.months;
         // January carries the year; other ticks name the month.
         const tickLabel = (v: number) => {
           const d = new Date(v);
@@ -313,13 +352,13 @@ export function RevenuePrice({ mode, view: initial = 'year', targets: initialTar
             <Texts data={[...values, ...aheadValues]} />
             <Line spec={{ id: 'price', points: pts as Array<readonly [number, number]>, stroke: c('ink'), width: narrow ? 1.5 : 1.75, keys: ['price'] }} />
             <Texts data={ends} />
-            <AxisX scale={x} ticks={VIEWS[view].months} format={tickLabel} at={height - m.b} unit={view} />
+            <AxisX scale={x} ticks={ticks} format={tickLabel} at={height - m.b} unit={show ? `${view}-t` : view} />
             <Scrub x={x} from={from} end={end} y0={height - m.b} y1={m.t} left={m.l} right={width - m.r} />
             <Dots data={days} className="spcx-days" />
             {show && (
               <>
-                <Line spec={{ id: 'median-path', points: medPath as Array<readonly [number, number]>, stroke: c('series2'), width: 1.25, dash: '3 3' }} />
-                <Rules data={[{ id: 'median', x1: cx - 12, x2: cx + 12, y1: yP(med), y2: yP(med), stroke: c('series2'), width: 2 }]} />
+                <Connectors data={connectors} />
+                <Rules data={[{ id: 'median', x1: cx, x2: medEnd, y1: yP(med), y2: yP(med), stroke: c('series2'), width: 1.25, dash: '3 3' }]} />
                 <Dots data={targetDots} className="spcx-targets" />
               </>
             )}
