@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { CONSENSUS, FY26_ESTIMATES, NINE_MONTHS_2026, Q1_27_GUIDE, PRICES, QUARTERS, SRC, type Source } from './data.ts';
+import { CONSENSUS, FY26_ESTIMATES, NINE_MONTHS_2026, NOTES, Q1_27_GUIDE, PRICES, QUARTERS, SRC, type Source } from './data.ts';
 import { RevenuePrice } from './RevenuePrice.tsx';
 import { median, targetsAt } from './targets.ts';
 
@@ -65,12 +65,12 @@ export function App() {
                 </tbody>
               </table>
               <p className="more-est">
-                {FY26_ESTIMATES.map((e) => `${e.firm} models 2026 revenue of ${billions(e.revenue)}, implying ${billions(e.revenue - NINE_MONTHS_2026)} in Q4`).join('; ')}, against {billions(q3.revenue)} in Q3.
+                {FY26_ESTIMATES.length > 0 && `${FY26_ESTIMATES.map((e) => `${e.firm} models 2026 revenue of ${billions(e.revenue)}, implying ${billions(e.revenue - NINE_MONTHS_2026)} in Q4`).join('; ')}, against ${billions(q3.revenue)} in Q3. `}
                 Management guided Q1 2027 revenue to ${Q1_27_GUIDE.low / 1000}–{Q1_27_GUIDE.high / 1000}B.
               </p>
               <p className="more-note">
                 Targets as of Oct 21, 2026, after Q3 results; "from" is the target in force before the report. A Jul 7 date means the July initiation is the latest report found.
-                J.P. Morgan and Morgan Stanley rows come from their research notes. StockAnalysis showed {CONSENSUS.analysts} analysts with a {usd(CONSENSUS.target)} average target on {day(CONSENSUS.asOf)}, before the post-Q3 changes.
+                {NOTES.length > 0 && 'J.P. Morgan and Morgan Stanley rows come from their research notes. '}StockAnalysis showed {CONSENSUS.analysts} analysts with a {usd(CONSENSUS.target)} average target on {day(CONSENSUS.asOf)}, before the post-Q3 changes.
               </p>
             </div>
           </details>
@@ -79,7 +79,7 @@ export function App() {
             <summary>Sources</summary>
             <div className="more-body">
               <ul className="src">
-                {(Object.values(SRC) as Source[]).filter((s, i, a) => !s.url || a.findIndex((o) => o.url === s.url) === i).map((s) => (
+                {[...(Object.values(SRC) as Source[]), ...NOTES].filter((s, i, a) => !s.url || a.findIndex((o) => o.url === s.url) === i).map((s) => (
                   <li key={s.label}>{cite(s, s.label)}</li>
                 ))}
               </ul>

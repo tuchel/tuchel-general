@@ -38,7 +38,7 @@ const Q4_EST = FY26_ESTIMATES.map((e) => [e.firm, e.revenue - NINE_MONTHS_2026] 
 const AHEAD = [
   { id: 'q4-26e', label: 'Q4 2026', start: '2026-10-01', end: '2026-12-31', low: Math.min(...Q4_EST.map((e) => e[1])), high: Math.max(...Q4_EST.map((e) => e[1])) },
   { id: 'q1-27g', label: 'Q1 2027', start: '2027-01-01', end: '2027-03-31', low: Q1_27_GUIDE.low, high: Q1_27_GUIDE.high },
-];
+].filter((q) => q.id !== 'q4-26e' || Q4_EST.length);
 const Q1_27_MID = (Q1_27_GUIDE.low + Q1_27_GUIDE.high) / 2;
 // A word joiner keeps the range on one line.
 const GUIDE_TEXT = `$${Q1_27_GUIDE.low / 1000}–\u2060${Q1_27_GUIDE.high / 1000}B`;
@@ -102,7 +102,7 @@ function aheadTip(id: string): Tip {
   return {
     title: 'Q1 2027 revenue, guidance',
     rows: [['Low', billions(Q1_27_GUIDE.low)], ['Midpoint', billions(Q1_27_MID)], ['High', billions(Q1_27_GUIDE.high)], ['Versus Q3 2026 at midpoint', `${(Q1_27_MID / latest.revenue).toFixed(1)}×`]],
-    note: 'Management on the Oct 20, 2026 call, as reported by Morgan Stanley.',
+    note: 'The CFO on the Oct 20, 2026 earnings call.',
   };
 }
 
@@ -212,8 +212,10 @@ export function RevenuePrice({ mode, view: initial = 'year', targets: initialTar
           : `No firm here states a horizon, so each target sits 12 months after it was set; ${carried} of ${tv.length} are hollow, carried from an earlier report.`,
       } : view === 'outlook' ? {
         look: `The Q1 2027 band against the ${latest.label} bar: ${billions(Q1_27_GUIDE.low)}–${billions(Q1_27_GUIDE.high)} guided against ${billions(latest.revenue)} reported.`,
-        learn: `Two analysts' full-year models imply Q4 2026 revenue of ${billions(AHEAD[0].low)} to ${billions(AHEAD[0].high)}, the quarter before the guided one.`,
-        scrutinize: 'The Q1 2027 range comes from the earnings call as reported by Morgan Stanley, not from the release, and no company figure exists for Q4 2026.',
+        learn: Q4_EST.length
+          ? `Two analysts' full-year models imply Q4 2026 revenue of ${billions(AHEAD[0].low)} to ${billions(AHEAD[0].high)}, the quarter before the guided one.`
+          : `The guided range is ${(Q1_27_GUIDE.low / latest.revenue).toFixed(1)} to ${(Q1_27_GUIDE.high / latest.revenue).toFixed(1)} times ${latest.label} revenue, two quarters later.`,
+        scrutinize: 'The Q1 2027 range comes from the earnings call, not from the release, and no company figure exists for Q4 2026.',
       } : {
         look: `The ${latest.label} bar against the ${q0.label} bar: ${billions(latest.revenue)} against ${billions(q0.revenue)}.`,
         learn: `Revenue rose every quarter of 2026 while the price went from a ${usd(first.close)} close on ${fmtDay(first.date)} to ${usd(last.close)}, a ${pct(sinceFirst)} change.`,

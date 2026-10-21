@@ -3,6 +3,8 @@
  * say how they were derived. See ../../notes/sources.md for the trail.
  */
 
+import { RESEARCH } from './licensed.ts';
+
 /** `url` is absent for research distributed to a bank's clients rather than published. */
 export type Source = { label: string; url?: string };
 
@@ -16,14 +18,12 @@ export const SRC = {
   coverage: { label: 'Yahoo Finance, initiations of July 7, 2026', url: 'https://finance.yahoo.com/markets/stocks/article/spacex-stock-drops-below-ipo-opening-price-despite-flood-of-bullish-wall-street-ratings-153809443.html' },
   coverageMs: { label: 'Yahoo Finance, Morgan Stanley and Wells Fargo initiations', url: 'https://finance.yahoo.com/markets/stocks/article/spacex-snags-street-high-300-price-target-from-morgan-stanley-as-rocket-company-enters-nasdaq-100-160316317.html' },
   consensus: { label: 'StockAnalysis, analyst consensus', url: 'https://stockanalysis.com/stocks/spcx/' },
-  jpm: { label: 'J.P. Morgan (Doug Anmuth), SpaceX tearsheet, Oct 20, 2026' },
-  ms: { label: 'Morgan Stanley (Adam Jonas), "SPCX $159: Cheap and Getting Cheaper", Oct 4, 2026' },
   q3Moves: { label: 'Before It\'s News, post-Q3 target changes, Oct 21, 2026', url: 'https://beforeitsnews.com/motor-junkies/2026/10/spacex-stock-gets-a-slew-of-price-target-boosts-after-bullish-earnings-call-2633454.html' },
   q3MovesKucoin: { label: 'KuCoin News, Wall Street raises SpaceX targets, Oct 21, 2026', url: 'https://www.kucoin.com/news/flash/wall-street-raises-spacex-target-prices-after-q2-earnings-report' },
   gsQ3: { label: 'Investing.com, Goldman Sachs raises SpaceX target to $245, Oct 21, 2026', url: 'https://www.investing.com/news/analyst-ratings/goldman-sachs-raises-spacex-stock-price-target-to-245-on-growth-outlook-93CH-4962792' },
   cantorQ3: { label: 'GuruFocus, Cantor Fitzgerald raises SpaceX target to $345, Oct 21, 2026', url: 'https://www.gurufocus.com/news/9133705/spcx-maintained-by-cantor-fitzgerald-price-target-raised-to-345' },
   intraday: { label: 'StockAnalysis, SPCX quote, Oct 21, 2026, 11:05 AM ET', url: 'https://stockanalysis.com/stocks/spcx/' },
-  ms3q: { label: 'Morgan Stanley (Adam Jonas), "3Q Results: Next Stop... MARS", Oct 21, 2026' },
+  call: { label: 'The Motley Fool, SpaceX Q3 2026 earnings call transcript, Oct 20, 2026', url: 'https://www.fool.com/earnings/call-transcripts/2026/10/20/spacex-spcx-q3-2026-earnings-call-transcript/' },
 } satisfies Record<string, Source>;
 
 export type Quarter = {
@@ -213,8 +213,8 @@ const pt = (date: string, target: number, source: Source, more: Pick<TargetPoint
  * when each was set is not in the sources.
  */
 export const FIRMS: Firm[] = [
-  { firm: 'J.P. Morgan', rating: 'Overweight', points: [pt('2026-07-07', 225, SRC.jpm), pt('2026-08-05', 240, SRC.jpm), pt('2026-10-20', 240, SRC.jpm, { set: '2026-08-05' }), pt('2026-10-21', 500, SRC.jpm, { horizon: '2027-12-31' })] },
-  { firm: 'Morgan Stanley', rating: 'Overweight', points: [pt('2026-07-07', 300, SRC.coverageMs), pt('2026-10-04', 300, SRC.ms), pt('2026-10-21', 300, SRC.ms3q)] },
+  { firm: 'J.P. Morgan', rating: 'Overweight', points: RESEARCH.jpm },
+  { firm: 'Morgan Stanley', rating: 'Overweight', points: [pt('2026-07-07', 300, SRC.coverageMs), ...RESEARCH.ms] },
   { firm: 'Cantor Fitzgerald', rating: 'Overweight', points: [pt('2026-10-20', 246, SRC.cantorQ3), pt('2026-10-21', 345, SRC.cantorQ3)] },
   { firm: 'Barclays', rating: 'Overweight', points: [pt('2026-10-20', 254, SRC.q3Moves), pt('2026-10-21', 300, SRC.q3Moves)] },
   { firm: 'Wells Fargo', rating: 'Overweight', points: [pt('2026-07-07', 230, SRC.coverageMs), pt('2026-10-20', 214, SRC.q3MovesKucoin), pt('2026-10-21', 274, SRC.q3MovesKucoin)] },
@@ -244,12 +244,12 @@ export type VintageId = (typeof VINTAGES)[number]['id'];
 export const NINE_MONTHS_2026 = 27_083;
 
 /** Full-year 2026 revenue estimates, $ millions. Q4 is the estimate less the nine months reported. */
-export const FY26_ESTIMATES: Array<{ firm: string; revenue: number; source: Source }> = [
-  { firm: 'Morgan Stanley', revenue: 50_889, source: SRC.ms3q },
-  { firm: 'J.P. Morgan', revenue: 51_057, source: SRC.jpm },
-];
+export const FY26_ESTIMATES = RESEARCH.fy26;
 
-/** Q1 2027 revenue guidance, $ millions: management on the Oct 20, 2026 call, as reported by Morgan Stanley. */
-export const Q1_27_GUIDE = { low: 33_000, high: 37_000, source: SRC.ms3q };
+/** Bank research supplied by James; empty in the public build. */
+export const NOTES = RESEARCH.sources;
+
+/** Q1 2027 revenue guidance, $ millions: the CFO on the Oct 20, 2026 call. */
+export const Q1_27_GUIDE = { low: 33_000, high: 37_000, source: SRC.call };
 
 export const CONSENSUS = { analysts: 38, rating: 'Buy', target: 222.71, asOf: '2026-10-20', source: SRC.consensus };

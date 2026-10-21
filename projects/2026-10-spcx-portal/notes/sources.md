@@ -63,3 +63,7 @@ Medians: Jul 7 $228 (12 firms), Oct 20 $230, Oct 21 $245 (17 firms).
 ## Intraday price
 
 Oct 21, 2026: $161.93 at 11:05 AM ET from the [StockAnalysis quote](https://stockanalysis.com/stocks/spcx/), plotted as the last point and labelled as intraday. Replace with the 4:00 PM close once it posts.
+
+## Public build
+
+`npm run build:public` builds the public site. It swaps `src/licensed.ts`, which holds the J.P. Morgan and Morgan Stanley note figures, for `src/licensed.public.ts`. The swap leaves out the Morgan Stanley Oct 4 and Oct 21 points, both FY26 revenue estimates (and with them the Q4 2026 estimate bar), and the tearsheet's Aug 5 date. J.P. Morgan's targets come from the press instead: $225 for December 2027 at initiation ([Traders Union](https://tradersunion.com/news/market-voices/show/2603037-jp-morgan-spacex-target/)), and $500 from $240 on Oct 21 ([Investing.com](https://www.investing.com/news/analyst-ratings/jpmorgan-raises-spacex-stock-price-target-to-500-on-growth-outlook-93CH-4962780), with no horizon stated). The Q1 2027 guide is cited in both builds to the CFO's remarks on the call ([Motley Fool transcript](https://www.fool.com/earnings/call-transcripts/2026/10/20/spacex-spcx-q3-2026-earnings-call-transcript/)).
