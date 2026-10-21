@@ -2,7 +2,7 @@
 
 A dashboard for Space Exploration Technologies Corp. (SpaceX, Nasdaq: SPCX). It opens on one figure: quarterly revenue and the daily closing share price on a shared time axis. Analyst coverage and sources sit behind disclosures below it.
 
-**Status:** first figure live. Data through the Q3 2026 release (October 20, 2026).
+**Status:** first figure live, with an outlook view (Q4 2026 analyst estimates, Q1 2027 guidance). Data through the Q3 2026 release (October 20, 2026).
 
 ## Run
 
@@ -22,4 +22,4 @@ The figure is registered in `web/src/figures.tsx`, so `npm run check` in `shared
 ## Open questions
 
 - Q3 2026 primary source is the release PDF; swap in the 10-Q link once SpaceX files it.
-- Full analyst research notes (JPMorgan, Morgan Stanley, others) are distributed to each bank's clients; the portal carries ratings and targets as reported.
+- Research notes are in hand for J.P. Morgan and Morgan Stanley only; the other nine firms show their July 7 initiations as reported.

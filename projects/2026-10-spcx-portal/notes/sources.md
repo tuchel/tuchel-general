@@ -30,6 +30,16 @@ Before the release PDF was in hand, press reports gave Q3 revenue as $14.6B (Inv
 - Market holidays with no close: Jun 19 (Juneteenth), Jul 3 (Independence Day observed), Sep 7 (Labor Day).
 - IPO priced at $135 on Jun 11, first trade Jun 12 ([NBC News](https://www.nbcnews.com/business/business-news/spacex-ipo-trading-price-rcna349225)).
 
+## Research notes (supplied by James, not committed)
+
+- **J.P. Morgan, SpaceX tearsheet, Oct 20, 2026 (Doug Anmuth).** Overweight; target $500 for Dec 31, 2027, raised from $240 (Aug 5, 2026) and $225 (Jul 7, 2026 initiation). FY26E revenue 51,057; FY27E 254,127. FY25 revenue 18,674 matches the S-1. The note says the target is 20× 2028E GAAP EPS of $24.41, while its own key-financials table shows FY28E EPS of $27.02; the portal uses neither.
+- **Morgan Stanley, "SPCX $159: Cheap and Getting Cheaper", Oct 4, 2026 (Adam Jonas).** Overweight, $300; Q3 2026 EPS estimate $0.19 (reported diluted EPS was $0.35).
+- **Morgan Stanley, "3Q Results: Next Stop... MARS", Oct 21, 2026 (Adam Jonas).** Overweight, $300 maintained (bull $600, bear $75). FY26E revenue 50,889 (from 48,437); FY27E 178,070. Reports management guidance from the Oct 20 call: Q1 2027 revenue $33–37B (midpoint $35B vs. $23B consensus), Q4 2026 capex $35–40B, 2.5–3 GW compute by YE26. The Q3 release itself carries no guidance.
+
+Derived:
+- Q4 2026 implied revenue: Morgan Stanley 50,889 − 27,083 = 23,806; J.P. Morgan 51,057 − 27,083 = 23,974. 27,083 is nine-month 2026 revenue (Q3 2026 release; 4,694 + 7,814 + 14,575 = 27,083).
+- Q1 2027 guide midpoint over Q3 2026: 35,000 / 14,575 = 2.40.
+
 ## Analyst coverage
 
 Ratings and targets at initiation, July 7, 2026, from [Yahoo Finance](https://finance.yahoo.com/markets/stocks/article/spacex-stock-drops-below-ipo-opening-price-despite-flood-of-bullish-wall-street-ratings-153809443.html) and [Yahoo Finance (Morgan Stanley, Wells Fargo)](https://finance.yahoo.com/markets/stocks/article/spacex-snags-street-high-300-price-target-from-morgan-stanley-as-rocket-company-enters-nasdaq-100-160316317.html). Consensus (38 analysts, Buy, $222.71 average) from StockAnalysis on Oct 20, 2026; TipRanks showed 35 analysts, $217 average, $75–$450 range on Oct 17 ([Motley Fool](https://fool.com/investing/2026/10/17/35-analysts-cover-spacex-heres-why-their-price-tar)).

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { CONSENSUS, COVERAGE, PRICES, SRC } from './data.ts';
+import { CONSENSUS, COVERAGE, FY26_ESTIMATES, NINE_MONTHS_2026, Q1_27_GUIDE, PRICES, QUARTERS, SRC, type Source } from './data.ts';
 import { RevenuePrice } from './RevenuePrice.tsx';
 
 const last = PRICES[PRICES.length - 1];
@@ -8,6 +8,9 @@ const prev = PRICES[PRICES.length - 2];
 const change = last.close / prev.close - 1;
 const usd = (v: number) => `$${v.toFixed(2)}`;
 const pct = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v * 100).toFixed(1)}%`;
+const billions = (m: number) => `$${(m / 1000).toFixed(1)}B`;
+const q3 = QUARTERS[QUARTERS.length - 1];
+const cite = (s: Source, text: string) => (s.url ? <a href={s.url} target="_blank" rel="noreferrer">{text}</a> : text);
 const day = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 
 export function App() {
@@ -41,21 +44,29 @@ export function App() {
             <div className="more-body">
               <table className="cov">
                 <thead>
-                  <tr><th scope="col">Firm</th><th scope="col">Rating</th><th scope="col">Target</th><th scope="col">Versus last close</th></tr>
+                  <tr><th scope="col">Firm</th><th scope="col">Rating</th><th scope="col">Target</th><th scope="col">Versus last close</th><th scope="col">As of</th></tr>
                 </thead>
                 <tbody>
                   {COVERAGE.map((r) => (
                     <tr key={r.firm}>
-                      <th scope="row"><a href={r.source.url} target="_blank" rel="noreferrer">{r.firm}</a></th>
+                      <th scope="row" title={r.source.label}>{cite(r.source, r.firm)}</th>
                       <td>{r.rating}</td>
-                      <td>${r.target}</td>
+                      <td title={r.history ? `Earlier: ${r.history.map(([d, v]) => `$${v} on ${day(d)}`).join(', ')}` : undefined}>
+                        ${r.target}
+                        {r.history?.some(([, v]) => v !== r.target) && <span className="cov-was">from ${r.history[r.history.length - 1][1]}</span>}
+                      </td>
                       <td>{pct(r.target / last.close - 1)}</td>
+                      <td>{day(r.asOf)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              <p className="more-est">
+                {FY26_ESTIMATES.map((e) => `${e.firm} models 2026 revenue of ${billions(e.revenue)}, implying ${billions(e.revenue - NINE_MONTHS_2026)} in Q4`).join('; ')}, against {billions(q3.revenue)} in Q3.
+                Management guided Q1 2027 revenue to ${Q1_27_GUIDE.low / 1000}–{Q1_27_GUIDE.high / 1000}B.
+              </p>
               <p className="more-note">
-                Ratings and targets at initiation, July 7, 2026. The research notes themselves are distributed to each bank's clients.
+                J.P. Morgan and Morgan Stanley rows come from their research notes ({SRC.jpm.label}; {SRC.ms3q.label}). Other rows are the July 7, 2026 initiations as reported.
                 Consensus from <a href={CONSENSUS.source.url} target="_blank" rel="noreferrer">StockAnalysis</a>, {day(CONSENSUS.asOf)}.
               </p>
             </div>
@@ -65,8 +76,8 @@ export function App() {
             <summary>Sources</summary>
             <div className="more-body">
               <ul className="src">
-                {Object.values(SRC).filter((s, i, a) => a.findIndex((o) => o.url === s.url) === i).map((s) => (
-                  <li key={s.url}><a href={s.url} target="_blank" rel="noreferrer">{s.label}</a></li>
+                {(Object.values(SRC) as Source[]).filter((s, i, a) => !s.url || a.findIndex((o) => o.url === s.url) === i).map((s) => (
+                  <li key={s.label}>{cite(s, s.label)}</li>
                 ))}
               </ul>
             </div>

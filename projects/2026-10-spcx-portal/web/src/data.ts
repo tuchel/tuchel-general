@@ -3,7 +3,8 @@
  * say how they were derived. See ../../notes/sources.md for the trail.
  */
 
-export type Source = { label: string; url: string };
+/** `url` is absent for research distributed to a bank's clients rather than published. */
+export type Source = { label: string; url?: string };
 
 export const SRC = {
   q2: { label: 'SpaceX Q2 2026 earnings release (8-K exhibit)', url: 'https://www.sec.gov/Archives/edgar/data/0001181412/000162828026052515/earningsreleaseq22608042.htm' },
@@ -15,6 +16,9 @@ export const SRC = {
   coverage: { label: 'Yahoo Finance, initiations of July 7, 2026', url: 'https://finance.yahoo.com/markets/stocks/article/spacex-stock-drops-below-ipo-opening-price-despite-flood-of-bullish-wall-street-ratings-153809443.html' },
   coverageMs: { label: 'Yahoo Finance, Morgan Stanley and Wells Fargo initiations', url: 'https://finance.yahoo.com/markets/stocks/article/spacex-snags-street-high-300-price-target-from-morgan-stanley-as-rocket-company-enters-nasdaq-100-160316317.html' },
   consensus: { label: 'StockAnalysis, analyst consensus', url: 'https://stockanalysis.com/stocks/spcx/' },
+  jpm: { label: 'J.P. Morgan (Doug Anmuth), SpaceX tearsheet, Oct 20, 2026' },
+  ms: { label: 'Morgan Stanley (Adam Jonas), "SPCX $159: Cheap and Getting Cheaper", Oct 4, 2026' },
+  ms3q: { label: 'Morgan Stanley (Adam Jonas), "3Q Results: Next Stop... MARS", Oct 21, 2026' },
 } satisfies Record<string, Source>;
 
 export type Quarter = {
@@ -180,21 +184,42 @@ export const PRICES: Close[] = CLOSES.trim().split('\n').map((l) => {
   return { date, close: Number(close) };
 });
 
-export type Coverage = { firm: string; rating: string; target: number; source: Source };
+export type Coverage = {
+  firm: string;
+  rating: string;
+  target: number;
+  /** Date of the latest rating and target, ISO. */
+  asOf: string;
+  /** Earlier targets, oldest first: [date, target]. */
+  history?: Array<[string, number]>;
+  source: Source;
+};
 
-/** Initiations of July 7, 2026, as reported. Full research notes are behind each bank's client portal. */
+/** Latest rating and target per firm. Rows without a research note are the July 7, 2026 initiations as reported. */
 export const COVERAGE: Coverage[] = [
-  { firm: 'Morgan Stanley', rating: 'Overweight', target: 300, source: SRC.coverageMs },
-  { firm: 'Deutsche Bank', rating: 'Buy', target: 255, source: SRC.coverage },
-  { firm: 'Macquarie', rating: 'Outperform', target: 250, source: SRC.coverage },
-  { firm: 'Bernstein', rating: 'Outperform', target: 239, source: SRC.coverage },
-  { firm: 'Bank of America', rating: 'Buy', target: 235, source: SRC.coverage },
-  { firm: 'Wells Fargo', rating: 'Overweight', target: 230, source: SRC.coverageMs },
-  { firm: 'JPMorgan', rating: 'Overweight', target: 225, source: SRC.coverage },
-  { firm: 'RBC Capital Markets', rating: 'Outperform', target: 225, source: SRC.coverage },
-  { firm: 'UBS', rating: 'Buy', target: 210, source: SRC.coverage },
-  { firm: 'Goldman Sachs', rating: 'Buy', target: 205, source: SRC.coverage },
-  { firm: 'Mizuho', rating: 'Outperform', target: 200, source: SRC.coverage },
+  { firm: 'J.P. Morgan', rating: 'Overweight', target: 500, asOf: '2026-10-20', history: [['2026-07-07', 225], ['2026-08-05', 240]], source: SRC.jpm },
+  { firm: 'Morgan Stanley', rating: 'Overweight', target: 300, asOf: '2026-10-21', history: [['2026-07-07', 300], ['2026-10-04', 300]], source: SRC.ms3q },
+  { firm: 'Deutsche Bank', rating: 'Buy', target: 255, asOf: '2026-07-07', source: SRC.coverage },
+  { firm: 'Macquarie', rating: 'Outperform', target: 250, asOf: '2026-07-07', source: SRC.coverage },
+  { firm: 'Bernstein', rating: 'Outperform', target: 239, asOf: '2026-07-07', source: SRC.coverage },
+  { firm: 'Bank of America', rating: 'Buy', target: 235, asOf: '2026-07-07', source: SRC.coverage },
+  { firm: 'Wells Fargo', rating: 'Overweight', target: 230, asOf: '2026-07-07', source: SRC.coverageMs },
+  { firm: 'RBC Capital Markets', rating: 'Outperform', target: 225, asOf: '2026-07-07', source: SRC.coverage },
+  { firm: 'UBS', rating: 'Buy', target: 210, asOf: '2026-07-07', source: SRC.coverage },
+  { firm: 'Goldman Sachs', rating: 'Buy', target: 205, asOf: '2026-07-07', source: SRC.coverage },
+  { firm: 'Mizuho', rating: 'Outperform', target: 200, asOf: '2026-07-07', source: SRC.coverage },
 ];
+
+/** Reported revenue, nine months to Sep 30, 2026, $ millions (Q3 2026 release). */
+export const NINE_MONTHS_2026 = 27_083;
+
+/** Full-year 2026 revenue estimates, $ millions. Q4 is the estimate less the nine months reported. */
+export const FY26_ESTIMATES: Array<{ firm: string; revenue: number; source: Source }> = [
+  { firm: 'Morgan Stanley', revenue: 50_889, source: SRC.ms3q },
+  { firm: 'J.P. Morgan', revenue: 51_057, source: SRC.jpm },
+];
+
+/** Q1 2027 revenue guidance, $ millions: management on the Oct 20, 2026 call, as reported by Morgan Stanley. */
+export const Q1_27_GUIDE = { low: 33_000, high: 37_000, source: SRC.ms3q };
 
 export const CONSENSUS = { analysts: 38, rating: 'Buy', target: 222.71, asOf: '2026-10-20', source: SRC.consensus };

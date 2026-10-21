@@ -1,3 +1,3 @@
 import { RevenuePrice } from './RevenuePrice.tsx';
 
-export const figures = { 'revenue-price': { component: RevenuePrice, states: [{ view: 'all' as const }] } };
+export const figures = { 'revenue-price': { component: RevenuePrice, states: [{ view: 'all' as const }, { view: 'outlook' as const }] } };
