@@ -114,13 +114,12 @@ jobs:
           npm run build
 
       # The portal imports the shared chart kit, whose types come from its own devDependencies.
-      # build:public leaves out figures from client-licensed bank research.
       - name: Install & build SPCX portal
         run: |
           (cd shared/charts && npm ci)
           cd projects/2026-10-spcx-portal/web
           npm ci
-          npm run build:public
+          npm run build
 
       - name: Stage Pages artifact
         run: |
