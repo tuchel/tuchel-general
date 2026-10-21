@@ -45,3 +45,19 @@ Derived:
 Ratings and targets at initiation, July 7, 2026, from [Yahoo Finance](https://finance.yahoo.com/markets/stocks/article/spacex-stock-drops-below-ipo-opening-price-despite-flood-of-bullish-wall-street-ratings-153809443.html) and [Yahoo Finance (Morgan Stanley, Wells Fargo)](https://finance.yahoo.com/markets/stocks/article/spacex-snags-street-high-300-price-target-from-morgan-stanley-as-rocket-company-enters-nasdaq-100-160316317.html). Consensus (38 analysts, Buy, $222.71 average) from StockAnalysis on Oct 20, 2026; TipRanks showed 35 analysts, $217 average, $75–$450 range on Oct 17 ([Motley Fool](https://fool.com/investing/2026/10/17/35-analysts-cover-spacex-heres-why-their-price-tar)).
 
 Not yet sourced: Citi ($200 target reported; rating unconfirmed), the $450 high and $75 low (Phillip Securities named for $75, not confirmed). The research notes themselves were not obtainable; they are distributed to each bank's clients.
+
+## Target history (hero chart "Analyst targets" overlay)
+
+Each firm's targets are kept as dated points in `web/src/data.ts` (`FIRMS`). The chart shows three vintages, the dates at which the full set is known:
+
+- **Jul 7, 2026, initiations.** From the Yahoo Finance coverage articles above. J.P. Morgan $225 is from its tearsheet's target history.
+- **Oct 20, 2026, before Q3 results.** These are the "prior" targets quoted alongside each post-Q3 change: Barclays, Clear Street and TD Cowen from [Before It's News](https://beforeitsnews.com/motor-junkies/2026/10/spacex-stock-gets-a-slew-of-price-target-boosts-after-bullish-earnings-call-2633454.html); Wells Fargo, Citi and UBS from [KuCoin News](https://www.kucoin.com/news/flash/wall-street-raises-spacex-target-prices-after-q2-earnings-report); Goldman Sachs and Stifel from [Investing.com](https://www.investing.com/news/analyst-ratings/goldman-sachs-raises-spacex-stock-price-target-to-245-on-growth-outlook-93CH-4962792); Cantor Fitzgerald from [GuruFocus](https://www.gurufocus.com/news/9133705/spcx-maintained-by-cantor-fitzgerald-price-target-raised-to-345). The prior target's own date is not reported, so it is placed on Oct 20 as the target in force that day. J.P. Morgan $240 (Aug 5) and Morgan Stanley $300 (Oct 4) are from their notes.
+- **Oct 21, 2026, after Q3 results.** Same sources. J.P. Morgan $500 and Morgan Stanley $300 maintained are from their notes.
+
+A firm with no point on a vintage date carries its latest earlier target forward (hollow dot on the chart). Mizuho's $205 is reported in the Investing.com Q3 roundup without a prior; it is dated Oct 21, and its Jul 7 $200 is carried to Oct 20.
+
+Medians: Jul 7 $228 (12 firms), Oct 20 $230, Oct 21 $245 (17 firms).
+
+## Intraday price
+
+Oct 21, 2026: $161.93 at 11:05 AM ET from the [StockAnalysis quote](https://stockanalysis.com/stocks/spcx/), plotted as the last point and labelled as intraday. Replace with the 4:00 PM close once it posts.

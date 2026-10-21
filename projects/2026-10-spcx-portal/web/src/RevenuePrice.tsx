@@ -12,11 +12,15 @@ import {
   AxisX, AxisY, Bars, Dots, Figure, Line, Rules, Segmented, Texts, c, d3, useFigure,
   type Bar, type Dot, type Label, type RenderMode, type Tip,
 } from '../../../../shared/charts/src/index.ts';
-import { CURSOR_Q3, FY26_ESTIMATES, IPO, NINE_MONTHS_2026, PRICES, Q1_27_GUIDE, QUARTERS, type Quarter } from './data.ts';
+import { CURSOR_Q3, FY26_ESTIMATES, IPO, NINE_MONTHS_2026, PRICES, Q1_27_GUIDE, QUARTERS, VINTAGES, type Quarter, type VintageId } from './data.ts';
+import { median, priceOn, targetsAt, vintage, type TargetAt } from './targets.ts';
 
 const DAY = 86_400_000;
 const t = (iso: string) => Date.parse(`${iso}T00:00:00Z`);
-const PX_MAX = 240; // $; 4 intervals of $60, so price gridlines meet revenue's
+// Price scale tops, $; 4 intervals each, so price gridlines meet revenue's. With targets
+// shown the scale holds every vintage's highest target, so switching vintages never rescales.
+const PX_MAX = 240;
+const PX_MAX_TARGETS = 600;
 
 type View = 'year' | 'all' | 'outlook';
 /** Revenue scale top in $M; 4 intervals each. */
@@ -49,11 +53,25 @@ const first = PRICES[0];
 const last = PRICES[PRICES.length - 1];
 const latest = QUARTERS[QUARTERS.length - 1];
 const sinceFirst = last.close / first.close - 1;
+const lastWord = last.intraday ? 'trades' : 'closed';
+
+const TARGETS = Object.fromEntries(VINTAGES.map((v) => [v.id, targetsAt(v.id)])) as Record<VintageId, TargetAt[]>;
+const MEDIANS = VINTAGES.map((v) => ({ ...v, median: median(TARGETS[v.id].map((d) => d.target)) }));
 
 // The headline and takeaways state claims; fail the render if the data stops supporting them.
 const y26 = QUARTERS.filter((q) => q.start >= '2026');
-if (!y26.every((q, i) => i === 0 || q.revenue > y26[i - 1].revenue) || sinceFirst >= 0) {
+const maxTarget = Math.max(...Object.values(TARGETS).flat().map((d) => d.target));
+if (!y26.every((q, i) => i === 0 || q.revenue > y26[i - 1].revenue) || maxTarget > PX_MAX_TARGETS
+  || MEDIANS.some((m) => m.median <= priceOn(m.date).close)) {
   throw new Error('RevenuePrice: headline no longer matches the data');
+}
+
+const usd0 = (v: number) => `$${Math.round(v)}`;
+function targetTip(d: TargetAt, date: string): Tip {
+  const px = priceOn(date);
+  const rows: Array<[string, string]> = [['Target', usd0(d.target)], ['Rating', d.rating], ['Versus price that day', pct(d.target / px.close - 1)]];
+  if (d.before !== undefined && d.before !== d.target) rows.push(['Previous', usd0(d.before)]);
+  return { title: d.firm, rows, note: d.reported ? d.source.label : `Carried from ${fmtDay(d.since)}; ${d.source.label}` };
 }
 
 function quarterTip(q: Quarter): Tip {
@@ -83,6 +101,7 @@ function dayTip(i: number): Tip {
   const rows: Array<[string, string]> = [['Close', usd(d.close)]];
   if (i > 0) rows.push(['On the day', pct(d.close / PRICES[i - 1].close - 1)]);
   rows.push(['Versus IPO price', pct(d.close / IPO.price - 1)]);
+  if (d.intraday) rows[0] = ['Price', `${usd(d.close)} at ${d.intraday}`];
   const q = quarterOf(d.date);
   if (q) rows.push([`${q.label} revenue`, billions(q.revenue)]);
   const r = releasedOn(d.date);
@@ -120,8 +139,17 @@ function Scrub({ x, from, end, y0, y1, left, right }: { x: (v: number) => number
   );
 }
 
-export function RevenuePrice({ mode, view: initial = 'year' }: { mode?: RenderMode; view?: View }) {
+export function RevenuePrice({ mode, view: initial = 'year', targets: initialTargets = null }: { mode?: RenderMode; view?: View; targets?: VintageId | null }) {
   const [view, setView] = useState<View>(initial);
+  const [show, setShow] = useState(initialTargets !== null);
+  const [vid, setVid] = useState<VintageId>(initialTargets ?? 'oct21');
+  const vin = vintage(vid);
+  const tv = TARGETS[vid];
+  const med = MEDIANS.find((m) => m.id === vid)!.median;
+  const pxThen = priceOn(vin.date).close;
+  const carried = tv.filter((d) => !d.reported).length;
+  const raised = TARGETS.oct21.filter((d) => d.reported && d.before !== undefined && d.target > d.before).length;
+  const pxMax = show ? PX_MAX_TARGETS : PX_MAX;
   const V = VIEWS[view];
   const from = t(V.from);
   const end = t(V.end);
@@ -137,30 +165,50 @@ export function RevenuePrice({ mode, view: initial = 'year' }: { mode?: RenderMo
       id="revenue-price"
       mode={mode}
       hero
-      headline={view === 'outlook' ? [
+      headline={show ? [
+        'Median analyst target ', { value: med, format: usd0, from: MEDIANS[0].median },
+        ` on ${vin.label}, `, { value: (med / pxThen - 1) * 100, format: (v) => `${v.toFixed(0)}%`, from: 0 },
+        ' above the share price that day',
+      ] : view === 'outlook' ? [
         `Guidance for Q1 2027 revenue, ${GUIDE_TEXT}, is `, { value: Q1_27_MID / latest.revenue, format: (v) => `${v.toFixed(1)}×`, from: 1 },
         ` ${latest.label} at its midpoint`,
       ] : [
         'Quarterly revenue grew ', { value: growth, format: (v) => `${v.toFixed(1)}×`, from: 1 },
-        ` from ${q0.label} to ${latest.label}; the stock closed `, { value: -sinceFirst * 100, format: (v) => `${v.toFixed(0)}%`, from: 0 },
-        ' below its first day',
+        ` from ${q0.label} to ${latest.label}; the stock ${lastWord} `, { value: Math.abs(sinceFirst) * 100, format: (v) => `${v.toFixed(0)}%`, from: 0 },
+        ` ${sinceFirst >= 0 ? 'above' : 'below'} its first close`,
       ]}
       dek="Quarterly revenue (bars, left scale) and daily closing share price (line, right scale). Both scales start at zero."
-      takeaways={view === 'outlook' ? {
+      takeaways={show ? {
+        look: `The ${vin.label} column of targets against the price line: a ${usd0(med)} median against ${usd(pxThen)}.`,
+        learn: `The median target went from ${usd0(MEDIANS[0].median)} at initiation to ${usd0(MEDIANS[MEDIANS.length - 1].median)} after Q3, when ${raised} of ${TARGETS.oct21.filter((d) => d.reported).length} reporting firms raised.`,
+        scrutinize: `Hollow dots, ${carried} of ${tv.length} here, are carried from an earlier report and may be stale; the sources do not date targets set between July and October.`,
+      } : view === 'outlook' ? {
         look: `The Q1 2027 band against the ${latest.label} bar: ${billions(Q1_27_GUIDE.low)}–${billions(Q1_27_GUIDE.high)} guided against ${billions(latest.revenue)} reported.`,
         learn: `Two analysts' full-year models imply Q4 2026 revenue of ${billions(AHEAD[0].low)} to ${billions(AHEAD[0].high)}, the quarter before the guided one.`,
         scrutinize: 'The Q1 2027 range comes from the earnings call as reported by Morgan Stanley, not from the release, and no company figure exists for Q4 2026.',
       } : {
         look: `The ${latest.label} bar against the ${q0.label} bar: ${billions(latest.revenue)} against ${billions(q0.revenue)}.`,
-        learn: `Revenue rose every quarter of 2026 while the close went from ${usd(first.close)} on ${fmtDay(first.date)} to ${usd(last.close)}, a ${pct(sinceFirst)} change.`,
+        learn: `Revenue rose every quarter of 2026 while the price went from a ${usd(first.close)} close on ${fmtDay(first.date)} to ${usd(last.close)}, a ${pct(sinceFirst)} change.`,
         scrutinize: view === 'all'
           ? `${q4.label} revenue of ${billions(q4.revenue)} is derived: full-year 2025 from the Form S-1 less the first nine months.`
           : `${latest.label} includes $${CURSOR_Q3}M from Cursor, acquired Aug 14, 2026; without it, ${latest.label} revenue is ${billions(cursorless)}.`,
       }}
-      note={`Prices are daily closes in US dollars; the IPO priced at $${IPO.price} on ${fmtDay(IPO.date)}. Super Intelligence was reported as AI before Q3 2026.`}
-      label="Quarterly revenue bars rising through 2026, with the daily closing share price from the June 12, 2026 IPO through October 20 drawn over them."
-      controls={<Segmented label="Range" value={view} onChange={setView} options={[{ id: 'year', label: '2026' }, { id: 'all', label: 'Since 2025' }, { id: 'outlook', label: 'Outlook' }]} />}
-      data={{
+      note={show
+        ? `Dots are each firm's 12-month price target; filled dots were reported on ${vin.label}, hollow ones are the firm's latest earlier report. The dashed line joins the median at each date.`
+        : `Prices are daily closes in US dollars${last.intraday ? `, with ${fmtDay(last.date)} at ${last.intraday}` : ''}; the IPO priced at $${IPO.price} on ${fmtDay(IPO.date)}. Super Intelligence was reported as AI before Q3 2026.`}
+      label={`Quarterly revenue bars rising through 2026, with the daily share price from the June 12, 2026 IPO through ${fmtDay(last.date)} drawn over them${show ? `, and analysts' price targets as of ${vin.label}` : ''}.`}
+      controls={(
+        <>
+          <Segmented label="Range" value={view} onChange={setView} options={[{ id: 'year', label: '2026' }, { id: 'all', label: 'Since 2025' }, { id: 'outlook', label: 'Outlook' }]} />
+          <button type="button" className="spcx-toggle" aria-pressed={show} onClick={() => setShow(!show)}>Analyst targets</button>
+          {show && <Segmented label="Targets as of" value={vid} onChange={setVid} options={VINTAGES.map((v) => ({ id: v.id, label: v.label }))} />}
+        </>
+      )}
+      data={show ? {
+        caption: `Price targets as of ${fmtDay(vin.date)}, ${vin.name.toLowerCase()}`,
+        columns: ['Firm', 'Rating', 'Target ($)', 'Reported'],
+        rows: tv.map((d) => [d.firm, d.rating, d.target, fmtDay(d.since)]),
+      } : {
         columns: ['Quarter', 'Revenue ($M)', 'Year earlier ($M)', 'Last close in quarter ($)'],
         rows: QUARTERS.map((q) => {
           const inQ = PRICES.filter((d) => d.date >= q.start && d.date <= q.end);
@@ -174,7 +222,7 @@ export function RevenuePrice({ mode, view: initial = 'year' }: { mode?: RenderMo
         const m = { l: 44, r: 44, t: 30, b: 30 };
         const x = d3.scaleLinear().domain([from, end]).range([m.l, width - m.r]);
         const yR = d3.scaleLinear().domain([0, V.revMax]).range([height - m.b, m.t]);
-        const yP = d3.scaleLinear().domain([0, PX_MAX]).range([height - m.b, m.t]);
+        const yP = d3.scaleLinear().domain([0, pxMax]).range([height - m.b, m.t]);
         const gap = narrow || view !== 'year' ? 2 : 4;
 
         const bars: Bar[] = shown.map((q) => {
@@ -220,16 +268,33 @@ export function RevenuePrice({ mode, view: initial = 'year' }: { mode?: RenderMo
           };
         });
         const [lx] = pts[pts.length - 1];
-        // The last-close label sits clear of the line's recent run.
-        const ly = Math.min(...pts.slice(-15).map((p) => p[1]));
+        // The latest-price label sits clear of the line's recent run: above it, or below it when targets fill the space above.
+        const run = pts.slice(-15).map((p) => p[1]);
+        const ly = show ? Math.max(...run) + 13 : Math.min(...run) - 12;
+
+        // Targets: one column of dots at the vintage date; equal targets fan out sideways.
+        const cx = x(t(vin.date));
+        const seen = new Map<number, number>();
+        const targetDots: Dot[] = show ? tv.map((d) => {
+          const k = seen.get(d.target) ?? 0;
+          seen.set(d.target, k + 1);
+          const dx = k === 0 ? 0 : (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 7;
+          return {
+            id: `t-${d.firm}`, cx: cx + dx, cy: yP(d.target), r: 4,
+            fill: d.reported ? c('series2') : c('halo'), stroke: c('series2'), strokeWidth: 1.5, hit: 8,
+            label: `${d.firm} target ${usd0(d.target)}`, tip: targetTip(d, vin.date),
+          };
+        }) : [];
+        const medPath = MEDIANS.map((mm) => [x(t(mm.date)), yP(mm.median)] as const);
         const ends: Label[] = [
-          { id: 'last', x: lx, y: ly - 12, text: usd(last.close), anchor: 'end', size: 12.5, weight: 600, fill: c('ink'), halo: c('halo') },
+          { id: 'last', x: lx, y: ly, text: usd(last.close), anchor: 'end', size: 12.5, weight: 600, fill: c('ink'), halo: c('halo') },
           // On a phone the outlook compresses the price run; the rule and the note carry the IPO price there.
-          { id: 'ipo', x: lx, y: yP(IPO.price) + 11, text: `IPO $${IPO.price}`, anchor: 'end', size: 11.5, fill: c('slate'), halo: c('halo'), opacity: narrow && view === 'outlook' ? 0 : 1 },
+          { id: 'ipo', x: lx, y: yP(IPO.price) + 11, text: `IPO $${IPO.price}`, anchor: 'end', size: 11.5, fill: c('slate'), halo: c('halo'), opacity: show || (narrow && view === 'outlook') ? 0 : 1 },
           // Scale titles, flush with each axis's outer edge.
           { id: 'rev', x: 0, y: m.t - 16, text: 'Revenue', anchor: 'start', size: 11.5, weight: 600, fill: c('series1') },
-          { id: 'px', x: width, y: m.t - 16, text: 'Share price', anchor: 'end', size: 11.5, weight: 600, fill: c('ink') },
+          { id: 'px', x: width, y: m.t - 16, text: show ? 'Price and targets' : 'Share price', anchor: 'end', size: 11.5, weight: 600, fill: c('ink') },
         ];
+        if (show) ends.push({ id: 'median', x: cx - 16, y: yP(med), text: `Median ${usd0(med)}`, value: med, format: (v) => `Median ${usd0(v)}`, anchor: 'end', size: 12.5, weight: 600, fill: c('series2'), halo: c('halo') });
         // January carries the year; other ticks name the month.
         const tickLabel = (v: number) => {
           const d = new Date(v);
@@ -239,7 +304,7 @@ export function RevenuePrice({ mode, view: initial = 'year' }: { mode?: RenderMo
         return (
           <>
             <AxisY scale={yR} ticks={d3.range(0, V.revMax + 1, V.revMax / 4)} format={(v) => (v ? `$${v / 1000}B` : '$0')} at={m.l} grid={{ to: width - m.r }} unit="rev" />
-            <AxisY scale={yP} ticks={d3.range(0, PX_MAX + 1, 60)} format={(v) => `$${v}`} at={width - m.r} offset={-8} anchor="start" unit="px" />
+            <AxisY scale={yP} ticks={d3.range(0, pxMax + 1, pxMax / 4)} format={(v) => `$${v}`} at={width - m.r} offset={-8} anchor="start" unit="px" />
             <Rules data={[
               { id: 'base', x1: m.l, x2: width - m.r, y1: yR(0), y2: yR(0), stroke: c('slate'), opacity: 0.6 },
               { id: 'ipo', x1: x(t(IPO.date)), x2: lx, y1: yP(IPO.price), y2: yP(IPO.price), stroke: c('slate'), dash: '2 3', opacity: 0.7 },
@@ -251,6 +316,13 @@ export function RevenuePrice({ mode, view: initial = 'year' }: { mode?: RenderMo
             <AxisX scale={x} ticks={VIEWS[view].months} format={tickLabel} at={height - m.b} unit={view} />
             <Scrub x={x} from={from} end={end} y0={height - m.b} y1={m.t} left={m.l} right={width - m.r} />
             <Dots data={days} className="spcx-days" />
+            {show && (
+              <>
+                <Line spec={{ id: 'median-path', points: medPath as Array<readonly [number, number]>, stroke: c('series2'), width: 1.25, dash: '3 3' }} />
+                <Rules data={[{ id: 'median', x1: cx - 12, x2: cx + 12, y1: yP(med), y2: yP(med), stroke: c('series2'), width: 2 }]} />
+                <Dots data={targetDots} className="spcx-targets" />
+              </>
+            )}
           </>
         );
       }}

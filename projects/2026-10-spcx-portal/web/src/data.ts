@@ -18,6 +18,11 @@ export const SRC = {
   consensus: { label: 'StockAnalysis, analyst consensus', url: 'https://stockanalysis.com/stocks/spcx/' },
   jpm: { label: 'J.P. Morgan (Doug Anmuth), SpaceX tearsheet, Oct 20, 2026' },
   ms: { label: 'Morgan Stanley (Adam Jonas), "SPCX $159: Cheap and Getting Cheaper", Oct 4, 2026' },
+  q3Moves: { label: 'Before It\'s News, post-Q3 target changes, Oct 21, 2026', url: 'https://beforeitsnews.com/motor-junkies/2026/10/spacex-stock-gets-a-slew-of-price-target-boosts-after-bullish-earnings-call-2633454.html' },
+  q3MovesKucoin: { label: 'KuCoin News, Wall Street raises SpaceX targets, Oct 21, 2026', url: 'https://www.kucoin.com/news/flash/wall-street-raises-spacex-target-prices-after-q2-earnings-report' },
+  gsQ3: { label: 'Investing.com, Goldman Sachs raises SpaceX target to $245, Oct 21, 2026', url: 'https://www.investing.com/news/analyst-ratings/goldman-sachs-raises-spacex-stock-price-target-to-245-on-growth-outlook-93CH-4962792' },
+  cantorQ3: { label: 'GuruFocus, Cantor Fitzgerald raises SpaceX target to $345, Oct 21, 2026', url: 'https://www.gurufocus.com/news/9133705/spcx-maintained-by-cantor-fitzgerald-price-target-raised-to-345' },
+  intraday: { label: 'StockAnalysis, SPCX quote, Oct 21, 2026, 11:05 AM ET', url: 'https://stockanalysis.com/stocks/spcx/' },
   ms3q: { label: 'Morgan Stanley (Adam Jonas), "3Q Results: Next Stop... MARS", Oct 21, 2026' },
 } satisfies Record<string, Source>;
 
@@ -178,37 +183,58 @@ const CLOSES = `
 2026-10-20 147.79
 `;
 
-export type Close = { date: string; close: number };
-export const PRICES: Close[] = CLOSES.trim().split('\n').map((l) => {
-  const [date, close] = l.split(' ');
-  return { date, close: Number(close) };
-});
+/** `intraday` marks a price taken during the session, before the close. */
+export type Close = { date: string; close: number; intraday?: string };
+export const PRICES: Close[] = [
+  ...CLOSES.trim().split('\n').map((l) => {
+    const [date, close] = l.split(' ');
+    return { date, close: Number(close) };
+  }),
+  { date: '2026-10-21', close: 161.93, intraday: '11:05 AM ET' },
+];
 
-export type Coverage = {
-  firm: string;
-  rating: string;
+export type TargetPoint = {
+  /** The date the target was reported as in force, ISO. */
+  date: string;
   target: number;
-  /** Date of the latest rating and target, ISO. */
-  asOf: string;
-  /** Earlier targets, oldest first: [date, target]. */
-  history?: Array<[string, number]>;
   source: Source;
 };
+export type Firm = { firm: string; rating: string; points: TargetPoint[] };
 
-/** Latest rating and target per firm. Rows without a research note are the July 7, 2026 initiations as reported. */
-export const COVERAGE: Coverage[] = [
-  { firm: 'J.P. Morgan', rating: 'Overweight', target: 500, asOf: '2026-10-20', history: [['2026-07-07', 225], ['2026-08-05', 240]], source: SRC.jpm },
-  { firm: 'Morgan Stanley', rating: 'Overweight', target: 300, asOf: '2026-10-21', history: [['2026-07-07', 300], ['2026-10-04', 300]], source: SRC.ms3q },
-  { firm: 'Deutsche Bank', rating: 'Buy', target: 255, asOf: '2026-07-07', source: SRC.coverage },
-  { firm: 'Macquarie', rating: 'Outperform', target: 250, asOf: '2026-07-07', source: SRC.coverage },
-  { firm: 'Bernstein', rating: 'Outperform', target: 239, asOf: '2026-07-07', source: SRC.coverage },
-  { firm: 'Bank of America', rating: 'Buy', target: 235, asOf: '2026-07-07', source: SRC.coverage },
-  { firm: 'Wells Fargo', rating: 'Overweight', target: 230, asOf: '2026-07-07', source: SRC.coverageMs },
-  { firm: 'RBC Capital Markets', rating: 'Outperform', target: 225, asOf: '2026-07-07', source: SRC.coverage },
-  { firm: 'UBS', rating: 'Buy', target: 210, asOf: '2026-07-07', source: SRC.coverage },
-  { firm: 'Goldman Sachs', rating: 'Buy', target: 205, asOf: '2026-07-07', source: SRC.coverage },
-  { firm: 'Mizuho', rating: 'Outperform', target: 200, asOf: '2026-07-07', source: SRC.coverage },
+const pt = (date: string, target: number, source: Source): TargetPoint => ({ date, target, source });
+
+/**
+ * Price targets by firm, oldest first. Oct 20 points are the "prior" targets that
+ * post-Q3 reports give for each change, so they are in force before the report;
+ * when each was set is not in the sources.
+ */
+export const FIRMS: Firm[] = [
+  { firm: 'J.P. Morgan', rating: 'Overweight', points: [pt('2026-07-07', 225, SRC.jpm), pt('2026-08-05', 240, SRC.jpm), pt('2026-10-20', 240, SRC.jpm), pt('2026-10-21', 500, SRC.jpm)] },
+  { firm: 'Morgan Stanley', rating: 'Overweight', points: [pt('2026-07-07', 300, SRC.coverageMs), pt('2026-10-04', 300, SRC.ms), pt('2026-10-21', 300, SRC.ms3q)] },
+  { firm: 'Cantor Fitzgerald', rating: 'Overweight', points: [pt('2026-10-20', 246, SRC.cantorQ3), pt('2026-10-21', 345, SRC.cantorQ3)] },
+  { firm: 'Barclays', rating: 'Overweight', points: [pt('2026-10-20', 254, SRC.q3Moves), pt('2026-10-21', 300, SRC.q3Moves)] },
+  { firm: 'Wells Fargo', rating: 'Overweight', points: [pt('2026-07-07', 230, SRC.coverageMs), pt('2026-10-20', 214, SRC.q3MovesKucoin), pt('2026-10-21', 274, SRC.q3MovesKucoin)] },
+  { firm: 'Deutsche Bank', rating: 'Buy', points: [pt('2026-07-07', 255, SRC.coverage)] },
+  { firm: 'Macquarie', rating: 'Outperform', points: [pt('2026-07-07', 250, SRC.coverage)] },
+  { firm: 'Clear Street', rating: 'Not stated', points: [pt('2026-10-20', 217, SRC.q3Moves), pt('2026-10-21', 248, SRC.q3Moves)] },
+  { firm: 'Goldman Sachs', rating: 'Buy', points: [pt('2026-07-07', 205, SRC.coverage), pt('2026-10-20', 230, SRC.gsQ3), pt('2026-10-21', 245, SRC.gsQ3)] },
+  { firm: 'Citi', rating: 'Buy', points: [pt('2026-07-07', 200, SRC.coverageMs), pt('2026-10-20', 200, SRC.q3MovesKucoin), pt('2026-10-21', 240, SRC.q3MovesKucoin)] },
+  { firm: 'Bernstein', rating: 'Outperform', points: [pt('2026-07-07', 239, SRC.coverage)] },
+  { firm: 'Bank of America', rating: 'Buy', points: [pt('2026-07-07', 235, SRC.coverage)] },
+  { firm: 'UBS', rating: 'Buy', points: [pt('2026-07-07', 210, SRC.coverage), pt('2026-10-20', 210, SRC.q3MovesKucoin), pt('2026-10-21', 230, SRC.q3MovesKucoin)] },
+  { firm: 'RBC Capital Markets', rating: 'Outperform', points: [pt('2026-07-07', 225, SRC.coverage)] },
+  { firm: 'TD Cowen', rating: 'Buy', points: [pt('2026-10-20', 200, SRC.q3Moves), pt('2026-10-21', 224, SRC.q3Moves)] },
+  { firm: 'Mizuho', rating: 'Outperform', points: [pt('2026-07-07', 200, SRC.coverage), pt('2026-10-21', 205, SRC.gsQ3)] },
+  { firm: 'Stifel', rating: 'Buy', points: [pt('2026-10-20', 190, SRC.gsQ3), pt('2026-10-21', 190, SRC.gsQ3)] },
 ];
+
+/** Dates at which the set of targets is known: initiations, the day before Q3 results, the day after. */
+export const VINTAGES = [
+  { id: 'jul7', date: '2026-07-07', label: 'Jul 7', name: 'Initiations' },
+  { id: 'oct20', date: '2026-10-20', label: 'Oct 20', name: 'Before Q3 results' },
+  { id: 'oct21', date: '2026-10-21', label: 'Oct 21', name: 'After Q3 results' },
+] as const;
+export type VintageId = (typeof VINTAGES)[number]['id'];
 
 /** Reported revenue, nine months to Sep 30, 2026, $ millions (Q3 2026 release). */
 export const NINE_MONTHS_2026 = 27_083;

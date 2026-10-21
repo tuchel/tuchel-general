@@ -92,3 +92,12 @@ a:hover { text-decoration-color: currentColor; }
 
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .mast, .fig[data-hero] { animation: none; } }
+
+/* "Analyst targets" switch, in the segmented control's idiom */
+.spcx-toggle { min-height: 40px; padding: 0 16px 0 34px; position: relative; border: 0; border-radius: 999px; background: var(--chart-hair-2); font: inherit; font-size: 13px; font-weight: 500; color: var(--ink-2); cursor: pointer; transition: color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard); }
+.spcx-toggle::before { content: ''; position: absolute; left: 14px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%; border: 1.5px solid var(--chart-series-2); background: transparent; transition: background var(--motion-base) var(--ease-standard); }
+.spcx-toggle[aria-pressed="true"] { color: var(--ink); background: var(--chart-surface); box-shadow: inset 0 0 0 1px var(--chart-hair), var(--chart-shadow-1); }
+.spcx-toggle[aria-pressed="true"]::before { background: var(--chart-series-2); }
+.spcx-toggle:hover { color: var(--ink); }
+.spcx-toggle:focus-visible { outline: 2px solid var(--chart-signal); outline-offset: 2px; }
+@media (pointer: coarse) { .spcx-toggle { min-height: 44px; } }
