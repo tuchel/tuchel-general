@@ -80,13 +80,15 @@ function Tooltip({ tip, anchor, width, placement = 'side' }: { tip: Tip | null; 
   const a = shown.anchor;
   const right = a.x + a.width + 12;
   const flip = right + w > width - 4;
+  // Neither side has room (a mid-plot mark on a phone): drop the tip below the mark instead.
+  const place = placement === 'side' && flip && a.x - 12 - w < 4 ? 'below' : placement;
   const top = Math.max(0, a.y + Math.min(a.height / 2, 40) - 24);
   const center = Math.min(width - w / 2 - 4, Math.max(w / 2 + 4, a.x + a.width / 2));
-  const style = placement === 'below'
+  const style = place === 'below'
     ? { left: center, top: a.y + a.height + 4 }
     : flip ? { right: Math.max(4, width - a.x + 12), top } : { left: right, top };
   return (
-    <div className="fig-tip" data-state={tip ? 'in' : 'out'} data-place={placement} style={style} aria-hidden="true">
+    <div className="fig-tip" data-state={tip ? 'in' : 'out'} data-place={place} style={style} aria-hidden="true">
       <div className="fig-tip-title">{shown.tip.title}</div>
       {shown.tip.rows && (
         <dl>

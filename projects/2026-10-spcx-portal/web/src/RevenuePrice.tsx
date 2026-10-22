@@ -15,7 +15,7 @@ import {
   AxisX, AxisY, Bars, Dots, Figure, Line, Rules, Segmented, Texts, c, d3, useFigure,
   type Bar, type Dot, type Label, type RenderMode, type Tip,
 } from '../../../../shared/charts/src/index.ts';
-import { CURSOR_Q3, FY26_ESTIMATES, IPO, NINE_MONTHS_2026, PRICES, Q1_27_GUIDE, QUARTERS, VINTAGES, type Quarter, type VintageId } from './data.ts';
+import { CURSOR_Q3, EVENTS, FY26_ESTIMATES, IPO, NINE_MONTHS_2026, PRICES, Q1_27_GUIDE, QUARTERS, VINTAGES, type Quarter, type VintageId } from './data.ts';
 import { median, priceOn, targetsAt, vintage, type TargetAt } from './targets.ts';
 
 const DAY = 86_400_000;
@@ -143,6 +143,19 @@ function Scrub({ x, from, end, y0, y1, left, right }: { x: (v: number) => number
   );
 }
 
+/** Hairlines from each event marker down to the baseline; the hovered one darkens. */
+function EventLines({ data, y0 }: { data: Array<{ id: string; x: number; y: number }>; y0: number }) {
+  const ctx = useFigure();
+  return (
+    <g pointerEvents="none">
+      {data.map((d) => (
+        <line key={d.id} x1={d.x} x2={d.x} y1={d.y + 5} y2={y0} stroke={c('slate')} strokeWidth={1} strokeDasharray="2 3"
+          opacity={ctx.active === d.id ? 0.8 : 0.22} className="fig-fade" />
+      ))}
+    </g>
+  );
+}
+
 /** Thin lines from the price on the day each target was set to the target; the hovered one darkens. */
 function Connectors({ data }: { data: Array<{ id: string; x1: number; y1: number; x2: number; y2: number }> }) {
   const ctx = useFigure();
@@ -156,8 +169,9 @@ function Connectors({ data }: { data: Array<{ id: string; x1: number; y1: number
   );
 }
 
-export function RevenuePrice({ mode, targets: initialTargets = null }: { mode?: RenderMode; targets?: VintageId | null }) {
+export function RevenuePrice({ mode, targets: initialTargets = null, events: initialEvents = false }: { mode?: RenderMode; targets?: VintageId | null; events?: boolean }) {
   const [show, setShow] = useState(initialTargets !== null);
+  const [events, setEvents] = useState(initialEvents);
   const [vid, setVid] = useState<VintageId>(initialTargets ?? 'oct21');
   const vin = vintage(vid);
   const tv = TARGETS[vid];
@@ -204,13 +218,14 @@ export function RevenuePrice({ mode, targets: initialTargets = null }: { mode?: 
         learn: `Revenue rose every quarter of 2026 while the stock went from a ${usd(first.close)} first close to ${usd(last.close)}, a ${pct(sinceFirst)} change.`,
         scrutinize: `${derived} 2025 are derived from filed totals, ${latest.label} includes $${CURSOR_Q3}M from Cursor, and the Q1 2027 range comes from the earnings call.`,
       }}
-      note={show
+      note={`${show
         ? `Each dot is a firm's price target, placed at the date it is for (12 months after it was set, unless the firm states a date) and joined to the price on the day it was set; the dashed line is the median, tagged on the price scale. Filled dots were reported on ${vin.label}; hollow ones are the firm's latest earlier report.`
-        : `Prices are daily closes in US dollars${last.intraday ? `, with ${fmtDay(last.date)} at ${last.intraday}` : ''}; the IPO priced at $${IPO.price} on ${fmtDay(IPO.date)}. Q4 2026 is not yet reported${Q4_EST.length ? '; analyst estimates show the banks\' models for it' : ''}. Super Intelligence was reported as AI before Q3 2026.`}
+        : `Prices are daily closes in US dollars${last.intraday ? `, with ${fmtDay(last.date)} at ${last.intraday}` : ''}; the IPO priced at $${IPO.price} on ${fmtDay(IPO.date)}. Q4 2026 is not yet reported${Q4_EST.length ? '; analyst estimates show the banks\' models for it' : ''}. Super Intelligence was reported as AI before Q3 2026.`}${events ? ' Diamonds mark key events; hover or tap one for its detail and source.' : ''}`}
       label={`Quarterly revenue bars from ${q0.label} rising through 2026 to the Q1 2027 guidance range, with the daily share price from the June 12, 2026 IPO through ${fmtDay(last.date)} drawn over them${show ? `, and analysts' price targets as of ${vin.label}` : ''}.`}
       controls={(
         <>
           <button type="button" className="spcx-toggle" aria-pressed={show} onClick={() => setShow(!show)}>Analyst estimates</button>
+          <button type="button" className="spcx-toggle spcx-toggle--events" aria-pressed={events} onClick={() => setEvents(!events)}>Key events</button>
           {show && <Segmented label="Targets as of" value={vid} onChange={setVid} options={VINTAGES.map((v) => ({ id: v.id, label: v.label }))} />}
         </>
       )}
@@ -298,6 +313,17 @@ export function RevenuePrice({ mode, targets: initialTargets = null }: { mode?: 
           label: `${d.firm} target ${usd0(d.target)} for ${fmtDay(d.horizon)}`, tip: targetTip(d, vin.date),
         }));
         const connectors = placed.map(({ d, x: tx, y: ty }) => ({ id: `t-${d.firm}`, x1: x(t(d.set)), y1: yP(priceOn(d.set).close), x2: tx, y2: ty }));
+        // Key events: small diamonds along the top of the plot; one that would crowd its neighbour steps down a row.
+        const eventMarks = events ? EVENTS.reduce<Array<{ e: (typeof EVENTS)[number]; id: string; x: number; y: number }>>((acc, e, i) => {
+          const ex = x(t(e.date));
+          const prev = acc[acc.length - 1];
+          const y = prev && ex - prev.x < 10 ? prev.y + 11 : m.t + 4;
+          return [...acc, { e, id: `e${i}`, x: ex, y }];
+        }, []) : [];
+        const eventDots: Dot[] = eventMarks.map(({ e, id, x: ex, y }) => ({
+          id, cx: ex, cy: y, r: 4.5, shape: 'diamond', fill: c('ink'), stroke: c('halo'), strokeWidth: 1.5, hit: 9,
+          label: `${fmtDay(e.date)}: ${e.title}`, tip: { title: e.title, rows: [['Date', fmtDay(e.date)]], note: `${e.detail} ${e.source.label}` },
+        }));
         const ends: Label[] = [
           { id: 'last', x: lx, y: ly, text: usd(last.close), anchor: 'end', size: 12.5, weight: 600, fill: c('ink'), halo: c('halo'), opacity: show && narrow ? 0 : 1 },
           // On a phone the outlook compresses the price run; the rule and the note carry the IPO price there.
@@ -333,6 +359,12 @@ export function RevenuePrice({ mode, targets: initialTargets = null }: { mode?: 
             <AxisX scale={x} ticks={ticks} format={tickLabel} at={height - m.b} unit={show ? 'targets' : 'base'} />
             <Scrub x={x} from={from} end={end} y0={height - m.b} y1={m.t} left={m.l} right={width - m.r} />
             <Dots data={days} className="spcx-days" />
+            {events && (
+              <>
+                <EventLines data={eventMarks} y0={height - m.b} />
+                <Dots data={eventDots} className="spcx-events" />
+              </>
+            )}
             {show && (
               <>
                 <Connectors data={connectors} />
