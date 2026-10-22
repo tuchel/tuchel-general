@@ -43,12 +43,12 @@ a:hover { text-decoration-color: currentColor; }
 
 /* the lead figure */
 .fig[data-hero] { margin-top: 32px; display: flex; flex-direction: column; animation: rise var(--motion-reveal) var(--ease-enter) 80ms both; }
-.fig[data-hero] .fig-cap { order: 0; }
+/* The chart speaks for itself: its headline stays as the accessible name only. */
+.fig[data-hero] .fig-cap { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .fig[data-hero] .fig-plot { order: 1; margin-top: 8px; }
 .fig[data-hero] .fig-note { order: 2; }
 .fig[data-hero] .fig-take { order: 3; }
 .fig[data-hero] .fig-data { order: 4; }
-.fig-dek { max-width: 62ch; }
 
 /* takeaways stay folded until asked for */
 .fig-take { overflow: hidden; transition: opacity var(--motion-base) var(--ease-standard), max-height var(--motion-slow) var(--ease-standard), margin var(--motion-slow) var(--ease-standard), padding var(--motion-slow) var(--ease-standard); max-height: 320px; }

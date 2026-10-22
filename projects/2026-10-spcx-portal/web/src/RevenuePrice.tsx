@@ -204,9 +204,6 @@ export function RevenuePrice({ mode, targets: initialTargets = null, events: ini
         ` from ${q0.label} to ${latest.label}, and Q1 2027 guidance is `, { value: Q1_27_MID / latest.revenue, format: (v) => `${v.toFixed(1)}×`, from: 1 },
         ` ${latest.label} at its midpoint`,
       ]}
-      dek={show
-        ? 'Quarterly revenue (bars, left scale), daily share price (line, right scale), and analysts\' price targets at the dates they are for. Both scales start at zero.'
-        : 'Quarterly revenue (bars, left scale) and daily closing share price (line, right scale). Both scales start at zero.'}
       takeaways={show ? {
         look: `The targets out to the right against the end of the price line: a ${usd0(med)} median against ${usd(pxThen)} on ${vin.label}.`,
         learn: `The median target went from ${usd0(MEDIANS[0].median)} at initiation to ${usd0(MEDIANS[MEDIANS.length - 1].median)} after Q3, when ${raised} of ${TARGETS.oct21.filter((d) => d.reported).length} reporting firms raised.`,
@@ -218,9 +215,9 @@ export function RevenuePrice({ mode, targets: initialTargets = null, events: ini
         learn: `Revenue rose every quarter of 2026 while the stock went from a ${usd(first.close)} first close to ${usd(last.close)}, a ${pct(sinceFirst)} change.`,
         scrutinize: `${derived} 2025 are derived from filed totals, ${latest.label} includes $${CURSOR_Q3}M from Cursor, and the Q1 2027 range comes from the earnings call.`,
       }}
-      note={`${show
-        ? `Each dot is a firm's price target, placed at the date it is for (12 months after it was set, unless the firm states a date) and joined to the price on the day it was set; the dashed line is the median, tagged on the price scale. Filled dots were reported on ${vin.label}; hollow ones are the firm's latest earlier report.`
-        : `Prices are daily closes in US dollars${last.intraday ? `, with ${fmtDay(last.date)} at ${last.intraday}` : ''}; the IPO priced at $${IPO.price} on ${fmtDay(IPO.date)}. Q4 2026 is not yet reported${Q4_EST.length ? '; analyst estimates show the banks\' models for it' : ''}. Super Intelligence was reported as AI before Q3 2026.`}${events ? ' Diamonds mark key events; hover or tap one for its detail and source.' : ''}`}
+      note={show
+        ? 'Targets sit at the date they are for: 12 months after being set unless the firm states one. Hollow dots are carried from an earlier report.'
+        : 'Q4 2026 is not yet reported. Super Intelligence was reported as AI before Q3 2026.'}
       label={`Quarterly revenue bars from ${q0.label} rising through 2026 to the Q1 2027 guidance range, with the daily share price from the June 12, 2026 IPO through ${fmtDay(last.date)} drawn over them${show ? `, and analysts' price targets as of ${vin.label}` : ''}.`}
       controls={(
         <>
