@@ -23,6 +23,10 @@ export const SRC = {
   gsQ3: { label: 'Investing.com, Goldman Sachs raises SpaceX target to $245, Oct 21, 2026', url: 'https://www.investing.com/news/analyst-ratings/goldman-sachs-raises-spacex-stock-price-target-to-245-on-growth-outlook-93CH-4962792' },
   cantorQ3: { label: 'GuruFocus, Cantor Fitzgerald raises SpaceX target to $345, Oct 21, 2026', url: 'https://www.gurufocus.com/news/9133705/spcx-maintained-by-cantor-fitzgerald-price-target-raised-to-345' },
   intraday: { label: 'StockAnalysis, SPCX quote, Oct 21, 2026, 11:05 AM ET', url: 'https://stockanalysis.com/stocks/spcx/' },
+  xai: { label: 'KraneShares, xAI–SpaceX merger complete, Feb 11, 2026', url: 'https://kraneshares.com/xai-spacex-merger-complete-spacex-ipo-timeline-intact-how-agix-fits-in/' },
+  ipoTimeline: { label: 'Wikipedia, Initial public offering of SpaceX', url: 'https://en.wikipedia.org/wiki/Initial_public_offering_of_SpaceX' },
+  cursor: { label: 'Gigazine, SpaceX officially completes acquisition of Cursor, Aug 16, 2026', url: 'https://gigazine.net/gsc_news/en/20260816-spacex-officially-closes-cursor-acquisition/' },
+  ndx: { label: 'Nasdaq, SpaceX to join the Nasdaq-100 beginning Jul 7, 2026', url: 'https://ir.nasdaq.com/news-releases/news-release-details/space-exploration-technologies-corporation-join-nasdaq-100' },
   call: { label: 'The Motley Fool, SpaceX Q3 2026 earnings call transcript, Oct 20, 2026', url: 'https://www.fool.com/earnings/call-transcripts/2026/10/20/spacex-spcx-q3-2026-earnings-call-transcript/' },
 } satisfies Record<string, Source>;
 
@@ -88,6 +92,19 @@ export const QUARTERS: Quarter[] = [
 export const CURSOR_Q3 = 608;
 
 export const IPO = { date: '2026-06-12', price: 135, source: SRC.ipo };
+
+/** Key company and market events for the hero chart, oldest first. */
+export type KeyEvent = { date: string; title: string; detail: string; source: Source };
+export const EVENTS: KeyEvent[] = [
+  { date: '2026-02-02', title: 'xAI combined with SpaceX', detail: 'Its AI business is reported as Super Intelligence from Q3 2026.', source: SRC.xai },
+  { date: '2026-05-20', title: 'S-1 filed publicly', detail: 'The prospectus gave 2025 revenue of $18.7B.', source: SRC.ipoTimeline },
+  { date: '2026-06-12', title: 'First trade on Nasdaq', detail: 'Priced at $135 the evening before.', source: SRC.ipo },
+  { date: '2026-06-16', title: 'Cursor deal signed', detail: '$60B, all in SpaceX stock.', source: SRC.cursor },
+  { date: '2026-07-07', title: 'Joins the Nasdaq-100', detail: 'The same day banks initiated coverage.', source: SRC.ndx },
+  { date: '2026-08-04', title: 'Q2 2026 results', detail: 'First report as a public company.', source: SRC.q2 },
+  { date: '2026-08-14', title: 'Cursor acquisition closes', detail: 'Adds $608M to Q3 2026 revenue.', source: SRC.cursor },
+  { date: '2026-10-20', title: 'Q3 2026 results', detail: 'Q1 2027 revenue guided to $33–37B on the call.', source: SRC.q3 },
+];
 
 /** Daily closing price, USD. Jun 12–Oct 15 from Yahoo Finance; Oct 16–20 from StockAnalysis. */
 const CLOSES = `

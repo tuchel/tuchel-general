@@ -67,3 +67,16 @@ Oct 21, 2026: $161.93 at 11:05 AM ET from the [StockAnalysis quote](https://stoc
 ## Public build
 
 `npm run build:public` builds the public site. It swaps `src/licensed.ts`, which holds the J.P. Morgan and Morgan Stanley note figures, for `src/licensed.public.ts`. The swap leaves out the Morgan Stanley Oct 4 and Oct 21 points, both FY26 revenue estimates (and with them the Q4 2026 estimate bar), and the tearsheet's Aug 5 date. J.P. Morgan's targets come from the press instead: $225 for December 2027 at initiation ([Traders Union](https://tradersunion.com/news/market-voices/show/2603037-jp-morgan-spacex-target/)), and $500 from $240 on Oct 21 ([Investing.com](https://www.investing.com/news/analyst-ratings/jpmorgan-raises-spacex-stock-price-target-to-500-on-growth-outlook-93CH-4962780), with no horizon stated). The Q1 2027 guide is cited in both builds to the CFO's remarks on the call ([Motley Fool transcript](https://www.fool.com/earnings/call-transcripts/2026/10/20/spacex-spcx-q3-2026-earnings-call-transcript/)).
+
+## Key events (hero chart "Key events" toggle)
+
+| Date | Event | Source |
+| --- | --- | --- |
+| Feb 2, 2026 | xAI combined with SpaceX (news broke Feb 2; reported complete by Feb 11) | [KraneShares](https://kraneshares.com/xai-spacex-merger-complete-spacex-ipo-timeline-intact-how-agix-fits-in/) |
+| May 20, 2026 | S-1 filed publicly | [Wikipedia, IPO of SpaceX](https://en.wikipedia.org/wiki/Initial_public_offering_of_SpaceX) |
+| Jun 12, 2026 | First trade; priced at $135 on Jun 11 | [NBC News](https://www.nbcnews.com/business/business-news/spacex-ipo-trading-price-rcna349225) |
+| Jun 16, 2026 | Agreement to acquire Anysphere (Cursor), $60B in stock | [Gigazine](https://gigazine.net/gsc_news/en/20260816-spacex-officially-closes-cursor-acquisition/) |
+| Jul 7, 2026 | Joins the Nasdaq-100 before the open; banks initiate coverage the same day | [Nasdaq](https://ir.nasdaq.com/news-releases/news-release-details/space-exploration-technologies-corporation-join-nasdaq-100) |
+| Aug 4, 2026 | Q2 2026 results | Q2 2026 release |
+| Aug 14, 2026 | Cursor acquisition closes | [Gigazine](https://gigazine.net/gsc_news/en/20260816-spacex-officially-closes-cursor-acquisition/) |
+| Oct 20, 2026 | Q3 2026 results; Q1 2027 guide of $33–37B on the call | Q3 2026 release; call transcript |

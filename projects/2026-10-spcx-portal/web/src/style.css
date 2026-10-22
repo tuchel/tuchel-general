@@ -101,3 +101,5 @@ a:hover { text-decoration-color: currentColor; }
 .spcx-toggle:hover { color: var(--ink); }
 .spcx-toggle:focus-visible { outline: 2px solid var(--chart-signal); outline-offset: 2px; }
 @media (pointer: coarse) { .spcx-toggle { min-height: 44px; } }
+.spcx-toggle--events::before { border-color: var(--ink-2); border-radius: 1px; transform: rotate(45deg) scale(0.85); }
+.spcx-toggle--events[aria-pressed="true"]::before { background: var(--ink); border-color: var(--ink); }
