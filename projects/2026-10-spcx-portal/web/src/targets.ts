@@ -11,6 +11,8 @@ export type TargetAt = {
   reported: boolean;
   /** The firm's target at the previous vintage, when it had one. */
   before?: number;
+  /** The firm's target at its previous reported point, when it had one. */
+  prior?: number;
   /** When the target was set: `since`, or earlier for a restated target. */
   set: string;
   /** The date the target is for. */
@@ -35,10 +37,11 @@ export function targetsAt(id: VintageId): TargetAt[] {
   return FIRMS.flatMap((f) => {
     const p = at(f.points, v.date);
     if (!p) return [];
+    const prior = f.points[f.points.indexOf(p) - 1]?.target;
     const b = prev ? at(f.points, prev.date) : undefined;
     const set = p.set ?? p.date;
     return [{
-      firm: f.firm, rating: f.rating, target: p.target, since: p.date, reported: p.date === v.date, before: b?.target,
+      firm: f.firm, rating: f.rating, target: p.target, since: p.date, reported: p.date === v.date, before: b?.target, prior,
       set, horizon: p.horizon ?? yearAfter(set), stated: p.horizon !== undefined, source: p.source,
     }];
   }).sort((a, b) => b.target - a.target);

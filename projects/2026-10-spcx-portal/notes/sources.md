@@ -26,6 +26,7 @@ Before the release PDF was in hand, press reports gave Q3 revenue as $14.6B (Inv
 
 - Jun 12 – Oct 15, 2026: [Yahoo Finance history](https://finance.yahoo.com/quote/SPCX/history/).
 - Oct 16 – Oct 20, 2026: [StockAnalysis history](https://stockanalysis.com/stocks/spcx/history/); Oct 20 close 147.79 from the [StockAnalysis quote](https://stockanalysis.com/stocks/spcx/) at 4:00 PM EDT.
+- Oct 21, 2026: close 159.31 from the [StockAnalysis quote](https://stockanalysis.com/stocks/spcx/) ("At close: Oct 21, 2026, 4:00 PM EDT"; previous close 147.79 agrees). Yahoo's history page did not yet show the row on Oct 22 at 8 AM CT.
 - Cross-check: Aug 4 – Oct 15 closes agree to the cent across Yahoo, StockAnalysis, and [Investing.com](https://il.investing.com/equities/spacex-historical-data) (Aug 4 – Sep 3).
 - Market holidays with no close: Jun 19 (Juneteenth), Jul 3 (Independence Day observed), Sep 7 (Labor Day).
 - IPO priced at $135 on Jun 11, first trade Jun 12 ([NBC News](https://www.nbcnews.com/business/business-news/spacex-ipo-trading-price-rcna349225)).
@@ -52,17 +53,16 @@ Each firm's targets are kept as dated points in `web/src/data.ts` (`FIRMS`). The
 
 - **Jul 7, 2026, initiations.** From the Yahoo Finance coverage articles above. J.P. Morgan $225 is from its tearsheet's target history.
 - **Oct 20, 2026, before Q3 results.** These are the "prior" targets quoted alongside each post-Q3 change: Barclays, Clear Street and TD Cowen from [Before It's News](https://beforeitsnews.com/motor-junkies/2026/10/spacex-stock-gets-a-slew-of-price-target-boosts-after-bullish-earnings-call-2633454.html); Wells Fargo, Citi and UBS from [KuCoin News](https://www.kucoin.com/news/flash/wall-street-raises-spacex-target-prices-after-q2-earnings-report); Goldman Sachs and Stifel from [Investing.com](https://www.investing.com/news/analyst-ratings/goldman-sachs-raises-spacex-stock-price-target-to-245-on-growth-outlook-93CH-4962792); Cantor Fitzgerald from [GuruFocus](https://www.gurufocus.com/news/9133705/spcx-maintained-by-cantor-fitzgerald-price-target-raised-to-345). The prior target's own date is not reported, so it is placed on Oct 20 as the target in force that day. J.P. Morgan $240 (Aug 5) and Morgan Stanley $300 (Oct 4) are from their notes.
-- **Oct 21, 2026, after Q3 results.** Same sources. J.P. Morgan $500 and Morgan Stanley $300 maintained are from their notes.
+- **Oct 21, 2026, after Q3 results.** Same sources. J.P. Morgan $500 and Morgan Stanley $300 maintained are from their notes. Added Oct 22 from the [MarketBeat ratings history](https://www.marketbeat.com/stocks/NASDAQ/SPCX/forecast/): Pivotal Research (Jeffrey Wlodarczak) Buy, $260 from $230; Needham (Ryan Koontz) Buy, $250 reiterated; Susquehanna (Charles Minervino) Neutral, $176 from $173. Their priors are placed on Oct 20 like the others.
+- **Latest.** A rolling vintage at the most recent dated point, shown once any firm moves after Oct 21. Oct 22: Bank of America (Ronald Epstein) Buy, $275 from $235 ([Investing.com](https://www.investing.com/news/analyst-ratings/bofa-raises-spacex-stock-price-target-to-275-on-launch-growth-93CH-4966106); analyst from MarketBeat).
+
+Unresolved: MarketBeat lists UBS (John Hodulik) as "Overweight, $300 reiterated" on Oct 21, while KuCoin reports UBS $210 to $230. UBS does not use an Overweight rating, so the portal keeps $230 until a better source settles it.
 
 Each target is plotted at the date it is for. Only J.P. Morgan's $500 states one (Dec 31, 2027, in the Oct 20 tearsheet); every other target is placed 12 months after it was set, the usual sell-side convention. J.P. Morgan's $240 restated on Oct 20 was set Aug 5, so it is placed at Aug 5, 2027. For the Oct 20 "prior" targets from press reports the set date is unknown, so they are placed from Oct 20.
 
 A firm with no point on a vintage date carries its latest earlier target forward (hollow dot on the chart). Mizuho's $205 is reported in the Investing.com Q3 roundup without a prior; it is dated Oct 21, and its Jul 7 $200 is carried to Oct 20.
 
-Medians: Jul 7 $228 (12 firms), Oct 20 $230, Oct 21 $245 (17 firms).
-
-## Intraday price
-
-Oct 21, 2026: $161.93 at 11:05 AM ET from the [StockAnalysis quote](https://stockanalysis.com/stocks/spcx/), plotted as the last point and labelled as intraday. Replace with the 4:00 PM close once it posts.
+Medians: Jul 7 $228 (12 firms), Oct 20 $230 (19), Oct 21 $246.50 (20), Oct 22 $249 (20).
 
 ## Public build
 

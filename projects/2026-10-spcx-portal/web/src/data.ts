@@ -22,7 +22,9 @@ export const SRC = {
   q3MovesKucoin: { label: 'KuCoin News, Wall Street raises SpaceX targets, Oct 21, 2026', url: 'https://www.kucoin.com/news/flash/wall-street-raises-spacex-target-prices-after-q2-earnings-report' },
   gsQ3: { label: 'Investing.com, Goldman Sachs raises SpaceX target to $245, Oct 21, 2026', url: 'https://www.investing.com/news/analyst-ratings/goldman-sachs-raises-spacex-stock-price-target-to-245-on-growth-outlook-93CH-4962792' },
   cantorQ3: { label: 'GuruFocus, Cantor Fitzgerald raises SpaceX target to $345, Oct 21, 2026', url: 'https://www.gurufocus.com/news/9133705/spcx-maintained-by-cantor-fitzgerald-price-target-raised-to-345' },
-  intraday: { label: 'StockAnalysis, SPCX quote, Oct 21, 2026, 11:05 AM ET', url: 'https://stockanalysis.com/stocks/spcx/' },
+  close1021: { label: 'StockAnalysis, SPCX quote, Oct 21, 2026 close', url: 'https://stockanalysis.com/stocks/spcx/' },
+  bofaQ3: { label: 'Investing.com, BofA raises SpaceX target to $275, Oct 22, 2026', url: 'https://www.investing.com/news/analyst-ratings/bofa-raises-spacex-stock-price-target-to-275-on-launch-growth-93CH-4966106' },
+  mbRatings: { label: 'MarketBeat, SPCX analyst ratings history', url: 'https://www.marketbeat.com/stocks/NASDAQ/SPCX/forecast/' },
   xai: { label: 'KraneShares, xAI–SpaceX merger complete, Feb 11, 2026', url: 'https://kraneshares.com/xai-spacex-merger-complete-spacex-ipo-timeline-intact-how-agix-fits-in/' },
   ipoTimeline: { label: 'Wikipedia, Initial public offering of SpaceX', url: 'https://en.wikipedia.org/wiki/Initial_public_offering_of_SpaceX' },
   cursor: { label: 'Gigazine, SpaceX officially completes acquisition of Cursor, Aug 16, 2026', url: 'https://gigazine.net/gsc_news/en/20260816-spacex-officially-closes-cursor-acquisition/' },
@@ -198,6 +200,7 @@ const CLOSES = `
 2026-10-16 146.03
 2026-10-19 147.96
 2026-10-20 147.79
+2026-10-21 159.31
 `;
 
 /** `intraday` marks a price taken during the session, before the close. */
@@ -207,7 +210,6 @@ export const PRICES: Close[] = [
     const [date, close] = l.split(' ');
     return { date, close: Number(close) };
   }),
-  { date: '2026-10-21', close: 161.93, intraday: '11:05 AM ET' },
 ];
 
 export type TargetPoint = {
@@ -241,21 +243,35 @@ export const FIRMS: Firm[] = [
   { firm: 'Goldman Sachs', rating: 'Buy', points: [pt('2026-07-07', 205, SRC.coverage), pt('2026-10-20', 230, SRC.gsQ3), pt('2026-10-21', 245, SRC.gsQ3)] },
   { firm: 'Citi', rating: 'Buy', points: [pt('2026-07-07', 200, SRC.coverageMs), pt('2026-10-20', 200, SRC.q3MovesKucoin), pt('2026-10-21', 240, SRC.q3MovesKucoin)] },
   { firm: 'Bernstein', rating: 'Outperform', points: [pt('2026-07-07', 239, SRC.coverage)] },
-  { firm: 'Bank of America', rating: 'Buy', points: [pt('2026-07-07', 235, SRC.coverage)] },
+  { firm: 'Bank of America', rating: 'Buy', points: [pt('2026-07-07', 235, SRC.coverage), pt('2026-10-22', 275, SRC.bofaQ3)] },
   { firm: 'UBS', rating: 'Buy', points: [pt('2026-07-07', 210, SRC.coverage), pt('2026-10-20', 210, SRC.q3MovesKucoin), pt('2026-10-21', 230, SRC.q3MovesKucoin)] },
   { firm: 'RBC Capital Markets', rating: 'Outperform', points: [pt('2026-07-07', 225, SRC.coverage)] },
   { firm: 'TD Cowen', rating: 'Buy', points: [pt('2026-10-20', 200, SRC.q3Moves), pt('2026-10-21', 224, SRC.q3Moves)] },
   { firm: 'Mizuho', rating: 'Outperform', points: [pt('2026-07-07', 200, SRC.coverage), pt('2026-10-21', 205, SRC.gsQ3)] },
   { firm: 'Stifel', rating: 'Buy', points: [pt('2026-10-20', 190, SRC.gsQ3), pt('2026-10-21', 190, SRC.gsQ3)] },
+  { firm: 'Pivotal Research', rating: 'Buy', points: [pt('2026-10-20', 230, SRC.mbRatings), pt('2026-10-21', 260, SRC.mbRatings)] },
+  { firm: 'Needham', rating: 'Buy', points: [pt('2026-10-21', 250, SRC.mbRatings)] },
+  { firm: 'Susquehanna', rating: 'Neutral', points: [pt('2026-10-20', 173, SRC.mbRatings), pt('2026-10-21', 176, SRC.mbRatings)] },
 ];
 
-/** Dates at which the set of targets is known: initiations, the day before Q3 results, the day after. */
-export const VINTAGES = [
+export type VintageId = 'jul7' | 'oct20' | 'oct21' | 'latest';
+export type Vintage = { id: VintageId; date: string; label: string; name: string };
+
+/** The most recent dated target point across all firms. */
+const LAST_POINT = FIRMS.flatMap((f) => f.points.map((p) => p.date)).sort().at(-1)!;
+const dayLabel = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+/**
+ * Dates at which the set of targets is known: initiations, the day before Q3 results,
+ * the day after, and a rolling "latest" once any firm has moved since.
+ */
+export const VINTAGES: Vintage[] = [
   { id: 'jul7', date: '2026-07-07', label: 'Jul 7', name: 'Initiations' },
   { id: 'oct20', date: '2026-10-20', label: 'Oct 20', name: 'Before Q3 results' },
   { id: 'oct21', date: '2026-10-21', label: 'Oct 21', name: 'After Q3 results' },
-] as const;
-export type VintageId = (typeof VINTAGES)[number]['id'];
+  ...(LAST_POINT > '2026-10-21' ? [{ id: 'latest' as const, date: LAST_POINT, label: dayLabel(LAST_POINT), name: 'Latest' }] : []),
+];
+export const LATEST_VINTAGE = VINTAGES[VINTAGES.length - 1].id;
 
 /** Reported revenue, nine months to Sep 30, 2026, $ millions (Q3 2026 release). */
 export const NINE_MONTHS_2026 = 27_083;
