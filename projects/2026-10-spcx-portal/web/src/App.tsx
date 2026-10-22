@@ -1,8 +1,8 @@
 import { useState } from 'react';
 
-import { CONSENSUS, FY26_ESTIMATES, NINE_MONTHS_2026, NOTES, Q1_27_GUIDE, PRICES, QUARTERS, SRC, type Source } from './data.ts';
+import { CONSENSUS, FY26_ESTIMATES, NINE_MONTHS_2026, LATEST_VINTAGE, NOTES, Q1_27_GUIDE, PRICES, QUARTERS, SRC, type Source } from './data.ts';
 import { RevenuePrice } from './RevenuePrice.tsx';
-import { median, targetsAt } from './targets.ts';
+import { median, targetsAt, vintage } from './targets.ts';
 
 const last = PRICES[PRICES.length - 1];
 const prev = PRICES[PRICES.length - 2];
@@ -11,7 +11,7 @@ const usd = (v: number) => `$${v.toFixed(2)}`;
 const pct = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v * 100).toFixed(1)}%`;
 const billions = (m: number) => `$${(m / 1000).toFixed(1)}B`;
 const q3 = QUARTERS[QUARTERS.length - 1];
-const coverage = targetsAt('oct21');
+const coverage = targetsAt(LATEST_VINTAGE);
 const med = median(coverage.map((r) => r.target));
 const cite = (s: Source, text: string) => (s.url ? <a href={s.url} target="_blank" rel="noreferrer">{text}</a> : text);
 const day = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
@@ -56,7 +56,7 @@ export function App() {
                       <td>{r.rating}</td>
                       <td>
                         ${r.target}
-                        {r.before !== undefined && r.before !== r.target && <span className="cov-was">from ${r.before}</span>}
+                        {r.prior !== undefined && r.prior !== r.target && <span className="cov-was">from ${r.prior}</span>}
                       </td>
                       <td>{pct(r.target / last.close - 1)}</td>
                       <td>{day(r.since)}</td>
@@ -69,7 +69,7 @@ export function App() {
                 Management guided Q1 2027 revenue to ${Q1_27_GUIDE.low / 1000}–{Q1_27_GUIDE.high / 1000}B.
               </p>
               <p className="more-note">
-                Targets as of Oct 21, 2026, after Q3 results; "from" is the target in force before the report. A Jul 7 date means the July initiation is the latest report found.
+                Targets as of {day(vintage(LATEST_VINTAGE).date)}, 2026; "from" is the firm's previous target. A Jul 7 date means the July initiation is the latest report found.
                 {NOTES.length > 0 && 'J.P. Morgan and Morgan Stanley rows come from their research notes. '}StockAnalysis showed {CONSENSUS.analysts} analysts with a {usd(CONSENSUS.target)} average target on {day(CONSENSUS.asOf)}, before the post-Q3 changes.
               </p>
             </div>

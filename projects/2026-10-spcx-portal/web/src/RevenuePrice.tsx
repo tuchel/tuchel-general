@@ -15,7 +15,7 @@ import {
   AxisX, AxisY, Bars, Dots, Figure, Line, Rules, Segmented, Texts, c, d3, useFigure,
   type Bar, type Dot, type Label, type RenderMode, type Tip,
 } from '../../../../shared/charts/src/index.ts';
-import { CURSOR_Q3, EVENTS, FY26_ESTIMATES, IPO, NINE_MONTHS_2026, PRICES, Q1_27_GUIDE, QUARTERS, VINTAGES, type Quarter, type VintageId } from './data.ts';
+import { CURSOR_Q3, EVENTS, FY26_ESTIMATES, IPO, NINE_MONTHS_2026, PRICES, Q1_27_GUIDE, QUARTERS, VINTAGES, LATEST_VINTAGE, type Quarter, type VintageId } from './data.ts';
 import { median, priceOn, targetsAt, vintage, type TargetAt } from './targets.ts';
 
 const DAY = 86_400_000;
@@ -172,7 +172,7 @@ function Connectors({ data }: { data: Array<{ id: string; x1: number; y1: number
 export function RevenuePrice({ mode, targets: initialTargets = null, events: initialEvents = false }: { mode?: RenderMode; targets?: VintageId | null; events?: boolean }) {
   const [show, setShow] = useState(initialTargets !== null);
   const [events, setEvents] = useState(initialEvents);
-  const [vid, setVid] = useState<VintageId>(initialTargets ?? 'oct21');
+  const [vid, setVid] = useState<VintageId>(initialTargets ?? LATEST_VINTAGE);
   const vin = vintage(vid);
   const tv = TARGETS[vid];
   const med = MEDIANS.find((m) => m.id === vid)!.median;
@@ -206,7 +206,7 @@ export function RevenuePrice({ mode, targets: initialTargets = null, events: ini
       ]}
       takeaways={show ? {
         look: `The targets out to the right against the end of the price line: a ${usd0(med)} median against ${usd(pxThen)} on ${vin.label}.`,
-        learn: `The median target went from ${usd0(MEDIANS[0].median)} at initiation to ${usd0(MEDIANS[MEDIANS.length - 1].median)} after Q3, when ${raised} of ${TARGETS.oct21.filter((d) => d.reported).length} reporting firms raised.`,
+        learn: `The median target went from ${usd0(MEDIANS[0].median)} at initiation to ${usd0(MEDIANS.find((m) => m.id === 'oct21')!.median)} after Q3, when ${raised} of ${TARGETS.oct21.filter((d) => d.reported).length} reporting firms raised.`,
         scrutinize: stated.length
           ? `Only ${stated.length} target states its date (${fmtDay(stated[0].horizon)}); the rest sit 12 months after they were set, and ${carried} hollow dots may be stale.`
           : `No firm here states a horizon, so each target sits 12 months after it was set; ${carried} of ${tv.length} are hollow, carried from an earlier report.`,
