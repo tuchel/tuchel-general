@@ -30,6 +30,7 @@ Before the release PDF was in hand, press reports gave Q3 revenue as $14.6B (Inv
 - Oct 22, 2026: close 144.75 from the [StockAnalysis quote](https://stockanalysis.com/stocks/spcx/) ("At close: Oct 22, 2026, 4:00 PM EDT"; previous close 159.31 agrees), matching the [Motley Fool market recap](https://www.fool.com/coverage/stock-market-today/2026/10/22/stock-market-today-oct-22-spacex-earnings-beat-sparks-profit-taking/) ($144.75, −9.14%).
 - Oct 23, 2026: close 147.49 from the [StockAnalysis quote](https://stockanalysis.com/stocks/spcx/) ("At close: Oct 23, 2026, 4:00 PM EDT"; previous close 144.75 agrees), matching the [Motley Fool market recap](https://www.fool.com/coverage/stock-market-today/2026/10/23/stock-market-today-oct-23-spacex-achieves-rare-double-upgrade-to-buy-on-ai-growth/) ($147.49, +1.89%).
 - Oct 26, 2026: close 146.90 from the [StockAnalysis history](https://stockanalysis.com/stocks/spcx/history/) and quote ("At close: Oct 26, 2026, 4:00 PM EDT"; previous close 147.49 agrees).
+- Oct 27, 2026: close 149.17 from the [StockAnalysis history](https://stockanalysis.com/stocks/spcx/history/).
 - Cross-check: Aug 4 – Oct 15 closes agree to the cent across Yahoo, StockAnalysis, and [Investing.com](https://il.investing.com/equities/spacex-historical-data) (Aug 4 – Sep 3).
 - Market holidays with no close: Jun 19 (Juneteenth), Jul 3 (Independence Day observed), Sep 7 (Labor Day).
 - IPO priced at $135 on Jun 11, first trade Jun 12 ([NBC News](https://www.nbcnews.com/business/business-news/spacex-ipo-trading-price-rcna349225)).
