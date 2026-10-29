@@ -203,7 +203,9 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  g=place(upper,225,657,-Math.PI/2-.093);g.name='guest-study-daybed-against-wall';bench(g,0,0,4.5);desk(place(upper,369,661,Math.PI/2-.093),3.6);g=place(upper,311,664,-.093);rug(g,1.75,3.2,m.cream,true);
  // Gallery kitchenette and small red bistro table beside the staircase.
  g=place(upper,342,878,Math.PI/2-.093);cabinets(g,2.8,.86,m.white);sink(g,-.63,0,.92);box(g,.73,.925,0,.47,.023,.44,m.charcoal);g=place(upper,290,865);round(g,0,.7,0,.48,.045,m.rust);round(g,0,0,0,.25,.035,m.rust);round(g,0,.035,0,.035,.665,m.rust);rug(place(upper,309,914,-.093),.7,1.4,m.pink);
- g=place(upper,236,1086,-.093);g.name='guest-bedroom-corner-bed';bed(g,1.8);
+ // Guest bedroom: the bed turned across the room, its head to the west knee wall, centred under the west slope's roof windows
+ // (owner's request); a stump table either side.
+ g=place(upper,214.6,1149.2,Math.PI/2-.093);g.name='guest-bedroom-bed-under-skylights';bed(g,1.8);
  g=place(upper,343,977,Math.PI/2-.093);g.name='guest-bedroom-corner-vanity';vanity(g,.75,false);
  g=place(upper,217,958,Math.PI-.093);g.name='guest-upper-bath-toilet';box(g,0,.02,0,.4,.36,.58,m.white,true);box(g,0,.38,0,.43,.065,.61,m.white,true);box(g,0,.03,.25,.43,.74,.13,m.white,true);
  // The guest shower sits under the slope: the screen on the low side stays short, the riser stands on the high side.
