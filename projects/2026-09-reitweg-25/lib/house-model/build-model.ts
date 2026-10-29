@@ -507,6 +507,9 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
   for(const [x1,z1,x2,z2] of walls)partition(unders[roof],floor,p(x1,z1),p(x2,z2));
   for(const [a,b] of doorways(walls)){passable(partition(unders[roof],floor,a,b,2.05));if(realistic)doorFrame(floor,a,b);}
  }
+ // The low corner under the guest roof between the stair's foot and the end of the gallery rail is walled off up to the
+ // roof (owner): plastered walls from the hall ceiling, along the stair's foot and the rail's line.
+ for(const [x1,z1,x2,z2] of [[193,934,198,884],[198,884,133,884]])partition(guestUnder,2.85,p(x1,z1),p(x2,z2));
  // The entrance roof runs east–west and covers the north courtyard loggia.
  // The entrance roof's ridge dies into the guest and main roof slopes; its ends sit just inside them.
  const connector=p(625,663),linkRidge=4.75,meets=(under:(x:number,z:number)=>number,from:number,to:number)=>{let a=from,b=to;for(let i=0;i<40;i++){const mid=(a+b)/2;if((under(mid,connector[1])+.045>linkRidge)===(under(a,connector[1])+.045>linkRidge))a=mid;else b=mid;}return (a+b)/2;};
@@ -573,7 +576,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // height, the gap between ceiling and floor (and the openings' uncapped sides) never shows through.
  const edge=(opening:number[][],top:number)=>opening.forEach((a,i)=>{const b=opening[(i+1)%opening.length],u=p(a[0],a[1]),v=p(b[0],b[1]);
   const band=box(ceilings,(u[0]+v[0])/2,2.79,(u[1]+v[1])/2,Math.hypot(v[0]-u[0],v[1]-u[1])+.03,top-2.79,.03,m.plaster);band.rotation.y=-Math.atan2(v[1]-u[1],v[0]-u[0]);band.name='stair-opening-edge';band.castShadow=false;passable(band);});
- const mainOpening=[[906,458],[948,458],[948,466],[1044,466],[1044,668],[906,668]],guestOpening=[[96,782],[215,792],[202,932],[92,927]];
+ const mainOpening=[[906,458],[948,458],[948,466],[1044,466],[1044,668],[906,668]],guestOpening=[[96,782],[215,792],[202,932],[146,926],[146,884],[93,884]];
  ceiling([[795,182],[1229,182],[1229,877],[795,877]],mainOpening).name='main-ground-ceiling';edge(mainOpening,3.07);
  ceiling([[116,535],[475,573],[461,668],[367,671],[316,1228],[49,1208]],guestOpening).name='guest-ground-ceiling';edge(guestOpening,2.95);
  // The link's ceiling is plastered and pitched over the corridor, rising from the wall heads to a ridge along its middle,
