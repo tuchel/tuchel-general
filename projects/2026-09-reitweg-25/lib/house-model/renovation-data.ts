@@ -14,8 +14,8 @@ export const renovations = [
 export type RenovationId=typeof renovations[number]['id'];
 export type RenovationState=Record<RenovationId,boolean>;
 export const renovationState=(enabled=false):RenovationState=>({kitchen:enabled,east:enabled,nookWindow:enabled,nook:enabled,terrace:enabled,courtyard:enabled,front:enabled,garage:enabled,skylights:enabled,solar:enabled});
-/** Kept in the model but not offered for now: out of the panel, and off with "All on" or when a link names them. */
-export const setAside:ReadonlySet<RenovationId>=new Set<RenovationId>(['terrace','courtyard','solar']);
+/** Kept in the model but not offered for now (the arrival wall is superseded by the front garage): out of the panel, and off with "All on" or when a link names them. */
+export const setAside:ReadonlySet<RenovationId>=new Set<RenovationId>(['terrace','courtyard','front','solar']);
 export const offered=renovations.filter(r=>!setAside.has(r.id));
 /** Offered renovations switched on: all of them, or only those named (a link's `renovations` list). */
 export const offeredState=(ids?:readonly string[]):RenovationState=>({...renovationState(),...Object.fromEntries(offered.filter(r=>!ids||ids.includes(r.id)).map(r=>[r.id,true]))});
