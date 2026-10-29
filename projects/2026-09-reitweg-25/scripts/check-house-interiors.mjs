@@ -80,7 +80,7 @@ const nwBed=model.root.getObjectByName('northwest-bed-against-divider');assert(n
 const bedBounds=new T.Box3().setFromObject(nwBed);const dividerFace=p(1064,225)[0]+UPPER_PLAN_X_OFFSET-.09;assert(Math.abs(bedBounds.max.x-dividerFace)<.03,'northwest headboard touches divider');
 assert.equal(crosses(upstairs(245,819),upstairs(290,819),[upper]).length,0,'mezzanine railing has a landing opening');
 assert.equal(crosses(upstairs(283,996),upstairs(244,996),[upper]).length,0,'guest bathroom door remains open');
-for(const name of ['guest-upper-bath-toilet','guest-upper-bath-shower','guest-bedroom-corner-vanity','guest-study-daybed-against-wall'])assert(model.root.getObjectByName(name),name+' present');
+for(const name of ['guest-upper-bath-toilet','guest-upper-bath-shower','guest-bedroom-corner-vanity','guest-study-daybed-against-wall','guest-bedroom-bed-under-skylights'])assert(model.root.getObjectByName(name),name+' present');
 const lowerStair=model.root.getObjectByName('guest-ground-turning-stair');assert(lowerStair);
 // The upper-floor view stands on the real ground floor: full-height walls, ceilings closed except over the stairs.
 assert(model.rendered(lowerStair.children[0])&&model.rendered(model.root.getObjectByName('main-open-timber-stair').children[0]),'upper-floor view keeps both stairs from the ground floor');
