@@ -134,7 +134,9 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  let level:Level='exterior',renovations=renovationState(),place:Place|undefined;
  const bake=realistic&&tier.skyBake?bakeSkyVisibility(renderer,batches.meshes.filter(b=>[b.material].flat().every(m=>!m.transparent&&m.userData.photo!=='lawn')),[model.root,stage],tier.sunBounce?.55:.7):undefined;
  // Sunlight bounced indoors: the house itself, without trees and planting.
- const bounce=realistic&&tier.sunBounce?bakeSunBounce(batches.meshes.filter(b=>b.parent===model.root&&[b.material].flat().every(m=>!m.transparent&&!m.alphaTest&&m.userData.photo!=='lawn')),[model.root,stage],sun,tier.sunBounce,tier.bounces):undefined;
+ // Renovations' batches, and those of the originals they replace, sit under their own groups (model.toggled): the guest
+ // wing's west roof slope among them.
+ const bounce=realistic&&tier.sunBounce?bakeSunBounce(batches.meshes.filter(b=>(b.parent===model.root||model.toggled.includes(b.parent!))&&[b.material].flat().every(m=>!m.transparent&&!m.alphaTest&&m.userData.photo!=='lawn')),[model.root,stage],sun,tier.sunBounce,tier.bounces):undefined;
  // Extreme: each main room reflects itself (room-probes.ts), baked in the whole-house view, trees drawn for each face.
  const probes=realistic&&tier.roomProbes?createRoomProbes(renderer,scene,[model.root],()=>batches.meshes.filter(b=>{for(let a:T.Object3D|null=b;a;a=a.parent)if(!a.visible)return false;return true;}),
   lens=>drawTrees(scene,[lens],2/ROOM_PROBES.size,lens)):undefined;

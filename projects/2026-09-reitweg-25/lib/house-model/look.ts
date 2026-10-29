@@ -14,8 +14,8 @@ export function finish(indoor:number){
  const t=Math.min(1,Math.max(0,indoor));
  return {balance:WARM.map(g=>1+(g-1)*t),contrast:1.1+.1*t,saturation:1.1+.15*t,occlusion:.85-.35*t,lift:LIFT*t};
 }
-/** How far the shadow lift raises dark tones indoors (at most about 0.12 on the perceptual scale, around 0.2). */
-const LIFT=1.5;
+/** How far the shadow lift raises dark tones indoors (at most about 0.07 on the perceptual scale, around 0.2). */
+const LIFT=.8;
 /** The shadow lift on a perceptual luminance, as the output shader applies it: m + lift·m·(1 − m)⁴. */
 export const shadowLift=(m:number,lift:number)=>m+lift*m*(1-m)**4;
 /** The S-curve on linear display values, as the output shader applies it: 0, 0.5 on the perceptual scale and 1 stay. */
