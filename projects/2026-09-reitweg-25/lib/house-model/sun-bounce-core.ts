@@ -11,8 +11,23 @@ export type Shaded={probes:Int32Array;light:Float32Array;direction:Float32Array;
 export type Field={light:Float32Array;direction:Float32Array};
 /** Walls and floors reflect about 40%: light not traced further adds a geometric series of what was. */
 export const REFLECTANCE=.4;
-/** What the traced bounces are scaled by to stand in for the rest: 1 + 0.4ᴮ/(1 − 0.4) after B of them. */
-export const bounceGain=(bounces:number)=>1+REFLECTANCE**bounces/(1-REFLECTANCE);
+/** What the traced bounces are scaled by to stand in for the rest: 1/(1 − 0.4) after a single one. After two or more
+ * the rest is extrapolated cell by cell instead (addTail), so the factor is 1. */
+export const bounceGain=(bounces:number)=>bounces>1?1:1/(1-REFLECTANCE);
+/** The most of its previous bounce a cell's last one may keep when the rest is extrapolated: at most three times the last. */
+const TAIL=.75;
+/** Adds the bounces not traced to `total`. Each cell's last bounce kept a share r of its previous one; the ones after keep
+ * the same share, a geometric series: last·r/(1 − r). A white room keeps more than the house's 40%, a dark one less, and
+ * the far side of a room, which the first bounce barely reached, keeps the most: there further bounces dominate. */
+export function addTail(total:Field,last:Field,previous:Field){
+ const lum=(f:Float32Array,i:number)=>.2126*f[i]+.7152*f[i+1]+.0722*f[i+2];
+ for(let i=0;i<total.light.length;i+=4){
+  const before=lum(previous.light,i);if(before<=1e-7)continue;
+  const r=Math.min(TAIL,lum(last.light,i)/before),k=r/(1-r);
+  for(let c=0;c<3;c++)total.light[i+c]+=k*last.light[i+c];
+  for(let c=0;c<4;c++)total.direction[i+c]+=k*last.direction[i+c];
+ }
+}
 const TAPS=8,MAP=1024;
 // The 26 neighbours one cell away, as offsets; bit k of a point's mask says it sees neighbour k.
 export const NEIGHBOURS:[number,number,number][]=[];

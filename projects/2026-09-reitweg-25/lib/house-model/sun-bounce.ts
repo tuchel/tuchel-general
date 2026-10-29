@@ -10,8 +10,9 @@ import {bounceGain,type Grid} from './sun-bounce-core';
  * silicon drops the WebGL context when a shader runs as long as tracing takes. Each point keeps the colour of the
  * gathered light plus its main direction, per unit of sunlight: materials scale it by the live sun's strength and
  * colour; a new sun direction re-lights the kept rays, and a new floor, renovation or level traces them again.
- * `bounces` beyond the first are traced through the grid itself, each landing lit by the bounce before (Extreme traces
- * four); a factor stands in for the rest (bounceGain). */
+ * `bounces` beyond the first are traced through the grid itself, each landing lit by the bounce before (every preset that
+ * bakes traces four); the rest are extrapolated from the last two (addTail), or with a single bounce a factor stands in
+ * for them (bounceGain). */
 const {box:BOX,cell:CELL}=PROBE_GRID;
 const visibleIn=(o:T.Object3D)=>{for(let a:T.Object3D|null=o;a;a=a.parent)if(!a.visible)return false;return true;};
 

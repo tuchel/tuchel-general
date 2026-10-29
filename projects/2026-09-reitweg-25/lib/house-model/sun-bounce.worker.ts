@@ -1,9 +1,10 @@
 import {DataUtils} from 'three';
-import {createTracer,smooth,toAtlas,type Field,type Grid,type Shaded} from './sun-bounce-core';
+import {addTail,createTracer,smooth,toAtlas,type Field,type Grid,type Shaded} from './sun-bounce-core';
 
 /** One share of the bounced-sunlight tracing, off the page's thread (sun-bounce.ts starts several). The first worker
  * gathers every share of a bounce over `peers` (message ports to the others), smooths it, and with further bounces to
- * go sends the smoothed field back out for the next; the sum of all of them goes to the page as one atlas. */
+ * go sends the smoothed field back out for the next; the sum of all of them, with the rest extrapolated from the last two
+ * (addTail), goes to the page as one atlas. */
 type Message=
  |{kind:'init';positions:Float32Array;batch:Uint16Array;albedo:Float32Array;grid:Grid;rays:number;part:number;parts:number;bounces:number;peers:MessagePort[]}
  |{kind:'geometry';visible:Uint8Array}
@@ -12,14 +13,14 @@ type Share=Shaded&{kind:'shaded';job:number;bounce:number};
 type Next={kind:'bounce';job:number;bounce:number;field:Field};
 const scope=self as unknown as {onmessage:(e:MessageEvent<Message>)=>void;postMessage:(message:unknown,transfer?:Transferable[])=>void};
 let tracer:ReturnType<typeof createTracer>|undefined,grid:Grid|undefined,parts=1,bounces=1,peers:MessagePort[]=[];
-// The first worker's gathering: the job and bounce under way, its shares so far and the bounces summed.
-let job=-1,bounce=0,shares:Shaded[]=[],total:Field|undefined;
+// The first worker's gathering: the job and bounce under way, its shares so far, the bounces summed and the one before.
+let job=-1,bounce=0,shares:Shaded[]=[],total:Field|undefined,previous:Field|undefined;
 const transfer=(s:Shaded)=>[s.light.buffer,s.direction.buffer];
 /** A share of a bounce, to the first worker (itself, or over the port it was given). */
 let report=(share:Share)=>gather(share);
 const gather=(share:Share)=>{
  if(share.job<job)return;
- if(share.job>job){job=share.job;bounce=1;shares=[];total=undefined;}
+ if(share.job>job){job=share.job;bounce=1;shares=[];total=previous=undefined;}
  if(share.bounce!==bounce)return;
  shares.push(share);if(shares.length<parts)return;
  const field=smooth(shares,grid!);shares=[];
@@ -29,8 +30,9 @@ const gather=(share:Share)=>{
  if(bounce<bounces){
   bounce++;const next:Next={kind:'bounce',job,bounce,field};
   for(const port of peers)port.postMessage(next);
-  report({kind:'shaded',job,bounce,...tracer!.bounce(field)});return;
+  previous=field;report({kind:'shaded',job,bounce,...tracer!.bounce(field)});return;
  }
+ if(previous)addTail(total,field,previous);
  // One worker converts to half floats, so the page only uploads the result.
  const atlas=toAtlas(total,grid!),light=Uint16Array.from(atlas.light,DataUtils.toHalfFloat),direction=Uint16Array.from(atlas.direction,DataUtils.toHalfFloat);
  scope.postMessage({kind:'atlas',job,light,direction},[light.buffer,direction.buffer]);

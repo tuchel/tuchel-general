@@ -6,7 +6,7 @@ import type {TreeStyle} from './foliage';
 export type Quality='extreme'|'detailed'|'balanced'|'model';
 export type TierSettings={
  quality:Quality;pixelRatio:number;samples:number;shadowSize:number;ao:boolean;bloom:boolean;
- /** Sunlight bounces traced indoors (sun-bounce.ts); a factor stands in for the rest. */
+ /** Sunlight bounces traced indoors (sun-bounce.ts); the rest are extrapolated from the last two. */
  bounces:number;
  /** Trees the house hides are not drawn, counted by the graphics card (tree-occlusion.ts). */
  treeOcclusion:boolean;
@@ -35,8 +35,8 @@ export type TierSettings={
 };
 export const tiers:Record<Quality,TierSettings>={
  extreme:{quality:'extreme',bounces:4,treeOcclusion:true,steerMotion:true,roomProbes:true,pixelRatio:3,samples:4,shadowSize:4096,ao:true,bloom:true,refineFrames:32,textureSize:1024,farWoodland:1,grass:true,skyBake:true,photographic:true,sunBounce:32,trees:'leaves',liveTrace:true,lens:true,clouds:true,poolMirror:true,scanned:true,motionScale:.7,cars:'modelled'},
- detailed:{quality:'detailed',bounces:1,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:2,samples:4,shadowSize:4096,ao:true,bloom:true,refineFrames:24,textureSize:1024,farWoodland:1,grass:true,skyBake:true,photographic:true,sunBounce:32,trees:'leaves',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,motionScale:.7,cars:'modelled'},
- balanced:{quality:'balanced',bounces:1,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:1.5,samples:2,shadowSize:2048,ao:true,bloom:false,refineFrames:8,textureSize:512,farWoodland:.45,grass:false,skyBake:true,photographic:false,sunBounce:24,trees:'hybrid',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,motionScale:1,cars:'none'},
+ detailed:{quality:'detailed',bounces:4,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:2,samples:4,shadowSize:4096,ao:true,bloom:true,refineFrames:24,textureSize:1024,farWoodland:1,grass:true,skyBake:true,photographic:true,sunBounce:32,trees:'leaves',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,motionScale:.7,cars:'modelled'},
+ balanced:{quality:'balanced',bounces:4,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:1.5,samples:2,shadowSize:2048,ao:true,bloom:false,refineFrames:8,textureSize:512,farWoodland:.45,grass:false,skyBake:true,photographic:false,sunBounce:24,trees:'hybrid',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,motionScale:1,cars:'none'},
  model:{quality:'model',bounces:1,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:1.75,samples:4,shadowSize:2048,ao:false,bloom:false,refineFrames:0,textureSize:512,farWoodland:0,grass:false,skyBake:false,photographic:false,sunBounce:0,trees:'hybrid',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,motionScale:1,cars:'none'},
 };
 /** The settings a viewer runs with. Detailed on a phone keeps the scene, materials and light, but fits a phone
