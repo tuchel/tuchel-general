@@ -19,9 +19,10 @@ const visibleIn=(o:T.Object3D)=>{for(let a:T.Object3D|null=o;a;a=a.parent)if(!a.
 export function bakeSunBounce(occluders:T.Mesh[],receivers:T.Object3D[],sun:T.DirectionalLight,rays:number,bounces=1){
  const size=BOX.getSize(new T.Vector3()),nx=Math.round(size.x/CELL),ny=Math.round(size.y/CELL),nz=Math.round(size.z/CELL);
  const grid:Grid={min:BOX.min.toArray() as [number,number,number],cell:CELL,nx,ny,nz};
- // The atlases the materials read: half floats filter on every WebGL2 device, including iOS.
- const atlas=()=>{const t=new T.DataTexture(new Uint16Array(nx*ny*nz*4),nx*ny,nz,T.RGBAFormat,T.HalfFloatType);t.minFilter=t.magFilter=T.LinearFilter;return t;};
- const lightTexture=atlas(),directionTexture=atlas();
+ // The atlases the materials read: half floats filter on every WebGL2 device, including iOS. The light atlas carries the
+ // surfaces' colour below the light, so that no further texture unit is needed: Apple's GPUs give a material 16.
+ const atlas=(rows:number)=>{const t=new T.DataTexture(new Uint16Array(nx*ny*nz*rows*4),nx*ny,nz*rows,T.RGBAFormat,T.HalfFloatType);t.minFilter=t.magFilter=T.LinearFilter;return t;};
+ const lightTexture=atlas(2),directionTexture=atlas(1);
  const uniforms={uBounceLight:{value:lightTexture},uBounceDirection:{value:directionTexture},uBounceSun:{value:new T.Color(0,0,0)},
   uBounceMin:{value:BOX.min.clone()},uBounceGrid:{value:new T.Vector3(nx,ny,nz)},uBounceCell:{value:CELL},uBounceReady:{value:0}};
  const patched=new Set<T.Material>();
@@ -35,18 +36,32 @@ export function bakeSunBounce(occluders:T.Mesh[],receivers:T.Object3D[],sun:T.Di
      bounceWorld=instanceMatrix*bounceWorld;
     #endif
     vBounceWorld=(modelMatrix*bounceWorld).xyz;`);
-   shader.fragmentShader=`uniform sampler2D uBounceLight;uniform sampler2D uBounceDirection;uniform vec3 uBounceSun;uniform vec3 uBounceMin;uniform vec3 uBounceGrid;uniform float uBounceCell;uniform float uBounceReady;varying vec3 vBounceWorld;
-    vec4 bounceAt(sampler2D t,vec3 g){
+   shader.fragmentShader=`#define BOUNCE_TINT
+    uniform sampler2D uBounceLight;uniform sampler2D uBounceDirection;uniform vec3 uBounceSun;uniform vec3 uBounceMin;uniform vec3 uBounceGrid;uniform float uBounceCell;uniform float uBounceReady;varying vec3 vBounceWorld;
+    // Block 1 is the second grid down the atlas: the surfaces' colour, below the light.
+    vec4 bounceAt(sampler2D t,vec3 g,float block){
      float j0=clamp(floor(g.y),0.0,uBounceGrid.y-1.0),j1=min(j0+1.0,uBounceGrid.y-1.0);
-     vec2 xz=clamp(g.xz+0.5,vec2(0.5),uBounceGrid.xz-0.5),atlas=vec2(uBounceGrid.x*uBounceGrid.y,uBounceGrid.z);
+     vec2 xz=clamp(g.xz+0.5,vec2(0.5),uBounceGrid.xz-0.5),atlas=vec2(textureSize(t,0));xz.y+=block*uBounceGrid.z;
      return mix(texture(t,vec2(j0*uBounceGrid.x+xz.x,xz.y)/atlas),texture(t,vec2(j1*uBounceGrid.x+xz.x,xz.y)/atlas),clamp(g.y-j0,0.0,1.0));
+    }
+    // The colour light takes on going round a room, for the sky light bounced indoors (sky-visibility.ts), at the
+    // brightness of the fallback: halfway between one bounce off surfaces of reflectance ρ and all of them, ρ/(1 − ρ) per
+    // colour channel. All of them alone outdo the owner's photographs of the guest study, whose camera balanced some of
+    // the warmth away.
+    vec3 bounceTint(vec3 n,vec3 fallback){
+     vec3 g=(vBounceWorld+n*0.35-uBounceMin)/uBounceCell-0.5;
+     if(uBounceReady<0.5||any(lessThan(g,vec3(-0.5)))||any(greaterThan(g,uBounceGrid-0.5)))return fallback;
+     vec4 t=bounceAt(uBounceLight,g,1.0);if(t.w<1e-3)return fallback;
+     const vec3 Y=vec3(0.2126,0.7152,0.0722);
+     vec3 rho=min(t.rgb/t.w,vec3(0.85)),all=rho/(1.0-rho),m=0.5*(rho/max(dot(rho,Y),1e-4)+all/max(dot(all,Y),1e-4));
+     return m*dot(fallback,Y);
     }\n`+before(shader.fragmentShader,'lights_fragment_end',`
     if(uBounceReady>0.5){
      vec3 bounceN=inverseTransformDirection(normal,viewMatrix),g=(vBounceWorld+bounceN*0.35-uBounceMin)/uBounceCell-0.5;
      if(all(greaterThan(g,vec3(-0.5)))&&all(lessThan(g,uBounceGrid-0.5))){
-      vec4 d=bounceAt(uBounceDirection,g);
+      vec4 d=bounceAt(uBounceDirection,g,0.0);
       // First-order spherical harmonics: the gathered light's average colour, stronger on the side it comes from.
-      if(d.w>1e-6)iblIrradiance+=uBounceSun*bounceAt(uBounceLight,g).rgb*max(0.0,1.0+2.0*dot(d.xyz,bounceN)/d.w);
+      if(d.w>1e-6)iblIrradiance+=uBounceSun*bounceAt(uBounceLight,g,0.0).rgb*max(0.0,1.0+2.0*dot(d.xyz,bounceN)/d.w);
      }
     }`);
   }});

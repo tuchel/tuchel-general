@@ -6,9 +6,10 @@ import {MeshBVH,SAH} from 'three-mesh-bvh';
  * facing and colour are kept. Lighting them for a sun direction then needs no more rays: the sun's view of the house is
  * drawn into a depth map, and each landing counts the share of its footprint that the sun reaches. */
 export type Grid={min:[number,number,number];cell:number;nx:number;ny:number;nz:number};
-export type Shaded={probes:Int32Array;light:Float32Array;direction:Float32Array;neighbours:Uint32Array;open:Uint8Array};
-/** A smoothed bounce over the whole grid, x fastest, then z, then y: light (rgb, open) and direction (xyz, weight). */
-export type Field={light:Float32Array;direction:Float32Array};
+export type Shaded={probes:Int32Array;light:Float32Array;direction:Float32Array;neighbours:Uint32Array;open:Uint8Array;tint?:Float32Array};
+/** A smoothed bounce over the whole grid, x fastest, then z, then y: light (rgb, open) and direction (xyz, weight); with
+ * the first, the colour of the surfaces each point sees (rgb, weight; createTracer). */
+export type Field={light:Float32Array;direction:Float32Array;tint?:Float32Array};
 /** Walls and floors reflect about 40%: light not traced further adds a geometric series of what was. */
 export const REFLECTANCE=.4;
 /** What the traced bounces are scaled by to stand in for the rest: 1/(1 − 0.4) after a single one. After two or more
@@ -29,6 +30,7 @@ export function addTail(total:Field,last:Field,previous:Field){
  }
 }
 const TAPS=8,MAP=1024;
+const TILTED=Array.from({length:8},(_,k)=>new T.Vector3(Math.cos(k*Math.PI/4)*Math.sin(Math.PI/3),Math.cos(Math.PI/3),Math.sin(k*Math.PI/4)*Math.sin(Math.PI/3)));
 // The 26 neighbours one cell away, as offsets; bit k of a point's mask says it sees neighbour k.
 export const NEIGHBOURS:[number,number,number][]=[];
 for(let z=-1;z<=1;z++)for(let y=-1;y<=1;y++)for(let x=-1;x<=1;x++)if(x||y||z)NEIGHBOURS.push([x,y,z]);
@@ -38,7 +40,7 @@ export function createTracer(positions:Float32Array,batch:Uint16Array,albedo:Flo
  const centre=(p:number,out:T.Vector3)=>{const x=p%nx,z=Math.floor(p/nx)%nz,y=Math.floor(p/(nx*nz));return out.set(min[0]+(x+.5)*cell,min[1]+(y+.5)*cell,min[2]+(z+.5)*cell);};
  let bvh:MeshBVH|undefined,vertexBatch=new Uint16Array(0);
  let probes=new Int32Array(0),start=new Int32Array(0),open=new Uint8Array(0),neighbours=new Uint32Array(0);
- let hit=new Float32Array(0),facing=new Int8Array(0),hitBatch=new Uint16Array(0);
+ let hit=new Float32Array(0),facing=new Int8Array(0),hitBatch=new Uint16Array(0),tint=new Float32Array(0);
  const ray=new T.Ray(),o=new T.Vector3(),d=new T.Vector3(),up=new T.Vector3(0,1,0);
  const trace=(far=Infinity)=>bvh!.raycastFirst(ray,T.DoubleSide,0,far);
  /** The light a field puts on a surface at `q` facing `n`, read as the materials read it (sun-bounce.ts): the grid
@@ -64,14 +66,17 @@ export function createTracer(positions:Float32Array,batch:Uint16Array,albedo:Flo
    keep.forEach((v,i)=>{p.set(positions.subarray(v*3,v*3+9),i*9);vertexBatch.fill(batch[v],i*3,i*3+3);});
    const g=new T.BufferGeometry();g.setAttribute('position',new T.BufferAttribute(p,3));bvh=new MeshBVH(g,{strategy:SAH});
    // Points under a roof or ceiling, excluding those just inside a floor or slab; every parts-th one is this worker's.
+   // Glass is left out of the tracing (light passes it), so straight up from a point under a roof window is open sky:
+   // such a point is under a roof when nearly all of eight rays tilted 60° from straight up meet one.
    const chosen:number[]=[];let k=0;
    for(let q=0;q<count;q++){
     ray.origin.copy(centre(q,o));ray.direction.copy(up);const h=trace(12);
-    if(!h||h.distance<.3&&h.face!.normal.dot(up)>0)continue;
+    if(h&&h.distance<.3&&h.face!.normal.dot(up)>0)continue;
+    if(!h){let met=0;for(const t of TILTED){ray.direction.copy(t);if(trace(12))met++;}if(met<7)continue;}
     if(k++%parts===part)chosen.push(q);
    }
    probes=Int32Array.from(chosen);start=new Int32Array(probes.length+1);open=new Uint8Array(probes.length);neighbours=new Uint32Array(probes.length);
-   hit=new Float32Array(probes.length*rays*3);facing=new Int8Array(probes.length*rays*3);hitBatch=new Uint16Array(probes.length*rays);
+   hit=new Float32Array(probes.length*rays*3);facing=new Int8Array(probes.length*rays*3);hitBatch=new Uint16Array(probes.length*rays);tint=new Float32Array(probes.length*4);
    let n=0;
    probes.forEach((q,i)=>{
     start[i]=n;centre(q,o);ray.origin.copy(o);
@@ -88,6 +93,9 @@ export function createTracer(positions:Float32Array,batch:Uint16Array,albedo:Flo
     // A point that mostly sees the backs of faces sits inside a wall or slab; smoothing fills it from its neighbours.
     open[i]=inside<rays/2?1:0;
     if(!open[i])return;
+    // The average colour of the surfaces the point sees: light that keeps bouncing round a room takes it on (sky-visibility.ts).
+    let r=0,g=0,b=0;for(let k=start[i];k<n;k++){const a=hitBatch[k]*3;r+=albedo[a];g+=albedo[a+1];b+=albedo[a+2];}
+    if(n>start[i])tint.set([r/(n-start[i]),g/(n-start[i]),b/(n-start[i]),1],i*4);
     let mask=0;NEIGHBOURS.forEach(([x,y,z],b)=>{d.set(x,y,z).multiplyScalar(cell);const len=d.length();ray.origin.copy(o);ray.direction.copy(d).divideScalar(len);if(!trace(len))mask|=1<<b;});
     neighbours[i]=mask;
    });
@@ -114,7 +122,7 @@ export function createTracer(positions:Float32Array,batch:Uint16Array,albedo:Flo
     }
     light.set([r/rays,g/rays,bl/rays,open[i]],i*4);direction.set([d.x,d.y,d.z,total],i*4);
    });
-   return {probes,light,direction,neighbours,open};
+   return {probes,light,direction,neighbours,open,tint:tint.slice()};
   },
   /** The next bounce: each kept landing lit by the previous bounce's field, gathered as the sun's light is. */
   bounce(field:Field):Shaded{
@@ -161,35 +169,36 @@ function sunDepth(p:Float32Array,s:T.Vector3,grid:Grid){
 /** Averages each point with the neighbours it sees, three times, so bounced light spreads about a metre without passing
  * through walls. Points inside walls take the average of all their neighbours. */
 export function smooth(parts:Shaded[],grid:Grid):Field{
- const {nx,ny,nz}=grid,count=nx*ny*nz;
- let light=new Float32Array(count*4),direction=new Float32Array(count*4);
+ const {nx,ny,nz}=grid,count=nx*ny*nz,tinted=parts.every(s=>s.tint);
+ // Light, direction and, with the first bounce, the surfaces' colour: four values a point each.
+ let fields=Array.from({length:tinted?3:2},()=>new Float32Array(count*4));
  const traced=new Uint8Array(count),valid=new Uint8Array(count),mask=new Uint32Array(count);
- for(const s of parts)s.probes.forEach((p,i)=>{traced[p]=1;valid[p]=s.open[i];mask[p]=s.neighbours[i];light.set(s.light.subarray(i*4,i*4+4),p*4);direction.set(s.direction.subarray(i*4,i*4+4),p*4);});
+ for(const s of parts){const from=[s.light,s.direction,...(tinted?[s.tint!]:[])];s.probes.forEach((p,i)=>{traced[p]=1;valid[p]=s.open[i];mask[p]=s.neighbours[i];from.forEach((f,k)=>fields[k].set(f.subarray(i*4,i*4+4),p*4));});}
  const weight=NEIGHBOURS.map(([x,y,z])=>Math.exp(-.5*(x*x+y*y+z*z)));
  for(let pass=0;pass<3;pass++){
-  const nl=new Float32Array(count*4),nd=new Float32Array(count*4),nv=new Uint8Array(count);
+  const next=fields.map(()=>new Float32Array(count*4)),nv=new Uint8Array(count);
   for(let p=0;p<count;p++){
    if(!traced[p])continue;
    const x=p%nx,z=Math.floor(p/nx)%nz,y=Math.floor(p/(nx*nz));
-   let sum=0;const add=(q:number,w:number)=>{for(let c=0;c<4;c++){nl[p*4+c]+=w*light[q*4+c];nd[p*4+c]+=w*direction[q*4+c];}sum+=w;};
+   let sum=0;const add=(q:number,w:number)=>{for(let f=0;f<fields.length;f++)for(let c=0;c<4;c++)next[f][p*4+c]+=w*fields[f][q*4+c];sum+=w;};
    if(valid[p])add(p,1);
    NEIGHBOURS.forEach(([dx,dy,dz],b)=>{
     const X=x+dx,Y=y+dy,Z=z+dz;if(X<0||Y<0||Z<0||X>=nx||Y>=ny||Z>=nz)return;
     const q=X+Z*nx+Y*nx*nz;if(!traced[q]||!valid[q])return;if(valid[p]&&!(mask[p]&1<<b))return;
     add(q,weight[b]);
    });
-   if(sum>0){for(let c=0;c<4;c++){nl[p*4+c]/=sum;nd[p*4+c]/=sum;}nv[p]=1;}
+   if(sum>0){for(const f of next)for(let c=0;c<4;c++)f[p*4+c]/=sum;nv[p]=1;}
   }
-  light=nl;direction=nd;valid.set(nv);
+  fields=next;valid.set(nv);
  }
- return {light,direction};
+ return {light:fields[0],direction:fields[1],...(tinted?{tint:fields[2]}:{})};
 }
 /** The atlases the materials read: layers side by side, x within a layer, then layer (height), across; z down. */
-export function toAtlas({light,direction}:Field,grid:Grid){
+export function toAtlas({light,direction,tint}:Field,grid:Grid){
  const {nx,ny,nz}=grid,count=nx*ny*nz;
  // The grid is x fastest, then z, then y; the atlas puts layers (y) side by side.
- const atlasLight=new Float32Array(count*4),atlasDirection=new Float32Array(count*4);
- for(let p=0;p<count;p++){const x=p%nx,z=Math.floor(p/nx)%nz,y=Math.floor(p/(nx*nz)),a=(z*nx*ny+y*nx+x)*4;atlasLight.set(light.subarray(p*4,p*4+4),a);atlasDirection.set(direction.subarray(p*4,p*4+4),a);}
- return {light:atlasLight,direction:atlasDirection};
+ const atlasLight=new Float32Array(count*4),atlasDirection=new Float32Array(count*4),atlasTint=new Float32Array(tint?count*4:0);
+ for(let p=0;p<count;p++){const x=p%nx,z=Math.floor(p/nx)%nz,y=Math.floor(p/(nx*nz)),a=(z*nx*ny+y*nx+x)*4;atlasLight.set(light.subarray(p*4,p*4+4),a);atlasDirection.set(direction.subarray(p*4,p*4+4),a);if(tint)atlasTint.set(tint.subarray(p*4,p*4+4),a);}
+ return {light:atlasLight,direction:atlasDirection,tint:atlasTint};
 }
 export const smoothIntoAtlas=(parts:Shaded[],grid:Grid)=>toAtlas(smooth(parts,grid),grid);

@@ -110,8 +110,13 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
       overhead=getIBLIrradiance((viewMatrix*vec4(0.0,1.0,0.0,0.0)).xyz);
      #endif
      float skyVisible=mix(bounce,1.0,open);
-     // Oak floors and warm plaster make bounced light warmer than the sky.
-     iblIrradiance=iblIrradiance*open+overhead*bounce*vec3(1.08,.97,.84)*(1.0-open);irradiance*=skyVisible;radiance*=mix(1.0,skyVisible,0.85);
+     // Oak floors and warm plaster make bounced light warmer than the sky; where sunlight is traced indoors, by the colours
+     // of the very surfaces round the point (sun-bounce.ts, bounceTint).
+     vec3 bounceColour=vec3(1.08,.97,.84);
+     #ifdef BOUNCE_TINT
+      bounceColour=bounceTint(skyN,bounceColour);
+     #endif
+     iblIrradiance=iblIrradiance*open+overhead*bounce*bounceColour*(1.0-open);irradiance*=skyVisible;radiance*=mix(1.0,skyVisible,0.85);
      // A clear coat (car paint) sees as little of the sky indoors as the layer beneath it.
      #ifdef USE_CLEARCOAT
      clearcoatRadiance*=mix(1.0,skyVisible,0.85);

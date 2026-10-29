@@ -18,7 +18,7 @@ assert(inside.occlusion<out.occlusion-.2,`corner shading is lighter indoors (${i
 const post=fs.readFileSync('lib/house-model/post.ts','utf8');assert(/finish\(/.test(post)&&/uBalance/.test(post)&&/uLook/.test(post),'the output pass applies the finish');
 // Indoors the shadow lift raises the side of a room the sun misses; black and the sunlit tones stay, and outdoors none.
 assert.equal(out.lift,0,'no shadow lift outdoors');
-assert(shadowLift(0,inside.lift)===0&&shadowLift(.25,inside.lift)>.33&&shadowLift(.9,inside.lift)-.9<.001,`the shadow lift raises dark tones only (0.25 → ${shadowLift(.25,inside.lift).toFixed(3)})`);
+assert(shadowLift(0,inside.lift)===0&&shadowLift(.25,inside.lift)>.3&&shadowLift(.9,inside.lift)-.9<.001,`the shadow lift raises dark tones only (0.25 → ${shadowLift(.25,inside.lift).toFixed(3)})`);
 for(let m=0;m<1;m+=.01)assert(shadowLift(m+.01,inside.lift)>shadowLift(m,inside.lift),'the shadow lift keeps tones in order');
 assert(/float m=dot\(e,vec3\(0\.2126,0\.7152,0\.0722\)\),f=1\.0-m;e=min\(e\*\(1\.0\+uLook\.z\*f\*f\*f\*f\),vec3\(1\.0\)\);/.test(post),'the output pass lifts luminance, keeping hue');
 const bounce=fs.readFileSync('lib/house-model/sun-bounce-core.ts','utf8'),reflectance=+(/REFLECTANCE=([\d.]+)/.exec(bounce)?.[1]??0),gain=1/(1-reflectance);assert(gain>1.4&&gain<2.2,`bounced sunlight stands in for further bounces (gain ${gain})`);

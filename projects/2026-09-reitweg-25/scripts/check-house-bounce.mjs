@@ -1,17 +1,20 @@
 import assert from 'node:assert/strict';
 import * as T from 'three';
 import {build} from 'esbuild';
-await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/static-batch.ts','lib/house-model/sun-bounce-core.ts','lib/house-model/sky-visibility.ts','lib/house-model/site-data.ts'],outdir:'tmp/bounce-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external'});
+await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/static-batch.ts','lib/house-model/sun-bounce-core.ts','lib/house-model/sky-visibility.ts','lib/house-model/site-data.ts','lib/house-model/renovation-data.ts'],outdir:'tmp/bounce-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external'});
 const {buildHouseModel}=await import('../tmp/bounce-check/build-model.mjs');
 const {batchStatic}=await import('../tmp/bounce-check/static-batch.mjs');
 const {createTracer,smoothIntoAtlas,smooth,toAtlas,bounceGain,addTail}=await import('../tmp/bounce-check/sun-bounce-core.mjs');
 const {PROBE_GRID}=await import('../tmp/bounce-check/sky-visibility.mjs');
 const {planPoint}=await import('../tmp/bounce-check/site-data.mjs');
+const {renovationState}=await import('../tmp/bounce-check/renovation-data.mjs');
 // The house as the viewer traces it: opaque batches of the building, in the whole-house state.
 const model=buildHouseModel(true);
-const batches=batchStatic({root:model.root,states:model.stateCount,apply:model.applyState,rendered:model.rendered,externalRoots:[model.trees]});
-batches.sync(model.stateOf('exterior',{}));model.root.updateMatrixWorld(true);
-const occluders=batches.meshes.filter(b=>b.parent===model.root&&[b.material].flat().every(m=>!m.transparent&&!m.alphaTest&&m.userData.photo!=='lawn'));
+const batches=batchStatic({root:model.root,states:model.stateCount,apply:model.applyState,rendered:model.rendered,externalRoots:[model.trees,...model.toggled]});
+// As the viewer applies a state: the source groups (renovations' among them) and then the batches.
+model.setLevel('exterior');model.setRenovations({...renovationState(),skylights:true});batches.sync(model.stateOf('exterior',{...renovationState(),skylights:true}));model.root.updateMatrixWorld(true);
+// As the viewer gathers them: renovations' batches sit under their own groups (model.toggled), the original guest roof among them.
+const occluders=batches.meshes.filter(b=>(b.parent===model.root||model.toggled.includes(b.parent))&&[b.material].flat().every(m=>!m.transparent&&!m.alphaTest&&m.userData.photo!=='lawn'));
 let count=0;for(const o of occluders)count+=o.geometry.attributes.position.count;
 const positions=new Float32Array(count*3),batch=new Uint16Array(count),albedo=new Float32Array(occluders.length*3),visible=new Uint8Array(occluders.length);
 let at=0;occluders.forEach((o,b)=>{const p=o.geometry.attributes.position,v=new T.Vector3();for(let i=0;i<p.count;i++,at++){v.fromBufferAttribute(p,i).applyMatrix4(o.matrixWorld);positions.set([v.x,v.y,v.z],at*3);batch[at]=b;}const c=[o.material].flat()[0].color;albedo.set([c.r,c.g,c.b],b*3);let s=o;visible[b]=1;while(s){if(!s.visible)visible[b]=0;s=s.parent;}});
@@ -28,6 +31,21 @@ const [fx,fz]=planPoint(1020,784),room=lum(probe(fx,2.3,fz)),basement=lum(probe(
 // Expected order: a sun patch filling about 4% of the view, oak (reflectance about 0.5) lit at sin 19° gives about 0.0066.
 assert(room>.003,`the family room ceiling gathers morning sunlight bounced off the floor (${room.toFixed(4)} per unit of sun)`);
 assert(direction[probe(fx,2.3,fz)+1]<0,'it arrives from below');
+// Each point also keeps the colour of the surfaces it sees, which the sky light bounced indoors takes on (bounceTint): the
+// family room's oak floor and plaster warm it; it rides with the first bounce only, in the atlas the materials read.
+{const first=smooth([shaded],grid),i=(()=>{const x=Math.floor((fx-grid.min[0])/grid.cell),y=Math.floor((2.3-grid.min[1])/grid.cell),z=Math.floor((fz-grid.min[2])/grid.cell);return (x+z*grid.nx+y*grid.nx*grid.nz)*4;})();
+ const [r,g,b,w]=first.tint.subarray(i,i+4);
+ assert(w>.5&&r/w>.4&&r>b*1.15,`the family room's surfaces are warm (${[r,g,b].map(v=>(v/w).toFixed(2))})`);
+ assert(!smooth([tracer.bounce(first)],grid).tint,'further bounces carry no colour of their own');
+ assert(toAtlas(first,grid).tint.length===first.light.length,'the colour reaches the atlas');
+ const sky=(await import('node:fs')).readFileSync('lib/house-model/sky-visibility.ts','utf8');
+ assert(/#ifdef BOUNCE_TINT\s*bounceColour=bounceTint\(skyN,bounceColour\);/.test(sky),'the sky light bounced indoors takes it on');}
+// The guest study, open to the guest roof, is under a roof all through: its points are traced and lit by the afternoon
+// sun through its west roof windows.
+{const traced=new Set(shaded.probes);let cells=0,inside=0;
+ for(let x=-22.25;x<-18.5;x+=.5)for(let y=3.75;y<5;y+=.5)for(let z=1.25;z<6;z+=.5){cells++;const q=Math.floor((x-grid.min[0])/grid.cell)+Math.floor((z-grid.min[2])/grid.cell)*grid.nx+Math.floor((y-grid.min[1])/grid.cell)*grid.nx*grid.nz;if(traced.has(q))inside++;}
+ assert(inside>cells*.9,`the guest study is traced as indoors (${inside} of ${cells} points)`);
+ assert(/bakeSunBounce\(batches\.meshes\.filter\(b=>\(b\.parent===model\.root\|\|model\.toggled\.includes\(b\.parent!\)\)/.test((await import('node:fs')).readFileSync('lib/house-model/viewer.ts','utf8')),'the viewer traces renovations\' batches too');}
 assert(basement<room/10,`the basement stays dark (${basement.toFixed(5)})`);
 // The same sun from the west does not enter the east windows: the bounce follows the sun, not a uniform fill.
 const west=smoothIntoAtlas([tracer.shade(new T.Vector3(-1,.35,.1).normalize().toArray())],grid).light,a=probe(fx,2.3,fz),westRoom=.2126*west[a]+.7152*west[a+1]+.0722*west[a+2];
