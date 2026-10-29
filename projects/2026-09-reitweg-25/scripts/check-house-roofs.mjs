@@ -70,7 +70,7 @@ for(const realism of [false,true]){
     if(v.y<floor-.005||out){exposed.push(`${guest?'guest':'main'} rafter at x ${v.x.toFixed(2)}, z ${v.z.toFixed(2)}, ${v.y.toFixed(2)} m`);break;}}}
   void frame;assert.equal(exposed.length,0,`${exposed.length} rafters show below the upper floor or under the eaves: ${exposed.slice(0,4).join('; ')}`);
   // Gable windows show whole: from the garden and from the room, nothing of the roof or its ceiling covers a top corner.
-  const gables=[];model.root.traverse(o=>{if(o.name==='gable-window'&&o.parent?.parent?.name==='main-roof')gables.push(o);});assert(gables.length>=4,'main gable windows exist');
+  const gables=[];model.root.traverse(o=>{if(o.name==='gable-window'){let up=o.parent;while(up&&up.name!=='main-roof')up=up.parent;if(up)gables.push(o);}});assert(gables.length>=4,'main gable windows exist');
   const hidden=[];for(const pane of gables){const b=new T.Box3().setFromObject(pane),out=Math.sign(b.min.z);
    // The corner of the dark frame, 3 cm above the glass: seen from 8 and 14 m out in the garden and from inside the room.
    for(const x of [b.min.x-.02,b.max.x+.02]){const corner=new T.Vector3(x,b.max.y+.03,(b.min.z+b.max.z)/2+out*.12);

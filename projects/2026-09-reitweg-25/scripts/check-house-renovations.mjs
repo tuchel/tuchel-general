@@ -7,11 +7,11 @@ await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/sola
 const {buildHouseModel}=await import('../tmp/renovation-check/build-model.mjs');
 const {solarPanels,solarRoofs,solarModule,roofSkylights}=await import('../tmp/renovation-check/solar-layout.mjs');
 const {renovations,renovationState,offered,offeredState}=await import('../tmp/renovation-check/renovation-data.mjs');
-// The panel offers six renovations for now; the terrace dining, fireside lounge, arrival wall (superseded by the front
+// The panel offers seven renovations for now; the terrace dining, fireside lounge, arrival wall (superseded by the front
 // garage) and solar stay in the model, set aside:
 // off with "All on" and when a link names them.
-assert.deepEqual(offered.map(r=>r.id),['kitchen','east','nookWindow','nook','garage','skylights'],'offered renovations');
-assert.deepEqual(offered.map(r=>r.title),['Winter Garden','East Façade Windows','Office Nook Window Expansion','Layout Updates','Front Garage','Guest Wing Skylights'],'short names in the Changes panel');
+assert.deepEqual(offered.map(r=>r.id),['kitchen','east','masterWindows','nookWindow','nook','garage','skylights'],'offered renovations');
+assert.deepEqual(offered.map(r=>r.title),['Winter Garden','Lower East Façade Glass','Master Bedroom & Bath Windows','Office Nook Window Expansion','Layout Updates','Front Garage','Guest Wing Skylights'],'short names in the Changes panel');
 for(const id of ['terrace','courtyard','front','solar'])assert.equal(offeredState()[id],false,`${id} stays off with All on`);
 // Looking closer at the arrival wall flies low over the far verge of the road, the wall square in front: an overview,
 // not an eye-level place, held close enough on a narrow screen to stay clear of the trees beyond the road.
@@ -92,14 +92,18 @@ assert(southAt(-.7).some(h=>[h.object.material].flat().some(m=>!m.transparent)),
   const hit=ray.intersectObject(model.root,true).find(h=>h.object.isMesh&&visible(h.object)),reach=hit&&(dir[0]?hit.point.x:hit.point.z);
   if(!hit||reach>line+.07)slots.push(`${at.join(',')} at ${y} m`);}
  assert.equal(slots.length,0,`the glass meets the floor (open under it: ${slots.join('; ')})`);}
-// Upstairs, the opened east façade glazes the master bedroom's gable from the chimney to the knee wall, up to about 3 m
-// and under the roof slope; the original keeps its single window, and the wall beside the chimney stays solid.
+// Upstairs, Master Bedroom & Bath Windows glaze the south gable on both sides of the chimney: the master bedroom's from the
+// chimney to the east knee wall and the master bathroom's from the chimney to the west knee wall, up to about 3 m and
+// under the roof slope. As built, each keeps its single window, and the wall beside the chimney stays solid. The ground
+// floor's east façade leaves the gable as it is.
 const gableAt=(x,y)=>{southRay.set(new T.Vector3(x,y,8.6),new T.Vector3(0,0,1));southRay.far=1.4;return southRay.intersectObject(model.root,true).filter(h=>h.object.isMesh&&visible(h.object));};
 const opaque=hits=>hits.some(h=>[h.object.material].flat().some(m=>!m.transparent));
-const opened=[[.75,3.3],[1.2,5.95],[3.3,4.2],[3,4.9],[4.7,3.35],[4.3,3.8]];
-for(const east of [false,true]){model.setRenovations({...renovationState(),east});model.setLevel('exterior');model.root.updateMatrixWorld(true);
- for(const [x,y] of opened)assert.equal(opaque(gableAt(x,y)),!east,`gable at x ${x}, y ${y} is ${east?'glazed':'solid'} with the east façade ${east?'on':'off'}`);
- assert(opaque(gableAt(.3,4.5)),'the wall beside the chimney stays solid');assert(opaque(gableAt(1,6.45)),'the gable above the new glass stays solid');}
+const bedroom=[[.75,3.3],[1.2,5.95],[3.3,4.2],[3,4.9],[4.7,3.35],[4.3,3.8]],bathroom=bedroom.map(([x,y])=>[-.11-x,y]);
+for(const [east,masterWindows] of [[false,false],[true,false],[false,true],[true,true]]){model.setRenovations({...renovationState(),east,masterWindows});model.setLevel('exterior');model.root.updateMatrixWorld(true);
+ for(const [room,points] of [['bedroom',bedroom],['bathroom',bathroom]])for(const [x,y] of points)assert.equal(opaque(gableAt(x,y)),!masterWindows,`master ${room} gable at x ${x.toFixed(2)}, y ${y} is ${masterWindows?'glazed':'solid'} with the option ${masterWindows?'on':'off'} (east façade ${east?'on':'off'})`);
+ for(const x of [.3,-.53])assert(opaque(gableAt(x,4.5)),`the wall beside the chimney stays solid at x ${x}`);
+ for(const x of [1,-1.11])assert(opaque(gableAt(x,6.45)),`the gable above the new glass stays solid at x ${x}`);
+ for(const x of [-2.35,2.35])assert.equal(gableAt(x,4).some(h=>h.object.name==='gable-window'),!masterWindows,`the single window at x ${x} is ${masterWindows?'gone':'there'}`);}
 model.setRenovations(renovationState());
 // Layout Updates' library takes the dining alcove: bookshelves, a desk and a lounge chair inside the alcove's walls, the hall
 // doorway and the opening to the family room kept clear, the same with the east façade open or closed.
@@ -149,4 +153,4 @@ model.setRenovations(renovationState());
  {const set=new T.Box3(),[armEast]=kitchenPoint(334,0);kitchen.traverse(o=>{if((o.name==='garden-kitchen-table'||o.name==='garden-kitchen-chair')&&o.getWorldPosition(new T.Vector3()).x<armEast)set.expandByObject(o);});
   const c=set.getCenter(new T.Vector3()),[ax,az]=kitchenPoint(219,421);assert(Math.hypot(c.x-ax,c.z-az)<.03,`the dining set is centred in the glazed arm (${(c.x-ax).toFixed(2)}, ${(c.z-az).toFixed(2)} m off)`);}
  model.setRenovations(renovationState());}
-console.log(`Passed: all ${1<<ids.length} renovation combinations across four floors; original scene and meadow restored; 50 panels clear skylights, perimeter and each other; finite transforms; partitions running on to the east glass, south glazing on both sides of the fireplace, standing on the floor slab, in a frame of light oak inside and the house's cladding outside, and the master bedroom gable glazed from the chimney to the knee wall; Layout Updates' library replaces the dining alcove with bookshelves, a desk and a lounge chair, clear of the doorways, with or without the east façade; the arrival wall has upright slats in the house cladding; five renovations are offered, three set aside; the garden kitchen's sage island leaves the way past its end open; sage tall units and a fridge line the kitchen's south wall, and the dining set is centred in the glazed arm.`);
+console.log(`Passed: all ${1<<ids.length} renovation combinations across four floors; original scene and meadow restored; 50 panels clear skylights, perimeter and each other; finite transforms; partitions running on to the east glass, south glazing on both sides of the fireplace, standing on the floor slab, in a frame of light oak inside and the house's cladding outside, and the master bedroom and bathroom gable glazed from the chimney to each knee wall; Layout Updates' library replaces the dining alcove with bookshelves, a desk and a lounge chair, clear of the doorways, with or without the east façade; the arrival wall has upright slats in the house cladding; five renovations are offered, three set aside; the garden kitchen's sage island leaves the way past its end open; sage tall units and a fridge line the kitchen's south wall, and the dining set is centred in the glazed arm.`);
