@@ -121,13 +121,16 @@ class TracedBlend{
 class FinishedOutput extends OutputPass{
  constructor(){
   super();
-  Object.assign(this.uniforms,{uBalance:{value:new T.Vector3(1,1,1)},uLook:{value:new T.Vector2(1,1)},uGrain:{value:0},uSeed:{value:0},uP3:{value:0}});
+  Object.assign(this.uniforms,{uBalance:{value:new T.Vector3(1,1,1)},uLook:{value:new T.Vector3(1,1,0)},uGrain:{value:0},uSeed:{value:0},uP3:{value:0}});
   const patch=(shader:string,anchor:string,code:string)=>{if(!shader.includes(anchor))throw new Error(`output shader has no ${anchor}`);return shader.replace(anchor,code);};
   let shader=this.material.fragmentShader;
   // Linear sRGB to linear Display P3 (three's XYZ matrices), column by column.
-  shader=patch(shader,'uniform sampler2D tDiffuse;','uniform sampler2D tDiffuse;uniform vec3 uBalance;uniform vec2 uLook;uniform float uGrain;uniform float uSeed;uniform float uP3;const mat3 P3_FROM_SRGB=mat3(0.8225927,0.0331996,0.0170853,0.1775340,0.9667835,0.0723957,0.0000000,0.0000000,0.9103014);');
+  shader=patch(shader,'uniform sampler2D tDiffuse;','uniform sampler2D tDiffuse;uniform vec3 uBalance;uniform vec3 uLook;uniform float uGrain;uniform float uSeed;uniform float uP3;const mat3 P3_FROM_SRGB=mat3(0.8225927,0.0331996,0.0170853,0.1775340,0.9667835,0.0723957,0.0000000,0.0000000,0.9103014);');
   shader=patch(shader,'gl_FragColor = texture2D( tDiffuse, vUv );','gl_FragColor = texture2D( tDiffuse, vUv );gl_FragColor.rgb*=uBalance;');
-  shader=patch(shader,'#ifdef SRGB_TRANSFER',`{vec3 e=pow(clamp(gl_FragColor.rgb,0.0,1.0),vec3(1.0/2.2)),p=pow(e,vec3(uLook.x)),q=pow(1.0-e,vec3(uLook.x));
+  shader=patch(shader,'#ifdef SRGB_TRANSFER',`{vec3 e=pow(clamp(gl_FragColor.rgb,0.0,1.0),vec3(1.0/2.2));
+   // Shadow lift (look.ts, shadowLift), on luminance so that colours keep their hue.
+   float m=dot(e,vec3(0.2126,0.7152,0.0722)),f=1.0-m;e=min(e*(1.0+uLook.z*f*f*f*f),vec3(1.0));
+   vec3 p=pow(e,vec3(uLook.x)),q=pow(1.0-e,vec3(uLook.x));
    vec3 c=pow(p/max(p+q,vec3(1e-5)),vec3(2.2));float l=dot(c,vec3(0.2126,0.7152,0.0722));vec3 g=l+uLook.y*(c-l);if(uP3>0.5)g=P3_FROM_SRGB*g;gl_FragColor.rgb=max(vec3(0.0),g);}
   if(uGrain>0.0){
    // Two hashes summed: triangular noise in −1…1 (float only; the output pass compiles as GLSL ES 1.0).
@@ -140,7 +143,7 @@ class FinishedOutput extends OutputPass{
   #ifdef SRGB_TRANSFER`);
   this.material.fragmentShader=shader;
  }
- set(indoor:number){const f=finish(indoor);(this.uniforms.uBalance.value as T.Vector3).set(f.balance[0],f.balance[1],f.balance[2]);(this.uniforms.uLook.value as T.Vector2).set(f.contrast,f.saturation);return f;}
+ set(indoor:number){const f=finish(indoor);(this.uniforms.uBalance.value as T.Vector3).set(f.balance[0],f.balance[1],f.balance[2]);(this.uniforms.uLook.value as T.Vector3).set(f.contrast,f.saturation,f.lift);return f;}
 }
 
 /** Depth of field as a step of the chain (lens.ts). */

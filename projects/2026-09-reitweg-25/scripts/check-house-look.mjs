@@ -5,7 +5,7 @@ import {build} from 'esbuild';
 // Interiors have the finish of a photograph of a sunlit room: a warm white balance indoors, a gentle S-curve and more
 // colour, lighter corner shading, more bounced sunlight and the photographed timber and rug colours.
 await build({entryPoints:['lib/house-model/look.ts','lib/house-model/build-model.ts'],outdir:'tmp/look-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
-const {finish,sCurve}=await import('../tmp/look-check/look.mjs');
+const {finish,sCurve,shadowLift}=await import('../tmp/look-check/look.mjs');
 const luma=c=>.2126*c[0]+.7152*c[1]+.0722*c[2];
 const out=finish(0),inside=finish(1);
 assert.deepEqual(out.balance,[1,1,1],'outdoors keeps daylight white balance');
@@ -16,6 +16,11 @@ for(const f of [out,inside]){for(const x of [0,.5**2.2,1])assert(Math.abs(sCurve
 assert(inside.contrast>out.contrast&&inside.saturation>out.saturation,'interiors get more contrast and colour');
 assert(inside.occlusion<out.occlusion-.2,`corner shading is lighter indoors (${inside.occlusion} vs ${out.occlusion})`);
 const post=fs.readFileSync('lib/house-model/post.ts','utf8');assert(/finish\(/.test(post)&&/uBalance/.test(post)&&/uLook/.test(post),'the output pass applies the finish');
+// Indoors the shadow lift raises the side of a room the sun misses; black and the sunlit tones stay, and outdoors none.
+assert.equal(out.lift,0,'no shadow lift outdoors');
+assert(shadowLift(0,inside.lift)===0&&shadowLift(.25,inside.lift)>.33&&shadowLift(.9,inside.lift)-.9<.001,`the shadow lift raises dark tones only (0.25 → ${shadowLift(.25,inside.lift).toFixed(3)})`);
+for(let m=0;m<1;m+=.01)assert(shadowLift(m+.01,inside.lift)>shadowLift(m,inside.lift),'the shadow lift keeps tones in order');
+assert(/float m=dot\(e,vec3\(0\.2126,0\.7152,0\.0722\)\),f=1\.0-m;e=min\(e\*\(1\.0\+uLook\.z\*f\*f\*f\*f\),vec3\(1\.0\)\);/.test(post),'the output pass lifts luminance, keeping hue');
 const bounce=fs.readFileSync('lib/house-model/sun-bounce-core.ts','utf8'),reflectance=+(/REFLECTANCE=([\d.]+)/.exec(bounce)?.[1]??0),gain=1/(1-reflectance);assert(gain>1.4&&gain<2.2,`bounced sunlight stands in for further bounces (gain ${gain})`);
 // Extreme on a wide-gamut display draws in Display P3. three's output pass applies only the transfer curve, so the finish
 // converts the graded linear sRGB to linear P3 itself, before clamping: colours the grade saturates past sRGB stay

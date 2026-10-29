@@ -4,7 +4,7 @@ import {build} from 'esbuild';
 await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/static-batch.ts','lib/house-model/sun-bounce-core.ts','lib/house-model/sky-visibility.ts','lib/house-model/site-data.ts'],outdir:'tmp/bounce-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external'});
 const {buildHouseModel}=await import('../tmp/bounce-check/build-model.mjs');
 const {batchStatic}=await import('../tmp/bounce-check/static-batch.mjs');
-const {createTracer,smoothIntoAtlas,smooth,toAtlas,bounceGain}=await import('../tmp/bounce-check/sun-bounce-core.mjs');
+const {createTracer,smoothIntoAtlas,smooth,toAtlas,bounceGain,addTail}=await import('../tmp/bounce-check/sun-bounce-core.mjs');
 const {PROBE_GRID}=await import('../tmp/bounce-check/sky-visibility.mjs');
 const {planPoint}=await import('../tmp/bounce-check/site-data.mjs');
 // The house as the viewer traces it: opaque batches of the building, in the whole-house state.
@@ -32,7 +32,7 @@ assert(basement<room/10,`the basement stays dark (${basement.toFixed(5)})`);
 // The same sun from the west does not enter the east windows: the bounce follows the sun, not a uniform fill.
 const west=smoothIntoAtlas([tracer.shade(new T.Vector3(-1,.35,.1).normalize().toArray())],grid).light,a=probe(fx,2.3,fz),westRoom=.2126*west[a]+.7152*west[a+1]+.0722*west[a+2];
 assert(westRoom<room/3,`a west sun leaves the family room ceiling darker (${westRoom.toFixed(4)})`);
-// Extreme traces further bounces through the grid itself: every landing is lit by the previous bounce as the materials
+// Every preset that bakes traces further bounces through the grid itself: every landing is lit by the previous bounce as the materials
 // read it, and the next bounce is gathered from there. Each bounce is weaker than the last, light reaches points the
 // first bounce did not. Four bounces raise the family room ceiling more than the single bounce's factor (1/(1 − 0.4) ≈
 // 1.67) did: its white plaster returns more than the 0.4 the factor assumes for the house as a whole.
@@ -45,9 +45,21 @@ const sum={light:fields[0].light.map((_,i)=>fields.reduce((t,f)=>t+f.light[i],0)
 assert(lit(sum)>lit(fields[0])*1.05,`further bounces reach more of the house (${lit(fields[0])} → ${lit(sum)} points)`);
 const summed=toAtlas(sum,grid).light,ratio=(.2126*summed[a]+.7152*summed[a+1]+.0722*summed[a+2])/room;
 assert(ratio>1.67&&ratio<4,`four bounces on the family room ceiling: ${ratio.toFixed(2)}× the first`);
-assert(Math.abs(bounceGain(1)-1/(1-.4))<.01&&Math.abs(bounceGain(4)-(1+.4**4/.6))<1e-6,'the factor stands in only for bounces not traced');
+assert(Math.abs(bounceGain(1)-1/(1-.4))<.01&&bounceGain(4)===1,'the factor stands in for further bounces only after a single one');
+// After four traced bounces the rest are extrapolated cell by cell from the last two. Ten traced bounces stand in for all of
+// them: the extrapolation lands within 10% of them over the house, where one bounce and the old factor fell 20% or more
+// short, most on the far sides of rooms, which the first bounce barely reaches.
+const more=[...fields];for(let b=4;b<10;b++)more.push(smooth([tracer.bounce(more[b-1])],grid));
+const lumOf=(f,i)=>.2126*f.light[i]+.7152*f.light[i+1]+.0722*f.light[i+2];
+const extrapolated={light:sum.light.slice(),direction:sum.direction.slice()};addTail(extrapolated,fields[3],fields[2]);
+let cells=0,single=0,tail=0;
+for(let i=0;i<extrapolated.light.length;i+=4){const all=more.reduce((t,f)=>t+lumOf(f,i),0);if(all<2e-3)continue;cells++;single+=lumOf(fields[0],i)*bounceGain(1)/all;tail+=lumOf(extrapolated,i)/all;}
+single/=cells;tail/=cells;
+assert(single<.8,`one bounce and the factor fall short of ten bounces (${single.toFixed(2)})`);
+assert(Math.abs(tail-1)<.1,`four bounces and the extrapolated rest match ten (${tail.toFixed(2)})`);
 {const fs=await import('node:fs'),tiers=fs.readFileSync('lib/house-model/device-tier.ts','utf8'),worker=fs.readFileSync('lib/house-model/sun-bounce.worker.ts','utf8');
- assert(/extreme:\{[^}]*bounces:4/.test(tiers)&&/detailed:\{[^}]*bounces:1/.test(tiers),'Extreme traces four bounces, Detailed one');
+ assert(['extreme','detailed','balanced'].every(q=>new RegExp(`${q}:\\{[^}]*bounces:4`).test(tiers)),'every preset that bakes traces four bounces');
  assert(/bakeSunBounce\(.*tier\.sunBounce,tier\.bounces\)/.test(fs.readFileSync('lib/house-model/viewer.ts','utf8')),'the viewer asks for them');
- assert(/peers/.test(worker)&&/tracer\.bounce\(/.test(worker),'the workers pass bounces among themselves, off the page');}
-console.log(`Passed: morning sun bounces up to the family room ceiling (${room.toFixed(4)} per unit of sun, from below; ${westRoom.toFixed(4)} with a west sun) and not into the basement; traced ${shaded.probes.length} points in ${(traceMs/1000).toFixed(1)} s on one thread, lit in ${Math.round(shadeMs)} ms; on Extreme four bounces lift that ceiling ${ratio.toFixed(2)}×, each weaker than the last (${energies.slice(1).map((e,i)=>(e/energies[i]).toFixed(2)).join(', ')}), and reach ${lit(sum)-lit(fields[0])} more points.`);
+ assert(/peers/.test(worker)&&/tracer\.bounce\(/.test(worker),'the workers pass bounces among themselves, off the page');
+ assert(/if\(previous\)addTail\(total,field,previous\)/.test(worker),'the workers extrapolate the rest before sending the atlas');}
+console.log(`Passed: morning sun bounces up to the family room ceiling (${room.toFixed(4)} per unit of sun, from below; ${westRoom.toFixed(4)} with a west sun) and not into the basement; traced ${shaded.probes.length} points in ${(traceMs/1000).toFixed(1)} s on one thread, lit in ${Math.round(shadeMs)} ms; on Extreme four bounces lift that ceiling ${ratio.toFixed(2)}×, each weaker than the last (${energies.slice(1).map((e,i)=>(e/energies[i]).toFixed(2)).join(', ')}), and reach ${lit(sum)-lit(fields[0])} more points; with the rest extrapolated they come to ${tail.toFixed(2)}× ten bounces (one bounce and the factor: ${single.toFixed(2)}×).`);
