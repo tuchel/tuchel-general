@@ -7,11 +7,12 @@ await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/sola
 const {buildHouseModel}=await import('../tmp/renovation-check/build-model.mjs');
 const {solarPanels,solarRoofs,solarModule,roofSkylights}=await import('../tmp/renovation-check/solar-layout.mjs');
 const {renovations,renovationState,offered,offeredState}=await import('../tmp/renovation-check/renovation-data.mjs');
-// The panel offers seven renovations for now; the terrace dining, fireside lounge and solar stay in the model, set aside:
+// The panel offers six renovations for now; the terrace dining, fireside lounge, arrival wall (superseded by the front
+// garage) and solar stay in the model, set aside:
 // off with "All on" and when a link names them.
-assert.deepEqual(offered.map(r=>r.id),['kitchen','east','nookWindow','nook','front','garage','skylights'],'offered renovations');
-assert.deepEqual(offered.map(r=>r.title),['Winter Garden','East Façade Windows','Office Nook Window Expansion','Layout Updates','Arrival Wall','Front Garage','Guest Wing Skylights'],'short names in the Changes panel');
-for(const id of ['terrace','courtyard','solar'])assert.equal(offeredState()[id],false,`${id} stays off with All on`);
+assert.deepEqual(offered.map(r=>r.id),['kitchen','east','nookWindow','nook','garage','skylights'],'offered renovations');
+assert.deepEqual(offered.map(r=>r.title),['Winter Garden','East Façade Windows','Office Nook Window Expansion','Layout Updates','Front Garage','Guest Wing Skylights'],'short names in the Changes panel');
+for(const id of ['terrace','courtyard','front','solar'])assert.equal(offeredState()[id],false,`${id} stays off with All on`);
 // Looking closer at the arrival wall flies low over the far verge of the road, the wall square in front: an overview,
 // not an eye-level place, held close enough on a narrow screen to stay clear of the trees beyond the road.
 {const {viewpoints}=await import('../tmp/renovation-check/site-data.mjs'),wall=renovations.find(r=>r.id==='front'),v=viewpoints[wall.view];
