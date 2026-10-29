@@ -336,11 +336,13 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
    profile.push(new T.Vector2(0,underside(a[0])));const shape=new T.Shape(profile);
    const windows=kind==='main'&&index===2?[[-2.35,3.1,.9,1.9],[2.35,3.1,.9,1.9]]:kind==='main'&&index===0?[[-2.27,3.1,1.1,2.1],[2.21,3.1,1,2.1]]:kind==='guest'&&index===0?[[0,2.95,2,2.15]]:kind==='guest'&&index===4?[[0,3.05,2.4,2.25]]:[];
    const face=new T.Group();face.position.set(a[0],0,a[1]);face.rotation.y=-Math.atan2(dz,dx);g.add(face);
-   // The opened east façade glazes the master bedroom's gable (the main south gable, east of the chimney) instead of its window.
-   const eastGable=kind==='main'&&index===2,holes:T.Path[]=[];
+   // Master Bedroom & Bath Windows glaze the main south gable on both sides of the chimney, the master bedroom east of it
+   // and the master bathroom west of it, instead of their single windows. The gable as built is a group of its own.
+   const southGable=kind==='main'&&index===2,holes:T.Path[]=[],asBuilt=new T.Group();
+   if(southGable){asBuilt.name='south-gable-as-built';face.add(asBuilt);(originals.masterWindows??=[]).push(asBuilt);}
    for(const [x,y,w,h] of windows){const u=(x-a[0])/dx*len;const hole=new T.Path();hole.moveTo(u-w/2,y);hole.lineTo(u-w/2,y+h);hole.lineTo(u+w/2,y+h);hole.lineTo(u+w/2,y);hole.closePath();
     const start=face.children.length;box(face,u,y,0,w,h,.05,glass).name='gable-window';for(const offset of [-w/2,w/2])box(face,u+offset,y,0,.05,h,.25,m.dark);for(const dy of [0,h])box(face,u,y+dy,0,w,.05,.25,m.dark);
-    if(eastGable&&x>0)(originals.east??=[]).push(...face.children.slice(start));else holes.push(hole);shape.holes.push(hole);}
+    if(southGable)for(const o of face.children.slice(start))asBuilt.add(o);else holes.push(hole);shape.holes.push(hole);}
    // Rooms under the roof are plastered: line the inner face so the cladding never shows between wall head and ceiling.
    // The room side is whichever side of the face's midpoint lies inside the footprint (the guest wing is not convex).
    const probe=[(a[0]+b[0])/2-dz/len*.3,(a[1]+b[1])/2+dx/len*.3];let inside=false;
@@ -353,17 +355,21 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
     lining.translate(0,0,inward*.107);const inner=add(lining,m.plaster,face);inner.castShadow=false;inner.name=kind+'-roof-wall-lining-'+index;
     parent.attach(mesh);parent.attach(inner);return [mesh,inner];
    };
-   const original=skin(shape,face);
-   if(eastGable){
-    (originals.east??=[]).push(...original);const opened=new T.Group();opened.name='east-gable-glazing';opened.visible=false;face.add(opened);(additions.east??=[]).push(opened);
-    // From 15 cm beside the chimney to the knee wall, 5 cm above the floor to 3 m, and 12 cm under the sloped ceiling.
-    const sill=3.15,cap=6.1,west=.5,top=(x:number)=>Math.min(cap,ridge-rise*x/half-.045-CEILING-.12),east=(ridge-.045-CEILING-3.07-.55)*half/rise-.1,knee=(ridge-.045-CEILING-.12-cap)*half/rise;
-    const u=(x:number)=>(x-a[0])/dx*len,outline=[[west,sill],[east,sill],[east,top(east)],[knee,cap],[west,cap]].map(([x,y])=>new T.Vector2(u(x),y));
-    const glazed=new T.Shape(profile);glazed.holes.push(...holes,new T.Path(outline));skin(glazed,opened);
-    const pane=new T.ExtrudeGeometry(new T.Shape(outline),{depth:.03,bevelEnabled:false});pane.translate(0,0,-.015);add(pane,glass,opened).name='east-gable-glass';
-    const bar=(x1:number,y1:number,x2:number,y2:number)=>segment(opened,[u(x1),y1,0],[u(x2),y2,0],.07,m.dark);
-    outline.forEach((q,i)=>{const r=outline[(i+1)%outline.length];bar(a[0]+q.x*dx/len,q.y,a[0]+r.x*dx/len,r.y);});
-    const bays=Math.round((east-west)/1.1);for(let i=1;i<bays;i++){const x=west+(east-west)*i/bays;bar(x,sill,x,top(x));}
+   skin(shape,southGable?asBuilt:face);
+   if(southGable){
+    const opened=new T.Group();opened.name='south-gable-glazing';opened.visible=false;face.add(opened);(additions.masterWindows??=[]).push(opened);
+    // Each side from 15 cm beside the chimney to its knee wall (0.55 m high to the east, 0.4 m to the west), 5 cm above
+    // the floor to 3 m, and 12 cm under the sloped ceiling.
+    const sill=3.15,cap=6.1,top=(x:number)=>Math.min(cap,ridge-rise*Math.abs(x)/half-.045-CEILING-.12),knee=(ridge-.045-CEILING-.12-cap)*half/rise;
+    const u=(x:number)=>(x-a[0])/dx*len,bar=(x1:number,y1:number,x2:number,y2:number)=>segment(opened,[u(x1),y1,0],[u(x2),y2,0],.07,m.dark);
+    const sides=[{side:1,inner:.5,kneeHeight:.55,name:'master-bedroom-gable-glass'},{side:-1,inner:-.6,kneeHeight:WEST_KNEE,name:'master-bathroom-gable-glass'}].map(({side,inner,kneeHeight,name})=>{
+     const outer=side*((ridge-.045-CEILING-3.07-kneeHeight)*half/rise-.1),points=[[inner,sill],[outer,sill],[outer,top(outer)],[side*knee,cap],[inner,cap]];
+     return {inner,outer,name,outline:(side>0?points:points.reverse()).map(([x,y])=>new T.Vector2(u(x),y))};});
+    const glazed=new T.Shape(profile);glazed.holes.push(...holes,...sides.map(g=>new T.Path(g.outline)));skin(glazed,opened);
+    for(const {inner,outer,name,outline} of sides){
+     const pane=new T.ExtrudeGeometry(new T.Shape(outline),{depth:.03,bevelEnabled:false});pane.translate(0,0,-.015);add(pane,glass,opened).name=name;
+     outline.forEach((q,i)=>{const r=outline[(i+1)%outline.length];bar(a[0]+q.x*dx/len,q.y,a[0]+r.x*dx/len,r.y);});
+     const bays=Math.round(Math.abs(outer-inner)/1.1);for(let i=1;i<bays;i++){const x=inner+(outer-inner)*i/bays;bar(x,sill,x,top(x));}}
    }
   }
   // The east roof has three groups and one high window; the photos rule out an even row.
@@ -605,7 +611,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // A renovation whose parts each sit in a group of their own (its group and its additions), as do its originals, toggles
  // outside the states: all those groups stay shown while states are enumerated, and the batches parented to them follow
  // their visibility, on top of the states of any group around them (the east façade's centred dining table).
- const renovationIds=Object.keys(renovationState()) as RenovationId[],grouped=new Set<RenovationId>(['nook','nookWindow','garage','skylights']);
+ const renovationIds=Object.keys(renovationState()) as RenovationId[],grouped=new Set<RenovationId>(['masterWindows','nook','nookWindow','garage','skylights']);
  const stateIds=renovationIds.filter(id=>!grouped.has(id)),combinations=1<<stateIds.length;
  const toggled=[...grouped].flatMap(id=>[renovation.groups[id],...(originals[id]??[]),...(additions[id]??[])]);
  const stateOf=(level:Level,state:RenovationState)=>levels.indexOf(level)*combinations+stateIds.reduce((bits,id,i)=>bits|(state[id]?1<<i:0),0);

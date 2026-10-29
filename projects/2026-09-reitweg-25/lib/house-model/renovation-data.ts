@@ -1,7 +1,8 @@
 import type {Level,Viewpoint} from './site-data';
 export const renovations = [
  {id:'kitchen',title:'Winter Garden',detail:'The full west + north volume, garden dining, breakfast bar and wider cooking aisle.',view:'arrival',center:[-5.7,-7.5],span:16},
- {id:'east',title:'East Façade Windows',detail:'Floor-to-ceiling glass, a private bathroom band and a south wall glazed on both sides of the fireplace.',view:'east',center:[1,1],span:25},
+ {id:'east',title:'Lower East Façade Glass',detail:'On the ground floor, floor-to-ceiling glass, a private bathroom band and a south wall glazed on both sides of the fireplace.',view:'east',center:[1,1],span:25},
+ {id:'masterWindows',title:'Master Bedroom & Bath Windows',detail:'Upstairs, the south gable is glazed on both sides of the chimney: the master bedroom’s from the chimney to the east knee wall and the master bathroom’s from the chimney to the west knee wall, each from just above the floor to 3 m and under the roof slope, in place of their single windows.',view:'masterGable',center:[0,9.6],span:15},
  {id:'nookWindow',title:'Office Nook Window Expansion',detail:'The dining alcove’s window and garden door become one fixed pane, 2.7 m wide and 2.2 m high from the floor, framed in oak inside and black outside.',view:'east',center:[3.3,1.3],span:9},
  {id:'nook',title:'Layout Updates',detail:'The garden bedroom becomes a family room with an 85-inch television, an L-shaped couch and an armchair. The dining alcove becomes a library with a desk on the hall wall and a lounge chair at the window. The living room gets a corner L-shaped couch around the glass table, a second lounge chair, a rug before the fire and a centered dining table.',view:'east',center:[.4,1.4],span:23},
  {id:'terrace',title:'Dining on the east terrace',detail:'A generous stone terrace, long oak table and a little shade.',view:'east',center:[7.5,5.8],span:14},
@@ -13,7 +14,7 @@ export const renovations = [
 ] as const;
 export type RenovationId=typeof renovations[number]['id'];
 export type RenovationState=Record<RenovationId,boolean>;
-export const renovationState=(enabled=false):RenovationState=>({kitchen:enabled,east:enabled,nookWindow:enabled,nook:enabled,terrace:enabled,courtyard:enabled,front:enabled,garage:enabled,skylights:enabled,solar:enabled});
+export const renovationState=(enabled=false):RenovationState=>({kitchen:enabled,east:enabled,masterWindows:enabled,nookWindow:enabled,nook:enabled,terrace:enabled,courtyard:enabled,front:enabled,garage:enabled,skylights:enabled,solar:enabled});
 /** Kept in the model but not offered for now: out of the panel, and off with "All on" or when a link names them. */
 export const setAside:ReadonlySet<RenovationId>=new Set<RenovationId>(['terrace','courtyard','solar']);
 export const offered=renovations.filter(r=>!setAside.has(r.id));
