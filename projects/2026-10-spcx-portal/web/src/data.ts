@@ -25,6 +25,7 @@ export const SRC = {
   close1021: { label: 'StockAnalysis, SPCX quote, Oct 21, 2026 close', url: 'https://stockanalysis.com/stocks/spcx/' },
   bofaQ3: { label: 'Investing.com, BofA raises SpaceX target to $275, Oct 22, 2026', url: 'https://www.investing.com/news/analyst-ratings/bofa-raises-spacex-stock-price-target-to-275-on-launch-growth-93CH-4966106' },
   bernsteinAug: { label: 'KuCoin News, Bernstein raises SpaceX target to $248, Aug 7, 2026', url: 'https://www.kucoin.com/news/flash/bernstein-raises-spacex-target-price-to-248' },
+  bernsteinOct: { label: 'ROIC News, Bernstein lifts SpaceX target to $268, Oct 26, 2026', url: 'https://www.roic.ai/news/bernstein-lifts-spacex-price-target-to-268-on-ai-computing-bet-sees-82-upside-10-26-2026' },
   mbRatings: { label: 'MarketBeat, SPCX analyst ratings history', url: 'https://www.marketbeat.com/stocks/NASDAQ/SPCX/forecast/' },
   xai: { label: 'KraneShares, xAI–SpaceX merger complete, Feb 11, 2026', url: 'https://kraneshares.com/xai-spacex-merger-complete-spacex-ipo-timeline-intact-how-agix-fits-in/' },
   ipoTimeline: { label: 'Wikipedia, Initial public offering of SpaceX', url: 'https://en.wikipedia.org/wiki/Initial_public_offering_of_SpaceX' },
@@ -207,6 +208,7 @@ const CLOSES = `
 2026-10-26 146.90
 2026-10-27 148.58
 2026-10-28 145.23
+2026-10-29 143.89
 `;
 
 /** `intraday` marks a price taken during the session, before the close. */
@@ -248,7 +250,7 @@ export const FIRMS: Firm[] = [
   { firm: 'Clear Street', rating: 'Not stated', points: [pt('2026-10-20', 217, SRC.q3Moves), pt('2026-10-21', 248, SRC.q3Moves)] },
   { firm: 'Goldman Sachs', rating: 'Buy', points: [pt('2026-07-07', 205, SRC.coverage), pt('2026-10-20', 230, SRC.gsQ3), pt('2026-10-21', 245, SRC.gsQ3)] },
   { firm: 'Citi', rating: 'Buy', points: [pt('2026-07-07', 200, SRC.coverageMs), pt('2026-10-20', 200, SRC.q3MovesKucoin), pt('2026-10-21', 240, SRC.q3MovesKucoin)] },
-  { firm: 'Bernstein', rating: 'Outperform', points: [pt('2026-07-07', 239, SRC.coverage), pt('2026-08-07', 248, SRC.bernsteinAug)] },
+  { firm: 'Bernstein', rating: 'Outperform', points: [pt('2026-07-07', 239, SRC.coverage), pt('2026-08-07', 248, SRC.bernsteinAug), pt('2026-10-26', 268, SRC.bernsteinOct)] },
   { firm: 'Bank of America', rating: 'Buy', points: [pt('2026-07-07', 235, SRC.coverage), pt('2026-10-22', 275, SRC.bofaQ3)] },
   { firm: 'UBS', rating: 'Buy', points: [pt('2026-07-07', 210, SRC.coverage), pt('2026-10-20', 210, SRC.q3MovesKucoin), pt('2026-10-21', 230, SRC.q3MovesKucoin)] },
   { firm: 'RBC Capital Markets', rating: 'Outperform', points: [pt('2026-07-07', 225, SRC.coverage)] },
