@@ -4,7 +4,7 @@ import {build} from 'esbuild';
 // Nothing may break through a roof: seen from above, every wall, window frame and beam lies
 // under the roof surface, except the parts meant to stand on it (ridge caps, eave fascias, the chimney and the flue up the
 // north gable).
-await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/site-data.ts'],outdir:'tmp/roof-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
+await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/site-data.ts','lib/house-model/renovations.ts','lib/house-model/renovation-data.ts'],outdir:'tmp/roof-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
 const {buildHouseModel}=await import('../tmp/roof-check/build-model.mjs');
 const onRoof=new Set(['roof-ridge-cap','roof-eave-fascia','chimney','flue-pipe','flue-cap']);
 const {planPoint:p}=await import('../tmp/roof-check/site-data.mjs');
@@ -82,6 +82,15 @@ for(const realism of [false,true]){
  const guest=[[116,535],[475,573],[461,668],[367,671],[316,1228],[49,1208]].map(([x,z])=>p(x,z)),[w,n]=p(795,182),[e,s]=p(1229,877);
  const linkPlan=[[459,574],[811,574],[811,672],[367,671],[370,647],[449,646]].map(([x,z])=>p(x,z));
  model.root.traverse(o=>{if(o.name!=='downpipe')return;const v=o.getWorldPosition(new T.Vector3());assert(!(v.x>w&&v.x<e&&v.z>n&&v.z<s)&&!within(v.x,v.z,guest)&&!within(v.x,v.z,linkPlan),`downpipe indoors at x ${v.x.toFixed(1)}, z ${v.z.toFixed(1)}`);});
+ // With the Winter Garden on, no downpipe or flue shows inside its glass room (a downpipe at the north end of the main
+ // roof's west eave and the north gable's flue stood through it); the flue leaves the wall above the glass roof. With it
+ // off, that downpipe and the full-height flue are back outside the kitchen's corner.
+ const {winterGardenOutline:garden}=await import('../tmp/roof-check/renovations.mjs'),{renovationState}=await import('../tmp/roof-check/renovation-data.mjs');
+ const inGarden=on=>{model.setRenovations({...renovationState(),kitchen:on});model.root.updateMatrixWorld(true);const found=[];model.root.traverse(o=>{if(!['downpipe','flue-pipe'].includes(o.name)||!model.rendered(o))return;if(o.name==='flue-pipe'&&new T.Box3().setFromObject(o).min.y>2.95)return;const v=o.getWorldPosition(new T.Vector3());if(within(v.x,v.z,garden))found.push(`x ${v.x.toFixed(1)}, z ${v.z.toFixed(1)}`);});return found;};
+ assert.deepEqual(inGarden(true),[],'no downpipe stands in the Winter Garden');
+ assert.equal(inGarden(false).length,realism?2:1,'the downpipe and flue at the kitchen corner stay without the Winter Garden');
+ {model.setRenovations({...renovationState(),kitchen:true});model.root.updateMatrixWorld(true);const flue=[];model.root.traverse(o=>{if(o.name==='flue-cap'&&model.rendered(o))flue.push(o);});assert.equal(flue.length,1,'the flue still rises over the roof with the Winter Garden');}
+ model.setRenovations(renovationState());
  model.dispose();
 }
-console.log('Passed: no wall, window or beam breaks through a roof, the entrance roof stops at the main and guest roofs, rafters keep clear of roof windows and stay above the upper floors inside the walls, none under the guest roof, gable windows show whole, and no downpipe stands indoors, in either detail mode.');
+console.log('Passed: no wall, window or beam breaks through a roof, the entrance roof stops at the main and guest roofs, rafters keep clear of roof windows and stay above the upper floors inside the walls, none under the guest roof, gable windows show whole, and no downpipe stands indoors and neither a downpipe nor the flue in the Winter Garden, in either detail mode.');

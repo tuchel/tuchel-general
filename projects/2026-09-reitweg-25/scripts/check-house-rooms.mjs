@@ -10,7 +10,7 @@ import {build} from 'esbuild';
 // proud of the wall with a firebrick-lined firebox in a smooth limestone surround, a dark slate hearth and a sunburst
 // mirror; linen curtains either side of both south windows. Curtains and fittings take the house's shadows. In the gallery: a low knee wall
 // under a deep spruce shelf of books, stacks of books below, rafters over it and twin spotlights on the slope.
-await build({entryPoints:['lib/house-model/build-model.ts'],outdir:'tmp/rooms-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
+await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/renovation-data.ts'],outdir:'tmp/rooms-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
 const {buildHouseModel}=await import('../tmp/rooms-check/build-model.mjs');
 const lightness=m=>m.color.getHSL({h:0,s:0,l:0},T.SRGBColorSpace).l;
 for(const realism of [false,true]){
@@ -53,6 +53,10 @@ for(const realism of [false,true]){
   const lights=named('kitchen-downlight');assert(lights.length>=6&&lights.every(b=>b.max.y>2.75&&b.min.y>2.55),`black cylinder lights at the kitchen ceiling (${lights.length})`);
   const pendants=named('kitchen-pendant');assert(pendants.length===2&&pendants.every(b=>Math.abs((b.min.z+b.max.z)/2+8.07)<.3&&b.min.y>1.6&&b.min.y<1.9),'two pendants over the breakfast table');
   const drapes=named('kitchen-window-curtain');assert(drapes.length===2&&drapes.some(b=>b.max.x<-4.17)&&drapes.some(b=>b.min.x>-3.03)&&drapes.every(b=>b.min.z>-9.265&&b.min.y<.9),'curtains either side of the breakfast window');
+  // The Winter Garden opens the kitchen up: its window's curtains and their rod go with it.
+  {const {renovationState}=await import('../tmp/rooms-check/renovation-data.mjs'),on=()=>{const list=[];root.traverse(o=>{if(/^kitchen-(window-curtain|curtain-rod)$/.test(o.name)&&model.rendered(o))list.push(o);});return list.length;};
+   model.setRenovations({...renovationState(),kitchen:true});assert.equal(on(),0,'no kitchen curtains with the Winter Garden');
+   model.setRenovations(renovationState());assert.equal(on(),3,'the kitchen curtains and rod without the Winter Garden');}
   // The hearth: dark slate before the fireplace, about 1.9 m wide and up to 0.7 m deep.
   const hearth=root.getObjectByName('living-hearth');assert(hearth,'the hearth');const h=new T.Box3().setFromObject(hearth),hs=h.getSize(new T.Vector3());
   assert(lightness(hearth.material)<.35,`the hearth is dark slate (lightness ${lightness(hearth.material).toFixed(2)})`);

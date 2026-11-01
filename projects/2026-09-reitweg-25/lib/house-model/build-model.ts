@@ -16,7 +16,7 @@ import {buildEastGarden,EAST_GARDEN_TREES} from './east-garden';
 import {buildNorthGarden} from './north-garden';
 import {furnishHouse} from './interiors';
 import {roofSkylights,guestSkylightsAdded} from './solar-layout';
-import {buildRenovations} from './renovations';
+import {buildRenovations,winterGardenOutline} from './renovations';
 import {renovationState,type RenovationId,type RenovationState} from './renovation-data';
 import {planPoint as p,sitePoint as s,plotOutline,treePositions,MEADOW_TREES,guestRoofFrame,GUEST_ROOF,UPPER_PLAN_X_OFFSET,BASEMENT_PLAN_X_OFFSET,PLAN_SCALE,type Level,type Region} from './site-data';
 import {basementStairWell,hallStairWell,HALL_WELL,buildBasementStair,buildLightWells,BASEMENT_WINDOWS} from './site-openings';
@@ -322,7 +322,9 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
    else{const mesh=box(g,side*half/2,(eave+ridge)/2-.075,0,span,.15,length,m.roof,'main');mesh.rotation.z=-side*slope;mesh.name=kind+'-roof-slope-'+side;outline(mesh);}
    box(g,side*half,eave-.06,0,.14,.18,length,m.edge).name='roof-eave-fascia';}
   // A downpipe or gutter never stands inside a building: test eave points against the main and guest footprints.
-  if(realistic)roofTrim(g,half,length,eave,(side,z)=>{const lx=side*(half-.1),x=cx+lx*Math.cos(rotation)+z*Math.sin(rotation),wz=cz-lx*Math.sin(rotation)+z*Math.cos(rotation);return !indoors(x,wz);});
+  // One that would stand inside the Winter Garden goes when that renovation is on.
+  const world=(side:number,z:number)=>{const lx=side*(half-.1);return [cx+lx*Math.cos(rotation)+z*Math.sin(rotation),cz-lx*Math.sin(rotation)+z*Math.cos(rotation)] as const;};
+  if(realistic)roofTrim(g,half,length,eave,(side,z)=>!indoors(...world(side,z)),(side,z)=>within(...world(side,z),winterGardenOutline)?'kitchen':undefined);
   // Close the whole upper envelope on the actual wall planes. Roof eaves
   // overhang these walls; gable faces must never be placed at the roof ends.
   const outlinePoints=footprint??[[W,N],[E,N],[E,S],[W,S]];
@@ -519,10 +521,18 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // A black flue pipe climbs the north gable 0.8 m from the north-west corner, 12 cm off the cladding on brackets, through
  // the verge to a metre above the roof beside it (owner photograph from the north-west corner; its top is estimated).
  {const flue=new T.Group();flue.name='north-gable-flue';roofs.add(flue);const black=material('#4b4e4f','#2c2e2f',.5),x=-5.3,z=-9.715-.12-.1,top=2.95+(6.55-5.3)*(8-2.95)/6.55+1;
+  // The Winter Garden's glass room takes in the foot of the gable: there the flue leaves the wall above its glass roof
+  // (2.94 m at its glazing bars) through a short elbow, and the run below goes with the house as it is.
+  const asBuilt=new T.Group();asBuilt.name='flue-as-built';flue.add(asBuilt);(originals.kitchen??=[]).push(asBuilt);
+  const above=new T.Group();above.name='flue-above-winter-garden';above.visible=false;flue.add(above);(additions.kitchen??=[]).push(above);
   const pipe=new T.Mesh(new T.CylinderGeometry(.1,.1,top-.3,20),black);pipe.position.set(x,.3+(top-.3)/2,z);pipe.name='flue-pipe';
+  const foot=3.1,upperPipe=new T.Mesh(new T.CylinderGeometry(.1,.1,top-foot,20),black);upperPipe.position.set(x,foot+(top-foot)/2,z);upperPipe.name='flue-pipe';
+  const elbow=new T.Mesh(new T.CylinderGeometry(.1,.1,.18,20),black);elbow.rotation.x=Math.PI/2;elbow.position.set(x,foot,z+.09);elbow.name='flue-pipe';
   const cap=new T.Mesh(new T.ConeGeometry(.17,.12,20),black);cap.position.set(x,top+.14,z);cap.name='flue-cap';
-  for(const o of [pipe,cap]){o.castShadow=true;o.receiveShadow=true;flue.add(o);}
-  for(const y of [1,2.2,3.4])box(flue,x,y,z+.11,.04,.04,.14,black).name='flue-bracket';}
+  asBuilt.add(pipe);above.add(upperPipe,elbow);flue.add(cap);
+  for(const y of [1,2.2])box(asBuilt,x,y,z+.11,.04,.04,.14,black).name='flue-bracket';
+  box(flue,x,3.4,z+.11,.04,.04,.14,black).name='flue-bracket';
+  flue.traverse(o=>{if(o instanceof T.Mesh){o.castShadow=true;o.receiveShadow=true;}});}
  // Fine cladding rhythm, deliberately restrained in the pale model finish.
  const slats=new T.Group();ground.add(slats);for(let z=N;z<S;z+=.23){for(const x of [W-.025,E+.025]){const bar=box(slats,x,2.4,z,.035,.38,.025,m.wood);bar.castShadow=false;if(x>0)(originals.east??=[]).push(bar);else if(z<kitchenSouth)(originals.kitchen??=[]).push(bar);}}
  // Low-poly crowns, open trunks and gentle variation, fixed to the source planting plan.
@@ -592,8 +602,9 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
   box(ceilings,(west-6.75)/2,ridge-.08,mid,-6.75-west-.6,.03,.04,m.dark).name='link-light-track';
   for(let x=west+1;x<-6.75;x+=1.2){const spot=add(cylinderGeo,m.dark,ceilings);spot.scale.set(.035,.12,.035);spot.position.set(x,ridge-.16,mid);spot.name='link-spot';}}
  const detail=realistic?architecturalDetails(ground,ceilings):undefined;
- // Details added after the renovations were collected, such as the family-room curtains, join them here.
- ground.getObjectByName('photo-led-interior-details')?.traverse(o=>{const id=o.userData.replacedBy as RenovationId|undefined;if(id)(originals[id]??=[]).push(o);});
+ // Details added after the renovations were collected, such as the family-room curtains, join them here, as do the
+ // downpipes on the roofs that a renovation builds around.
+ for(const part of [ground.getObjectByName('photo-led-interior-details'),roofs])part?.traverse(o=>{const id=o.userData.replacedBy as RenovationId|undefined;if(id)(originals[id]??=[]).push(o);});
  // Roofs-on views still contain the real upper-floor furnishings and gallery.
  // Omit the cutaway's duplicated lower hall and stairs; the ground model supplies those.
  if(realistic){upper.updateMatrixWorld(true);upper.traverse(o=>{if(!(o instanceof T.Mesh))return;let parent:T.Object3D|null=o;while(parent&&parent!==upper){if(parent.name.includes('stair'))return;parent=parent.parent;}if(new T.Box3().setFromObject(o).min.y>=2.85)o.userData.alsoExterior=true;});}

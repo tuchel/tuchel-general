@@ -68,12 +68,14 @@ export function architecturalDetails(ground:T.Group,ceilings:T.Group){
   const stem=new T.Mesh(new T.CylinderGeometry(.006,.006,.95,6),brass);stem.position.y=2.315;pendant.add(stem);
   const shade=new T.Mesh(new T.CylinderGeometry(.12,.12,.008,24),brass);shade.position.y=1.83;pendant.add(shade);
   const bulb=new T.Mesh(new T.SphereGeometry(.055,16,10),emit);bulb.position.y=1.77;pendant.add(bulb);lamps.push(bulb);}
+ // The Winter Garden takes this window and its curtains away (renovations.ts).
+ const kitchenCurtains=new T.Group();kitchenCurtains.name='kitchen-window-curtains';kitchenCurtains.userData.replacedBy='kitchen';group.add(kitchenCurtains);
  for(const x of [-4.42,-2.78]){
   const geometry=new T.PlaneGeometry(.4,1.6,24,10);const pos=geometry.attributes.position;
   for(let i=0;i<pos.count;i++){const u=pos.getX(i),y=pos.getY(i);pos.setZ(i,.045*Math.sin(u*65)*(.5+.5*Math.abs(y+.3))+.012*Math.cos(y*3+u*4));}geometry.computeVertexNormals();
-  const c=new T.Mesh(geometry,linen);c.position.set(x,1.65,-9.185);c.castShadow=true;c.name='kitchen-window-curtain';group.add(c);
+  const c=new T.Mesh(geometry,linen);c.position.set(x,1.65,-9.185);c.castShadow=true;c.name='kitchen-window-curtain';kitchenCurtains.add(c);
  }
- box(group,-3.6,2.45,-9.2,2.3,.02,.02,dark);
+ box(kitchenCurtains,-3.6,2.45,-9.2,2.3,.02,.02,dark).name='kitchen-curtain-rod';
  // Low trim follows wall segments, keeping every doorway open.
  const walls:T.Mesh[]=[];ground.traverse(o=>{if(o instanceof T.Mesh&&o.userData.height>2&&o.material instanceof T.MeshStandardMaterial&&o.material.userData.timber==='#e9e4d9')walls.push(o);});
  for(const wall of walls){const trim=box(group,wall.position.x,.14,wall.position.z,wall.scale.x,.075,.2,skirting);trim.rotation.copy(wall.rotation);}
