@@ -7,12 +7,18 @@ await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/sola
 const {buildHouseModel}=await import('../tmp/renovation-check/build-model.mjs');
 const {solarPanels,solarRoofs,solarModule,roofSkylights}=await import('../tmp/renovation-check/solar-layout.mjs');
 const {renovations,renovationState,offered,offeredState}=await import('../tmp/renovation-check/renovation-data.mjs');
-// The panel offers seven renovations for now; the terrace dining, fireside lounge, arrival wall (superseded by the front
+// The panel offers eight renovations (two of them Winter Gardens, one at a time) for now; the terrace dining, fireside lounge, arrival wall (superseded by the front
 // garage) and solar stay in the model, set aside:
 // off with "All on" and when a link names them.
-assert.deepEqual(offered.map(r=>r.id),['kitchen','east','masterWindows','nookWindow','nook','garage','skylights'],'offered renovations');
-assert.deepEqual(offered.map(r=>r.title),['Winter Garden','Lower East Façade Glass','Master Bedroom & Bath Windows','Office Nook Window Expansion','Layout Updates','Front Garage','Guest Wing Skylights'],'short names in the Changes panel');
-for(const id of ['terrace','courtyard','front','solar'])assert.equal(offeredState()[id],false,`${id} stays off with All on`);
+assert.deepEqual(offered.map(r=>r.id),['kitchen','catslide','east','masterWindows','nookWindow','nook','garage','skylights'],'offered renovations');
+assert.deepEqual(offered.map(r=>r.title),['Winter Garden · Glass','Winter Garden · Zinc Roof','Lower East Façade Glass','Master Bedroom & Bath Windows','Office Nook Window Expansion','Layout Updates','Front Garage','Guest Wing Skylights'],'short names in the Changes panel');
+for(const id of ['terrace','courtyard','front','solar','catslide'])assert.equal(offeredState()[id],false,`${id} stays off with All on`);
+// The Zinc Roof is the Winter Garden with its other roof: a link naming it turns the Winter Garden on too, and the two tiles
+// are one at a time.
+{const {toggled,shownOn}=await import('../tmp/renovation-check/renovation-data.mjs'),zinc=offeredState(['catslide']);
+ assert(zinc.kitchen&&zinc.catslide,'a Zinc Roof link brings its Winter Garden');assert(!shownOn(zinc,'kitchen')&&shownOn(zinc,'catslide'),'only the Zinc Roof tile shows on');
+ const glass=toggled(zinc,'kitchen');assert(glass.kitchen&&!glass.catslide,'the glass tile swaps the roof');
+ assert.deepEqual([toggled(glass,'kitchen'),toggled(zinc,'catslide')].map(s=>[s.kitchen,s.catslide]),[[false,false],[false,false]],'either tile turns the Winter Garden off');}
 // Looking closer at the arrival wall flies low over the far verge of the road, the wall square in front: an overview,
 // not an eye-level place, held close enough on a narrow screen to stay clear of the trees beyond the road.
 {const {viewpoints}=await import('../tmp/renovation-check/site-data.mjs'),wall=renovations.find(r=>r.id==='front'),v=viewpoints[wall.view];
@@ -32,6 +38,7 @@ for(let bits=0;bits<1<<ids.length;bits++){
   for(const id of ids){const group=model.root.getObjectByName('renovation-'+id);assert(group);assert.equal(visible(group),state[id]&&level!=='basement',`${bits}/${level}/${id}`);}
   assert.equal(visible(model.root.getObjectByName('renovation-solar-roofs')),state.solar&&['exterior','upper'].includes(level));
   assert.equal(visible(model.root.getObjectByName('renovation-kitchen-roof')),state.kitchen&&['exterior','upper'].includes(level));
+  assert.equal(visible(model.root.getObjectByName('renovation-catslide-roof')),state.kitchen&&state.catslide&&['exterior','upper'].includes(level));
   model.root.traverse(o=>{if(o.userData.replacedBy)assert.equal(o.visible,!state[o.userData.replacedBy]);});
  }
 }
