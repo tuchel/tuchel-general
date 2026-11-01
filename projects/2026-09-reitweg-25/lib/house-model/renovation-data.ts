@@ -1,6 +1,7 @@
 import type {Level,Viewpoint} from './site-data';
 export const renovations = [
- {id:'kitchen',title:'Winter Garden',detail:'The full west + north volume, garden dining, breakfast bar and wider cooking aisle.',view:'arrival',center:[-5.7,-7.5],span:16},
+ {id:'kitchen',title:'Winter Garden · Glass',detail:'The full west + north volume, garden dining, breakfast bar and wider cooking aisle, under a glass roof, its walls one pane of glass to each face, meeting glass to glass at the corners.',view:'arrival',center:[-5.7,-7.5],span:16},
+ {id:'catslide',title:'Winter Garden · Zinc Roof',detail:'The same Winter Garden under the main roof carried on unbroken over it, flattened to 10° at the old eave, in dark standing-seam zinc and wrapping round to the north with a hip: one eave line at 2.51 m, glass to 2.39 m under a dark timber head, the ceiling lined in oak.',view:'arrival',center:[-5.7,-7.5],span:16},
  {id:'east',title:'Lower East Façade Glass',detail:'On the ground floor, floor-to-ceiling glass, a private bathroom band and a south wall glazed on both sides of the fireplace.',view:'east',center:[1,1],span:25},
  {id:'masterWindows',title:'Master Bedroom & Bath Windows',detail:'Upstairs, the south gable is glazed on both sides of the chimney: the master bedroom’s from the chimney to the east knee wall and the master bathroom’s from the chimney to the west knee wall, each from just above the floor to 3 m and under the roof slope, in place of their single windows.',view:'masterGable',center:[0,9.6],span:15},
  {id:'nookWindow',title:'Office Nook Window Expansion',detail:'The dining alcove’s window and garden door become one fixed pane, 2.7 m wide and 2.2 m high from the floor, framed in oak inside and black outside.',view:'east',center:[3.3,1.3],span:9},
@@ -14,11 +15,19 @@ export const renovations = [
 ] as const;
 export type RenovationId=typeof renovations[number]['id'];
 export type RenovationState=Record<RenovationId,boolean>;
-export const renovationState=(enabled=false):RenovationState=>({kitchen:enabled,east:enabled,masterWindows:enabled,nookWindow:enabled,nook:enabled,terrace:enabled,courtyard:enabled,front:enabled,garage:enabled,skylights:enabled,solar:enabled});
+export const renovationState=(enabled=false):RenovationState=>({kitchen:enabled,catslide:enabled,east:enabled,masterWindows:enabled,nookWindow:enabled,nook:enabled,terrace:enabled,courtyard:enabled,front:enabled,garage:enabled,skylights:enabled,solar:enabled});
 /** Kept in the model but not offered for now (the arrival wall is superseded by the front garage): out of the panel, and off with "All on" or when a link names them. */
 export const setAside:ReadonlySet<RenovationId>=new Set<RenovationId>(['terrace','courtyard','front','solar']);
 export const offered=renovations.filter(r=>!setAside.has(r.id));
-/** Offered renovations switched on: all of them, or only those named (a link's `renovations` list). */
-export const offeredState=(ids?:readonly string[]):RenovationState=>({...renovationState(),...Object.fromEntries(offered.filter(r=>!ids||ids.includes(r.id)).map(r=>[r.id,true]))});
+/** The two Winter Gardens share one room: the Zinc Roof version is the Winter Garden (`kitchen`) with `catslide` on, so
+ * everything the Winter Garden changes follows either. The panel shows them as two tiles, one on at a time. */
+export const winterGardenNormal=(state:RenovationState):RenovationState=>state.catslide?{...state,kitchen:true}:state;
+/** Whether a tile shows as on: the glass Winter Garden is on only while the Zinc Roof is off. */
+export const shownOn=(state:RenovationState,id:RenovationId)=>id==='kitchen'?state.kitchen&&!state.catslide:state[id];
+/** The state after a tile is pressed: either Winter Garden turns the other off. */
+export const toggled=(state:RenovationState,id:RenovationId):RenovationState=>{const on=!shownOn(state,id);
+ return id==='kitchen'?{...state,kitchen:on,catslide:false}:id==='catslide'?{...state,kitchen:on,catslide:on}:{...state,[id]:on};};
+/** Offered renovations switched on: all of them (with the glass Winter Garden), or only those named (a link's `renovations` list). */
+export const offeredState=(ids?:readonly string[]):RenovationState=>winterGardenNormal({...renovationState(),...Object.fromEntries(offered.filter(r=>ids?ids.includes(r.id):r.id!=='catslide').map(r=>[r.id,true]))});
 export const renovationVisibleOn=(level:Level)=>level==='exterior'||level==='ground';
 export function renovationView(id:RenovationId):Viewpoint{return renovations.find(r=>r.id===id)!.view;}

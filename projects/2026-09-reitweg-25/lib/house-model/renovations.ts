@@ -22,6 +22,7 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  for(const id of Object.keys(renovationState()) as RenovationId[]){const g=new T.Group();g.name='renovation-'+id;g.visible=false;(id==='front'||id==='garage'?site:ground).add(g);groups[id]=g;}
  const kitchenRoof=new T.Group();kitchenRoof.name='renovation-kitchen-roof';roofs.add(kitchenRoof);kitchenRoof.visible=false;
  const m={oak:material('#b49772'),stone:material('#dbd4c4'),sage:material('#939d89'),metal:material('#46524b'),linen:material('#e8e1cf'),clay:material('#ba8770'),leaf:material('#788866'),white:material('#eee9de')};
+ const timber=material('#8a6d57','#3d3129',.7);
  m.oak.userData.photo='oak';m.stone.userData.photo='stone';m.linen.userData.photo='linen';
  const clear=new T.MeshPhysicalMaterial({color:'#c3d7ce',transparent:true,opacity:.22,roughness:.13,metalness:.1,depthWrite:false,side:T.DoubleSide});
  const privacy=new T.MeshPhysicalMaterial({color:'#d9dfd4',transparent:true,opacity:.78,roughness:.85,depthWrite:false,side:T.DoubleSide});
@@ -58,15 +59,54 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  // Kitchen: the complete A+B+C footprint, with the original cooking wall to the east.
  const kitchen=groups.kitchen,outline=kitchenLayout.envelope.map(([x,z])=>kitchenPoint(x,z));
  poly(kitchen,outline,.125,.035,m.stone).name='confirmed-abc-kitchen-floor';
- for(const [a,b] of [[[104,126],[626,126]],[[104,126],[104,716]],[[104,716],[334,716]],[[626,126],[626,275]]])glazing(kitchen,kitchenPoint(...a as [number,number]),kitchenPoint(...b as [number,number]));
+ // The Winter Garden's glass faces: one pane to each, from the floor channel to a slim black head at 2.71 m, meeting
+ // glass to glass at the corners: no posts. The Zinc Roof version replaces them and the glass roof (below).
+ const runs=[[[104,126],[626,126]],[[104,126],[104,716]],[[104,716],[334,716]],[[626,126],[626,275]]].map(([a,b])=>[kitchenPoint(...a as [number,number]),kitchenPoint(...b as [number,number])]);
+ function panes(g:T.Group,head:number,frame:'black'|'timber'){for(const [a,b] of runs){const len=Math.hypot(b[0]-a[0],b[1]-a[1]),bay=place(g,a[0],a[1],-Math.atan2(b[1]-a[1],b[0]-a[0])),h=head-.16;
+  box(bay,len/2,.16,0,len-.01,h,.026,clear).name='winter-garden-pane';box(bay,len/2,.14,0,len,.03,.08,m.metal);
+  if(frame==='black')box(bay,len/2,head,0,len+.02,.065,.1,m.metal);else box(bay,len/2,head,0,len+.12,.2,.16,timber);}}
+ const glassWalls=new T.Group();glassWalls.name='winter-garden-glass-walls';glassWalls.userData.replacedBy='catslide';kitchen.add(glassWalls);panes(glassWalls,2.71,'black');
  // Retained pier, east return and low structural beam over the opened kitchen boundary.
  for(const [x,z,w,d] of [[310,275,33,57],[600,275,39,42],[334,667,43,142]]){const [wx,wz]=kitchenPoint(x+w/2,z+d/2);box(kitchen,wx,.16,wz,w*K,2.55,d*K,m.white).name='kitchen-retained-pier';}
  for(const [a,b] of [[[334,317],[334,667]],[[343,292],[600,292]]]){const u=kitchenPoint(...a as [number,number]),v=kitchenPoint(...b as [number,number]),beam=place(kitchen,(u[0]+v[0])/2,(u[1]+v[1])/2,-Math.atan2(v[1]-u[1],v[0]-u[0]),2.65);box(beam,0,0,0,Math.hypot(v[0]-u[0],v[1]-u[1]),.16,.2,m.white);}
  // Light glazed roof only over the added A+B L, never over C or the original pitched roof.
- const roofOutline=winterGardenOutline;
- poly(kitchenRoof,roofOutline,2.83,.055,clear);
- for(let z=126;z<=716;z+=84){const a=kitchenPoint(104,z),b=kitchenPoint(z<=275?626:334,z);box(kitchenRoof,(a[0]+b[0])/2,2.82,a[1],b[0]-a[0],.11,.07,m.metal);}
- for(const [a,b] of [[[104,126],[104,716]],[[104,126],[626,126]],[[104,716],[334,716]],[[626,126],[626,275]]]){const u=kitchenPoint(...a as [number,number]),v=kitchenPoint(...b as [number,number]),g=place(kitchenRoof,(u[0]+v[0])/2,(u[1]+v[1])/2,-Math.atan2(v[1]-u[1],v[0]-u[0]),2.82);box(g,0,0,0,Math.hypot(v[0]-u[0],v[1]-u[1]),.13,.1,m.metal);}
+ const roofOutline=winterGardenOutline,glassRoof=new T.Group();glassRoof.name='winter-garden-glass-roof';glassRoof.userData.replacedBy='catslide';kitchenRoof.add(glassRoof);
+ poly(glassRoof,roofOutline,2.83,.055,clear);
+ for(let z=126;z<=716;z+=84){const a=kitchenPoint(104,z),b=kitchenPoint(z<=275?626:334,z);box(glassRoof,(a[0]+b[0])/2,2.82,a[1],b[0]-a[0],.11,.07,m.metal);}
+ for(const [a,b] of [[[104,126],[104,716]],[[104,126],[626,126]],[[104,716],[334,716]],[[626,126],[626,275]]]){const u=kitchenPoint(...a as [number,number]),v=kitchenPoint(...b as [number,number]),g=place(glassRoof,(u[0]+v[0])/2,(u[1]+v[1])/2,-Math.atan2(v[1]-u[1],v[0]-u[0]),2.82);box(g,0,0,0,Math.hypot(v[0]-u[0],v[1]-u[1]),.13,.1,m.metal);}
+ // Winter Garden · Zinc Roof: the main roof's west slope carries on over the west arm on one unbroken line from its eave
+ // (x -6.55, 2.95 m), flattened to 10° there, in dark standing-seam zinc; the north arm takes the same pitch off the north
+ // gable, the two meeting at a hip over the corner, so one eave line runs all round at 2.51 m. At the house's own 37.6°
+ // the eave would land at about 1 m. The glass stops at 2.39 m under a dark timber head board, and the roof is lined in oak.
+ const catslideRoof=new T.Group();catslideRoof.name='renovation-catslide-roof';catslideRoof.visible=false;kitchenRoof.add(catslideRoof);
+ {const g=groups.catslide,[WW,NZ]=runs[0][0],EX=runs[0][1][0],SZ=runs[1][1][1],SE=runs[2][1][0],GZ=runs[3][1][1];
+  const k=Math.tan(10*Math.PI/180),O=.3,X0=WW-O,Z0=NZ-O,ME=-6.55,EAVE=2.95,eo=EAVE-(ME-X0)*k,fw=(x:number)=>eo+(x-X0)*k,fn=(z:number)=>eo+(z-Z0)*k;
+  const yW=fw(WW),head=yW-.13,zS=SZ+O,xE=EX+O,hipZ=ME-X0+Z0,zinc=material('#9a9e9a','#3f4548',.45),V=(x:number,y:number,z:number)=>new T.Vector3(x,y,z);
+  // A member from p to q with a w × h section.
+  const member=(parent:T.Object3D,p0:T.Vector3,p1:T.Vector3,w:number,h:number,mat:T.Material)=>{const o=new T.Mesh(unit,mat);o.position.copy(p0).add(p1).multiplyScalar(.5);o.scale.set(w,h,p0.distanceTo(p1));o.lookAt(p1);o.castShadow=o.receiveShadow=true;parent.add(o);return o;};
+  // A roof plane over a plan polygon, lifted to height f, t thick.
+  const plane=(polygon:number[][],f:(x:number,z:number)=>number,t:number,mat:T.Material,drop=0)=>{const tri=T.ShapeUtils.triangulateShape(polygon.map(([x,z])=>new T.Vector2(x,z)),[]),P:T.Vector3[]=[];
+   const top=(i:number)=>V(polygon[i][0],f(polygon[i][0],polygon[i][1])-drop,polygon[i][1]),bottom=(i:number)=>top(i).setY(top(i).y-t);
+   for(const [a,b,c] of tri){const up=new T.Vector3().crossVectors(top(b).sub(top(a)),top(c).sub(top(a))).y>0,[q,r]=up?[b,c]:[c,b];P.push(top(a),top(q),top(r),bottom(a),bottom(r),bottom(q));}
+   polygon.forEach((_,i)=>{const j=(i+1)%polygon.length;P.push(top(i),bottom(i),bottom(j),top(i),bottom(j),top(j));});
+   const geometry=new T.BufferGeometry().setFromPoints(P);geometry.computeVertexNormals();const o=new T.Mesh(geometry,mat);o.castShadow=o.receiveShadow=true;catslideRoof.add(o);return o;};
+  // A vertical infill along a→b, its outline in (distance along, height).
+  const infill=(a:number[],b:number[],outline:number[][],mat:T.Material)=>{const geometry=new T.ExtrudeGeometry(new T.Shape(outline.map(([u,y])=>new T.Vector2(u,y))),{depth:.1,bevelEnabled:false});geometry.translate(0,0,-.05);const o=new T.Mesh(geometry,mat);o.position.set(a[0],0,a[1]);o.rotation.y=-Math.atan2(b[1]-a[1],b[0]-a[0]);o.castShadow=o.receiveShadow=true;g.add(o);return o;};
+  const west=[[X0,Z0],[ME,hipZ],[ME,zS],[X0,zS]],north=[[X0,Z0],[xE,Z0],[xE,GZ],[ME,GZ],[ME,hipZ]];
+  plane(west,x=>fw(x),.14,zinc).name='catslide-zinc';plane(north,(_,z)=>fn(z),.14,zinc).name='catslide-zinc';
+  plane(west,x=>fw(x),.02,m.oak,.17).name='catslide-lining';plane(north,(_,z)=>fn(z),.02,m.oak,.17).name='catslide-lining';
+  // Standing seams every half metre, the hip capped, and a capping where the zinc meets the main roof's slate.
+  for(let z=Z0+.25;z<zS;z+=.5){const x1=z<hipZ?z-Z0+X0:ME;member(catslideRoof,V(X0,fw(X0)+.02,z),V(x1,fw(x1)+.02,z),.025,.04,zinc);}
+  for(let x=X0+.25;x<xE;x+=.5){const z1=x<ME?x-X0+Z0:GZ;member(catslideRoof,V(x,fn(Z0)+.02,Z0),V(x,fn(z1)+.02,z1),.025,.04,zinc);}
+  member(catslideRoof,V(X0,eo+.03,Z0),V(ME,EAVE+.03,hipZ),.1,.06,zinc);member(catslideRoof,V(ME,EAVE+.03,hipZ),V(ME,EAVE+.03,zS),.24,.06,zinc);
+  // A dark timber fascia along the eave and the verges.
+  const fascia=(p0:T.Vector3,p1:T.Vector3)=>member(catslideRoof,p0,p1,.04,.22,timber);
+  fascia(V(X0,eo-.1,Z0),V(X0,eo-.1,zS));fascia(V(X0,eo-.1,Z0),V(xE,eo-.1,Z0));fascia(V(X0,eo-.1,zS),V(ME,EAVE-.1,zS));fascia(V(xE,eo-.1,Z0),V(xE,fn(GZ)-.1,GZ));
+  panes(g,head,'timber');
+  // Above the glass, the ends of the two arms are clad in the house's dark boarding up to the roof.
+  const southRoof=(x:number)=>x<ME?fw(x):EAVE+(x-ME)*5.05/6.55;
+  infill([WW,SZ],[SE,SZ],[[0,head],[SE-WW,head],[SE-WW,southRoof(SE)-.14],[ME-WW,EAVE-.14],[0,yW-.14]],skin).name='catslide-cladding';
+  infill([EX,NZ],[EX,GZ],[[0,head],[GZ-NZ,head],[GZ-NZ,fn(GZ)-.14],[0,yW-.14]],skin).name='catslide-cladding';}
  // The island is 2.08 m, not the layout's 2.78 m, and has no stools at its end: the way between its end and the retained
  // pier stays 0.85 m wide. It takes the cabinets' sage.
  // The dining set (table and its chairs) sits centred in the glazed west arm, layout x 104–334 and y 126–716.
@@ -138,6 +178,6 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  // The front garage stands on the site; its roof goes with the roofs, so the ground-floor cutaway looks into it.
  const garage=buildFrontGarage(material);groups.garage.add(garage.group);roofs.add(garage.roof);garage.roof.visible=false;
  const solarRoof=buildSolar(roofs,groups.solar);
- const set=(state:RenovationState,level:Level)=>{for(const id of Object.keys(groups) as RenovationId[])groups[id].visible=state[id];kitchenRoof.visible=state.kitchen;solarRoof.visible=state.solar;for(const o of kitchen.children)if(o.name==='kitchen-retained-pier'){o.scale.y=level==='exterior'?2.55:1.01;o.position.y=.16+o.scale.y/2;}};
- return {groups,kitchenRoof,garageRoof:garage.roof,set};
+ const set=(state:RenovationState,level:Level)=>{for(const id of Object.keys(groups) as RenovationId[])groups[id].visible=state[id];kitchenRoof.visible=state.kitchen;catslideRoof.visible=state.catslide;solarRoof.visible=state.solar;for(const o of kitchen.children)if(o.name==='kitchen-retained-pier'){o.scale.y=level==='exterior'?2.55:1.01;o.position.y=.16+o.scale.y/2;}};
+ return {groups,kitchenRoof,catslideRoof,garageRoof:garage.roof,set};
 }
