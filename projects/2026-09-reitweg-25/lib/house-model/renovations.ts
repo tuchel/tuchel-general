@@ -14,6 +14,8 @@ import {renovationState,type RenovationId,type RenovationState} from './renovati
 // Do not rotate, mirror, or independently stretch A and B.
 export const kitchenPoint=(x:number,z:number)=>p(807+(x-334)*.53,182+(z-275)*.53);
 const K=.53*12/434;
+// The Winter Garden's glass roof, in plan: the new room around the main house's northwest corner.
+export const winterGardenOutline=[[104,126],[626,126],[626,275],[310,275],[310,332],[334,332],[334,716],[104,716]].map(([x,z])=>kitchenPoint(x,z));
 type MaterialFactory=(pale:string,natural?:string,roughness?:number)=>T.MeshStandardMaterial;
 export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,material:MaterialFactory){
  const groups={} as Record<RenovationId,T.Group>;
@@ -61,7 +63,7 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  for(const [x,z,w,d] of [[310,275,33,57],[600,275,39,42],[334,667,43,142]]){const [wx,wz]=kitchenPoint(x+w/2,z+d/2);box(kitchen,wx,.16,wz,w*K,2.55,d*K,m.white).name='kitchen-retained-pier';}
  for(const [a,b] of [[[334,317],[334,667]],[[343,292],[600,292]]]){const u=kitchenPoint(...a as [number,number]),v=kitchenPoint(...b as [number,number]),beam=place(kitchen,(u[0]+v[0])/2,(u[1]+v[1])/2,-Math.atan2(v[1]-u[1],v[0]-u[0]),2.65);box(beam,0,0,0,Math.hypot(v[0]-u[0],v[1]-u[1]),.16,.2,m.white);}
  // Light glazed roof only over the added A+B L, never over C or the original pitched roof.
- const roofOutline=[[104,126],[626,126],[626,275],[310,275],[310,332],[334,332],[334,716],[104,716]].map(([x,z])=>kitchenPoint(x,z));
+ const roofOutline=winterGardenOutline;
  poly(kitchenRoof,roofOutline,2.83,.055,clear);
  for(let z=126;z<=716;z+=84){const a=kitchenPoint(104,z),b=kitchenPoint(z<=275?626:334,z);box(kitchenRoof,(a[0]+b[0])/2,2.82,a[1],b[0]-a[0],.11,.07,m.metal);}
  for(const [a,b] of [[[104,126],[104,716]],[[104,126],[626,126]],[[104,716],[334,716]],[[626,126],[626,275]]]){const u=kitchenPoint(...a as [number,number]),v=kitchenPoint(...b as [number,number]),g=place(kitchenRoof,(u[0]+v[0])/2,(u[1]+v[1])/2,-Math.atan2(v[1]-u[1],v[0]-u[0]),2.82);box(g,0,0,0,Math.hypot(v[0]-u[0],v[1]-u[1]),.13,.1,m.metal);}
