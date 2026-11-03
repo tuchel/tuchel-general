@@ -8,6 +8,7 @@ import type { Source, TargetPoint } from './data.ts';
 const jpm: Source = { label: 'J.P. Morgan (Doug Anmuth), SpaceX tearsheet, Oct 20, 2026' };
 const ms: Source = { label: 'Morgan Stanley (Adam Jonas), "SPCX $159: Cheap and Getting Cheaper", Oct 4, 2026' };
 const ms3q: Source = { label: 'Morgan Stanley (Adam Jonas), "3Q Results: Next Stop... MARS", Oct 21, 2026' };
+const msNov: Source = { label: 'Morgan Stanley (Adam Jonas), "SPCX Getting Even Cheaper: Cash Flow Positive 4 Years Earlier", Nov 3, 2026' };
 
 export const RESEARCH: {
   sources: Source[];
@@ -16,7 +17,7 @@ export const RESEARCH: {
   ms: TargetPoint[];
   fy26: Array<{ firm: string; revenue: number; source: Source }>;
 } = {
-  sources: [jpm, ms, ms3q],
+  sources: [jpm, ms, ms3q, msNov],
   jpm: [
     { date: '2026-07-07', target: 225, source: jpm, horizon: '2027-12-31' },
     { date: '2026-08-05', target: 240, source: jpm },
@@ -26,9 +27,10 @@ export const RESEARCH: {
   ms: [
     { date: '2026-10-04', target: 300, source: ms },
     { date: '2026-10-21', target: 300, source: ms3q },
+    { date: '2026-11-03', target: 300, source: msNov },
   ],
   fy26: [
-    { firm: 'Morgan Stanley', revenue: 50_889, source: ms3q },
+    { firm: 'Morgan Stanley', revenue: 50_377, source: msNov },
     { firm: 'J.P. Morgan', revenue: 51_057, source: jpm },
   ],
 };
