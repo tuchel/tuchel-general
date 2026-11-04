@@ -26,6 +26,7 @@ export const SRC = {
   bofaQ3: { label: 'Investing.com, BofA raises SpaceX target to $275, Oct 22, 2026', url: 'https://www.investing.com/news/analyst-ratings/bofa-raises-spacex-stock-price-target-to-275-on-launch-growth-93CH-4966106' },
   bernsteinAug: { label: 'KuCoin News, Bernstein raises SpaceX target to $248, Aug 7, 2026', url: 'https://www.kucoin.com/news/flash/bernstein-raises-spacex-target-price-to-248' },
   bernsteinOct: { label: 'ROIC News, Bernstein lifts SpaceX target to $268, Oct 26, 2026', url: 'https://www.roic.ai/news/bernstein-lifts-spacex-price-target-to-268-on-ai-computing-bet-sees-82-upside-10-26-2026' },
+  phillipQ3: { label: 'TheStreet, Phillip Securities upgrades SpaceX to Buy, target $250 from $75, Oct 23, 2026', url: 'https://www.thestreet.com/investing/stocks/spacex-phillip-securities-250-upgrade' },
   mbRatings: { label: 'MarketBeat, SPCX analyst ratings history', url: 'https://www.marketbeat.com/stocks/NASDAQ/SPCX/forecast/' },
   xai: { label: 'KraneShares, xAI–SpaceX merger complete, Feb 11, 2026', url: 'https://kraneshares.com/xai-spacex-merger-complete-spacex-ipo-timeline-intact-how-agix-fits-in/' },
   ipoTimeline: { label: 'Wikipedia, Initial public offering of SpaceX', url: 'https://en.wikipedia.org/wiki/Initial_public_offering_of_SpaceX' },
@@ -211,6 +212,7 @@ const CLOSES = `
 2026-10-29 143.89
 2026-10-30 134.72
 2026-11-02 136.37
+2026-11-03 141.31
 `;
 
 /** `intraday` marks a price taken during the session, before the close. */
@@ -262,6 +264,7 @@ export const FIRMS: Firm[] = [
   { firm: 'Pivotal Research', rating: 'Buy', points: [pt('2026-10-20', 230, SRC.mbRatings), pt('2026-10-21', 260, SRC.mbRatings)] },
   { firm: 'Needham', rating: 'Buy', points: [pt('2026-10-21', 250, SRC.mbRatings)] },
   { firm: 'Susquehanna', rating: 'Neutral', points: [pt('2026-10-20', 173, SRC.mbRatings), pt('2026-10-21', 176, SRC.mbRatings)] },
+  { firm: 'Phillip Securities', rating: 'Buy', points: [pt('2026-10-20', 75, SRC.phillipQ3), pt('2026-10-23', 250, SRC.phillipQ3)] },
 ];
 
 export type VintageId = 'jul7' | 'oct20' | 'oct21' | 'latest';
