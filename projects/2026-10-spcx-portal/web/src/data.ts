@@ -27,6 +27,7 @@ export const SRC = {
   bernsteinAug: { label: 'KuCoin News, Bernstein raises SpaceX target to $248, Aug 7, 2026', url: 'https://www.kucoin.com/news/flash/bernstein-raises-spacex-target-price-to-248' },
   bernsteinOct: { label: 'ROIC News, Bernstein lifts SpaceX target to $268, Oct 26, 2026', url: 'https://www.roic.ai/news/bernstein-lifts-spacex-price-target-to-268-on-ai-computing-bet-sees-82-upside-10-26-2026' },
   phillipQ3: { label: 'TheStreet, Phillip Securities upgrades SpaceX to Buy, target $250 from $75, Oct 23, 2026', url: 'https://www.thestreet.com/investing/stocks/spacex-phillip-securities-250-upgrade' },
+  qualcomm: { label: 'Via Satellite, SpaceX strikes deal with Qualcomm for terrestrial component of Starlink Mobile network, Nov 4, 2026', url: 'https://www.satellitetoday.com/connectivity/2026/11/04/spacex-strikes-deal-with-qualcomm-for-terrestrial-component-of-starlink-mobile-network/' },
   mbRatings: { label: 'MarketBeat, SPCX analyst ratings history', url: 'https://www.marketbeat.com/stocks/NASDAQ/SPCX/forecast/' },
   xai: { label: 'KraneShares, xAI–SpaceX merger complete, Feb 11, 2026', url: 'https://kraneshares.com/xai-spacex-merger-complete-spacex-ipo-timeline-intact-how-agix-fits-in/' },
   ipoTimeline: { label: 'Wikipedia, Initial public offering of SpaceX', url: 'https://en.wikipedia.org/wiki/Initial_public_offering_of_SpaceX' },
@@ -109,6 +110,7 @@ export const EVENTS: KeyEvent[] = [
   { date: '2026-08-04', title: 'Q2 2026 results', detail: 'First report as a public company.', source: SRC.q2 },
   { date: '2026-08-14', title: 'Cursor acquisition closes', detail: 'Adds $608M to Q3 2026 revenue.', source: SRC.cursor },
   { date: '2026-10-20', title: 'Q3 2026 results', detail: 'Q1 2027 revenue guided to $33–37B on the call.', source: SRC.q3 },
+  { date: '2026-11-04', title: 'Qualcomm deal for Starlink Mobile', detail: 'Multiyear; base stations for tens of thousands of US sites from 2027.', source: SRC.qualcomm },
 ];
 
 /** Daily closing price, USD. Jun 12–Oct 15 from Yahoo Finance; Oct 16–20 from StockAnalysis. */
@@ -213,6 +215,7 @@ const CLOSES = `
 2026-10-30 134.72
 2026-11-02 136.37
 2026-11-03 141.31
+2026-11-04 135.92
 `;
 
 /** `intraday` marks a price taken during the session, before the close. */
