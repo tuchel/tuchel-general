@@ -216,6 +216,7 @@ const CLOSES = `
 2026-11-02 136.37
 2026-11-03 141.31
 2026-11-04 135.92
+2026-11-05 123.62
 `;
 
 /** `intraday` marks a price taken during the session, before the close. */
