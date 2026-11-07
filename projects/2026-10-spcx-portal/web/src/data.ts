@@ -28,6 +28,8 @@ export const SRC = {
   bernsteinOct: { label: 'ROIC News, Bernstein lifts SpaceX target to $268, Oct 26, 2026', url: 'https://www.roic.ai/news/bernstein-lifts-spacex-price-target-to-268-on-ai-computing-bet-sees-82-upside-10-26-2026' },
   phillipQ3: { label: 'TheStreet, Phillip Securities upgrades SpaceX to Buy, target $250 from $75, Oct 23, 2026', url: 'https://www.thestreet.com/investing/stocks/spacex-phillip-securities-250-upgrade' },
   qualcomm: { label: 'Via Satellite, SpaceX strikes deal with Qualcomm for terrestrial component of Starlink Mobile network, Nov 4, 2026', url: 'https://www.satellitetoday.com/connectivity/2026/11/04/spacex-strikes-deal-with-qualcomm-for-terrestrial-component-of-starlink-mobile-network/' },
+  oppInit: { label: 'Reuters via The Star, Oppenheimer launches first SpaceX coverage at Outperform, $190, Jun 11, 2026', url: 'https://www.thestar.com.my/tech/tech-news/2026/06/11/oppenheimer-launches-wall-street039s-first-coverage-of-spacex-with-bullish-outlook' },
+  oppJun: { label: 'Investing.com, Oppenheimer raises SpaceX target to $250 from $190, Jun 18, 2026', url: 'https://ng.investing.com/news/stock-market-news/spacex-stock-target-raised-at-oppenheimer-heres-the-new-12month-forecast-2565697' },
   mbRatings: { label: 'MarketBeat, SPCX analyst ratings history', url: 'https://www.marketbeat.com/stocks/NASDAQ/SPCX/forecast/' },
   xai: { label: 'KraneShares, xAI–SpaceX merger complete, Feb 11, 2026', url: 'https://kraneshares.com/xai-spacex-merger-complete-spacex-ipo-timeline-intact-how-agix-fits-in/' },
   ipoTimeline: { label: 'Wikipedia, Initial public offering of SpaceX', url: 'https://en.wikipedia.org/wiki/Initial_public_offering_of_SpaceX' },
@@ -217,6 +219,7 @@ const CLOSES = `
 2026-11-03 141.31
 2026-11-04 135.92
 2026-11-05 123.62
+2026-11-06 134.27
 `;
 
 /** `intraday` marks a price taken during the session, before the close. */
@@ -268,6 +271,7 @@ export const FIRMS: Firm[] = [
   { firm: 'Pivotal Research', rating: 'Buy', points: [pt('2026-10-20', 230, SRC.mbRatings), pt('2026-10-21', 260, SRC.mbRatings)] },
   { firm: 'Needham', rating: 'Buy', points: [pt('2026-10-21', 250, SRC.mbRatings)] },
   { firm: 'Susquehanna', rating: 'Neutral', points: [pt('2026-10-20', 173, SRC.mbRatings), pt('2026-10-21', 176, SRC.mbRatings)] },
+  { firm: 'Oppenheimer', rating: 'Outperform', points: [pt('2026-06-11', 190, SRC.oppInit), pt('2026-06-18', 250, SRC.oppJun), pt('2026-09-02', 280, SRC.mbRatings)] },
   { firm: 'Phillip Securities', rating: 'Buy', points: [pt('2026-10-20', 75, SRC.phillipQ3), pt('2026-10-23', 250, SRC.phillipQ3)] },
 ];
 
