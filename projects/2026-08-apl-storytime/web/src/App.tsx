@@ -142,7 +142,8 @@ export default function App() {
       setGaps(gp)
       const params = new URLSearchParams(window.location.search)
       const days = [...new Set(ev.map((e) => dayKey(e.start)))].sort()
-      setDay(params.get('d') && days.includes(params.get('d')!) ? params.get('d') : defaultDay(days))
+      const linked = ev.find((e) => e.nid === params.get('e'))
+      setDay(linked ? dayKey(linked.start) : defaultDay(days))
       const f = params.get('f') as FilterId | null
       if (f && FILTERS.some((x) => x.id === f)) setFilter(f)
       if (params.get('b')) setBranch(params.get('b'))
@@ -155,7 +156,7 @@ export default function App() {
   useEffect(() => {
     if (boot || !day) return
     const u = new URL(window.location.href)
-    u.searchParams.set('d', day)
+    u.searchParams.delete('d')
     if (filter !== 'all') u.searchParams.set('f', filter)
     else u.searchParams.delete('f')
     if (branch) u.searchParams.set('b', branch)
