@@ -20,8 +20,7 @@ function fold(line: string): string {
   return parts.join('\r\n ')
 }
 
-/** One program as a standalone calendar file, matching the feed's VEVENT. */
-export function eventIcs(ev: StoryEvent): string {
+function vevent(ev: StoryEvent, stamp: string): string[] {
   const location = [ev.branch, ev.room, ev.address].filter(Boolean).join(', ')
   const desc = [
     ev.title === ev.program ? ev.title : `${ev.title} — ${ev.program}`,
@@ -29,14 +28,10 @@ export function eventIcs(ev: StoryEvent): string {
     ev.url,
     `ADA accommodations: ${ADA_PHONE}`,
   ].join('\n')
-  const lines = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//tuchel-general//APL Storytime Fall 2026//EN',
-    'METHOD:PUBLISH',
+  return [
     'BEGIN:VEVENT',
     `UID:apl-storytime-${ev.nid}@tuchel.github.io`,
-    `DTSTAMP:${utc(new Date().toISOString())}`,
+    `DTSTAMP:${stamp}`,
     `DTSTART:${utc(ev.start)}`,
     `DTEND:${utc(ev.end)}`,
     `SUMMARY:${esc(`${ev.title} — ${ev.branch}`)}`,
@@ -44,17 +39,30 @@ export function eventIcs(ev: StoryEvent): string {
     `DESCRIPTION:${esc(desc)}`,
     `URL:${ev.url}`,
     'END:VEVENT',
+  ]
+}
+
+/** Programs as one calendar file. Each UID matches that program's UID in the subscription feed. */
+export function eventsIcs(events: StoryEvent[]): string {
+  const stamp = utc(new Date().toISOString())
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//tuchel-general//APL Storytime Fall 2026//EN',
+    'METHOD:PUBLISH',
+    ...events.flatMap((ev) => vevent(ev, stamp)),
     'END:VCALENDAR',
   ]
   return lines.map(fold).join('\r\n') + '\r\n'
 }
 
-export function downloadIcs(ev: StoryEvent): void {
-  const blob = new Blob([eventIcs(ev)], { type: 'text/calendar;charset=utf-8' })
+export function downloadIcs(events: StoryEvent[]): void {
+  if (!events.length) return
+  const blob = new Blob([eventsIcs(events)], { type: 'text/calendar;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `storytime-${ev.nid}.ics`
+  a.download = events.length === 1 ? `storytime-${events[0].nid}.ics` : `storytimes-${events.length}.ics`
   document.body.appendChild(a)
   a.click()
   a.remove()

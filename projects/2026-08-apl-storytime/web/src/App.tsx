@@ -22,6 +22,7 @@ type SortId = 'time' | 'distance'
 type View = 'list' | 'map'
 
 const FILTER_KEY = 'storytime.filter'
+const PICKS_KEY = 'storytime.picks'
 const SEASON = seasonDays(SEASON_START, SEASON_END)
 const MONTHS = [
   { y: 2026, m: 9 },
@@ -55,6 +56,24 @@ function storeFilter(id: FilterId) {
     else localStorage.setItem(FILTER_KEY, id)
   } catch {
     /* private mode: filter simply isn't remembered */
+  }
+}
+
+function readPicks(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(PICKS_KEY) ?? '[]')
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function storePicks(ids: string[]) {
+  try {
+    if (ids.length) localStorage.setItem(PICKS_KEY, JSON.stringify(ids))
+    else localStorage.removeItem(PICKS_KEY)
+  } catch {
+    /* private mode: picks last for this visit only */
   }
 }
 
@@ -117,6 +136,8 @@ export default function App() {
   const [mapBranch, setMapBranch] = useState<string | null>(null)
   const [seasonOpen, setSeasonOpen] = useState(false)
   const [showEarlier, setShowEarlier] = useState(false)
+  const [picks, setPicksState] = useState<string[]>(readPicks)
+  const [picksOpen, setPicksOpen] = useState(false)
   const now = useNow()
   const today = useMemo(() => chicagoToday(), [now])
 
@@ -176,6 +197,17 @@ export default function App() {
     setOpenId(null)
     setMapBranch(null)
   }
+
+  const setPicks = (ids: string[]) => {
+    setPicksState(ids)
+    storePicks(ids)
+  }
+  const togglePick = (id: string) =>
+    setPicks(picks.includes(id) ? picks.filter((x) => x !== id) : [...picks, id])
+  const pickedEvents = useMemo(() => {
+    const set = new Set(picks)
+    return events.filter((e) => set.has(e.nid)).sort(sortByTime)
+  }, [events, picks])
 
   const pickDay = useCallback((next: string) => {
     setDay(next)
@@ -259,11 +291,13 @@ export default function App() {
       onToggle={() => setOpenId(ev.nid === openId ? null : ev.nid)}
       onMap={() => showOnMap(ev)}
       phone={branches[ev.branch]?.phone}
+      picked={picks.includes(ev.nid)}
+      onPick={() => togglePick(ev.nid)}
     />
   )
 
   return (
-    <div className={`app view-${view}`}>
+    <div className={`app view-${view}${pickedEvents.length ? ' has-picks' : ''}`}>
       <header className="top">
         <div className="title-row">
           <h1 className="day-title">
@@ -395,6 +429,31 @@ export default function App() {
         now={isToday ? now : null}
       />
 
+      {pickedEvents.length > 0 && (
+        <div className="pick-bar" role="region" aria-label="Picked storytimes">
+          <button type="button" className="pick-count" onClick={() => setPicksOpen(true)}>
+            <b>{pickedEvents.length}</b> picked
+            <Chevron open side />
+          </button>
+          <button type="button" className="act primary" onClick={() => downloadIcs(pickedEvents)}>
+            <PlusIcon /> Add to calendar
+          </button>
+        </div>
+      )}
+
+      {picksOpen && (
+        <PicksSheet
+          events={pickedEvents}
+          onRemove={togglePick}
+          onClear={() => {
+            setPicks([])
+            setPicksOpen(false)
+          }}
+          onAdd={() => downloadIcs(pickedEvents)}
+          onClose={() => setPicksOpen(false)}
+        />
+      )}
+
       {seasonOpen && (
         <SeasonSheet
           counts={counts}
@@ -503,16 +562,20 @@ function EventCard({
   now,
   next,
   phone,
+  picked,
   onToggle,
   onMap,
+  onPick,
 }: {
   ev: StoryEvent
   open: boolean
   now: number | null
   next: boolean
   phone?: string
+  picked: boolean
   onToggle: () => void
   onMap: () => void
+  onPick: () => void
 }) {
   const pt = eventPoint(ev)
   const dist = pt ? formatMiles(miles(HOME, pt)) : null
@@ -526,7 +589,19 @@ function EventCard({
   const online = ev.branch === 'Online'
 
   return (
-    <li id={`ev-${ev.nid}`} className={`card${open ? ' open' : ''}${live ? ' live' : ''}${past ? ' past' : ''}`}>
+    <li
+      id={`ev-${ev.nid}`}
+      className={`card${open ? ' open' : ''}${live ? ' live' : ''}${past ? ' past' : ''}${picked ? ' picked' : ''}`}
+    >
+      <button
+        type="button"
+        className="pick"
+        aria-pressed={picked}
+        aria-label={`${picked ? 'Unpick' : 'Pick'} ${ev.title}, ${formatTime(ev.start)}, for your calendar`}
+        onClick={onPick}
+      >
+        {picked ? <CheckIcon /> : <PlusSmallIcon />}
+      </button>
       <button type="button" className="card-main" aria-expanded={open} onClick={onToggle}>
         <span className="when">
           <b>{t.clock}</b>
@@ -547,7 +622,6 @@ function EventCard({
             {AGE_LABEL[age]} · {durationLabel(ev)}
           </span>
         </span>
-        <Chevron open={open} />
       </button>
       {open && (
         <div className="card-more">
@@ -574,7 +648,7 @@ function EventCard({
                 <PinIcon /> Directions
               </a>
             )}
-            <button type="button" className="act" onClick={() => downloadIcs(ev)}>
+            <button type="button" className="act" onClick={() => downloadIcs([ev])}>
               <PlusIcon /> Add to calendar
             </button>
             {!online && (
@@ -792,6 +866,97 @@ function SeasonSheet({
   )
 }
 
+function PicksSheet({
+  events,
+  onRemove,
+  onClear,
+  onAdd,
+  onClose,
+}: {
+  events: StoryEvent[]
+  onRemove: (id: string) => void
+  onClear: () => void
+  onAdd: () => void
+  onClose: () => void
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    document.addEventListener('keydown', onKey)
+    document.documentElement.classList.add('locked')
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.documentElement.classList.remove('locked')
+    }
+  }, [onClose])
+  useEffect(() => {
+    if (!events.length) onClose()
+  }, [events.length, onClose])
+
+  const days: [string, StoryEvent[]][] = []
+  for (const ev of events) {
+    const k = dayKey(ev.start)
+    const last = days[days.length - 1]
+    if (last && last[0] === k) last[1].push(ev)
+    else days.push([k, [ev]])
+  }
+
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div
+        className="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Picked storytimes"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sheet-head">
+          <strong>Picked</strong>
+          <button type="button" className="pill-btn" onClick={onClose}>
+            Done
+          </button>
+        </div>
+        <div className="sheet-body">
+          {days.map(([k, list]) => (
+            <section key={k} className="pick-day">
+              <h2>
+                {LONG_WEEKDAY.format(utcNoon(k))}, {MONTH_DAY.format(utcNoon(k))}
+              </h2>
+              <ul>
+                {list.map((ev) => (
+                  <li key={ev.nid}>
+                    <b>{formatTime(ev.start)}</b>
+                    <span>
+                      {ev.title}
+                      <small>{ev.branch === 'Online' ? 'Online' : shortBranch(ev.branch)}</small>
+                    </span>
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      aria-label={`Remove ${ev.title}, ${formatTime(ev.start)}`}
+                      onClick={() => onRemove(ev.nid)}
+                    >
+                      <CloseIcon />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+          <div className="pick-actions">
+            <button type="button" className="act primary wide" onClick={onAdd}>
+              <PlusIcon /> Add {events.length} to calendar
+            </button>
+            <button type="button" className="act wide" onClick={onClear}>
+              Clear all
+            </button>
+          </div>
+          <p className="sheet-note">Your calendar app opens the file and asks before adding.</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function Subscribe() {
   return (
     <section className="subscribe">
@@ -899,6 +1064,16 @@ const PhoneIcon = () => (
 const LinkIcon = () => (
   <Icon>
     <path d="M14 4.5h5.5V10M19.5 4.5 11 13M17 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 4 18.5v-10A1.5 1.5 0 0 1 5.5 7H10" />
+  </Icon>
+)
+const PlusSmallIcon = () => (
+  <Icon>
+    <path d="M12 6v12M6 12h12" />
+  </Icon>
+)
+const CheckIcon = () => (
+  <Icon>
+    <path d="m5.5 12.5 4.5 4.5 8.5-9.5" strokeWidth="2.4" />
   </Icon>
 )
 const CloseIcon = () => (

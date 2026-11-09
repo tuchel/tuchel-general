@@ -454,6 +454,7 @@ button {
 }
 
 .card {
+  position: relative;
   background: var(--surface);
   border-radius: 18px;
   box-shadow: var(--shadow);
@@ -472,10 +473,10 @@ button {
 .card-main {
   width: 100%;
   display: grid;
-  grid-template-columns: 58px 1fr 20px;
+  grid-template-columns: 58px 1fr;
   gap: 12px;
   align-items: start;
-  padding: 13px 12px 13px 10px;
+  padding: 13px 60px 13px 10px;
   text-align: left;
 }
 
@@ -1082,4 +1083,135 @@ button {
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ---------- picking programs for the calendar ---------- */
+
+.pick {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  width: var(--tap);
+  height: var(--tap);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.pick svg {
+  width: 30px;
+  height: 30px;
+  padding: 5px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  color: var(--ink-2);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.pick[aria-pressed='true'] svg {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.pick:active svg {
+  transform: scale(0.92);
+}
+
+.card.picked {
+  box-shadow: inset 0 0 0 2px var(--accent), var(--shadow);
+}
+
+.has-picks .list {
+  padding-bottom: calc(108px + env(safe-area-inset-bottom));
+}
+
+.pick-bar {
+  position: fixed;
+  z-index: 30;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  width: min(608px, calc(100% - 2 * var(--gutter)));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 8px 8px 16px;
+  border-radius: 18px;
+  background: var(--ink);
+  color: var(--sel-ink);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  animation: rise 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.pick-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--tap);
+  font-size: 16px;
+  color: inherit;
+}
+
+.pick-count .chev {
+  color: inherit;
+  opacity: 0.7;
+}
+
+.pick-bar .act.primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.has-picks .map-card {
+  bottom: calc(80px + env(safe-area-inset-bottom));
+}
+
+.pick-day h2 {
+  margin: 14px 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+}
+
+.pick-day ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pick-day li {
+  display: grid;
+  grid-template-columns: 76px 1fr var(--tap);
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  border-top: 1px solid var(--line);
+  font-size: 15px;
+}
+
+.pick-day li b {
+  font-variant-numeric: tabular-nums;
+}
+
+.pick-day li span {
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+}
+
+.pick-day li small {
+  font-weight: 400;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+
+.pick-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
 }
