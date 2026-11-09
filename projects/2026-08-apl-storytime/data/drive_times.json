@@ -1,0 +1,75 @@
+{
+  "source": "OSRM table service, car profile, no traffic (router.project-osrm.org)",
+  "request": "https://router.project-osrm.org/table/v1/driving/-97.7902325,30.277964;-97.751706,30.266016;-97.855009,30.217605;-97.767623,30.298253;-97.730504,30.362157;-97.69847,30.363298;-97.79732,30.21664;-97.71623,30.422389;-97.777179,30.192237;-97.70709,30.229844;-97.74193,30.187605;-97.773117,30.433761;-97.733445,30.259912;-97.762454,30.248676;-97.666511,30.308661;-97.690216,30.311664;-97.740728,30.323461?sources=0&annotations=duration,distance",
+  "fetched": "2026-11-09T18:45:25+00:00",
+  "home": {
+    "lat": 30.277964,
+    "lon": -97.7902325
+  },
+  "branches": {
+    "Central Library": {
+      "minutes": 9,
+      "road_miles": 3.9
+    },
+    "Hampton Branch at Oak Hill": {
+      "minutes": 14,
+      "road_miles": 7.8
+    },
+    "Howson Branch": {
+      "minutes": 9,
+      "road_miles": 3.3
+    },
+    "John Gillum Branch": {
+      "minutes": 16,
+      "road_miles": 10.2
+    },
+    "Little Walnut Creek Branch": {
+      "minutes": 22,
+      "road_miles": 13.4
+    },
+    "Menchaca Road Branch": {
+      "minutes": 12,
+      "road_miles": 5.7
+    },
+    "Milwood Branch": {
+      "minutes": 21,
+      "road_miles": 14.8
+    },
+    "Pleasant Hill Branch": {
+      "minutes": 16,
+      "road_miles": 8.7
+    },
+    "Ruiz Branch": {
+      "minutes": 17,
+      "road_miles": 6.9
+    },
+    "Southeast Branch": {
+      "minutes": 19,
+      "road_miles": 10.1
+    },
+    "Spicewood Springs Branch": {
+      "minutes": 22,
+      "road_miles": 15.0
+    },
+    "Terrazas Branch": {
+      "minutes": 11,
+      "road_miles": 4.4
+    },
+    "Twin Oaks Branch": {
+      "minutes": 9,
+      "road_miles": 3.7
+    },
+    "University Hills Branch": {
+      "minutes": 22,
+      "road_miles": 10.7
+    },
+    "Windsor Park Branch": {
+      "minutes": 20,
+      "road_miles": 9.5
+    },
+    "Yarborough Branch": {
+      "minutes": 13,
+      "road_miles": 7.5
+    }
+  }
+}

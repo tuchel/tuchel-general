@@ -546,6 +546,16 @@ button {
   color: var(--ink-3);
 }
 
+.drive {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 10px;
+  white-space: nowrap;
+  color: var(--ink-3);
+  vertical-align: -1px;
+}
+
 .age {
   display: inline-flex;
   align-items: center;

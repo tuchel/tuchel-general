@@ -28,6 +28,11 @@ export function matchesFilter(ev: StoryEvent, id: FilterId): boolean {
   return true
 }
 
+/** No ids selected means everything; otherwise a program matches if it fits any selected filter. */
+export function matchesAny(ev: StoryEvent, ids: FilterId[]): boolean {
+  return ids.length === 0 || ids.some((id) => matchesFilter(ev, id))
+}
+
 export function defaultDay(daysWithEvents: string[]): string {
   const today = chicagoToday()
   const sorted = [...daysWithEvents].sort()
