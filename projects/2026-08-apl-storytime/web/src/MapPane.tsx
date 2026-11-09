@@ -2,11 +2,10 @@ import { useEffect, useRef } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { AUSTIN } from './lib/constants'
-import { pinSize } from './lib/filters'
-import { formatTime } from './lib/when'
 import type { BranchInfo, LonLat, StoryEvent } from './lib/types'
 
-const POSITRON = 'https://tiles.openfreemap.org/styles/positron'
+const STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/positron'
+const STYLE_DARK = 'https://tiles.openfreemap.org/styles/dark'
 const OSM_RASTER: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
@@ -20,55 +19,34 @@ const OSM_RASTER: maplibregl.StyleSpecification = {
   layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
 }
 
-export type PinHover = {
-  branch: string
-  count: number
-  next: string | null
-  gap: boolean
-  x: number
-  y: number
-}
-
-export type EdgePad = { top: number; right: number; bottom: number; left: number }
-
 type Props = {
   branches: Record<string, BranchInfo>
   dayEvents: StoryEvent[]
   selectedBranch: string | null
-  selectedEvent: StoryEvent | null
-  user: LonLat | null
-  gapBranches: Set<string>
-  edgePad: EdgePad
+  home: LonLat
+  active: boolean
+  padBottom: number
+  shortName: (name: string) => string
   onSelectBranch: (name: string | null) => void
-  onHover: (h: PinHover | null) => void
 }
 
-function reducedMotion(): boolean {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
-}
-
-function coarsePointer(): boolean {
-  return window.matchMedia('(pointer: coarse)').matches
-}
+const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const darkScheme = () => window.matchMedia('(prefers-color-scheme: dark)').matches
 
 export function MapPane({
   branches,
   dayEvents,
   selectedBranch,
-  selectedEvent,
-  user,
-  gapBranches,
-  edgePad,
+  home,
+  active,
+  padBottom,
+  shortName,
   onSelectBranch,
-  onHover,
 }: Props) {
   const root = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const markers = useRef<maplibregl.Marker[]>([])
-  const userMarker = useRef<maplibregl.Marker | null>(null)
-  const ready = useRef(false)
-  const hoverFn = useRef(onHover)
-  hoverFn.current = onHover
+  const labels = useRef<{ el: HTMLElement; at: [number, number] }[]>([])
   const selectFn = useRef(onSelectBranch)
   selectFn.current = onSelectBranch
 
@@ -76,7 +54,7 @@ export function MapPane({
     if (!root.current || mapRef.current) return
     const map = new maplibregl.Map({
       container: root.current,
-      style: POSITRON,
+      style: darkScheme() ? STYLE_DARK : STYLE_LIGHT,
       center: AUSTIN,
       zoom: 10.4,
       attributionControl: { compact: true },
@@ -85,26 +63,9 @@ export function MapPane({
       touchPitch: false,
     })
     map.touchZoomRotate.disableRotation()
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
-    map.on('load', () => {
-      ready.current = true
-      map.resize()
-      map.addSource('user-acc', {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] },
-      })
-      map.addLayer({
-        id: 'user-acc',
-        type: 'circle',
-        source: 'user-acc',
-        paint: {
-          'circle-radius': 18,
-          'circle-color': '#2a6f97',
-          'circle-opacity': 0.12,
-          'circle-stroke-width': 0,
-        },
-      })
-    })
+    if (window.matchMedia('(pointer: fine)').matches) {
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
+    }
     let fellBack = false
     map.on('error', () => {
       if (fellBack) return
@@ -114,130 +75,118 @@ export function MapPane({
     map.on('click', (e) => {
       const t = e.originalEvent.target as HTMLElement | null
       if (t?.closest('.pin')) return
-      hoverFn.current(null)
       selectFn.current(null)
     })
+    map.on('load', () => {
+      root.current?.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show')
+    })
+    map.on('moveend', () => declutter(map, labels.current))
     const ro = new ResizeObserver(() => map.resize())
     ro.observe(root.current)
     mapRef.current = map
+
+    const el = document.createElement('div')
+    el.className = 'home-pin'
+    el.innerHTML = '<span></span><em>Home</em>'
+    new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([home.lon, home.lat]).addTo(map)
+
     return () => {
       ro.disconnect()
       map.remove()
       mapRef.current = null
-      ready.current = false
     }
-  }, [])
+  }, [home])
 
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
     for (const m of markers.current) m.remove()
     markers.current = []
-    const hit = coarsePointer() ? 44 : 24
+    labels.current = []
 
-    const byBranch = new Map<string, StoryEvent[]>()
+    const byBranch = new Map<string, number>()
     for (const ev of dayEvents) {
       if (ev.branch === 'Online') continue
-      const list = byBranch.get(ev.branch) ?? []
-      list.push(ev)
-      byBranch.set(ev.branch, list)
+      byBranch.set(ev.branch, (byBranch.get(ev.branch) ?? 0) + 1)
     }
 
-    for (const [name, info] of Object.entries(branches)) {
+    const order = Object.entries(branches).sort(
+      ([a], [b]) =>
+        Number(b === selectedBranch) - Number(a === selectedBranch) ||
+        (byBranch.get(b) ?? 0) - (byBranch.get(a) ?? 0),
+    )
+    for (const [name, info] of order) {
       if (info.lat == null || info.lon == null) continue
-      const todays = byBranch.get(name) ?? []
-      const n = todays.length
-      const gap = n === 0 && gapBranches.has(name)
-      const selected =
-        selectedBranch === name || (selectedEvent != null && selectedEvent.branch === name)
+      const n = byBranch.get(name) ?? 0
+      const sel = selectedBranch === name
       const el = document.createElement('button')
       el.type = 'button'
-      el.className = `pin${n ? ' pin-live' : ''}${selected ? ' pin-sel' : ''}${gap && !n ? ' pin-gap' : ''}`
-      const size = n ? pinSize(n) : 10
-      el.style.width = `${Math.max(hit, size)}px`
-      el.style.height = `${Math.max(hit, size)}px`
-      el.innerHTML = `<span class="pin-dot" style="width:${size}px;height:${size}px">${n > 1 ? n : ''}</span>`
-      el.setAttribute('aria-label', `${name}${n ? `, ${n} programs` : ''}`)
+      el.className = `pin${n ? ' live' : ''}${sel ? ' sel' : ''}`
+      el.setAttribute('aria-label', `${name}, ${n ? `${n} program${n === 1 ? '' : 's'}` : 'no programs'}`)
+      el.setAttribute('aria-pressed', String(sel))
+      const dot = document.createElement('span')
+      dot.className = 'pin-dot'
+      if (n) dot.textContent = String(n)
+      el.appendChild(dot)
+      if (n || sel) {
+        const label = document.createElement('em')
+        label.className = 'pin-label'
+        label.textContent = shortName(name)
+        el.appendChild(label)
+        labels.current.push({ el: label, at: [info.lon, info.lat] })
+      }
       el.addEventListener('click', (ev) => {
         ev.stopPropagation()
-        hoverFn.current(null)
-        selectFn.current(name)
+        selectFn.current(sel ? null : name)
       })
-      el.addEventListener('pointerenter', (ev) => {
-        if (ev.pointerType === 'touch') return
-        const r = (ev.currentTarget as HTMLElement).getBoundingClientRect()
-        hoverFn.current({
-          branch: name,
-          count: n,
-          next: todays[0] ? formatTime(todays[0].start) : null,
-          gap,
-          x: r.left + r.width / 2,
-          y: r.top,
-        })
-      })
-      el.addEventListener('pointerleave', () => hoverFn.current(null))
       const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
         .setLngLat([info.lon, info.lat])
         .addTo(map)
+      if (n) marker.getElement().style.zIndex = sel ? '3' : '2'
       markers.current.push(marker)
     }
-  }, [branches, dayEvents, selectedBranch, selectedEvent, gapBranches])
+    declutter(map, labels.current)
+  }, [branches, dayEvents, selectedBranch, shortName])
 
   useEffect(() => {
     const map = mapRef.current
-    if (!map) return
+    if (!map || !active) return
     const fit = () => {
-      const bounds = new maplibregl.LngLatBounds()
-      let bounded = false
+      map.resize()
+      const pad = { top: 56, right: 72, bottom: padBottom + 36, left: 72 }
+      const target = selectedBranch ? branches[selectedBranch] : null
+      if (target?.lat != null && target.lon != null) {
+        map.easeTo({
+          center: [target.lon, target.lat],
+          zoom: Math.max(map.getZoom(), 11.5),
+          padding: pad,
+          duration: reducedMotion() ? 0 : 500,
+        })
+        return
+      }
+      const bounds = new maplibregl.LngLatBounds([home.lon, home.lat], [home.lon, home.lat])
       const live = new Set(dayEvents.map((e) => e.branch))
       for (const [name, info] of Object.entries(branches)) {
-        if (info.lat == null || info.lon == null) continue
-        if (!live.has(name)) continue
+        if (info.lat == null || info.lon == null || !live.has(name)) continue
         bounds.extend([info.lon, info.lat])
-        bounded = true
       }
-      if (user) {
-        bounds.extend([user.lon, user.lat])
-        bounded = true
-      }
-      if (bounded && !bounds.isEmpty()) {
-        map.fitBounds(bounds, {
-          padding: edgePad,
-          maxZoom: 12.2,
-          duration: reducedMotion() ? 0 : 650,
-        })
-      }
+      map.fitBounds(bounds, { padding: pad, maxZoom: 12.2, duration: reducedMotion() ? 0 : 500 })
     }
-    if (map.loaded()) fit()
-    else map.once('load', fit)
-  }, [branches, dayEvents, user, edgePad])
-
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map) return
-    userMarker.current?.remove()
-    userMarker.current = null
-    if (!user) return
-    const el = document.createElement('div')
-    el.className = 'user-dot'
-    el.setAttribute('aria-label', 'Home')
-    userMarker.current = new maplibregl.Marker({ element: el, anchor: 'center' })
-      .setLngLat([user.lon, user.lat])
-      .addTo(map)
-    const src = map.getSource('user-acc')
-    if (src && 'setData' in src) {
-      src.setData({
-        type: 'FeatureCollection',
-        features: [
-          {
-            type: 'Feature',
-            properties: {},
-            geometry: { type: 'Point', coordinates: [user.lon, user.lat] },
-          },
-        ],
-      })
-    }
-  }, [user])
+    fit()
+  }, [branches, dayEvents, selectedBranch, home, active, padBottom])
 
   return <div ref={root} className="map-root" />
+}
+
+/** Hide labels that would collide with a higher-priority label (earlier in the list). */
+function declutter(map: maplibregl.Map, items: { el: HTMLElement; at: [number, number] }[]) {
+  const placed: { l: number; r: number; t: number; b: number }[] = []
+  for (const { el, at } of items) {
+    const p = map.project(at)
+    const w = el.textContent!.length * 7 + 8
+    const box = { l: p.x - w / 2, r: p.x + w / 2, t: p.y + 14, b: p.y + 32 }
+    const hit = placed.some((q) => box.l < q.r && box.r > q.l && box.t < q.b && box.b > q.t)
+    el.classList.toggle('hide', hit)
+    if (!hit) placed.push(box)
+  }
 }
