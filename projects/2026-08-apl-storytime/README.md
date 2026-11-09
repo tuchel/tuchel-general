@@ -4,7 +4,7 @@ Subscribeable iCal of Austin Public Library storytimes for **7 September – 21 
 
 **Status:** Pages path `/storytime/` after merge — https://tuchel.github.io/tuchel-general/storytime/
 
-The app opens on today’s programs, built for a phone. A day strip scrolls through the season (dots mark how many programs match the filter); swipe the list sideways to change day, or open the full Sep–Nov calendar. Age and type filters persist on the device. On today’s list, ended programs fold away, the one in progress is marked, and the next one shows a countdown. Each program opens to directions, add-to-calendar, map, call, and the library listing. Tap the + on any programs, across any days, and add them to your calendar together as one file; picks persist on the device until cleared. Sort by time or by distance from home (427 Ridgewood Road, West Lake Hills; OSM/Nominatim building point). The map view labels each library with that day’s program count. Follows the system light or dark setting, and installs to the home screen.
+The app opens on today’s programs, built for a phone. A day strip scrolls through the season (dots mark how many programs match the filter); swipe the list sideways to change day, or open the full Sep–Nov calendar. Select any number of age and type filters; a program shows if it matches any of them, and the selection persists on the device. On today’s list, ended programs fold away, the one in progress is marked, and the next one shows a countdown. Each program opens to directions, add-to-calendar, map, call, and the library listing. Tap the + on any programs, across any days, and add them to your calendar together as one file; picks persist on the device until cleared. Each program shows the drive from home (427 Ridgewood Road, West Lake Hills; OSM/Nominatim building point) with no traffic, and Nearest sorts by that drive. The map view labels each library with that day’s program count. Follows the system light or dark setting, and installs to the home screen.
 
 ## Add to iCal / Apple Calendar
 
@@ -48,6 +48,12 @@ python3 scripts/test_calendar.py
 ```
 
 Without `--scrape`, the builder reuses `data/events_scraped.json`.
+
+Drive times (one OSRM table request, car profile, no traffic; writes `data/drive_times.json` and `web/public/drive_times.json`):
+
+```bash
+python3 scripts/drive_times.py
+```
 
 Map app:
 

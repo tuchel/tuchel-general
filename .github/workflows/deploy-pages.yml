@@ -17,9 +17,6 @@ on:
       - 'shared/charts/src/**'
       - '.github/workflows/deploy-pages.yml'
       - '.github/workflows/deploy-metro-budget-tax.yml'
-  # Re-bake Bluesky social.json even when no code landed (PSW day threads move hourly)
-  schedule:
-    - cron: '25 */3 * * *'
   workflow_dispatch:
 
 permissions:

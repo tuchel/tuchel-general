@@ -12,13 +12,15 @@ import {
   STORYTIMES_INDEX,
   WEBCAL,
 } from './lib/constants'
-import { defaultDay, FILTERS, matchesFilter } from './lib/filters'
+import { defaultDay, FILTERS, matchesAny } from './lib/filters'
 import { eventPoint, formatMiles, miles, sortByDistance, sortByTime } from './lib/geo'
 import { downloadIcs } from './lib/ics'
 import { addDays, chicagoToday, dayKey, formatTime, monthName, seasonDays, weekdayNarrow } from './lib/when'
 import type { BranchInfo, FilterId, Gap, StoryEvent } from './lib/types'
 
 type SortId = 'time' | 'distance'
+/** Free-flow drive from home per branch, from scripts/drive_times.py. */
+type DriveTimes = Record<string, { minutes: number; road_miles: number }>
 type View = 'list' | 'map'
 
 const FILTER_KEY = 'storytime.filter'
@@ -41,19 +43,33 @@ export function shortBranch(name: string): string {
   return name.replace(/ Branch$/, '').replace('Hampton Branch at Oak Hill', 'Hampton at Oak Hill')
 }
 
-function readStoredFilter(): FilterId | null {
+const FILTER_IDS = new Set<string>(FILTERS.map((f) => f.id).filter((id) => id !== 'all'))
+
+/** Accepts "babies,toddler", a JSON array, or the older single id. */
+function parseFilters(raw: string | null): FilterId[] {
+  if (!raw) return []
+  let parts: unknown = raw
   try {
-    const v = localStorage.getItem(FILTER_KEY) as FilterId | null
-    return v && FILTERS.some((f) => f.id === v) ? v : null
+    parts = JSON.parse(raw)
   } catch {
-    return null
+    /* comma list or a bare id */
+  }
+  const list = Array.isArray(parts) ? parts : String(parts).split(',')
+  return [...new Set(list.map(String).filter((id) => FILTER_IDS.has(id)))] as FilterId[]
+}
+
+function readStoredFilters(): FilterId[] {
+  try {
+    return parseFilters(localStorage.getItem(FILTER_KEY))
+  } catch {
+    return []
   }
 }
 
-function storeFilter(id: FilterId) {
+function storeFilters(ids: FilterId[]) {
   try {
-    if (id === 'all') localStorage.removeItem(FILTER_KEY)
-    else localStorage.setItem(FILTER_KEY, id)
+    if (ids.length === 0) localStorage.removeItem(FILTER_KEY)
+    else localStorage.setItem(FILTER_KEY, JSON.stringify(ids))
   } catch {
     /* private mode: filter simply isn't remembered */
   }
@@ -129,7 +145,8 @@ export default function App() {
   const [branches, setBranches] = useState<Record<string, BranchInfo>>({})
   const [gaps, setGaps] = useState<Gap[]>([])
   const [day, setDay] = useState<string | null>(null)
-  const [filter, setFilterState] = useState<FilterId>('all')
+  const [filters, setFiltersState] = useState<FilterId[]>([])
+  const [drive, setDrive] = useState<DriveTimes>({})
   const [sort, setSort] = useState<SortId>('time')
   const [view, setView] = useState<View>('list')
   const [openId, setOpenId] = useState<string | null>(null)
@@ -158,8 +175,13 @@ export default function App() {
       fetch(`${base}events.json`).then((r) => r.json() as Promise<StoryEvent[]>),
       fetch(`${base}branches.json`).then((r) => r.json() as Promise<Record<string, BranchInfo>>),
       fetch(`${base}gaps.json`).then((r) => r.json() as Promise<Gap[]>),
-    ]).then(([ev, br, gp]) => {
+      fetch(`${base}drive_times.json`)
+        .then((r) => r.json() as Promise<{ branches: DriveTimes }>)
+        .then((d) => d.branches)
+        .catch(() => ({}) as DriveTimes),
+    ]).then(([ev, br, gp, dt]) => {
       setEvents(ev)
+      setDrive(dt)
       setBranches(br)
       setGaps(gp)
       const params = new URLSearchParams(window.location.search)
@@ -167,12 +189,9 @@ export default function App() {
       const linked = ev.find((e) => e.nid === params.get('e'))
       setDay(linked ? dayKey(linked.start) : defaultDay(days))
       if (linked) setOpenId(linked.nid)
-      const f = params.get('f') as FilterId | null
-      if (f && FILTERS.some((x) => x.id === f)) setFilterState(f)
-      else if (!linked) {
-        const stored = readStoredFilter()
-        if (stored) setFilterState(stored)
-      }
+      const fromUrl = parseFilters(params.get('f'))
+      if (fromUrl.length) setFiltersState(fromUrl)
+      else if (!linked) setFiltersState(readStoredFilters())
       if (params.get('s') === 'distance') setSort('distance')
     })
   }, [])
@@ -182,18 +201,20 @@ export default function App() {
     const u = new URL(window.location.href)
     u.searchParams.delete('d')
     u.searchParams.delete('b')
-    if (filter !== 'all') u.searchParams.set('f', filter)
+    if (filters.length) u.searchParams.set('f', filters.join(','))
     else u.searchParams.delete('f')
     if (openId) u.searchParams.set('e', openId)
     else u.searchParams.delete('e')
     if (sort === 'distance') u.searchParams.set('s', 'distance')
     else u.searchParams.delete('s')
     history.replaceState(null, '', u)
-  }, [day, filter, openId, sort])
+  }, [day, filters, openId, sort])
 
-  const setFilter = (id: FilterId) => {
-    setFilterState(id)
-    storeFilter(id)
+  /** "All" clears; any other chip toggles on or off. */
+  const toggleFilter = (id: FilterId) => {
+    const next = id === 'all' ? [] : filters.includes(id) ? filters.filter((x) => x !== id) : [...filters, id]
+    setFiltersState(next)
+    storeFilters(next)
     setOpenId(null)
     setMapBranch(null)
   }
@@ -221,19 +242,23 @@ export default function App() {
   const counts = useMemo(() => {
     const m = new Map<string, number>()
     for (const ev of events) {
-      if (!matchesFilter(ev, filter)) continue
+      if (!matchesAny(ev, filters)) continue
       const k = dayKey(ev.start)
       m.set(k, (m.get(k) ?? 0) + 1)
     }
     return m
-  }, [events, filter])
+  }, [events, filters])
 
   const dayEvents = useMemo(() => {
     if (!day) return []
-    const list = events.filter((e) => dayKey(e.start) === day && matchesFilter(e, filter))
-    const cmp = sort === 'distance' ? (a: StoryEvent, b: StoryEvent) => sortByDistance(HOME, a, b) : sortByTime
+    const list = events.filter((e) => dayKey(e.start) === day && matchesAny(e, filters))
+    const mins = (e: StoryEvent) => drive[e.branch]?.minutes ?? Infinity
+    const cmp =
+      sort === 'distance'
+        ? (a: StoryEvent, b: StoryEvent) => mins(a) - mins(b) || sortByDistance(HOME, a, b)
+        : sortByTime
     return [...list].sort(cmp)
-  }, [events, day, filter, sort])
+  }, [events, day, filters, sort, drive])
 
   useEffect(() => {
     if (!openId || view !== 'list') return
@@ -292,6 +317,7 @@ export default function App() {
       onMap={() => showOnMap(ev)}
       phone={branches[ev.branch]?.phone}
       picked={picks.includes(ev.nid)}
+      driveMin={drive[ev.branch]?.minutes}
       onPick={() => togglePick(ev.nid)}
     />
   )
@@ -340,8 +366,8 @@ export default function App() {
               key={f.id}
               type="button"
               className="chip"
-              aria-pressed={filter === f.id}
-              onClick={() => setFilter(f.id)}
+              aria-pressed={f.id === 'all' ? filters.length === 0 : filters.includes(f.id)}
+              onClick={() => toggleFilter(f.id)}
             >
               {f.label}
             </button>
@@ -375,9 +401,9 @@ export default function App() {
 
           {dayEvents.length === 0 && (
             <div className="empty">
-              <p>{closed ? 'Libraries are closed today.' : 'Nothing for this filter on this day.'}</p>
-              {filter !== 'all' && (
-                <button type="button" className="pill-btn" onClick={() => setFilter('all')}>
+              <p>{closed ? 'Libraries are closed today.' : 'Nothing for these filters on this day.'}</p>
+              {filters.length > 0 && (
+                <button type="button" className="pill-btn" onClick={() => toggleFilter('all')}>
                   Show all storytimes
                 </button>
               )}
@@ -426,6 +452,7 @@ export default function App() {
         selected={mapBranch}
         onSelect={setMapBranch}
         onOpen={openFromMap}
+        drive={drive}
         now={isToday ? now : null}
       />
 
@@ -563,10 +590,12 @@ function EventCard({
   next,
   phone,
   picked,
+  driveMin,
   onToggle,
   onMap,
   onPick,
 }: {
+  driveMin?: number
   ev: StoryEvent
   open: boolean
   now: number | null
@@ -578,7 +607,7 @@ function EventCard({
   onPick: () => void
 }) {
   const pt = eventPoint(ev)
-  const dist = pt ? formatMiles(miles(HOME, pt)) : null
+  const dist = driveMin == null && pt ? formatMiles(miles(HOME, pt)) : null
   const start = Date.parse(ev.start)
   const end = Date.parse(ev.end)
   const live = now != null && start <= now && now < end
@@ -616,7 +645,14 @@ function EventCard({
           <span className="title">{ev.title}</span>
           <span className="where">
             {online ? 'Online' : shortBranch(ev.branch)}
-            {dist && <span className="mi"> · {dist}</span>}
+            {driveMin != null ? (
+              <span className="drive" aria-label={`, ${driveMin} minute drive`}>
+                <CarIcon />
+                {driveMin} min
+              </span>
+            ) : (
+              dist && <span className="mi"> · {dist}</span>
+            )}
           </span>
           <span className={`age age-${age}`}>
             {AGE_LABEL[age]} · {durationLabel(ev)}
@@ -679,6 +715,7 @@ function MapView({
   onSelect,
   onOpen,
   now,
+  drive,
 }: {
   active: boolean
   branches: Record<string, BranchInfo>
@@ -687,6 +724,7 @@ function MapView({
   onSelect: (b: string | null) => void
   onOpen: (ev: StoryEvent) => void
   now: number | null
+  drive: DriveTimes
 }) {
   const cardRef = useRef<HTMLDivElement>(null)
   const [cardH, setCardH] = useState(120)
@@ -701,7 +739,12 @@ function MapView({
   const here = selected ? dayEvents.filter((e) => e.branch === selected).sort(sortByTime) : []
   const live = new Set(dayEvents.filter((e) => e.branch !== 'Online').map((e) => e.branch))
   const info = selected ? branches[selected] : null
-  const dist = info?.lat != null && info.lon != null ? formatMiles(miles(HOME, { lat: info.lat, lon: info.lon })) : null
+  const leg = selected ? drive[selected] : undefined
+  const dist = leg
+    ? `${leg.minutes} min drive · ${leg.road_miles} mi`
+    : info?.lat != null && info.lon != null
+      ? formatMiles(miles(HOME, { lat: info.lat, lon: info.lon }))
+      : null
 
   return (
     <section className="mapview" hidden={!active} aria-label="Map">
@@ -859,7 +902,7 @@ function SeasonSheet({
               </section>
             )
           })}
-          <p className="sheet-note">Dots show how many storytimes match your filter that day.</p>
+          <p className="sheet-note">Dots show how many storytimes match your filters that day.</p>
         </div>
       </div>
     </div>
@@ -995,7 +1038,8 @@ function Footer({ gaps }: { gaps: Gap[] }) {
       <p>
         Unofficial schedule of Austin Public Library storytimes, {MONTH_DAY.format(utcNoon(SEASON_START))} –{' '}
         {MONTH_DAY.format(utcNoon(SEASON_END))}, 2026. Programs can move or cancel; confirm at{' '}
-        <a href={STORYTIMES_INDEX}>library.austintexas.gov</a>. Accessibility requests: {ADA_PHONE}. Feed:{' '}
+        <a href={STORYTIMES_INDEX}>library.austintexas.gov</a>. Accessibility requests: {ADA_PHONE}. Drive times are from home with no traffic, routed by{' '}
+        <a href="https://project-osrm.org/">OSRM</a> on OpenStreetMap roads. Feed:{' '}
         <a href={ICS_HTTPS}>storytime.ics</a>
       </p>
     </footer>
@@ -1075,6 +1119,13 @@ const CheckIcon = () => (
   <Icon>
     <path d="m5.5 12.5 4.5 4.5 8.5-9.5" strokeWidth="2.4" />
   </Icon>
+)
+const CarIcon = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 16.5h14M6.5 16.5v2M17.5 16.5v2M4.5 16.5v-4l2-5h11l2 5v4" />
+    <circle cx="8" cy="13.5" r="0.6" fill="currentColor" />
+    <circle cx="16" cy="13.5" r="0.6" fill="currentColor" />
+  </svg>
 )
 const CloseIcon = () => (
   <Icon>
