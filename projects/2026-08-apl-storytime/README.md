@@ -4,7 +4,7 @@ Subscribeable iCal of Austin Public Library storytimes for **7 September – 21 
 
 **Status:** Pages path `/storytime/` after merge — https://tuchel.github.io/tuchel-general/storytime/
 
-Map + day calendar of the same dated listings. The paper card leads with the month and a one-week strip (weekday letter + date in each cell); Calendar jumps the full Sep–Nov grid, and the day’s programs sit directly below. Sort by time or by distance from home (427 Ridgewood Road, West Lake Hills; OSM/Nominatim building point). Tapping a branch highlights it in the list — it does not hide the rest of the day.
+The app opens on today’s programs, built for a phone. A day strip scrolls through the season (dots mark how many programs match the filter); swipe the list sideways to change day, or open the full Sep–Nov calendar. Age and type filters persist on the device. On today’s list, ended programs fold away, the one in progress is marked, and the next one shows a countdown. Each program opens to directions, add-to-calendar, map, call, and the library listing. Sort by time or by distance from home (427 Ridgewood Road, West Lake Hills; OSM/Nominatim building point). The map view labels each library with that day’s program count. Follows the system light or dark setting, and installs to the home screen.
 
 ## Add to iCal / Apple Calendar
 

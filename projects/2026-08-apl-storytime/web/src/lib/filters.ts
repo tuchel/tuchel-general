@@ -4,11 +4,11 @@ import type { FilterId, StoryEvent } from './types'
 export const FILTERS: { id: FilterId; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'babies', label: 'Babies' },
-  { id: 'toddler', label: 'Toddler' },
+  { id: 'toddler', label: 'Toddlers' },
   { id: 'preschool', label: 'Preschool' },
-  { id: 'allages', label: 'All ages' },
+  { id: 'allages', label: 'Ages 0–5' },
   { id: 'pajama', label: 'Pajama' },
-  { id: 'language', label: 'Language' },
+  { id: 'language', label: 'Languages' },
   { id: 'music', label: 'Music' },
   { id: 'online', label: 'Online' },
 ]

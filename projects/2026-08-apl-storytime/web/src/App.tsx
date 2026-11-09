@@ -1,5 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { MapPane, type EdgePad, type PinHover } from './MapPane'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type TouchEvent } from 'react'
+import { MapPane } from './MapPane'
+import { AGE_LABEL, ageOf } from './lib/age'
 import {
   ADA_PHONE,
   CLOSED_DAYS,
@@ -13,89 +14,95 @@ import {
 } from './lib/constants'
 import { defaultDay, FILTERS, matchesFilter } from './lib/filters'
 import { eventPoint, formatMiles, miles, sortByDistance, sortByTime } from './lib/geo'
-import { addDays, dayKey, formatLongDay, formatRange, sundayOf, weekDays, weekMonthLabel, weekdayNarrow } from './lib/when'
+import { downloadIcs } from './lib/ics'
+import { addDays, chicagoToday, dayKey, formatTime, monthName, seasonDays, weekdayNarrow } from './lib/when'
 import type { BranchInfo, FilterId, Gap, StoryEvent } from './lib/types'
 
 type SortId = 'time' | 'distance'
+type View = 'list' | 'map'
 
+const FILTER_KEY = 'storytime.filter'
+const SEASON = seasonDays(SEASON_START, SEASON_END)
 const MONTHS = [
-  { y: 2026, m: 9, label: 'September' },
-  { y: 2026, m: 10, label: 'October' },
-  { y: 2026, m: 11, label: 'November' },
+  { y: 2026, m: 9 },
+  { y: 2026, m: 10 },
+  { y: 2026, m: 11 },
 ]
+const LONG_WEEKDAY = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'long' })
+const SHORT_WEEKDAY = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'short' })
+const MONTH_DAY = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'long', day: 'numeric' })
 
-const REST_PAD: EdgePad = { top: 40, right: 52, bottom: 36, left: 24 }
-
-function daysInMonth(y: number, m: number): number {
-  return new Date(y, m, 0).getDate()
+function utcNoon(day: string): Date {
+  return new Date(`${day}T12:00:00Z`)
 }
 
-function pad(n: number): string {
-  return String(n).padStart(2, '0')
+export function shortBranch(name: string): string {
+  return name.replace(/ Branch$/, '').replace('Hampton Branch at Oak Hill', 'Hampton at Oak Hill')
 }
 
-function weekInSeason(sunday: string): boolean {
-  return weekDays(sunday).some((d) => d >= SEASON_START && d <= SEASON_END)
-}
-
-function stepWeek(selected: string, dir: -1 | 1): string {
-  const next = addDays(selected, dir * 7)
-  if (next >= SEASON_START && next <= SEASON_END) return next
-  const inWeek = weekDays(sundayOf(next)).filter((d) => d >= SEASON_START && d <= SEASON_END)
-  if (!inWeek.length) return selected
-  return dir === 1 ? inWeek[0] : inWeek[inWeek.length - 1]
-}
-
-function shortBranch(name: string): string {
-  return name.replace(/ Branch$/, '').replace('Hampton Branch at Oak Hill', 'Hampton @ Oak Hill')
-}
-
-function tipStyle(x: number, y: number): CSSProperties {
-  const inset = 10
-  const half = 88
-  const left = Math.min(Math.max(x, inset + half), window.innerWidth - inset - half)
-  const flip = y < 88
-  return {
-    left,
-    top: y,
-    transform: flip ? 'translate(-50%, 10px)' : 'translate(-50%, calc(-100% - 10px))',
+function readStoredFilter(): FilterId | null {
+  try {
+    const v = localStorage.getItem(FILTER_KEY) as FilterId | null
+    return v && FILTERS.some((f) => f.id === v) ? v : null
+  } catch {
+    return null
   }
 }
 
-function padFromChrome(el: HTMLElement | null): EdgePad {
-  if (!el) return REST_PAD
-  const r = el.getBoundingClientRect()
-  const w = window.innerWidth
-  const h = window.innerHeight
-  const gap = 14
-  const leftDock = r.left < 48 && r.width < w * 0.55 && r.height > h * 0.5
-  if (leftDock) {
-    return { top: 36, right: 52, bottom: 36, left: Math.min(Math.round(r.right + gap), w - 120) }
-  }
-  const sheetH = Math.min(r.height, 304)
-  return {
-    top: 40,
-    right: 52,
-    bottom: Math.max(36, Math.round(sheetH + gap)),
-    left: 20,
+function storeFilter(id: FilterId) {
+  try {
+    if (id === 'all') localStorage.removeItem(FILTER_KEY)
+    else localStorage.setItem(FILTER_KEY, id)
+  } catch {
+    /* private mode: filter simply isn't remembered */
   }
 }
 
-function sheetRange(): { peek: number; max: number } {
-  const fs = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-  const vh = window.visualViewport?.height ?? window.innerHeight
-  const peek = 18.5 * fs
-  const max = Math.max(peek + 48, vh - 2.6 * fs - 8)
-  return { peek, max }
+function untilLabel(ms: number): string {
+  const min = Math.max(1, Math.round(ms / 60000))
+  if (min < 60) return `in ${min} min`
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return m ? `in ${h} hr ${m} min` : `in ${h} hr`
 }
 
-function swallowNextClick() {
-  const swallow = (ev: Event) => {
-    ev.preventDefault()
-    ev.stopPropagation()
-  }
-  document.addEventListener('click', swallow, true)
-  window.setTimeout(() => document.removeEventListener('click', swallow, true), 450)
+function durationLabel(ev: StoryEvent): string {
+  const min = Math.round((Date.parse(ev.end) - Date.parse(ev.start)) / 60000)
+  return min >= 60 && min % 60 === 0 ? `${min / 60} hr` : `${min} min`
+}
+
+function splitTime(iso: string): { clock: string; ampm: string } {
+  const t = formatTime(iso)
+  const [clock, ampm] = t.split(' ')
+  return { clock, ampm: ampm ?? '' }
+}
+
+function dotsFor(count: number): number {
+  if (count <= 0) return 0
+  if (count <= 2) return 1
+  if (count <= 5) return 2
+  if (count <= 8) return 3
+  return 4
+}
+
+function directionsUrl(ev: StoryEvent): string | null {
+  const pt = eventPoint(ev)
+  if (!pt) return null
+  return `https://maps.apple.com/?daddr=${pt.lat},${pt.lon}&q=${encodeURIComponent(ev.branch)}`
+}
+
+function useNow(): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 30_000)
+    const wake = () => document.visibilityState === 'visible' && setNow(Date.now())
+    document.addEventListener('visibilitychange', wake)
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', wake)
+    }
+  }, [])
+  return now
 }
 
 export default function App() {
@@ -103,32 +110,26 @@ export default function App() {
   const [branches, setBranches] = useState<Record<string, BranchInfo>>({})
   const [gaps, setGaps] = useState<Gap[]>([])
   const [day, setDay] = useState<string | null>(null)
-  const [filter, setFilter] = useState<FilterId>('all')
-  const [branch, setBranch] = useState<string | null>(null)
-  const [eventId, setEventId] = useState<string | null>(null)
+  const [filter, setFilterState] = useState<FilterId>('all')
   const [sort, setSort] = useState<SortId>('time')
-  const [hover, setHover] = useState<PinHover | null>(null)
-  const [calOpen, setCalOpen] = useState(false)
+  const [view, setView] = useState<View>('list')
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [mapBranch, setMapBranch] = useState<string | null>(null)
   const [seasonOpen, setSeasonOpen] = useState(false)
-  const [expanded, setExpanded] = useState(false)
-  const [boot, setBoot] = useState(true)
-  const [edgePad, setEdgePad] = useState<EdgePad>(REST_PAD)
-  const [dragH, setDragH] = useState<number | null>(null)
-  const calWrap = useRef<HTMLDivElement>(null)
-  const chromeRef = useRef<HTMLDivElement>(null)
-  const handleRef = useRef<HTMLDivElement>(null)
-  const expandedRef = useRef(false)
-  expandedRef.current = expanded
-  const drag = useRef<{
-    id: number
-    startY: number
-    startH: number
-    lastY: number
-    lastT: number
-    vy: number
-    moved: boolean
-    h: number
-  } | null>(null)
+  const [showEarlier, setShowEarlier] = useState(false)
+  const now = useNow()
+  const today = useMemo(() => chicagoToday(), [now])
+
+  useLayoutEffect(() => {
+    const el = document.querySelector<HTMLElement>('.top')
+    if (!el) return
+    const sync = () =>
+      document.documentElement.style.setProperty('--top-h', `${Math.round(el.getBoundingClientRect().height)}px`)
+    sync()
+    const ro = new ResizeObserver(sync)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [day])
 
   useEffect(() => {
     const base = import.meta.env.BASE_URL
@@ -144,192 +145,46 @@ export default function App() {
       const days = [...new Set(ev.map((e) => dayKey(e.start)))].sort()
       const linked = ev.find((e) => e.nid === params.get('e'))
       setDay(linked ? dayKey(linked.start) : defaultDay(days))
+      if (linked) setOpenId(linked.nid)
       const f = params.get('f') as FilterId | null
-      if (f && FILTERS.some((x) => x.id === f)) setFilter(f)
-      if (params.get('b')) setBranch(params.get('b'))
-      if (params.get('e')) setEventId(params.get('e'))
+      if (f && FILTERS.some((x) => x.id === f)) setFilterState(f)
+      else if (!linked) {
+        const stored = readStoredFilter()
+        if (stored) setFilterState(stored)
+      }
       if (params.get('s') === 'distance') setSort('distance')
-      setBoot(false)
     })
   }, [])
 
   useEffect(() => {
-    if (boot || !day) return
+    if (!day) return
     const u = new URL(window.location.href)
     u.searchParams.delete('d')
+    u.searchParams.delete('b')
     if (filter !== 'all') u.searchParams.set('f', filter)
     else u.searchParams.delete('f')
-    if (branch) u.searchParams.set('b', branch)
-    else u.searchParams.delete('b')
-    if (eventId) u.searchParams.set('e', eventId)
+    if (openId) u.searchParams.set('e', openId)
     else u.searchParams.delete('e')
     if (sort === 'distance') u.searchParams.set('s', 'distance')
     else u.searchParams.delete('s')
     history.replaceState(null, '', u)
-  }, [day, filter, branch, eventId, sort, boot])
+  }, [day, filter, openId, sort])
 
-  useEffect(() => {
-    if (!calOpen) return
-    const onPtr = (e: PointerEvent) => {
-      if (!calWrap.current?.contains(e.target as Node)) setCalOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setCalOpen(false)
-    }
-    document.addEventListener('pointerdown', onPtr)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('pointerdown', onPtr)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [calOpen])
+  const setFilter = (id: FilterId) => {
+    setFilterState(id)
+    storeFilter(id)
+    setOpenId(null)
+    setMapBranch(null)
+  }
 
-  useEffect(() => {
-    if (!seasonOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSeasonOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [seasonOpen])
-
-  useLayoutEffect(() => {
-    const el = chromeRef.current
-    const sync = () => setEdgePad(padFromChrome(chromeRef.current))
-    sync()
-    const ro = new ResizeObserver(sync)
-    if (el) ro.observe(el)
-    window.addEventListener('resize', sync)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener('resize', sync)
-    }
-  }, [boot, day])
-
-  useEffect(() => {
-    if (!eventId) return
-    document.getElementById(`ev-${eventId}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-  }, [eventId, day, expanded])
-
-  useLayoutEffect(() => {
-    const node = handleRef.current
-    const chrome = chromeRef.current
-    if (!node || !chrome) return
-
-    let raf = 0
-    let listening = false
-
-    const applyY = (clientY: number) => {
-      const d = drag.current
-      if (!d) return
-      const now = performance.now()
-      const dt = Math.max(8, now - d.lastT)
-      d.vy = (clientY - d.lastY) / dt
-      d.lastY = clientY
-      d.lastT = now
-      if (Math.abs(clientY - d.startY) > 6) d.moved = true
-      const { peek, max } = sheetRange()
-      const next = Math.min(max, Math.max(peek * 0.88, d.startH - (clientY - d.startY)))
-      d.h = next
-      if (raf) return
-      raf = requestAnimationFrame(() => {
-        raf = 0
-        if (drag.current) setDragH(drag.current.h)
-      })
-    }
-
-    const unbind = () => {
-      if (!listening) return
-      listening = false
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-      window.removeEventListener('pointercancel', onUp)
-      document.removeEventListener('touchmove', onTouchMove)
-      document.removeEventListener('touchend', onTouchEnd)
-      document.removeEventListener('touchcancel', onTouchEnd)
-    }
-
-    const finish = (clientY?: number) => {
-      const d = drag.current
-      if (!d) return
-      if (clientY != null) applyY(clientY)
-      drag.current = null
-      if (raf) {
-        cancelAnimationFrame(raf)
-        raf = 0
-      }
-      unbind()
-      document.documentElement.classList.remove('sheet-dragging')
-      const { peek, max } = sheetRange()
-      const mid = peek + (max - peek) * 0.38
-      let open = d.h > mid
-      if (d.vy > 0.35) open = false
-      else if (d.vy < -0.35) open = true
-      if (!d.moved) open = !expandedRef.current
-      if (d.moved) swallowNextClick()
-      setExpanded(open)
-      setDragH(null)
-    }
-
-    const onMove = (ev: PointerEvent) => {
-      const d = drag.current
-      if (!d || ev.pointerId !== d.id) return
-      applyY(ev.clientY)
-    }
-
-    const onUp = (ev: PointerEvent) => {
-      const d = drag.current
-      if (!d || ev.pointerId !== d.id) return
-      finish(ev.clientY)
-    }
-
-    const onTouchMove = (ev: TouchEvent) => {
-      if (!drag.current) return
-      ev.preventDefault()
-      if (ev.touches.length) applyY(ev.touches[0].clientY)
-    }
-
-    const onTouchEnd = (ev: TouchEvent) => {
-      if (!drag.current) return
-      if (ev.touches.length) return
-      finish(ev.changedTouches[0]?.clientY)
-    }
-
-    const onDown = (ev: PointerEvent) => {
-      if (ev.pointerType === 'mouse' && ev.button !== 0) return
-      if (drag.current) finish()
-      ev.stopPropagation()
-      const startH = chrome.getBoundingClientRect().height
-      drag.current = {
-        id: ev.pointerId,
-        startY: ev.clientY,
-        startH,
-        lastY: ev.clientY,
-        lastT: performance.now(),
-        vy: 0,
-        moved: false,
-        h: startH,
-      }
-      document.documentElement.classList.add('sheet-dragging')
-      setDragH(startH)
-      if (!listening) {
-        listening = true
-        window.addEventListener('pointermove', onMove)
-        window.addEventListener('pointerup', onUp)
-        window.addEventListener('pointercancel', onUp)
-        document.addEventListener('touchmove', onTouchMove, { passive: false })
-        document.addEventListener('touchend', onTouchEnd)
-        document.addEventListener('touchcancel', onTouchEnd)
-      }
-    }
-
-    node.addEventListener('pointerdown', onDown)
-    return () => {
-      node.removeEventListener('pointerdown', onDown)
-      if (drag.current) finish()
-      else unbind()
-    }
-  }, [day])
+  const pickDay = useCallback((next: string) => {
+    setDay(next)
+    setOpenId(null)
+    setMapBranch(null)
+    setShowEarlier(false)
+    setSeasonOpen(false)
+    window.scrollTo({ top: 0 })
+  }, [])
 
   const counts = useMemo(() => {
     const m = new Map<string, number>()
@@ -341,8 +196,6 @@ export default function App() {
     return m
   }, [events, filter])
 
-  const maxCount = useMemo(() => Math.max(1, ...counts.values()), [counts])
-
   const dayEvents = useMemo(() => {
     if (!day) return []
     const list = events.filter((e) => dayKey(e.start) === day && matchesFilter(e, filter))
@@ -350,484 +203,706 @@ export default function App() {
     return [...list].sort(cmp)
   }, [events, day, filter, sort])
 
-  const selectedEvent = dayEvents.find((e) => e.nid === eventId) ?? null
-  const gapBranches = useMemo(() => new Set(gaps.map((g) => g.branch)), [gaps])
-
-  const nearest = useMemo(() => {
-    let best: { name: string; mi: number } | null = null
-    for (const ev of dayEvents) {
-      const p = eventPoint(ev)
-      if (!p) continue
-      const mi = miles(HOME, p)
-      if (!best || mi < best.mi) best = { name: ev.branch, mi }
+  useEffect(() => {
+    if (!openId || view !== 'list') return
+    const el = document.getElementById(`ev-${openId}`)
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const top = document.querySelector('.top')?.getBoundingClientRect().bottom ?? 0
+    if (r.top < top + 8 || r.bottom > window.innerHeight - 8) {
+      window.scrollBy({ top: r.top - top - 12, behavior: 'smooth' })
     }
-    return best
-  }, [dayEvents])
-
-  function pickDay(next: string) {
-    setDay(next)
-    setEventId(null)
-    setBranch(null)
-    setSeasonOpen(false)
-  }
-
-  function selectBranch(name: string | null) {
-    if (!name || name === branch) {
-      setBranch(null)
-      setEventId(null)
-      return
-    }
-    setBranch(name)
-    const first = dayEvents.find((e) => e.branch === name)
-    setEventId(first?.nid ?? null)
-    setExpanded(true)
-  }
-
-  function toggleEvent(ev: StoryEvent) {
-    if (ev.nid === eventId) {
-      setEventId(null)
-      setBranch(null)
-      return
-    }
-    setEventId(ev.nid)
-    setBranch(ev.branch)
-  }
+  }, [openId, view])
 
   if (!day) {
-    return <div className="boot">Loading the Fall 2026 storytimes…</div>
+    return (
+      <div className="boot" role="status">
+        <span className="boot-dot" />
+        Loading storytimes…
+      </div>
+    )
   }
 
-  const unlocated = dayEvents.filter((e) => e.branch === 'Online')
-  const located = dayEvents.filter((e) => e.branch !== 'Online')
+  const isToday = day === today
+  const closed = CLOSED_DAYS.has(day)
+  const ended = isToday ? dayEvents.filter((e) => Date.parse(e.end) <= now) : []
+  const endedIds = new Set(ended.map((e) => e.nid))
+  const upcoming = dayEvents.filter((e) => !endedIds.has(e.nid))
+  const nextStart = isToday
+    ? Math.min(...upcoming.map((e) => Date.parse(e.start)).filter((t) => t > now))
+    : Infinity
+
+  const showOnMap = (ev: StoryEvent) => {
+    setMapBranch(ev.branch === 'Online' ? null : ev.branch)
+    setView('map')
+    window.scrollTo({ top: 0 })
+  }
+
+  const openFromMap = (ev: StoryEvent) => {
+    setView('list')
+    setOpenId(ev.nid)
+    if (endedIds.has(ev.nid)) setShowEarlier(true)
+  }
+
+  const step = (dir: -1 | 1) => {
+    const next = addDays(day, dir)
+    if (next >= SEASON_START && next <= SEASON_END) pickDay(next)
+  }
+
+  const card = (ev: StoryEvent) => (
+    <EventCard
+      key={ev.nid}
+      ev={ev}
+      open={ev.nid === openId}
+      now={isToday ? now : null}
+      next={Date.parse(ev.start) === nextStart}
+      onToggle={() => setOpenId(ev.nid === openId ? null : ev.nid)}
+      onMap={() => showOnMap(ev)}
+      phone={branches[ev.branch]?.phone}
+    />
+  )
 
   return (
-    <div className={expanded ? 'app expanded' : 'app'}>
-      <section className="map-wrap">
-        <MapPane
-          branches={branches}
-          dayEvents={dayEvents}
-          selectedBranch={branch}
-          selectedEvent={selectedEvent}
-          user={HOME}
-          gapBranches={gapBranches}
-          edgePad={edgePad}
-          onSelectBranch={selectBranch}
-          onHover={setHover}
-        />
-        {hover && (
-          <div className="tip" style={tipStyle(hover.x, hover.y)} role="tooltip">
-            <strong>{shortBranch(hover.branch)}</strong>
-            <span>
-              {hover.count
-                ? `${hover.count} program${hover.count === 1 ? '' : 's'} today`
-                : hover.gap
-                  ? 'On the flyer; no dated listing this season'
-                  : 'No program today'}
+    <div className={`app view-${view}`}>
+      <header className="top">
+        <div className="title-row">
+          <h1 className="day-title">
+            <span className="day-big">
+              {isToday ? 'Today' : day === addDays(today, 1) ? 'Tomorrow' : LONG_WEEKDAY.format(utcNoon(day))}
             </span>
-            {hover.next && <span>Next: {hover.next}</span>}
-            <em>Source: APL event listings</em>
-          </div>
-        )}
-          <p className="map-legend">
-            <span className="lg home" /> home
-            <span className="lg live" /> programs today
-            <span className="lg mute" /> quiet
-            <span className="lg gap" /> flyer only
-          </p>
-      </section>
-
-      <div
-        className={dragH != null ? 'chrome dragging' : 'chrome'}
-        ref={chromeRef}
-        style={dragH != null ? { height: dragH } : undefined}
-      >
-        <div
-          className="sheet-handle"
-          ref={handleRef}
-          role="slider"
-          tabIndex={0}
-          aria-label="Schedule sheet"
-          aria-orientation="vertical"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={expanded ? 100 : 35}
-          aria-expanded={expanded}
-          onKeyDown={(e) => {
-            if (e.key === 'ArrowUp' || e.key === 'Home') {
-              e.preventDefault()
-              setExpanded(true)
-            }
-            if (e.key === 'ArrowDown' || e.key === 'End') {
-              e.preventDefault()
-              setExpanded(false)
-            }
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              setExpanded((v) => !v)
-            }
-          }}
-        >
-          <span />
-        </div>
-
-        <h1 className="sr-only">Storytime</h1>
-
-        <div className="week">
-          <WeekBar
-            counts={counts}
-            max={maxCount}
-            selected={day}
-            calendarOpen={seasonOpen}
-            subscribe={
-              <div className="cal-wrap" ref={calWrap}>
-                <button
-                  type="button"
-                  className="text-btn"
-                  aria-expanded={calOpen}
-                  aria-haspopup="menu"
-                  onClick={() => setCalOpen((v) => !v)}
-                >
-                  Subscribe
-                </button>
-                {calOpen && (
-                  <div className="cal-menu" role="menu">
-                    <a href={WEBCAL} role="menuitem">
-                      Apple Calendar
-                    </a>
-                    <a href={GOOGLE_CAL} role="menuitem">
-                      Google Calendar
-                    </a>
-                    <a href={`${import.meta.env.BASE_URL}storytime.ics`} download role="menuitem">
-                      Download .ics
-                    </a>
-                  </div>
-                )}
-              </div>
-            }
-            onSelect={pickDay}
-            onOpenCalendar={() => setSeasonOpen(true)}
-          />
-        </div>
-
-        <div className="status">
-          <p>
-            {dayEvents.length} program{dayEvents.length === 1 ? '' : 's'}
-            {nearest ? ` · ${shortBranch(nearest.name)} ${formatMiles(nearest.mi)}` : ''}
-            {CLOSED_DAYS.has(day) ? ' · libraries closed' : ''}
-          </p>
-          <div className="sort" role="group" aria-label="Order">
-            <button
-              type="button"
-              className={sort === 'time' ? 'text-btn on' : 'text-btn'}
-              aria-pressed={sort === 'time'}
-              onClick={() => setSort('time')}
-            >
-              Time
+            <span className="day-small">
+              {isToday || day === addDays(today, 1) ? `${LONG_WEEKDAY.format(utcNoon(day))}, ` : ''}
+              {MONTH_DAY.format(utcNoon(day))}
+            </span>
+          </h1>
+          {!isToday && today >= SEASON_START && today <= SEASON_END && (
+            <button type="button" className="pill-btn" onClick={() => pickDay(today)}>
+              Today
             </button>
-            <button
-              type="button"
-              className={sort === 'distance' ? 'text-btn on' : 'text-btn'}
-              aria-pressed={sort === 'distance'}
-              onClick={() => setSort('distance')}
-            >
-              Distance
+          )}
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label="Season calendar"
+            onClick={() => setSeasonOpen(true)}
+          >
+            <CalendarIcon />
+          </button>
+          <div className="seg" role="group" aria-label="View">
+            <button type="button" aria-pressed={view === 'list'} onClick={() => setView('list')}>
+              <ListIcon />
+              <span className="sr-only">List</span>
+            </button>
+            <button type="button" aria-pressed={view === 'map'} onClick={() => setView('map')}>
+              <MapIcon />
+              <span className="sr-only">Map</span>
             </button>
           </div>
         </div>
-
-        <div className="filters" role="tablist" aria-label="Program type">
+        <DayStrip counts={counts} selected={day} today={today} onSelect={pickDay} />
+        <div className="chips" role="group" aria-label="Who it’s for">
           {FILTERS.map((f) => (
             <button
               key={f.id}
               type="button"
-              role="tab"
-              aria-selected={filter === f.id}
-              className={filter === f.id ? 'chip on' : 'chip'}
-              onClick={() => {
-                setFilter(f.id)
-                setEventId(null)
-              }}
+              className="chip"
+              aria-pressed={filter === f.id}
+              onClick={() => setFilter(f.id)}
             >
               {f.label}
             </button>
           ))}
         </div>
+      </header>
 
-        <div className="sheet-scroll">
-          <ol className="events">
-            {located.length === 0 && unlocated.length === 0 && (
-              <li className="empty">No programs this day for the current filter.</li>
+      {view === 'list' && (
+        <main className="list" {...swipeHandlers(step)}>
+          <div className="summary">
+            <p>
+              {closed && dayEvents.length === 0 ? (
+                'Libraries closed'
+              ) : (
+                <strong>
+                  {dayEvents.length} storytime{dayEvents.length === 1 ? '' : 's'}
+                </strong>
+              )}
+            </p>
+            {dayEvents.length > 1 && (
+              <div className="sort" role="group" aria-label="Order">
+                <button type="button" aria-pressed={sort === 'time'} onClick={() => setSort('time')}>
+                  Time
+                </button>
+                <button type="button" aria-pressed={sort === 'distance'} onClick={() => setSort('distance')}>
+                  Nearest
+                </button>
+              </div>
             )}
-            {located.map((ev) => (
-              <EventRow
-                key={ev.nid}
-                ev={ev}
-                open={ev.nid === eventId}
-                here={ev.branch === branch}
-                home={HOME}
-                info={branches[ev.branch]}
-                onToggle={() => toggleEvent(ev)}
-              />
-            ))}
-            {unlocated.length > 0 && <li className="online-head">Online</li>}
-            {unlocated.map((ev) => (
-              <EventRow
-                key={ev.nid}
-                ev={ev}
-                open={ev.nid === eventId}
-                here={false}
-                home={null}
-                info={branches[ev.branch]}
-                onToggle={() => toggleEvent(ev)}
-              />
-            ))}
-          </ol>
-          <footer>
-            Unofficial map of dated Austin Public Library storytimes (
-            {SEASON_START.slice(5)} to {SEASON_END.slice(5).replace('-', '/')}). Confirm at{' '}
-            <a href={STORYTIMES_INDEX}>library.austintexas.gov</a>. ADA: {ADA_PHONE}. ICS:{' '}
-            <a href={ICS_HTTPS}>{ICS_HTTPS}</a>
-          </footer>
-        </div>
-      </div>
+          </div>
+
+          {dayEvents.length === 0 && (
+            <div className="empty">
+              <p>{closed ? 'Libraries are closed today.' : 'Nothing for this filter on this day.'}</p>
+              {filter !== 'all' && (
+                <button type="button" className="pill-btn" onClick={() => setFilter('all')}>
+                  Show all storytimes
+                </button>
+              )}
+            </div>
+          )}
+
+          {ended.length > 0 && (
+            <section className="earlier">
+              <button
+                type="button"
+                className="earlier-toggle"
+                aria-expanded={showEarlier}
+                onClick={() => setShowEarlier((v) => !v)}
+              >
+                <span>
+                  {ended.length} ended earlier today
+                </span>
+                <Chevron open={showEarlier} />
+              </button>
+              {showEarlier && <ol className="cards past">{ended.map(card)}</ol>}
+            </section>
+          )}
+
+          {upcoming.length > 0 && <ol className="cards">{upcoming.map(card)}</ol>}
+
+          {isToday && ended.length > 0 && upcoming.length === 0 && (
+            <div className="empty">
+              <p>That’s it for today.</p>
+              {addDays(day, 1) <= SEASON_END && (
+                <button type="button" className="pill-btn" onClick={() => pickDay(addDays(day, 1))}>
+                  See tomorrow
+                </button>
+              )}
+            </div>
+          )}
+
+          <Subscribe />
+          <Footer gaps={gaps} />
+        </main>
+      )}
+
+      <MapView
+        active={view === 'map'}
+        branches={branches}
+        dayEvents={dayEvents}
+        selected={mapBranch}
+        onSelect={setMapBranch}
+        onOpen={openFromMap}
+        now={isToday ? now : null}
+      />
 
       {seasonOpen && (
-        <div className="season-overlay" role="dialog" aria-modal="true" aria-label="Season calendar">
-          <div className="season-overlay-bar">
-            <strong>Calendar</strong>
-            <button type="button" className="text-btn primary" onClick={() => setSeasonOpen(false)}>
-              Done
-            </button>
-          </div>
-          <SeasonGrid counts={counts} max={maxCount} selected={day} onSelect={pickDay} />
-        </div>
+        <SeasonSheet
+          counts={counts}
+          selected={day}
+          today={today}
+          onSelect={pickDay}
+          onClose={() => setSeasonOpen(false)}
+        />
       )}
     </div>
   )
 }
 
-function WeekBar({
+function swipeHandlers(step: (dir: -1 | 1) => void) {
+  let x0 = 0
+  let y0 = 0
+  let t0 = 0
+  let ok = false
+  return {
+    onTouchStart: (e: TouchEvent) => {
+      const t = e.touches[0]
+      ok = e.touches.length === 1 && !(e.target as HTMLElement).closest('.no-swipe')
+      x0 = t.clientX
+      y0 = t.clientY
+      t0 = performance.now()
+    },
+    onTouchEnd: (e: TouchEvent) => {
+      if (!ok) return
+      const t = e.changedTouches[0]
+      const dx = t.clientX - x0
+      const dy = t.clientY - y0
+      if (performance.now() - t0 > 600) return
+      if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * 0.5) return
+      step(dx < 0 ? 1 : -1)
+    },
+  }
+}
+
+function DayStrip({
   counts,
-  max,
   selected,
-  calendarOpen,
-  subscribe,
+  today,
   onSelect,
-  onOpenCalendar,
 }: {
   counts: Map<string, number>
-  max: number
   selected: string
-  calendarOpen: boolean
-  subscribe: ReactNode
+  today: string
   onSelect: (d: string) => void
-  onOpenCalendar: () => void
 }) {
-  const sun = sundayOf(selected)
-  const days = weekDays(sun)
-  const prevOk = weekInSeason(addDays(sun, -7))
-  const nextOk = weekInSeason(addDays(sun, 7))
+  const ref = useRef<HTMLDivElement>(null)
+  const first = useRef(true)
+
+  useLayoutEffect(() => {
+    const box = ref.current
+    const cell = box?.querySelector<HTMLElement>(`[data-day="${selected}"]`)
+    if (!box || !cell) return
+    const left = cell.offsetLeft - box.clientWidth / 2 + cell.offsetWidth / 2
+    box.scrollTo({ left, behavior: first.current ? 'auto' : 'smooth' })
+    first.current = false
+  }, [selected])
+
+  const items: ReactNode[] = []
+  for (const key of SEASON) {
+    if (key === SEASON_START || key.endsWith('-01')) {
+      items.push(
+        <span key={`m${key}`} className="strip-month" aria-hidden="true">
+          {monthName(key).slice(0, 3)}
+        </span>,
+      )
+    }
+    const c = counts.get(key) ?? 0
+    const closed = CLOSED_DAYS.has(key)
+    const sel = key === selected
+    items.push(
+      <button
+        key={key}
+        type="button"
+        data-day={key}
+        className={`strip-day${sel ? ' sel' : ''}${key === today ? ' today' : ''}${closed ? ' closed' : ''}${c ? '' : ' none'}`}
+        aria-pressed={sel}
+        aria-current={key === today ? 'date' : undefined}
+        aria-label={`${LONG_WEEKDAY.format(utcNoon(key))}, ${MONTH_DAY.format(utcNoon(key))}: ${
+          closed ? 'libraries closed' : `${c} storytime${c === 1 ? '' : 's'}`
+        }`}
+        onClick={() => onSelect(key)}
+      >
+        <i>{SHORT_WEEKDAY.format(utcNoon(key))}</i>
+        <b>{Number(key.slice(8))}</b>
+        <span className="dots" aria-hidden="true">
+          {closed ? 'closed' : Array.from({ length: dotsFor(c) }, (_, i) => <span key={i} />)}
+        </span>
+      </button>,
+    )
+  }
 
   return (
-    <div>
-      <div className="week-bar">
-        <p className="week-month">{weekMonthLabel(sun)}</p>
-        <button
-          type="button"
-          className="text-btn"
-          aria-expanded={calendarOpen}
-          onClick={onOpenCalendar}
-        >
-          Calendar
-        </button>
-        {subscribe}
-      </div>
-      <div className="week-strip">
-        <button
-          type="button"
-          className="week-nav"
-          aria-label="Previous week"
-          disabled={!prevOk}
-          onClick={() => onSelect(stepWeek(selected, -1))}
-        >
-          ‹
-        </button>
-        <div className="week-days" role="listbox" aria-label="This week">
-          {days.map((key) => {
-            const inSeason = key >= SEASON_START && key <= SEASON_END
-            const c = counts.get(key) ?? 0
-            const closed = CLOSED_DAYS.has(key)
-            const t = inSeason ? 0.08 + (c / max) * 0.82 : 0
-            return (
-              <button
-                key={key}
-                type="button"
-                role="option"
-                disabled={!inSeason}
-                aria-selected={key === selected}
-                aria-label={
-                  inSeason
-                    ? `${formatLongDay(key)}${closed ? ', libraries closed' : `, ${c} programs`}`
-                    : undefined
-                }
-                className={`week-day${key === selected ? ' sel' : ''}${closed ? ' closed' : ''}${inSeason && c / max > 0.45 ? ' hot' : ''}`}
-                style={inSeason ? { background: `rgba(26, 22, 18, ${c ? t : 0.04})` } : undefined}
-                onClick={() => onSelect(key)}
-              >
-                <i>{weekdayNarrow(key)}</i>
-                <b>{Number(key.slice(8))}</b>
-              </button>
-            )
-          })}
-        </div>
-        <button
-          type="button"
-          className="week-nav"
-          aria-label="Next week"
-          disabled={!nextOk}
-          onClick={() => onSelect(stepWeek(selected, 1))}
-        >
-          ›
-        </button>
-      </div>
+    <div className="strip no-swipe" ref={ref}>
+      {items}
     </div>
   )
 }
 
-function EventRow({
+function EventCard({
   ev,
   open,
-  here,
-  home,
-  info,
+  now,
+  next,
+  phone,
   onToggle,
+  onMap,
 }: {
   ev: StoryEvent
   open: boolean
-  here: boolean
-  home: { lat: number; lon: number } | null
-  info?: BranchInfo
+  now: number | null
+  next: boolean
+  phone?: string
   onToggle: () => void
+  onMap: () => void
 }) {
   const pt = eventPoint(ev)
-  const dist = home && pt ? formatMiles(miles(home, pt)) : null
-  const cls = `ev${open ? ' open' : ''}${here ? ' here' : ''}`
+  const dist = pt ? formatMiles(miles(HOME, pt)) : null
+  const start = Date.parse(ev.start)
+  const end = Date.parse(ev.end)
+  const live = now != null && start <= now && now < end
+  const past = now != null && end <= now
+  const age = ageOf(ev)
+  const t = splitTime(ev.start)
+  const dir = directionsUrl(ev)
+  const online = ev.branch === 'Online'
+
   return (
-    <li id={`ev-${ev.nid}`} className={cls}>
-      <button type="button" className="ev-main" onClick={onToggle} aria-expanded={open}>
-        <span className="ev-time">{formatRange(ev.start, ev.end)}</span>
-        <span className="ev-title">{ev.title}</span>
-        <span className="ev-meta">
-          {shortBranch(ev.branch)}
-          {dist ? ` · ${dist}` : ''}
-          {` · ${ev.ages}`}
+    <li id={`ev-${ev.nid}`} className={`card${open ? ' open' : ''}${live ? ' live' : ''}${past ? ' past' : ''}`}>
+      <button type="button" className="card-main" aria-expanded={open} onClick={onToggle}>
+        <span className="when">
+          <b>{t.clock}</b>
+          <small>{t.ampm}</small>
         </span>
+        <span className="what">
+          {(live || next) && (
+            <span className={`badge${live ? ' now' : ''}`}>
+              {live ? `Now · until ${formatTime(ev.end)}` : `Next · ${untilLabel(start - (now ?? 0))}`}
+            </span>
+          )}
+          <span className="title">{ev.title}</span>
+          <span className="where">
+            {online ? 'Online' : shortBranch(ev.branch)}
+            {dist && <span className="mi"> · {dist}</span>}
+          </span>
+          <span className={`age age-${age}`}>
+            {AGE_LABEL[age]} · {durationLabel(ev)}
+          </span>
+        </span>
+        <Chevron open={open} />
       </button>
       {open && (
-        <div className="ev-detail">
-          <p>
-            {ev.program}
+        <div className="card-more">
+          {ev.title !== ev.program && <p className="prog">{ev.program}</p>}
+          <p className="addr">
+            {formatTime(ev.start)} – {formatTime(ev.end)}
             {ev.room ? ` · ${ev.room}` : ''}
+            {ev.address && (
+              <>
+                <br />
+                {ev.address}
+              </>
+            )}
+            {online && (
+              <>
+                <br />
+                Register on the library listing to get the Zoom link.
+              </>
+            )}
           </p>
-          {ev.address && <p>{ev.address}</p>}
-          <p className="links">
-            <a href={ev.url} target="_blank" rel="noreferrer">
-              APL listing
+          <div className="actions">
+            {dir && (
+              <a className="act primary" href={dir}>
+                <PinIcon /> Directions
+              </a>
+            )}
+            <button type="button" className="act" onClick={() => downloadIcs(ev)}>
+              <PlusIcon /> Add to calendar
+            </button>
+            {!online && (
+              <button type="button" className="act" onClick={onMap}>
+                <MapIcon /> Show on map
+              </button>
+            )}
+            {phone && (
+              <a className="act" href={`tel:${phone.replace(/\D/g, '')}`}>
+                <PhoneIcon /> Call
+              </a>
+            )}
+            <a className="act" href={ev.url} target="_blank" rel="noreferrer">
+              <LinkIcon /> {online ? 'Register' : 'Library listing'}
             </a>
-            {pt && (
-              <a href={`https://maps.apple.com/?daddr=${pt.lat},${pt.lon}&q=${encodeURIComponent(ev.branch)}`}>
-                Directions
-              </a>
-            )}
-            {info?.phone && <a href={`tel:${info.phone.replace(/\D/g, '')}`}>{info.phone}</a>}
-            {info?.url && (
-              <a href={info.url} target="_blank" rel="noreferrer">
-                Branch
-              </a>
-            )}
-          </p>
+          </div>
         </div>
       )}
     </li>
   )
 }
 
-function SeasonGrid({
-  counts,
-  max,
+function MapView({
+  active,
+  branches,
+  dayEvents,
   selected,
   onSelect,
+  onOpen,
+  now,
+}: {
+  active: boolean
+  branches: Record<string, BranchInfo>
+  dayEvents: StoryEvent[]
+  selected: string | null
+  onSelect: (b: string | null) => void
+  onOpen: (ev: StoryEvent) => void
+  now: number | null
+}) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [cardH, setCardH] = useState(120)
+  useLayoutEffect(() => {
+    const el = cardRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setCardH(el.getBoundingClientRect().height))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [active])
+
+  const here = selected ? dayEvents.filter((e) => e.branch === selected).sort(sortByTime) : []
+  const live = new Set(dayEvents.filter((e) => e.branch !== 'Online').map((e) => e.branch))
+  const info = selected ? branches[selected] : null
+  const dist = info?.lat != null && info.lon != null ? formatMiles(miles(HOME, { lat: info.lat, lon: info.lon })) : null
+
+  return (
+    <section className="mapview" hidden={!active} aria-label="Map">
+      <MapPane
+        branches={branches}
+        dayEvents={dayEvents}
+        selectedBranch={selected}
+        home={HOME}
+        active={active}
+        padBottom={cardH}
+        shortName={shortBranch}
+        onSelectBranch={onSelect}
+      />
+      <div className="map-card" ref={cardRef}>
+        {selected && info ? (
+          <>
+            <div className="map-card-head">
+              <div>
+                <strong>{shortBranch(selected)}</strong>
+                <span>
+                  {dist}
+                  {dist && ' · '}
+                  {here.length ? `${here.length} storytime${here.length === 1 ? '' : 's'}` : 'No storytime this day'}
+                </span>
+              </div>
+              <button type="button" className="icon-btn" aria-label="Close" onClick={() => onSelect(null)}>
+                <CloseIcon />
+              </button>
+            </div>
+            {here.length > 0 && (
+              <ul className="map-list">
+                {here.map((ev) => {
+                  const past = now != null && Date.parse(ev.end) <= now
+                  return (
+                    <li key={ev.nid}>
+                      <button type="button" className={past ? 'past' : ''} onClick={() => onOpen(ev)}>
+                        <b>{formatTime(ev.start)}</b>
+                        <span>{ev.title}</span>
+                        <Chevron open={false} side />
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+            {info.lat != null && info.lon != null && (
+              <a
+                className="act primary wide"
+                href={`https://maps.apple.com/?daddr=${info.lat},${info.lon}&q=${encodeURIComponent(selected)}`}
+              >
+                <PinIcon /> Directions
+              </a>
+            )}
+          </>
+        ) : (
+          <p className="map-hint">
+            <strong>
+              {live.size} {live.size === 1 ? 'library' : 'libraries'}
+            </strong>{' '}
+            with storytime this day. Tap a pin to see times.
+          </p>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function SeasonSheet({
+  counts,
+  selected,
+  today,
+  onSelect,
+  onClose,
 }: {
   counts: Map<string, number>
-  max: number
   selected: string
+  today: string
   onSelect: (d: string) => void
+  onClose: () => void
 }) {
-  const [tip, setTip] = useState<{ x: number; y: number; label: string; detail: string } | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    document.addEventListener('keydown', onKey)
+    document.documentElement.classList.add('locked')
+    ref.current?.querySelector<HTMLElement>('.cell.sel')?.scrollIntoView({ block: 'center' })
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.documentElement.classList.remove('locked')
+    }
+  }, [onClose])
+
   return (
-    <div className="season">
-      {MONTHS.map((mo) => {
-        const lead = new Date(Date.UTC(mo.y, mo.m - 1, 1, 18, 0, 0)).getUTCDay()
-        const n = daysInMonth(mo.y, mo.m)
-        const cells: ReactNode[] = []
-        for (let i = 0; i < lead; i++) cells.push(<span key={`e${i}`} className="cell empty" />)
-        for (let d = 1; d <= n; d++) {
-          const key = `${mo.y}-${pad(mo.m)}-${pad(d)}`
-          const inSeason = key >= SEASON_START && key <= SEASON_END
-          const c = counts.get(key) ?? 0
-          const closed = CLOSED_DAYS.has(key)
-          const t = inSeason ? 0.08 + (c / max) * 0.82 : 0
-          const hot = c / max > 0.45
-          cells.push(
-            <button
-              key={key}
-              type="button"
-              disabled={!inSeason}
-              className={`cell${key === selected ? ' sel' : ''}${closed ? ' closed' : ''}${hot ? ' hot' : ''}`}
-              style={inSeason ? { background: `rgba(26, 22, 18, ${c ? t : 0.04})` } : undefined}
-              aria-label={
-                inSeason
-                  ? `${formatLongDay(key)}${closed ? ', libraries closed' : `, ${c} programs`}`
-                  : undefined
-              }
-              onClick={() => onSelect(key)}
-              onPointerEnter={(e) => {
-                if (!inSeason || e.pointerType === 'touch') return
-                const r = e.currentTarget.getBoundingClientRect()
-                setTip({
-                  x: r.left + r.width / 2,
-                  y: r.top,
-                  label: formatLongDay(key),
-                  detail: closed
-                    ? 'Libraries closed'
-                    : `${c} program${c === 1 ? '' : 's'} · ink = count that day`,
-                })
-              }}
-              onPointerLeave={() => setTip(null)}
-            >
-              {d}
-            </button>,
-          )
-        }
-        return (
-          <div key={mo.label} className="month">
-            <div className="month-label">{mo.label}</div>
-            <div className="dow">
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((w, i) => (
-                <span key={`${w}${i}`}>{w}</span>
-              ))}
-            </div>
-            <div className="grid">{cells}</div>
-          </div>
-        )
-      })}
-      {tip && (
-        <div className="tip" style={tipStyle(tip.x, tip.y)} role="tooltip">
-          <strong>{tip.label}</strong>
-          <span>{tip.detail}</span>
-          <em>Source: dated APL listings</em>
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div
+        className="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Season calendar"
+        ref={ref}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sheet-head">
+          <strong>Fall 2026</strong>
+          <button type="button" className="pill-btn" onClick={onClose}>
+            Done
+          </button>
         </div>
-      )}
+        <div className="sheet-body">
+          {MONTHS.map((mo) => {
+            const firstKey = `${mo.y}-${String(mo.m).padStart(2, '0')}-01`
+            const lead = utcNoon(firstKey).getUTCDay()
+            const n = new Date(Date.UTC(mo.y, mo.m, 0)).getUTCDate()
+            const cells: ReactNode[] = []
+            for (let i = 0; i < lead; i++) cells.push(<span key={`e${i}`} className="cell blank" />)
+            for (let d = 1; d <= n; d++) {
+              const key = `${firstKey.slice(0, 8)}${String(d).padStart(2, '0')}`
+              const inSeason = key >= SEASON_START && key <= SEASON_END
+              const c = counts.get(key) ?? 0
+              const closed = CLOSED_DAYS.has(key)
+              cells.push(
+                <button
+                  key={key}
+                  type="button"
+                  disabled={!inSeason}
+                  className={`cell${key === selected ? ' sel' : ''}${key === today ? ' today' : ''}${closed ? ' closed' : ''}`}
+                  aria-pressed={key === selected}
+                  aria-label={
+                    inSeason
+                      ? `${MONTH_DAY.format(utcNoon(key))}: ${closed ? 'libraries closed' : `${c} storytimes`}`
+                      : MONTH_DAY.format(utcNoon(key))
+                  }
+                  onClick={() => onSelect(key)}
+                >
+                  <b>{d}</b>
+                  {inSeason && (
+                    <span className="dots" aria-hidden="true">
+                      {Array.from({ length: closed ? 0 : dotsFor(c) }, (_, i) => (
+                        <span key={i} />
+                      ))}
+                    </span>
+                  )}
+                </button>,
+              )
+            }
+            return (
+              <section key={mo.m} className="month">
+                <h2>{monthName(firstKey)}</h2>
+                <div className="dow" aria-hidden="true">
+                  {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+                    <span key={i}>{weekdayNarrow(addDays('2026-09-06', i))}</span>
+                  ))}
+                </div>
+                <div className="grid">{cells}</div>
+              </section>
+            )
+          })}
+          <p className="sheet-note">Dots show how many storytimes match your filter that day.</p>
+        </div>
+      </div>
     </div>
   )
 }
+
+function Subscribe() {
+  return (
+    <section className="subscribe">
+      <h2>Every storytime in your calendar</h2>
+      <p>A live feed of the whole season, updated when the schedule changes.</p>
+      <div className="actions">
+        <a className="act primary" href={WEBCAL}>
+          <PlusIcon /> Apple Calendar
+        </a>
+        <a className="act" href={GOOGLE_CAL}>
+          <PlusIcon /> Google Calendar
+        </a>
+        <a className="act" href={`${import.meta.env.BASE_URL}storytime.ics`} download>
+          <LinkIcon /> Download .ics
+        </a>
+      </div>
+    </section>
+  )
+}
+
+function Footer({ gaps }: { gaps: Gap[] }) {
+  return (
+    <footer className="foot">
+      {gaps.length > 0 && (
+        <details>
+          <summary>{gaps.length} weekly flyer slots have no dated listing</summary>
+          <ul>
+            {gaps.map((g) => (
+              <li key={`${g.branch}${g.title}${g.when}`}>
+                {g.title}, {shortBranch(g.branch)} — {g.when}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      <p>
+        Unofficial schedule of Austin Public Library storytimes, {MONTH_DAY.format(utcNoon(SEASON_START))} –{' '}
+        {MONTH_DAY.format(utcNoon(SEASON_END))}, 2026. Programs can move or cancel; confirm at{' '}
+        <a href={STORYTIMES_INDEX}>library.austintexas.gov</a>. Accessibility requests: {ADA_PHONE}. Feed:{' '}
+        <a href={ICS_HTTPS}>storytime.ics</a>
+      </p>
+    </footer>
+  )
+}
+
+function Chevron({ open, side }: { open: boolean; side?: boolean }) {
+  return (
+    <svg
+      className={`chev${open ? ' up' : ''}${side ? ' side' : ''}`}
+      viewBox="0 0 20 20"
+      width="20"
+      height="20"
+      aria-hidden="true"
+    >
+      <path d="M5.5 7.5 10 12l4.5-4.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function Icon({ children }: { children: ReactNode }) {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      {children}
+    </svg>
+  )
+}
+
+const CalendarIcon = () => (
+  <Icon>
+    <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
+    <path d="M3.5 10h17M8 3v4M16 3v4" />
+  </Icon>
+)
+const ListIcon = () => (
+  <Icon>
+    <path d="M9 6.5h11M9 12h11M9 17.5h11" />
+    <circle cx="4.5" cy="6.5" r="1" fill="currentColor" />
+    <circle cx="4.5" cy="12" r="1" fill="currentColor" />
+    <circle cx="4.5" cy="17.5" r="1" fill="currentColor" />
+  </Icon>
+)
+const MapIcon = () => (
+  <Icon>
+    <path d="M9 4.5 3.5 6.5v13l5.5-2 6 2 5.5-2v-13l-5.5 2-6-2Z" />
+    <path d="M9 4.5v13M15 6.5v13" />
+  </Icon>
+)
+const PinIcon = () => (
+  <Icon>
+    <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z" />
+    <circle cx="12" cy="10" r="2.3" />
+  </Icon>
+)
+const PlusIcon = () => (
+  <Icon>
+    <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
+    <path d="M12 10.5v6M9 13.5h6M8 3v4M16 3v4" />
+  </Icon>
+)
+const PhoneIcon = () => (
+  <Icon>
+    <path d="M6.5 3.5h3l1.5 4-2 1.5a11 11 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2 2A16.5 16.5 0 0 1 4.5 5.5a2 2 0 0 1 2-2Z" />
+  </Icon>
+)
+const LinkIcon = () => (
+  <Icon>
+    <path d="M14 4.5h5.5V10M19.5 4.5 11 13M17 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 4 18.5v-10A1.5 1.5 0 0 1 5.5 7H10" />
+  </Icon>
+)
+const CloseIcon = () => (
+  <Icon>
+    <path d="M6 6l12 12M18 6 6 18" />
+  </Icon>
+)
