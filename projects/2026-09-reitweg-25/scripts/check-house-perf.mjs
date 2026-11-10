@@ -42,6 +42,6 @@ assert(/passes:\(?\[\['scene',scenePass\]/.test(post),'the chain names its passe
 assert(/perf\?\.watch\(post\.passes\)/.test(viewer)&&/timed\('mirror',/.test(viewer)&&/timed\('trace blend',/.test(viewer),'passes, the mirror and the traced image are timed');
 // Bakes and the sky are polled every frame and mostly idle: only calls that did work are kept, and they do not count
 // as drawn frames.
-assert(/baked\('sky bake',\(\)=>bake\.update\(\)\)/.test(viewer)&&/baked\('bounce bake',\(\)=>bounce\.update\(\)\)/.test(viewer)&&/baked\('sky',\(\)=>lighting\.update\(camera,now\)\)/.test(viewer),'bakes and the sky are timed when they work');
+assert(/baked\('sky bake',\(\)=>bake\.update\(/.test(viewer)&&/baked\('bounce bake',\(\)=>bounce\.update\(\)\)/.test(viewer)&&/baked\('sky',\(\)=>lighting\.update\(camera,now\)\)/.test(viewer),'bakes and the sky are timed when they work');
 assert(/renderer\.info\.autoReset=false/.test(fs.readFileSync('lib/house-model/perf-readout.ts','utf8')),'draws are counted over the whole frame');
 console.log('Passed: rolling means; the trace clock from rest to scene, first image, first denoised image and finish, with samples per second; readable text without NaN; built only for ?debug=perf, timing each pass, the mirror and the bakes.');

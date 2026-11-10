@@ -12,7 +12,10 @@ import type {LinkGrid} from './sky-links';
  * one facing a corridor. Direct sun and its shadows stay live; this scales only sky light.
  * A surface blends only the probes on its own side of walls and roofs (sky-links.ts).
  * Geometry is untouched, so there are no seams or cracks. */
-const DIRECTIONS=256,PER_FRAME=6,CELL=.5,MAP=2048;
+const DIRECTIONS=256,CELL=.5,MAP=2048;
+/** Directions baked a frame: few while the view moves, so its frames stay short; more while it rests, where a longer
+ * frame goes unseen and the bake lands sooner. */
+export const SKY_BAKE={moving:6,resting:16};
 const BOX=new T.Box3(new T.Vector3(-27,-3,-11),new T.Vector3(8,8.5,21));
 /** The probe grid, shared with the sun bounce (sun-bounce.ts). */
 export const PROBE_GRID={box:BOX,cell:CELL};
@@ -49,9 +52,10 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
  const cloud=new T.Points(grid,accumulate);cloud.frustumCulled=false;
  const pointScene=new T.Scene();pointScene.add(cloud);const pointCamera=new T.OrthographicCamera(-1,1,1,-1,0,1);
  const directions=Array.from({length:DIRECTIONS},(_,i)=>{const y=1-2*(i+.5)/DIRECTIONS,r=Math.sqrt(1-y*y),a=i*2.399963;return new T.Vector3(Math.cos(a)*r,y,Math.sin(a)*r);});
- // Which neighbouring probes see each other (sky-links.ts), worked out off the page's thread for each shown state.
- const links=new T.Data3DTexture(new Uint8Array(nx*ny*nz),nx,nz,ny);links.format=T.RedFormat;links.minFilter=links.magFilter=T.NearestFilter;
- const uniforms={uSkyVolume:{value:volumes[0].texture as T.Texture},uSkyLinks:{value:links},uSkyMin:{value:BOX.min.clone()},uSkyGrid:{value:new T.Vector3(nx,ny,nz)},uSkyCell:{value:CELL},uSkyReady:{value:0},uSkyLinked:{value:0},uSkyBounce:{value:bounce}};
+ // Which probes round a surface are joined to one another (sky-links.ts, reachTable), worked out off the page's thread
+ // for each shown state: two texels a cell, for cells from one below the grid.
+ const links=new T.Data3DTexture(new Uint8Array((nx+1)*(nz+1)*(ny+1)*8),(nx+1)*2,nz+1,ny+1);links.format=T.RGBAFormat;links.minFilter=links.magFilter=T.NearestFilter;
+ const uniforms={uSkyVolume:{value:volumes[0].texture as T.Texture},uSkyReach:{value:links},uSkyMin:{value:BOX.min.clone()},uSkyGrid:{value:new T.Vector3(nx,ny,nz)},uSkyCell:{value:CELL},uSkyReady:{value:0},uSkyLinked:{value:0},uSkyBounce:{value:bounce}};
  const patched=new Set<T.Material>();
  for(const root of receivers)root.traverse(o=>{for(const m of materialsOf(o)){
   if(patched.has(m)||!(m instanceof T.MeshStandardMaterial)||m.transparent)continue;patched.add(m);
@@ -63,35 +67,33 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
      skyWorld=instanceMatrix*skyWorld;
     #endif
     vSkyWorld=(modelMatrix*skyWorld).xyz;`);
-   shader.fragmentShader=`uniform highp sampler3D uSkyVolume;uniform highp sampler3D uSkyLinks;uniform vec3 uSkyMin;uniform vec3 uSkyGrid;uniform float uSkyCell;uniform float uSkyReady;uniform float uSkyLinked;uniform float uSkyBounce;varying vec3 vSkyWorld;
-    // Whether corner b of a grid cell is reached from corner a along clear edges, x then y then z or the reverse
-    // (sky-links.ts reaches()).
-    bool skyReach(int a,int b,int l[8]){
-     int at=a;bool clear=true;
-     for(int i=0;i<3;i++){int bit=1<<i;if(((at^b)&bit)==0)continue;if((l[at&~bit]&bit)==0){clear=false;break;}at^=bit;}
-     if(clear)return true;
-     at=a;
-     for(int i=2;i>=0;i--){int bit=1<<i;if(((at^b)&bit)==0)continue;if((l[at&~bit]&bit)==0)return false;at^=bit;}
-     return true;
-    }
+   shader.fragmentShader=`uniform highp sampler3D uSkyVolume;uniform highp sampler3D uSkyReach;uniform vec3 uSkyMin;uniform vec3 uSkyGrid;uniform float uSkyCell;uniform float uSkyReady;uniform float uSkyLinked;uniform float uSkyBounce;varying vec3 vSkyWorld;
     // The eight probes around a surface, blended as filtering would, but only those in front of it and joined to one
     // another, the group that weighs most: a probe behind the surface, or past a wall or roof beside it, stands in
-    // another room or outdoors.
+    // another room or outdoors. Which corners of the cell each corner is joined to is looked up (sky-links.ts,
+    // reachTable): a byte per corner, in two texels.
     vec4 skyAt(vec3 p,vec3 n){
      vec3 g=(p+n*0.35-uSkyMin)/uSkyCell-0.5,g0=floor(g),f=g-g0;
-     vec4 v[8];float w[8];int l[8];
+     vec4 v[8];float w[8];
      for(int k=0;k<8;k++){
       vec3 o=vec3(float(k&1),float((k>>1)&1),float((k>>2)&1)),c=clamp(g0+o,vec3(0.0),uSkyGrid-1.0),t=mix(1.0-f,f,o);
-      ivec3 at=ivec3(c.xzy);
-      v[k]=texelFetch(uSkyVolume,at,0);
+      v[k]=texelFetch(uSkyVolume,ivec3(c.xzy),0);
       w[k]=t.x*t.y*t.z*clamp(dot(uSkyMin+(c+0.5)*uSkyCell-p,n)/0.15,0.0,1.0);
-      l[k]=uSkyLinked>0.5?int(texelFetch(uSkyLinks,at,0).r*255.0+0.5):7;
      }
-     int group=0;
-     for(int k=0;k<8;k++)if(skyReach(0,k,l))group|=1<<k;
-     if(group!=255){
-      float most=-1.0;
-      for(int a=0;a<8;a++){float m=0.0;int joined=0;for(int k=0;k<8;k++)if(skyReach(a,k,l)){m+=w[k];joined|=1<<k;}if(m>most){most=m;group=joined;}}
+     int group=255;
+     if(uSkyLinked>0.5){
+      ivec3 cell=ivec3(g0)+1;
+      ivec4 lower=ivec4(texelFetch(uSkyReach,ivec3(cell.x*2,cell.z,cell.y),0)*255.0+0.5);
+      group=lower.x;
+      if(group!=255){
+       ivec4 upper=ivec4(texelFetch(uSkyReach,ivec3(cell.x*2+1,cell.z,cell.y),0)*255.0+0.5);
+       float most=-1.0;
+       for(int a=0;a<8;a++){
+        int joined=a<4?lower[a]:upper[a-4];float m=0.0;
+        for(int k=0;k<8;k++)if((joined&(1<<k))!=0)m+=w[k];
+        if(m>most){most=m;group=joined;}
+       }
+      }
      }
      vec4 s=vec4(0.0);float total=0.0;
      for(int k=0;k<8;k++)if((group&(1<<k))!=0){s+=w[k]*v[k];total+=w[k];}
@@ -127,13 +129,13 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
  for(const o of occluders)o.layers.enable(2);
  let world:T.Object3D|undefined=occluders[0];while(world?.parent)world=world.parent;
  let step=-1,write=1;
- const run=()=>{
+ const run=(count:number)=>{
   if(!(world instanceof T.Scene))return;
   const target=renderer.getRenderTarget(),auto=renderer.autoClear,clear=renderer.getClearColor(new T.Color()),alpha=renderer.getClearAlpha();
   const shadowNeeds=renderer.shadowMap.needsUpdate,override=world.overrideMaterial,background=world.background,fog=world.fog;
   renderer.shadowMap.needsUpdate=false;renderer.setClearColor(0x000000,0);
   if(step===0)for(let j=0;j<ny;j++){renderer.setRenderTarget(volumes[write],j);renderer.clear(true,false,false);}
-  for(let i=0;i<PER_FRAME&&step<DIRECTIONS;i++,step++){
+  for(let i=0;i<count&&step<DIRECTIONS;i++,step++){
    const d=directions[step];
    eye.position.copy(center).addScaledVector(d,extent+30);eye.lookAt(center);eye.updateMatrixWorld();
    world.overrideMaterial=blocker;world.background=null;world.fog=null;
@@ -159,9 +161,9 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
    const linkGrid:LinkGrid={min:BOX.min.toArray() as [number,number,number],cell:CELL,nx,ny,nz};
    linker=new Worker(new URL('./sky-links.worker.ts',import.meta.url),{type:'module'});
    linker.postMessage({kind:'init',positions,batch,grid:linkGrid},[positions.buffer,batch.buffer]);
-   linker.onmessage=({data}:MessageEvent<{kind:'links';job:number;links:Uint8Array}>)=>{
+   linker.onmessage=({data}:MessageEvent<{kind:'reach';job:number;reach:Uint8Array}>)=>{
     if(data.job!==job)return;
-    links.image.data=data.links;links.needsUpdate=true;uniforms.uSkyLinked.value=1;
+    links.image.data=data.reach;links.needsUpdate=true;uniforms.uSkyLinked.value=1;
    };
   }
   const visible=Uint8Array.from(linkable,o=>shown(o)?1:0),key=visible.join('');
@@ -171,10 +173,12 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
  return {
   probes:nx*ny*nz,
   request:()=>{step=0;relink();},
-  /** Advances a bake a few directions per frame; true when a finished result was swapped in. */
-  update:()=>{
+  /** A bake is under way: what the materials show is about to be replaced. */
+  get baking(){return step>=0;},
+  /** Advances a bake `count` directions; true when a finished result was swapped in. */
+  update:(count=SKY_BAKE.moving)=>{
    if(step<0)return false;
-   run();
+   run(count);
    if(step<DIRECTIONS)return false;
    uniforms.uSkyVolume.value=volumes[write].texture;uniforms.uSkyReady.value=1;write=1-write;step=-1;return true;
   },
