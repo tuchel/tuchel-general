@@ -25,7 +25,7 @@ import {createTreeOcclusion} from './tree-occlusion';
 import {createMotionResolution,type MotionResolution} from './motion-resolution';
 import {createRoomProbes,ROOM_PROBES} from './room-probes';
 import {loadSurfaceTextures,finishSurfaces} from './surface-materials';
-import {bakeSkyVisibility} from './sky-visibility';
+import {bakeSkyVisibility,SKY_BAKE} from './sky-visibility';
 import {bakeSunBounce} from './sun-bounce';
 import {eyeLevelGrass} from './grass';
 import {createWalker,type WalkInput} from './walk';
@@ -53,6 +53,8 @@ export type ViewerOptions={
 };
 /** A dragged sun re-traces bounced light and the traced scene once it has been still this long (ms). */
 const SUN_SETTLE=150;
+/** A view is at rest once nothing has changed for this long (ms). */
+const REST=110;
 /** How far (m) the walker goes from where a place starts before its caption is taken down. */
 const WANDER=1;
 const halton=(i:number,b:number)=>{let f=1,r=0;while(i>0){f/=b;r+=f*(i%b);i=Math.floor(i/b);}return r;};
@@ -197,6 +199,10 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const sizePost=(moving:boolean)=>{const {width,height}=host.getBoundingClientRect();if(!width||!height)return;drawnLow=moving;drawnScale=scaleFor(moving);canvas.dataset.scale=String(drawnScale);post?.setSize(width,height,renderer.getPixelRatio()*drawnScale);};
  const changed=()=>{lastChange=performance.now();post?.reset();live?.reset();needsFrame=true;resting=false;};
  invalidate=changed;
+ // A finished bake changes the light, not the view: a resting view stays at rest, so it redraws at full resolution with
+ // its shading in place and refines from there, instead of dropping to a moving frame first. Extreme's tracer restarts
+ // as for any change.
+ const relit=()=>{const since=lastChange;changed();if(!live&&performance.now()-since>REST)lastChange=since;};
  const size=()=>{
   const {width,height}=host.getBoundingClientRect();if(!width||!height)return;
   // A running path trace keeps its own resolution; only the canvas's CSS size follows.
@@ -319,9 +325,11 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    post?.reset();needsFrame=true;
   }
   if(lighting&&baked('sky',()=>lighting.update(camera,now))){post?.reset();needsFrame=true;}
-  if(!elsewhere){if(bake&&baked('sky bake',()=>bake.update()))changed();if(bounce&&baked('bounce bake',()=>bounce.update()))changed();}
-  const motion=!!(captures?.breezing||captures?.recording||film);
-  const still=!motion&&!moving&&now-lastChange>110,refine=!!post&&still&&post.accumulated<tier.refineFrames;
+  const motion=!!(captures?.breezing||captures?.recording||film),calm=!motion&&!moving&&now-lastChange>REST;
+  if(!elsewhere){if(bake&&baked('sky bake',()=>bake.update(calm?SKY_BAKE.resting:SKY_BAKE.moving)))relit();if(bounce&&baked('bounce bake',()=>bounce.update()))relit();}
+  // While the sky light is baking, a resting view draws once and waits: frames refined before it lands would be thrown
+  // away, and the bake finishes sooner without them.
+  const still=!motion&&!moving&&now-lastChange>REST,waiting=!!bake?.baking&&!elsewhere,refine=!!post&&still&&post.accumulated<(waiting?1:tier.refineFrames);
   if(panorama&&still&&!captures?.active){
    const p=rig.camera.position;
    if(Math.abs(p.y-panorama.userData.anchorHeight())>.5||Math.hypot(p.x-panoramaAt.x,p.z-panoramaAt.z)>4){panorama.userData.anchor(p.y);panoramaAt.copy(p);live?.invalidate();}

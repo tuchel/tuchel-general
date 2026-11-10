@@ -12,7 +12,10 @@ import type {LinkGrid} from './sky-links';
  * one facing a corridor. Direct sun and its shadows stay live; this scales only sky light.
  * A surface blends only the probes on its own side of walls and roofs (sky-links.ts).
  * Geometry is untouched, so there are no seams or cracks. */
-const DIRECTIONS=256,PER_FRAME=6,CELL=.5,MAP=2048;
+const DIRECTIONS=256,CELL=.5,MAP=2048;
+/** Directions baked a frame: few while the view moves, so its frames stay short; more while it rests, where a longer
+ * frame goes unseen and the bake lands sooner. */
+export const SKY_BAKE={moving:6,resting:16};
 const BOX=new T.Box3(new T.Vector3(-27,-3,-11),new T.Vector3(8,8.5,21));
 /** The probe grid, shared with the sun bounce (sun-bounce.ts). */
 export const PROBE_GRID={box:BOX,cell:CELL};
@@ -126,13 +129,13 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
  for(const o of occluders)o.layers.enable(2);
  let world:T.Object3D|undefined=occluders[0];while(world?.parent)world=world.parent;
  let step=-1,write=1;
- const run=()=>{
+ const run=(count:number)=>{
   if(!(world instanceof T.Scene))return;
   const target=renderer.getRenderTarget(),auto=renderer.autoClear,clear=renderer.getClearColor(new T.Color()),alpha=renderer.getClearAlpha();
   const shadowNeeds=renderer.shadowMap.needsUpdate,override=world.overrideMaterial,background=world.background,fog=world.fog;
   renderer.shadowMap.needsUpdate=false;renderer.setClearColor(0x000000,0);
   if(step===0)for(let j=0;j<ny;j++){renderer.setRenderTarget(volumes[write],j);renderer.clear(true,false,false);}
-  for(let i=0;i<PER_FRAME&&step<DIRECTIONS;i++,step++){
+  for(let i=0;i<count&&step<DIRECTIONS;i++,step++){
    const d=directions[step];
    eye.position.copy(center).addScaledVector(d,extent+30);eye.lookAt(center);eye.updateMatrixWorld();
    world.overrideMaterial=blocker;world.background=null;world.fog=null;
@@ -170,10 +173,12 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
  return {
   probes:nx*ny*nz,
   request:()=>{step=0;relink();},
-  /** Advances a bake a few directions per frame; true when a finished result was swapped in. */
-  update:()=>{
+  /** A bake is under way: what the materials show is about to be replaced. */
+  get baking(){return step>=0;},
+  /** Advances a bake `count` directions; true when a finished result was swapped in. */
+  update:(count=SKY_BAKE.moving)=>{
    if(step<0)return false;
-   run();
+   run(count);
    if(step<DIRECTIONS)return false;
    uniforms.uSkyVolume.value=volumes[write].texture;uniforms.uSkyReady.value=1;write=1-write;step=-1;return true;
   },
