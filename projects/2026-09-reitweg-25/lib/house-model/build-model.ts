@@ -23,6 +23,10 @@ import {basementStairWell,hallStairWell,HALL_WELL,buildBasementStair,buildLightW
 import {passable} from './walk';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 
+/** Lamplight on the ground outside the glazing: `radiance` at the glass, against about 0.02 for an oak floor under the
+ * lamps; `reach` metres out, widening by `spread` metres a side per metre; `height` clears the highest paving (0.055 m);
+ * openings with a sill above `sill` cast none. */
+export const SPILL={radiance:.03,reach:4.5,spread:.6,height:.075,sill:.5};
 export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:ReturnType<typeof foliageMaterials>,cars?:CarModels|false){
  const root=new T.Group(),ground=new T.Group(),upper=new T.Group(),basement=new T.Group(),roofs=new T.Group(),site=new T.Group(),trees=new T.Group();
  root.add(site,trees,ground,upper,basement,roofs);
@@ -45,6 +49,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // Spruce takes the honey-orange of the upstairs rafters in the owner's photos (IMG_1502).
  m.spruce.userData.finish='spruce';
  for(const [key,surface] of Object.entries({garage:'cladding',wall:'cladding',roof:'roof',floor:'oak',stone:'stone',paving:'stone',lawn:'lawn',leaf:'foliage',wood:'oak',tile:'stone',fabric:'linen',blind:'linen'}))m[key as keyof typeof m].userData.photo=surface;
+ // Lamplight through the glazing onto the ground outside, added to what is there: lighting.ts fades it in with the lamps.
+ const spill=new T.MeshBasicMaterial({color:new T.Color('#ffd9a8').multiplyScalar(SPILL.radiance),vertexColors:true,transparent:true,opacity:0,blending:T.AdditiveBlending,depthWrite:false,fog:false,side:T.DoubleSide});spill.userData.lampSpill=true;
  const glass=new T.MeshPhysicalMaterial({color:'#bdcfcd',transparent:true,opacity:.38,roughness:.14,metalness:.12,depthWrite:false,side:T.DoubleSide});
  const lineMat=new T.LineBasicMaterial({color:'#7f897e',transparent:true,opacity:.28});
  const boxGeo=new T.BoxGeometry(1,1,1);const sphereGeo=new T.IcosahedronGeometry(1,2);const cylinderGeo=new T.CylinderGeometry(1,1,1,9);
@@ -146,6 +152,14 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
     if(realistic&&d>0){const lever=shift(part(stile-.0125,stile+.0125,y+.95,.3,m.edge,.03),.09);if(lever)lever.name='lift-slide-handle';leaf(lever);}}};
   // Floor-level openings are doors: their glazing, leaves and handles let the walker through; frames stay solid. Fixed
   // glazing is not a door.
+  // Outside each glazed opening that reaches near the floor, a pool of lamplight on the ground: as wide as the glass at
+  // the wall, spreading and fading with distance. The path tracer carries the lamps' light out itself.
+  if(realistic)for(const o of openings)if(o.sill<=SPILL.sill&&(!o.kind||o.kind==='lift'||o.kind==='french'||o.kind==='sliding'||o.kind==='fixed')){
+   const w=o.to-o.from,n=8,pos:number[]=[],col:number[]=[],idx:number[]=[];
+   for(let j=0;j<=n;j++)for(let i=0;i<=n;i++){const t=j/n,u=i/n,d=t*SPILL.reach,k=Math.min(1,t*n)*(1-t)**2*Math.min(1,3*Math.min(u,1-u));pos.push((u-.5)*(w+2*d*SPILL.spread),0,-side*d);col.push(k,k,k);}
+   for(let j=0;j<n;j++)for(let i=0;i<n;i++){const q=j*(n+1)+i;idx.push(q,q+1,q+n+1,q+1,q+n+2,q+n+1);}
+   const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setAttribute('color',new T.Float32BufferAttribute(col,3));g.setIndex(idx);
+   const mid=(o.from+o.to)/2,pool=new T.Mesh(g,spill);pool.name='lamp-spill';pool.position.set(a[0]+dx*mid+dz*side*.11,SPILL.height,a[1]+dz*mid-dx*side*.11);pool.rotation.y=-Math.atan2(dz,dx);pool.userData.skipPhotographic=pool.userData.dynamic=true;parent.add(pool);}
   let cursor=0;for(const o of openings){const door=o.sill<=.15&&o.kind!=='passage'&&o.kind!=='sliding'&&o.kind!=='fixed'&&o.to-o.from>.6,leaf=(obj:T.Object3D|undefined)=>{if(door&&obj)passable(obj);};part(cursor,o.from,.12,2.67,m.wall);part(o.from,o.to,.12,o.sill-(o.bench?BENCH:0),m.wall);part(o.from,o.to,.12+o.head,2.67-o.head,m.wall);if(o.kind!=='sliding'&&o.kind!=='passage'&&o.kind!=='lift'&&o.kind!=='french'){const leafPart=part(o.from,o.to,.12+o.sill,o.head-o.sill,o.kind==='garage'?m.garage:o.kind==='oak'?m.wood:glass);if(leafPart&&(o.kind==='garage'||o.kind==='oak'))leafPart.name=o.kind==='garage'?'garage-door':'oak-door';leaf(leafPart);}if(o.kind==='lift')liftSlide(o.from,o.to,.12+o.sill,o.head-o.sill,o.slides??'to',leaf);if(o.kind==='french')frenchDoor(o.from,o.to,.12+o.sill,o.head-o.sill,leaf);if(o.kind==='garage'){for(let t=o.from+.12;t<o.to;t+=.15){const batten=part(t,t+.014,.12,o.head,m.edge);if(batten)batten.name='garage-door';leaf(batten);}}const trim=o.kind==='french'||o.kind==='lift'||((!o.kind||o.kind==='sliding'||o.kind==='fixed')&&(region==='main'||region==='kitchen'))?oakInside:(obj:T.Object3D|undefined)=>obj;for(const t of [o.from,o.to])trim(part(t-.035,t+.035,.12+o.sill,o.head-o.sill,m.dark));for(const y of [o.sill,o.head])trim(part(o.from,o.to,.12+y,.045,m.dark));
    // Reveals are plastered from the frame to the room (the cladding wraps in only outside the glass); a passage between two
    // rooms is plastered through the wall (owner photographs from the hall, the kitchen and the living room).

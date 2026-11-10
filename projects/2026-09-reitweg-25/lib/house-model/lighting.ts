@@ -123,11 +123,12 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
   const light=new T.SpotLight('#ffd9a8',0,11,Math.PI*.42,.75,2);light.position.set(x,y,z);light.target.position.set(x,0,z);lamps.add(light,light.target);
  }
  lamps.visible=false;
- const lampMaterials:T.MeshStandardMaterial[]=[],lines:{material:T.LineBasicMaterial;base:T.Color}[]=[],backdrops:T.MeshBasicMaterial[]=[];
+ const spills:T.Material[]=[],lampMaterials:T.MeshStandardMaterial[]=[],lines:{material:T.LineBasicMaterial;base:T.Color}[]=[],backdrops:T.MeshBasicMaterial[]=[];
  root.traverse(o=>{
   const mats=(o as T.Mesh).material?(Array.isArray((o as T.Mesh).material)?(o as T.Mesh).material as T.Material[]:[(o as T.Mesh).material as T.Material]):[];
   for(const m of mats){
    if(m instanceof T.MeshStandardMaterial&&m.userData.lamp&&!lampMaterials.includes(m))lampMaterials.push(m);
+   if(m.userData.lampSpill&&!spills.includes(m))spills.push(m);
    if(m instanceof T.LineBasicMaterial&&!lines.some(l=>l.material===m))lines.push({material:m,base:m.color.clone()});
    if(o.userData.scenicBackdrop&&m instanceof T.MeshBasicMaterial&&!backdrops.includes(m))backdrops.push(m);
   }
@@ -169,6 +170,7 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
   // a pale sofa under one keeps its shape instead of burning out.
   for(const o of lamps.children)if(o instanceof T.SpotLight)o.intensity=dusk*1;
   for(const m of lampMaterials){m.emissiveIntensity=dusk*3;}
+  for(const m of spills){m.opacity=dusk;m.visible=lamps.visible;}
   for(const {material,base} of lines)material.color.copy(base).multiplyScalar(clamp(Math.pow(key/NOON_KEY,.3),.03,1)*NOON_EXPOSURE/exposure);
   reading={...r,exposure,dusk,daylight,key};
   clouds?.setSun(sunVector,sun.color.clone().multiplyScalar(sun.intensity),skyIrradiance(sunVector));cloudsAll=true;
