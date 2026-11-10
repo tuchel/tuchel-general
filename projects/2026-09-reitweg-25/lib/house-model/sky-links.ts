@@ -39,3 +39,23 @@ export function reaches(a:number,b:number,links:ArrayLike<number>){
  const walk=(order:number[])=>{let at=a;for(const bit of order){if(!((at^b)&bit))continue;if(!(links[at&~bit]&bit))return false;at^=bit;}return true;};
  return walk([1,2,4])||walk([4,2,1]);
 }
+
+/** For every cell of the grid, which of its corners each corner reaches (`reaches`): what the materials would otherwise
+ * search for at every pixel. A cell is named by its lowest corner, from one below the grid (a surface in the outer half
+ * cell blends probes repeated at the edge, as the shader clamps them) to the last probe: (nx+1)·(nz+1)·(ny+1) cells, x
+ * fastest, then z, then y. Each cell has two RGBA texels side by side, one byte per corner: bit k of byte a is set when
+ * corner a reaches corner k. */
+export function reachTable(links:Uint8Array,grid:LinkGrid){
+ const {nx,ny,nz}=grid,table=new Uint8Array((nx+1)*(nz+1)*(ny+1)*8),l=new Uint8Array(8);
+ const walk=(a:number,b:number,b0:number,b1:number,b2:number)=>{let at=a;for(const bit of [b0,b1,b2]){if(!((at^b)&bit))continue;if(!(l[at&~bit]&bit))return false;at^=bit;}return true;};
+ for(let y=-1,t=0;y<ny;y++)for(let z=-1;z<nz;z++)for(let x=-1;x<nx;x++,t+=8){
+  let open=true;
+  for(let k=0;k<8;k++){
+   const cx=Math.min(nx-1,Math.max(0,x+(k&1))),cy=Math.min(ny-1,Math.max(0,y+((k>>1)&1))),cz=Math.min(nz-1,Math.max(0,z+((k>>2)&1)));
+   l[k]=links[(cy*nz+cz)*nx+cx];if(l[k]!==7)open=false;
+  }
+  if(open){table.fill(255,t,t+8);continue;}
+  for(let a=0;a<8;a++){let mask=0;for(let k=0;k<8;k++)if(walk(a,k,1,2,4)||walk(a,k,4,2,1))mask|=1<<k;table[t+a]=mask;}
+ }
+ return table;
+}
