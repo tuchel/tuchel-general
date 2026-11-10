@@ -126,7 +126,9 @@ class FinishedOutput extends OutputPass{
   let shader=this.material.fragmentShader;
   // Linear sRGB to linear Display P3 (three's XYZ matrices), column by column.
   shader=patch(shader,'uniform sampler2D tDiffuse;','uniform sampler2D tDiffuse;uniform vec3 uBalance;uniform vec3 uLook;uniform float uGrain;uniform float uSeed;uniform float uP3;const mat3 P3_FROM_SRGB=mat3(0.8225927,0.0331996,0.0170853,0.1775340,0.9667835,0.0723957,0.0000000,0.0000000,0.9103014);');
-  shader=patch(shader,'gl_FragColor = texture2D( tDiffuse, vUv );','gl_FragColor = texture2D( tDiffuse, vUv );gl_FragColor.rgb*=uBalance;');
+  // Leaf edges are anti-aliased by alpha-to-coverage (foliage.ts), which leaves their pixels' alpha below one; kept to the
+  // canvas, the page behind shows through them as grey specks, plain at dusk. The finished image is opaque.
+  shader=patch(shader,'gl_FragColor = texture2D( tDiffuse, vUv );','gl_FragColor = texture2D( tDiffuse, vUv );gl_FragColor.a=1.0;gl_FragColor.rgb*=uBalance;');
   shader=patch(shader,'#ifdef SRGB_TRANSFER',`{vec3 e=pow(clamp(gl_FragColor.rgb,0.0,1.0),vec3(1.0/2.2));
    // Shadow lift (look.ts, shadowLift), on luminance so that colours keep their hue.
    float m=dot(e,vec3(0.2126,0.7152,0.0722)),f=1.0-m;e=min(e*(1.0+uLook.z*f*f*f*f),vec3(1.0));
