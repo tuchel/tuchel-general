@@ -1,6 +1,6 @@
 import * as T from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
-import {addShaderFeature} from './shader-features';
+import {addShaderFeature,after} from './shader-features';
 
 /** Trees as instanced archetypes: a bark skeleton plus a crown. Computers draw modelled
  * leaves; phones draw a solid shaded core under a shell of leaf cards cut from the
@@ -25,22 +25,36 @@ function random(seed:number){let s=seed>>>0;return()=>{s=(s*1664525+1013904223)>
 /** Materials start untextured so model code stays loadable in Node; textures arrive in finishFoliage. */
 export function foliageMaterials(style:TreeStyle='leaves'){
  // Leaves are darker and less glossy than the lawn beneath them; the tint deepens the atlas greens.
- const leaves=new T.MeshStandardMaterial({color:'#c9d8b6',roughness:.82,envMapIntensity:.75,side:T.DoubleSide,alphaTest:.42,alphaToCoverage:true,vertexColors:true});
- leaves.userData.foliage='leaves';
+ const cards=()=>{const m=new T.MeshStandardMaterial({color:'#c9d8b6',roughness:.82,envMapIntensity:.75,side:T.DoubleSide,alphaTest:.42,alphaToCoverage:true,vertexColors:true});m.userData.foliage='leaves';return m;};
+ const leaves=cards();
  // Backlit leaves glow: sunlight passing through toward the viewer adds a warm green transmission.
  const translucency={key:'leaf-translucency',compile:(shader:T.WebGLProgramParametersWithUniforms)=>{
   const lights=T.ShaderChunk.lights_fragment_begin.replace(/RE_Direct\( directLight,/g,'reflectedLight.directDiffuse+=directLight.color*material.diffuseColor*vec3(.75,.95,.45)*(.42*pow(saturate(dot(-geometryViewDir,directLight.direction)),2.0)+.12*saturate(-dot(geometryNormal,directLight.direction)));\nRE_Direct( directLight,');
   shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_begin>',lights);
  }};
  addShaderFeature(leaves,translucency);
- const depth=new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking,alphaTest:.42,side:T.DoubleSide});
+ const shadow=()=>new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking,alphaTest:.42,side:T.DoubleSide});
+ const depth=shadow();
+ // Trees that shed (seasonTrees) wear leaf cards of their own: `shed` of each card's leaves is gone, in soft patches,
+ // and from its shadow.
+ const shed={value:0},leafFall={key:'leaf-fall',compile:(shader:T.WebGLProgramParametersWithUniforms)=>{
+  shader.uniforms.uShed=shed;
+  shader.fragmentShader='uniform float uShed;\nfloat leafHash(vec2 c){vec3 p=fract(vec3(c.xyx)*.1031);p+=dot(p,p.yzx+33.33);return fract((p.x+p.y)*p.z);}\n'+
+   after(shader.fragmentShader,'map_fragment',`#ifdef USE_MAP
+if(uShed>0.0){vec2 g=vMapUv*${SHED.patches.toFixed(1)},i=floor(g),f=g-i;f=f*f*(3.0-2.0*f);
+ float n=mix(mix(leafHash(i),leafHash(i+vec2(1.0,0.0)),f.x),mix(leafHash(i+vec2(0.0,1.0)),leafHash(i+vec2(1.0,1.0)),f.x),f.y);
+ diffuseColor.a*=smoothstep(-.06,.06,n-uShed*${SHED.bare.toFixed(2)});}
+#endif`);
+ }};
+ const fallLeaves=cards();addShaderFeature(fallLeaves,translucency);addShaderFeature(fallLeaves,leafFall);
+ const fallDepth=shadow();addShaderFeature(fallDepth,leafFall);
  const bark=new T.MeshStandardMaterial({color:'#ffffff',roughness:.95});bark.userData.foliage='bark';
  // A silver birch's bark: the same bark set, lightened to its chalky white.
  const birchBark=bark.clone();birchBark.color.setRGB(2.3,2.3,2.2);
  // Solid crown core (hybrid) and modelled leaves: colour lives in the vertices.
  const core=new T.MeshStandardMaterial({color:'#ffffff',roughness:.95,vertexColors:true});core.userData.photo='foliage';
  const solid=new T.MeshStandardMaterial({color:'#ffffff',roughness:.78,envMapIntensity:.8,side:T.DoubleSide,vertexColors:true});solid.userData.photo='foliage';addShaderFeature(solid,translucency);
- return {leaves,depth,bark,birchBark,core,solid,style};
+ return {leaves,depth,fall:{leaves:fallLeaves,depth:fallDepth,shed},bark,birchBark,core,solid,style};
 }
 export type FoliageMaterials=ReturnType<typeof foliageMaterials>;
 
@@ -238,7 +252,7 @@ const LEAF=.15;
 /** A modelled tree whose leaves would each cover fewer pixels than this is drawn as its leaf-card crown (drawTrees). */
 export const LEAF_PIXELS=1.5;
 /** One archetype's trees: where each stands, and the draws that show them (drawTrees). */
-type TreeSet={kind:TreeKind;matrices:T.Matrix4[];colors:T.Color[];origins:T.Vector3[];centres:T.Vector3[];radii:number[];leaf:number[];crowns:T.InstancedMesh[];bark:T.InstancedMesh;lod?:T.InstancedMesh[];order:Map<T.InstancedMesh,string>};
+type TreeSet={kind:TreeKind;matrices:T.Matrix4[];colors:T.Color[];summer:T.Color[];bare?:boolean;origins:T.Vector3[];centres:T.Vector3[];radii:number[];leaf:number[];crowns:T.InstancedMesh[];bark:T.InstancedMesh;lod?:T.InstancedMesh[];order:Map<T.InstancedMesh,string>};
 /** Draws `count` but casts shadows from every instance. */
 function drawnCount(mesh:T.InstancedMesh,total:number,casts:boolean){
  mesh.userData.instances=total;mesh.userData.drawn=total;
@@ -268,16 +282,17 @@ export function buildTrees(specs:TreeSpec[],materials:FoliageMaterials,name:stri
   for(const [part,list] of byPart){
   const bark=new T.InstancedMesh(arch.bark,kind==='birch'?materials.birchBark:materials.bark,list.length);bark.name='tree-bark';
   const crowns:T.InstancedMesh[]=[];
-  if(arch.leaves){const leaves=new T.InstancedMesh(arch.leaves,materials.leaves,list.length);leaves.name='tree-leaf-cards';leaves.customDepthMaterial=materials.depth;crowns.push(leaves);}
+  const sheds=!EVERGREEN.includes(kind),cardLeaves=sheds?materials.fall.leaves:materials.leaves,cardDepth=sheds?materials.fall.depth:materials.depth;
+  if(arch.leaves){const leaves=new T.InstancedMesh(arch.leaves,cardLeaves,list.length);leaves.name='tree-leaf-cards';leaves.customDepthMaterial=cardDepth;crowns.push(leaves);}
   if(arch.core){const core=new T.InstancedMesh(arch.core,materials.core,list.length);core.name='tree-crown-core';crowns.push(core);}
   if(arch.solid){const solid=new T.InstancedMesh(arch.solid,materials.solid,list.length);solid.name='tree-leaves';crowns.push(solid);}
   let lod:T.InstancedMesh[]|undefined;
   if(far){
    lod=[];
    if(far.core){const core=new T.InstancedMesh(far.core,materials.core,list.length);core.name='tree-lod-core';lod.push(core);}
-   if(far.leaves){const cards=new T.InstancedMesh(far.leaves,materials.leaves,list.length);cards.name='tree-lod-cards';cards.customDepthMaterial=materials.depth;lod.push(cards);}
+   if(far.leaves){const cards=new T.InstancedMesh(far.leaves,cardLeaves,list.length);cards.name='tree-lod-cards';cards.customDepthMaterial=cardDepth;lod.push(cards);}
   }
-  const set:TreeSet={kind,matrices:[],colors:[],origins:[],centres:[],radii:[],leaf:[],crowns,bark,lod,order:new Map()};
+  const set:TreeSet={kind,matrices:[],colors:[],summer:[],origins:[],centres:[],radii:[],leaf:[],crowns,bark,lod,order:new Map()};
   for(const s of list){
    const r=random(s.seed);
    q.setFromAxisAngle(new T.Vector3(0,1,0),r()*Math.PI*2);
@@ -289,7 +304,7 @@ export function buildTrees(specs:TreeSpec[],materials:FoliageMaterials,name:stri
    set.centres.push(new T.Vector3(s.x+(s.lean?.[0]??0)*.55,(s.base??0)+s.height*.55,s.z+(s.lean?.[1]??0)*.55));set.radii.push(Math.max(s.height,s.r*2)*.62);set.leaf.push(LEAF*Math.max(scale.x,scale.y));
    // Blossom stays near white; leaves vary in green.
    const hue=kind==='pine'||kind==='mugo'?.9:kind==='spruce'?.82+r()*.12:kind==='woodland'?.72+r()*.3:kind==='cherry'?.95+r()*.08:.85+r()*.3;
-   const color=kind==='cherry'?new T.Color().setRGB(hue,hue*(.97+r()*.04),hue*(.98+r()*.04)):new T.Color().setRGB(hue,hue*(.97+r()*.06),hue*(.85+r()*.2));if(s.tint)color.multiply(new T.Color().setRGB(...s.tint));set.colors.push(color);
+   const color=kind==='cherry'?new T.Color().setRGB(hue,hue*(.97+r()*.04),hue*(.98+r()*.04)):new T.Color().setRGB(hue,hue*(.97+r()*.06),hue*(.85+r()*.2));if(s.tint)color.multiply(new T.Color().setRGB(...s.tint));set.colors.push(color);set.summer.push(color.clone());
   }
   for(const c of [...crowns,...lod??[]])c.userData.sway='leaf';
   const home=partOf(part);
@@ -306,6 +321,40 @@ export function buildTrees(specs:TreeSpec[],materials:FoliageMaterials,name:stri
  return group;
 }
 
+const EVERGREEN:TreeKind[]=['pine','mugo','spruce'];
+/** The year in the trees that shed, by day of the year: leaves open over `flush` (the first of April to mid-May), turn
+ * over `turn` (mid-September to late October) and are down by the end of `fall` (late November). Each tree runs up to
+ * `spread` days early or late. `patches`: how finely a leaf card thins (cells across the leaf atlas); `bare`: the share
+ * of a card that is gone in winter, the rest standing for twigs. */
+export const SHED={flush:[91,135],turn:[258,300],fall:[300,330],spread:16,patches:14,bare:.72};
+const TWIG=[1.3,.55,.9],FRESH=[1.22,1.2,.7],RUSSET=[1.7,.8,.45],YELLOW=[2.3,1.55,.5],ORANGE=[2.6,1.1,.4],RED=[2.6,.62,.5];
+const ramp=(v:number,[a,b]:number[])=>T.MathUtils.smoothstep(v,a,b),blend=(a:number[],b:number[],t:number)=>a.map((v,i)=>v+(b[i]-v)*t);
+/** How much of its leaf a tree has shed on `day`: 1 in winter, 0 from mid-May to late October. */
+export const shedOn=(day:number)=>day<SHED.flush[1]?1-ramp(day,[SHED.flush[0],SHED.flush[0]+30]):ramp(day,SHED.fall);
+/** What `day` does to a leaf's summer colour, as a gain per channel; `vary` (0–1) is the tree's own timing and shade. */
+export function leafTint(kind:TreeKind,day:number,vary:number){
+ const d=day+(vary-.5)*2*SHED.spread,autumn=kind==='birch'?YELLOW:kind==='maple'?RED:kind==='cherry'?[1,.55,.3]:blend(YELLOW,ORANGE,vary*7%1);
+ if(d<SHED.flush[1])return blend(blend(TWIG,kind==='cherry'?[1,1,1]:FRESH,ramp(d,[SHED.flush[0],SHED.flush[0]+14])),[1,1,1],ramp(d,[SHED.flush[0]+14,SHED.flush[1]]));
+ return blend(blend(blend([1,1,1],autumn,ramp(d,SHED.turn)),kind==='cherry'?[.8,.5,.3]:RUSSET,.7*ramp(d,SHED.fall)),TWIG,ramp(d,[SHED.fall[1]-12,SHED.fall[1]+8]));
+}
+/** Sets the trees under `root` to `day` of the year: the colour of each tree that sheds, and how much leaf it carries.
+ * In winter such a tree shows its limbs through thinned leaf cards, and its solid crown and modelled leaves are put
+ * away; the path tracer then sees the limbs alone. Evergreens, hedges and shrubs keep their leaf. */
+export function seasonTrees(root:T.Object3D,materials:FoliageMaterials,day:number){
+ const shed=shedOn(day),bare=shed>.5;materials.fall.shed.value=shed;
+ root.traverse(o=>{
+  ((o.userData.treeSets??[]) as TreeSet[]).forEach((set,k)=>{
+   if(EVERGREEN.includes(set.kind))return;
+   set.summer.forEach((c,i)=>{const [r,g,b]=leafTint(set.kind,day,(i*.618+k*.237+set.kind.length*.11)%1);set.colors[i].setRGB(c.r*r,c.g*g,c.b*b);});
+   set.order.clear();set.bare=bare;
+   for(const mesh of [...set.crowns,...set.lod??[]]){
+    const card=mesh.material===materials.fall.leaves,lod=!!set.lod?.includes(mesh);
+    if(!card)mesh.visible=!bare;else{mesh.userData.skipPhotographic=bare||lod;if(lod)mesh.castShadow=bare;}
+    mesh.userData.season=day;
+   }
+  });
+ });
+}
 /** Writes each draw's instances in `order`, the drawn ones first; uploads only when the order changed. */
 function arrange(set:TreeSet,mesh:T.InstancedMesh,order:number[],drawn:number){
  const key=order.slice(0,drawn).join(',');mesh.userData.drawn=drawn;mesh.count=drawn;
@@ -346,7 +395,7 @@ export function drawTrees(root:T.Object3D,cameras:T.Camera[],pixel:number,eye:T.
     const others=frusta.slice(1).some(f=>f.intersectsSphere(sphere));
     if(!others&&!frusta[0].intersectsSphere(sphere)){rest.push(i);continue;}
     if(!others&&hidden?.(set,i)){rest.push(i);left++;continue;}
-    if(set.lod&&set.leaf[i]/(set.origins[i].distanceTo(from)*pixel)<LEAF_PIXELS)far.push(i);else near.push(i);
+    if(set.lod&&(set.bare||set.leaf[i]/(set.origins[i].distanceTo(from)*pixel)<LEAF_PIXELS))far.push(i);else near.push(i);
    }
    for(const c of set.crowns)arrange(set,c,[...near,...far,...rest],near.length);
    arrange(set,set.bark,[...near,...far,...rest],near.length+far.length);

@@ -20,7 +20,7 @@ import {createClouds} from './clouds';
 import {fitPng} from './photo-size';
 import type {CarModels} from './car-models';
 import {places,type Place,type CaptureState} from './experience-data';
-import {foliageMaterials,finishFoliage,drawTrees} from './foliage';
+import {foliageMaterials,finishFoliage,drawTrees,seasonTrees} from './foliage';
 import {createTreeOcclusion} from './tree-occlusion';
 import {createMotionResolution,type MotionResolution} from './motion-resolution';
 import {createRoomProbes,ROOM_PROBES} from './room-probes';
@@ -94,7 +94,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const rig=createCameraRig(camera,controls,reduced);
 
  // Scene: house, setting and ground.
- const foliage=realistic?foliageMaterials(tier.trees):undefined;
+ const foliage=realistic?foliageMaterials(tier.trees):undefined;let season=initialSunStudy.day;
  const setting=realistic?landscapeContext({foliage,density:tier.farWoodland}):undefined;
  // The mapped woods further out (forests.ts) read as forest edges from eye level; from above they would read as blocks.
  const woods=setting?.vegetation.getObjectByName('distant-woods');if(woods)woods.visible=false;
@@ -440,7 +440,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   zoom:(factor:number)=>{captures?.stop();rig.zoomBy(factor);changed();},
   setLevel:(l:Level)=>{captures?.stop();leaveEyeLevel();const floorChanged=l!==level;level=l;applyState();if(floorChanged)controls.target.y=l==='basement'?-2:l==='upper'?3.1:1;rig.project();changed();},
   setRenovations:(state:RenovationState)=>{captures?.stop();renovations={...state};applyState();},
-  setSun:(study:SunStudy):LightReading|undefined=>{if(!lighting)return;const r=lighting.apply(study);fitShadowToView();clearTimeout(sunSettle);sunSettle=setTimeout(()=>{bounce?.request();probes?.request();live?.relight();changed();},SUN_SETTLE);changed();return r;},
+  // The trees follow the date (seasonTrees); with the sun study off they stand in midsummer leaf.
+  setSun:(study:SunStudy):LightReading|undefined=>{if(!lighting)return;const r=lighting.apply(study),day=study.enabled?study.day:initialSunStudy.day;if(foliage&&day!==season){season=day;seasonTrees(scene,foliage,day);renderer.shadowMap.needsUpdate=true;live?.invalidate();}fitShadowToView();clearTimeout(sunSettle);sunSettle=setTimeout(()=>{bounce?.request();probes?.request();live?.relight();changed();},SUN_SETTLE);changed();return r;},
   /** Clouds and their shadows on or off (Extreme); room reflections and the traced image follow the re-baked sky. */
   setClouds:(on:boolean)=>{if(!lighting?.setClouds(on))return;clearTimeout(cloudSettle);cloudSettle=setTimeout(()=>{probes?.request();live?.relight();changed();},SUN_SETTLE);changed();},
   /** The neighbors' buildings on or off; their shadows and the traced image follow. */
