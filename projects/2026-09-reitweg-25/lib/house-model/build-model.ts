@@ -568,6 +568,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const renovation=buildRenovations(ground,roofs,site,material);
  // The Zinc Roof Winter Garden's roof: its walls are its group, the glass walls and roof it replaces are tagged replacedBy.
  (additions.catslide??=[]).push(renovation.catslideRoof);
+ (additions.wideGlass??=[]).push(renovation.wideRoof);
  // The retained fireplace and a pier either side of it, between the two runs of south glazing (renovations.ts).
  facade(renovation.groups.east,[-.93,S],[.82,S],[],'main');
  // Office Nook Window Expansion: the alcove's window and garden door become one fixed pane from the floor, from the
@@ -627,7 +628,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // A renovation whose parts each sit in a group of their own (its group and its additions), as do its originals, toggles
  // outside the states: all those groups stay shown while states are enumerated, and the batches parented to them follow
  // their visibility, on top of the states of any group around them (the east façade's centred dining table).
- const renovationIds=Object.keys(renovationState()) as RenovationId[],grouped=new Set<RenovationId>(['masterWindows','nook','nookWindow','garage','skylights','catslide']);
+ const renovationIds=Object.keys(renovationState()) as RenovationId[],grouped=new Set<RenovationId>(['masterWindows','nook','nookWindow','garage','skylights','catslide','wideGlass']);
  const stateIds=renovationIds.filter(id=>!grouped.has(id)),combinations=1<<stateIds.length;
  const toggled=[...grouped].flatMap(id=>[renovation.groups[id],...(originals[id]??[]),...(additions[id]??[])]);
  const stateOf=(level:Level,state:RenovationState)=>levels.indexOf(level)*combinations+stateIds.reduce((bits,id,i)=>bits|(state[id]?1<<i:0),0);

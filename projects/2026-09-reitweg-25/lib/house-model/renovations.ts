@@ -3,7 +3,7 @@ import {buildSolar} from './solar';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import kitchenLayout from '../../public/assets/kitchen-refined-layout-v4.json';
-import {planPoint as p,type Level} from './site-data';
+import {planPoint as p,PLAN_SCALE,type Level} from './site-data';
 import {buildFrontWall} from './front-wall';
 import {buildFrontGarage} from './front-garage';
 import {loungeChair} from './lounge-chair';
@@ -14,8 +14,19 @@ import {renovationState,type RenovationId,type RenovationState} from './renovati
 // Do not rotate, mirror, or independently stretch A and B.
 export const kitchenPoint=(x:number,z:number)=>p(807+(x-334)*.53,182+(z-275)*.53);
 const K=.53*12/434;
-// The Winter Garden's glass roof, in plan: the new room around the main house's northwest corner.
-export const winterGardenOutline=[[104,126],[626,126],[626,275],[310,275],[310,332],[334,332],[334,716],[104,716]].map(([x,z])=>kitchenPoint(x,z));
+// The Winter Garden as approved (Landratsamt Weilheim-Schongau, Az. 2021-1378, plan EP01 stamped 19.08.2021), set
+// out from the main house's outer wall faces (cladding 0.105 m outside the facade lines W -6 and N -9.61): its west
+// glass 3.40 m out from the west wall, its north glass 2.26 m out from the north gable, 7.70 m east–west along the north
+// face and 8.81 m north–south along the west face.
+export const HOUSE_WEST=-6.105,HOUSE_NORTH=-9.715;
+export const WG_WEST=HOUSE_WEST-3.4,WG_NORTH=HOUSE_NORTH-2.26,WG_EAST=WG_WEST+7.7,WG_SOUTH=WG_NORTH+8.81;
+// The Winter Garden's roof, in plan: the new room around the main house's north-west corner.
+export const winterGardenOutline:[number,number][]=[[WG_WEST,WG_NORTH],[WG_EAST,WG_NORTH],[WG_EAST,HOUSE_NORTH],[HOUSE_WEST,HOUSE_NORTH],[HOUSE_WEST,WG_SOUTH],[WG_WEST,WG_SOUTH]];
+// Its floor is the kitchen's, ±0.00 (625.06 m above sea level): the top of the kitchen's tiles. The frames are 2.50 m high and the
+// roof's edge stands 2.65 m above the floor, the glass roof falling 3° to the garden from the house.
+const FLOOR=.142,FRAME=2.5,EDGE=2.65,FALL=Math.tan(3*Math.PI/180);
+/** The roof's top at a point: rising from the outer edges, the two arms meeting at a hip over the corner. */
+const roofTop=(x:number,z:number)=>FLOOR+EDGE+FALL*Math.min(x-WG_WEST,z-WG_NORTH);
 type MaterialFactory=(pale:string,natural?:string,roughness?:number)=>T.MeshStandardMaterial;
 export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,material:MaterialFactory){
  const groups={} as Record<RenovationId,T.Group>;
@@ -56,24 +67,74 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  for(const z of [182,388,524,669]){const [x,pz]=p(1229,z);box(east,x-.06,SLAB,pz,.12,2.63-SLAB,.14,m.oak);box(east,x+.06,SLAB,pz,.12,2.63-SLAB,.14,skin);}
  for(const x of [-6,-.93,.82]){box(east,x,SLAB,9.55,.14,2.63-SLAB,.12,m.oak);box(east,x,SLAB,9.67,.14,2.63-SLAB,.12,skin);}
  box(east,5.94,SLAB,9.55,.12,2.63-SLAB,.12,m.oak);box(east,6.06,SLAB,9.61,.12,2.63-SLAB,.24,skin);box(east,5.94,SLAB,9.67,.12,2.63-SLAB,.12,skin);
- // Kitchen: the complete A+B+C footprint, with the original cooking wall to the east.
- const kitchen=groups.kitchen,outline=kitchenLayout.envelope.map(([x,z])=>kitchenPoint(x,z));
- poly(kitchen,outline,.125,.035,m.stone).name='confirmed-abc-kitchen-floor';
- // The Winter Garden's glass faces: one pane to each, from the floor channel to a slim black head at 2.71 m, meeting
- // glass to glass at the corners: no posts. The Zinc Roof version replaces them and the glass roof (below).
- const runs=[[[104,126],[626,126]],[[104,126],[104,716]],[[104,716],[334,716]],[[626,126],[626,275]]].map(([a,b])=>[kitchenPoint(...a as [number,number]),kitchenPoint(...b as [number,number])]);
- function panes(g:T.Group,head:number,frame:'black'|'timber'){for(const [a,b] of runs){const len=Math.hypot(b[0]-a[0],b[1]-a[1]),bay=place(g,a[0],a[1],-Math.atan2(b[1]-a[1],b[0]-a[0])),h=head-.16;
-  box(bay,len/2,.16,0,len-.01,h,.026,clear).name='winter-garden-pane';box(bay,len/2,.14,0,len,.03,.08,m.metal);
-  if(frame==='black')box(bay,len/2,head,0,len+.02,.065,.1,m.metal);else box(bay,len/2,head,0,len+.12,.2,.16,timber);}}
- const glassWalls=new T.Group();glassWalls.name='winter-garden-glass-walls';glassWalls.userData.replacedBy='catslide';kitchen.add(glassWalls);panes(glassWalls,2.71,'black');
- // Retained pier, east return and low structural beam over the opened kitchen boundary.
- for(const [x,z,w,d] of [[310,275,33,57],[600,275,39,42],[334,667,43,142]]){const [wx,wz]=kitchenPoint(x+w/2,z+d/2);box(kitchen,wx,.16,wz,w*K,2.55,d*K,m.white).name='kitchen-retained-pier';}
- for(const [a,b] of [[[334,317],[334,667]],[[343,292],[600,292]]]){const u=kitchenPoint(...a as [number,number]),v=kitchenPoint(...b as [number,number]),beam=place(kitchen,(u[0]+v[0])/2,(u[1]+v[1])/2,-Math.atan2(v[1]-u[1],v[0]-u[0]),2.65);box(beam,0,0,0,Math.hypot(v[0]-u[0],v[1]-u[1]),.16,.2,m.white);}
- // Light glazed roof only over the added A+B L, never over C or the original pitched roof.
- const roofOutline=winterGardenOutline,glassRoof=new T.Group();glassRoof.name='winter-garden-glass-roof';glassRoof.userData.replacedBy='catslide';kitchenRoof.add(glassRoof);
- poly(glassRoof,roofOutline,2.83,.055,clear);
- for(let z=126;z<=716;z+=84){const a=kitchenPoint(104,z),b=kitchenPoint(z<=275?626:334,z);box(glassRoof,(a[0]+b[0])/2,2.82,a[1],b[0]-a[0],.11,.07,m.metal);}
- for(const [a,b] of [[[104,126],[104,716]],[[104,126],[626,126]],[[104,716],[334,716]],[[626,126],[626,275]]]){const u=kitchenPoint(...a as [number,number]),v=kitchenPoint(...b as [number,number]),g=place(glassRoof,(u[0]+v[0])/2,(u[1]+v[1])/2,-Math.atan2(v[1]-u[1],v[0]-u[0]),2.82);box(g,0,0,0,Math.hypot(v[0]-u[0],v[1]-u[1]),.13,.1,m.metal);}
+ // Kitchen: the Winter Garden and the original kitchen (C) as one floor.
+ const kitchen=groups.kitchen,[kitchenEast,kitchenSouth]=kitchenPoint(639,809);
+ poly(kitchen,[[WG_WEST,WG_NORTH],[WG_EAST,WG_NORTH],[WG_EAST,HOUSE_NORTH],[kitchenEast,HOUSE_NORTH],[kitchenEast,kitchenSouth],[HOUSE_WEST,kitchenSouth],[HOUSE_WEST,WG_SOUTH],[WG_WEST,WG_SOUTH]],FLOOR-.015,.018,m.stone).name='confirmed-abc-kitchen-floor';
+ // The glass faces: north, west, south (to the house) and the north arm's east end. Each has its approved bay count.
+ const runs=[[[WG_WEST,WG_NORTH],[WG_EAST,WG_NORTH]],[[WG_WEST,WG_NORTH],[WG_WEST,WG_SOUTH]],[[WG_WEST,WG_SOUTH],[HOUSE_WEST,WG_SOUTH]],[[WG_EAST,WG_NORTH],[WG_EAST,HOUSE_NORTH]]] as [number,number][][];
+ // A member from p to q with a w × h section.
+ const V=(x:number,y:number,z:number)=>new T.Vector3(x,y,z);
+ const member=(parent:T.Object3D,p0:T.Vector3,p1:T.Vector3,w:number,h:number,mat:T.Material)=>{const o=new T.Mesh(unit,mat);o.position.copy(p0).add(p1).multiplyScalar(.5);o.scale.set(w,h,p0.distanceTo(p1));o.lookAt(p1);o.castShadow=o.receiveShadow=true;parent.add(o);return o;};
+ // A vertical band along a→b, between heights that may differ at its two ends, 0.1 m deep.
+ const band=(parent:T.Object3D,a:number[],b:number[],lowA:number,lowB:number,highA:number,highB:number,mat:T.Material)=>{const len=Math.hypot(b[0]-a[0],b[1]-a[1]);
+  const geometry=new T.ExtrudeGeometry(new T.Shape([[0,lowA],[len,lowB],[len,highB],[0,highA]].map(([u,y])=>new T.Vector2(u,y))),{depth:.1,bevelEnabled:false});geometry.translate(0,0,-.05);
+  const o=new T.Mesh(geometry,mat);o.position.set(a[0],0,a[1]);o.rotation.y=-Math.atan2(b[1]-a[1],b[0]-a[0]);o.castShadow=o.receiveShadow=true;parent.add(o);return o;};
+ /** Black aluminium glazing along each run: posts between `bays[i]` equal bays, a sill and a head rail at 2.50 m, and
+  * horizontal transoms at the heights given (above the floor). */
+ function curtainWall(g:T.Group,bays:number[],transoms:number[]){runs.forEach(([a,b],i)=>{const len=Math.hypot(b[0]-a[0],b[1]-a[1]),bay=place(g,a[0],a[1],-Math.atan2(b[1]-a[1],b[0]-a[0]),FLOOR),n=bays[i],w=len/n;
+  for(let k=0;k<n;k++)box(bay,(k+.5)*w,0,0,w-.04,FRAME,.026,clear).name='winter-garden-pane';
+  for(let k=0;k<=n;k++)box(bay,k*w,0,0,.06,FRAME,.12,m.metal).name='winter-garden-post';
+  for(const y of [0,FRAME-.07,...transoms.map(t=>t-.025)])box(bay,len/2,y,0,len,y===0?.06:y===FRAME-.07?.07:.05,.1,m.metal).name='winter-garden-rail';});}
+ // The roof: glass on bars that run from the outer edges up to the house or to the hip, which the bars meet.
+ const roofPlane=(parent:T.Object3D,polygon:number[][])=>{const tri=T.ShapeUtils.triangulateShape(polygon.map(([x,z])=>new T.Vector2(x,z)),[]),P:T.Vector3[]=[];
+  const top=(i:number)=>V(polygon[i][0],roofTop(polygon[i][0],polygon[i][1]),polygon[i][1]),bottom=(i:number)=>top(i).setY(top(i).y-.03);
+  for(const [a,b,c] of tri){const up=new T.Vector3().crossVectors(top(b).sub(top(a)),top(c).sub(top(a))).y>0,[q,r]=up?[b,c]:[c,b];P.push(top(a),top(q),top(r),bottom(a),bottom(r),bottom(q));}
+  const geometry=new T.BufferGeometry().setFromPoints(P);geometry.computeVertexNormals();const o=new T.Mesh(geometry,clear);o.name='winter-garden-roof-glass';parent.add(o);return o;};
+ const hipEnd=[HOUSE_WEST,WG_NORTH+(HOUSE_WEST-WG_WEST)];
+ function roofBars(parent:T.Object3D,westBays:number,northBays:number){const bar=(x0:number,z0:number,x1:number,z1:number)=>member(parent,V(x0,roofTop(x0,z0)-.07,z0),V(x1,roofTop(x1,z1)-.07,z1),.06,.12,m.metal).name='winter-garden-roof-bar';
+  for(let i=1;i<westBays;i++){const z=WG_NORTH+i*(WG_SOUTH-WG_NORTH)/westBays;bar(WG_WEST,z,Math.min(HOUSE_WEST,WG_WEST+z-WG_NORTH),z);}
+  for(let i=1;i<northBays;i++){const x=WG_WEST+i*(WG_EAST-WG_WEST)/northBays;bar(x,WG_NORTH,x,Math.min(HOUSE_NORTH,WG_NORTH+x-WG_WEST));}
+  bar(WG_WEST,WG_NORTH,hipEnd[0],hipEnd[1]);}
+ /** A piece of the old house wall kept (or a new pier), on the ground floor, cut low in the floor views. Where its
+  * outer face is outside the Winter Garden, `clad` gives it the house's cladding there. */
+ const retained=(g:T.Group,x0:number,x1:number,z0:number,z1:number,clad?:'west'|'north')=>{
+  const piece=(a:number,b:number,c:number,d:number,mat:T.Material)=>{box(g,(a+b)/2,FLOOR,(c+d)/2,b-a,1,d-c,mat).name='kitchen-retained-pier';};
+  if(clad==='west'){piece(x0,x0+.15,z0,z1,skin);piece(x0+.15,x1,z0,z1,m.white);}else if(clad==='north'){piece(x0,x1,z0,z0+.15,skin);piece(x0,x1,z0+.15,z1,m.white);}else piece(x0,x1,z0,z1,m.white);};
+ // The wall over an opening, from its head to the ceiling.
+ const WALL_TOP=2.79,lintel=(g:T.Group,x0:number,x1:number,z0:number,z1:number,head:number)=>{box(g,(x0+x1)/2,head,(z0+z1)/2,x1-x0,WALL_TOP-head,z1-z0,m.white).name='kitchen-lintel';};
+ const westInner=HOUSE_WEST+.45,northInner=HOUSE_NORTH+.45;
+ // As permitted: the walls and roof the Large Panes version replaces. The Zinc Roof (set aside) replaces them too.
+ const asPermitted=new T.Group();asPermitted.name='winter-garden-as-permitted';asPermitted.userData.replacedBy='catslide';kitchen.add(asPermitted);
+ const permitWalls=new T.Group();permitWalls.name='winter-garden-permit-glazing';permitWalls.userData.replacedBy='wideGlass';asPermitted.add(permitWalls);
+ // Posts on a 1.10 m grid (7 bays north, 8 west, 3 south, 2 at the east end), transoms at 0.65 m and 2.10 m.
+ curtainWall(permitWalls,[7,8,3,2],[.65,2.1]);
+ // The old north-west corner stays as a T of wall: 1.72 m of the north wall, standing 0.54 m out past the west wall,
+ // and 2.35 m of the west wall. South of it the west wall opens onto the garden dining under a lintel, to 4.10 m short
+ // of the kitchen's south wall; the north wall has a 1.27 m door to the breakfast end and is kept beyond it.
+ {const g=permitWalls,teeEast=HOUSE_WEST+1.18,stemSouth=HOUSE_NORTH+2.35,westOpenSouth=-4.1,doorEast=-3.66;
+  retained(g,HOUSE_WEST-.54,teeEast,HOUSE_NORTH,northInner);retained(g,HOUSE_WEST,westInner,northInner,stemSouth);
+  lintel(g,HOUSE_WEST,westInner,stemSouth,westOpenSouth,FLOOR+2.2);
+  retained(g,HOUSE_WEST,westInner,westOpenSouth,WG_SOUTH);retained(g,HOUSE_WEST,westInner,WG_SOUTH,kitchenSouth,'west');
+  lintel(g,teeEast,doorEast,HOUSE_NORTH,northInner,FLOOR+2.2);
+  retained(g,doorEast,WG_EAST,HOUSE_NORTH,northInner);retained(g,WG_EAST,kitchenEast,HOUSE_NORTH,northInner,'north');}
+ // Large Panes: the same outline and roof, glazed in full-height panes up to 2.6 m wide (3 north, 4 west, 2 south, 1 at
+ // the east end) with no transoms. The old corner becomes a slim T-shaped pier, 0.2 m thick, its flange 0.75 m along
+ // the north wall line and its stem 0.5 m down the west, carrying a downstand beam each way; a short return of wall
+ // meets the glass at the west arm's south end and at the north arm's east end.
+ {const g=groups.wideGlass;curtainWall(g,[3,4,2,1],[]);
+  const flangeZ=[HOUSE_NORTH+.12,HOUSE_NORTH+.32],stemX=[HOUSE_WEST+.12,HOUSE_WEST+.32];
+  retained(g,HOUSE_WEST-.15,HOUSE_WEST+.6,flangeZ[0],flangeZ[1]);retained(g,stemX[0],stemX[1],flangeZ[1],flangeZ[1]+.5);
+  const beamHead=FLOOR+2.35;
+  lintel(g,stemX[0],stemX[1],flangeZ[1]+.5,WG_SOUTH-.3,beamHead);lintel(g,HOUSE_WEST+.6,WG_EAST,flangeZ[0],flangeZ[1],beamHead);
+  retained(g,HOUSE_WEST,westInner,WG_SOUTH-.3,WG_SOUTH);retained(g,HOUSE_WEST,westInner,WG_SOUTH,kitchenSouth,'west');
+  retained(g,WG_EAST,kitchenEast,HOUSE_NORTH,northInner,'north');}
+ // The roof, the same in both: glass falling 3° from the house to a black fascia over the frames' head, round the edge.
+ const glassRoof=new T.Group();glassRoof.name='winter-garden-glass-roof';glassRoof.userData.replacedBy='catslide';kitchenRoof.add(glassRoof);
+ roofPlane(glassRoof,[[WG_WEST,WG_NORTH],[hipEnd[0],hipEnd[1]],[HOUSE_WEST,WG_SOUTH],[WG_WEST,WG_SOUTH]]);
+ roofPlane(glassRoof,[[WG_WEST,WG_NORTH],[WG_EAST,WG_NORTH],[WG_EAST,HOUSE_NORTH],[HOUSE_WEST,HOUSE_NORTH],[hipEnd[0],hipEnd[1]]]);
+ for(const [a,b] of runs)band(glassRoof,a,b,FLOOR+FRAME,FLOOR+FRAME,roofTop(a[0],a[1]),roofTop(b[0],b[1]),m.metal).name='winter-garden-fascia';
+ const permitBars=new T.Group();permitBars.name='winter-garden-permit-roof-bars';permitBars.userData.replacedBy='wideGlass';glassRoof.add(permitBars);roofBars(permitBars,8,7);
+ const wideRoof=new T.Group();wideRoof.name='winter-garden-wide-roof-bars';wideRoof.visible=false;kitchenRoof.add(wideRoof);roofBars(wideRoof,4,3);
  // Winter Garden · Zinc Roof: the main roof's west slope carries on over the west arm on one unbroken line from its eave
  // (x -6.55, 2.95 m), flattened to 10° there, in dark standing-seam zinc; the north arm takes the same pitch off the north
  // gable, the two meeting at a hip over the corner, so one eave line runs all round at 2.51 m. At the house's own 37.6°
@@ -81,9 +142,7 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  const catslideRoof=new T.Group();catslideRoof.name='renovation-catslide-roof';catslideRoof.visible=false;kitchenRoof.add(catslideRoof);
  {const g=groups.catslide,[WW,NZ]=runs[0][0],EX=runs[0][1][0],SZ=runs[1][1][1],SE=runs[2][1][0],GZ=runs[3][1][1];
   const k=Math.tan(10*Math.PI/180),O=.3,X0=WW-O,Z0=NZ-O,ME=-6.55,EAVE=2.95,eo=EAVE-(ME-X0)*k,fw=(x:number)=>eo+(x-X0)*k,fn=(z:number)=>eo+(z-Z0)*k;
-  const yW=fw(WW),head=yW-.13,zS=SZ+O,xE=EX+O,hipZ=ME-X0+Z0,zinc=material('#9a9e9a','#3f4548',.45),V=(x:number,y:number,z:number)=>new T.Vector3(x,y,z);
-  // A member from p to q with a w × h section.
-  const member=(parent:T.Object3D,p0:T.Vector3,p1:T.Vector3,w:number,h:number,mat:T.Material)=>{const o=new T.Mesh(unit,mat);o.position.copy(p0).add(p1).multiplyScalar(.5);o.scale.set(w,h,p0.distanceTo(p1));o.lookAt(p1);o.castShadow=o.receiveShadow=true;parent.add(o);return o;};
+  const yW=fw(WW),head=yW-.13,zS=SZ+O,xE=EX+O,hipZ=ME-X0+Z0,zinc=material('#9a9e9a','#3f4548',.45);
   // A roof plane over a plan polygon, lifted to height f, t thick.
   const plane=(polygon:number[][],f:(x:number,z:number)=>number,t:number,mat:T.Material,drop=0)=>{const tri=T.ShapeUtils.triangulateShape(polygon.map(([x,z])=>new T.Vector2(x,z)),[]),P:T.Vector3[]=[];
    const top=(i:number)=>V(polygon[i][0],f(polygon[i][0],polygon[i][1])-drop,polygon[i][1]),bottom=(i:number)=>top(i).setY(top(i).y-t);
@@ -102,21 +161,26 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
   // A dark timber fascia along the eave and the verges.
   const fascia=(p0:T.Vector3,p1:T.Vector3)=>member(catslideRoof,p0,p1,.04,.22,timber);
   fascia(V(X0,eo-.1,Z0),V(X0,eo-.1,zS));fascia(V(X0,eo-.1,Z0),V(xE,eo-.1,Z0));fascia(V(X0,eo-.1,zS),V(ME,EAVE-.1,zS));fascia(V(xE,eo-.1,Z0),V(xE,fn(GZ)-.1,GZ));
-  panes(g,head,'timber');
+  // One pane to each face, under a dark timber head board.
+  for(const [a,b] of runs){const len=Math.hypot(b[0]-a[0],b[1]-a[1]),bay=place(g,a[0],a[1],-Math.atan2(b[1]-a[1],b[0]-a[0]),FLOOR);
+   box(bay,len/2,0,0,len-.01,head-FLOOR,.026,clear).name='winter-garden-pane';box(bay,len/2,head-FLOOR,0,len+.12,.2,.16,timber);}
   // Above the glass, the ends of the two arms are clad in the house's dark boarding up to the roof.
   const southRoof=(x:number)=>x<ME?fw(x):EAVE+(x-ME)*5.05/6.55;
   infill([WW,SZ],[SE,SZ],[[0,head],[SE-WW,head],[SE-WW,southRoof(SE)-.14],[ME-WW,EAVE-.14],[0,yW-.14]],skin).name='catslide-cladding';
   infill([EX,NZ],[EX,GZ],[[0,head],[GZ-NZ,head],[GZ-NZ,fn(GZ)-.14],[0,yW-.14]],skin).name='catslide-cladding';}
  // The island is 2.08 m, not the layout's 2.78 m, and has no stools at its end: the way between its end and the retained
  // pier stays 0.85 m wide. It takes the cabinets' sage.
- // The dining set (table and its chairs) sits centred in the glazed west arm, layout x 104–334 and y 126–716.
+ // The dining set (table and its chairs) sits centred in the glazed west arm, between its glass and the west wall.
  const objects=kitchenLayout.layouts[0].objects,diningSet=objects.filter(o=>o.kind==='table'||o.kind==='chair'&&o.x<300);
- const middle=(lo:number[],hi:number[])=>(Math.min(...lo)+Math.max(...hi))/2;
- const shift=[219-middle(diningSet.map(o=>o.x),diningSet.map(o=>o.x+o.w)),421-middle(diningSet.map(o=>o.y),diningSet.map(o=>o.y+o.d))];
+ const middle=(lo:number[],hi:number[])=>(Math.min(...lo)+Math.max(...hi))/2,K_PX=(x:number,z:number)=>[334+(x/PLAN_SCALE+1012-807)/.53,275+(z/PLAN_SCALE+529.5-182)/.53];
+ const armMiddle=K_PX((WG_WEST+HOUSE_WEST)/2,(WG_NORTH+WG_SOUTH)/2);
+ const shift=[armMiddle[0]-middle(diningSet.map(o=>o.x),diningSet.map(o=>o.x+o.w)),armMiddle[1]-middle(diningSet.map(o=>o.y),diningSet.map(o=>o.y+o.d))];
  for(const item of objects){
   if(item.kind==='chair'&&item.x>300&&item.y>600)continue;
+  // The two breakfast stools stand where the approved plan keeps the north wall: only the Large Panes version opens it.
+  const breakfast=item.kind==='chair'&&item.x>300&&item.y<333;
   const o=item.kind==='island'?{...item,d:142}:diningSet.includes(item)?{...item,x:item.x+shift[0],y:item.y+shift[1]}:item;
-  const [x,z]=kitchenPoint(o.x+o.w/2,o.y+o.d/2),g=place(kitchen,x,z),w=o.w*K,d=o.d*K;g.name='garden-kitchen-'+o.kind.replaceAll(' ','-');
+  const [x,z]=kitchenPoint(o.x+o.w/2,o.y+o.d/2),g=place(breakfast?groups.wideGlass:kitchen,x,z,0,FLOOR),w=o.w*K,d=o.d*K;g.name='garden-kitchen-'+o.kind.replaceAll(' ','-');
   if(o.kind==='table'){table(g,w,d);continue;}
   if(o.kind==='chair'){const stool=item.x>300;chair(g,0,0,stool?(item.y<333?Math.PI:0):item.x<155?-Math.PI/2:item.x>225?Math.PI/2:item.y<320?Math.PI:0,stool);continue;}
   const h=o.kind==='pantry'?2.25:.9;box(g,0,0,0,w,h,d,o.kind==='pantry'?m.oak:o.kind==='cooker'||o.kind==='second oven'?m.metal:m.sage);
@@ -129,7 +193,7 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  }
  // Along the south wall, either side of the walk-in pantry's door (plan): a tall-unit run and an integrated fridge in the
  // cabinets' sage, the fridge with a freezer drawer below and long bar handles.
- {const run=place(kitchen,...p(917,450)),fridge=place(kitchen,...p(841,450));fridge.name='garden-kitchen-fridge';
+ {const run=place(kitchen,...p(917,450),0,FLOOR),fridge=place(kitchen,...p(841,450),0,FLOOR);fridge.name='garden-kitchen-fridge';
   box(run,0,0,0,1.8,2.2,.6,m.sage);for(const x of [-.6,0,.6]){box(run,x,.04,-.307,.58,2.12,.015,m.sage);box(run,x+.22,.9,-.33,.018,.5,.025,m.metal);}
   box(fridge,0,0,0,.55,2.2,.6,m.sage);for(const [y,h] of [[.04,.72],[.8,1.36]])box(fridge,0,y,-.307,.53,h,.015,m.sage);box(fridge,.2,.36,-.33,.018,.34,.025,m.metal);box(fridge,.2,.86,-.33,.018,.5,.025,m.metal);}
  // Existing terrace geometry is extended out into the east lawn.
@@ -178,6 +242,8 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  // The front garage stands on the site; its roof goes with the roofs, so the ground-floor cutaway looks into it.
  const garage=buildFrontGarage(material);groups.garage.add(garage.group);roofs.add(garage.roof);garage.roof.visible=false;
  const solarRoof=buildSolar(roofs,groups.solar);
- const set=(state:RenovationState,level:Level)=>{for(const id of Object.keys(groups) as RenovationId[])groups[id].visible=state[id];kitchenRoof.visible=state.kitchen;catslideRoof.visible=state.catslide;solarRoof.visible=state.solar;for(const o of kitchen.children)if(o.name==='kitchen-retained-pier'){o.scale.y=level==='exterior'?2.55:1.01;o.position.y=.16+o.scale.y/2;}};
- return {groups,kitchenRoof,catslideRoof,garageRoof:garage.roof,set};
+ const cut=[kitchen,groups.wideGlass].flatMap(g=>{const found:T.Object3D[]=[];g.traverse(o=>{if(o.name==='kitchen-retained-pier'||o.name==='kitchen-lintel')found.push(o);});return found;});
+ const set=(state:RenovationState,level:Level)=>{for(const id of Object.keys(groups) as RenovationId[])groups[id].visible=state[id];kitchenRoof.visible=state.kitchen;catslideRoof.visible=state.catslide;wideRoof.visible=state.wideGlass;solarRoof.visible=state.solar;
+  for(const o of cut){if(o.name==='kitchen-lintel'){o.visible=level==='exterior';continue;}o.scale.y=level==='exterior'?WALL_TOP-FLOOR:1.01;o.position.y=FLOOR+o.scale.y/2;}};
+ return {groups,kitchenRoof,catslideRoof,wideRoof,garageRoof:garage.roof,set};
 }
