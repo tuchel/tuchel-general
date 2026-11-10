@@ -456,7 +456,13 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  };
  if(options.cars&&tier.cars!=='none'){canvas.dataset.cars='loading';void addCars(options.cars).catch(error=>console.warn('Garage cars',error));}
  const begin=()=>{if(!disposed)frame=requestAnimationFrame(render);};
- if(lighting){lighting.update(camera,performance.now());cullTrees(false);(post?post.compileAsync(scene):renderer.compileAsync(scene,camera)).then(begin,begin);}
+ if(lighting){
+  // The image chain's own shaders and the sky bake's go first: they need nothing from the scene, and compile while the
+  // sky is being set up.
+  const passes=[post?.compilePasses(),bake?.compileAsync()];
+  lighting.update(camera,performance.now());cullTrees(false);
+  Promise.all([post?post.compileAsync(scene):renderer.compileAsync(scene,camera),...passes]).then(begin,begin);
+ }
  else begin();
 
  /** A still at four thousand pixels as a PNG; with `limit` (bytes), as the largest PNG within it (photo-size.ts, fitPng),

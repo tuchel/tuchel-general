@@ -180,6 +180,17 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
    for(const o of meshes){receive(o);o.layers.enable(2);if(solid(o))linkable.push(o);}
    linker?.terminate();linker=undefined;sent='';
   },
+  /** Compiles the bake's two shaders in the background, as a bake draws them: the blocker in place of every material in
+   * the world, without fog, and the points that gather. Drawn cold, they would compile inside the first frame. */
+  compileAsync:()=>{
+   if(!(world instanceof T.Scene))return Promise.resolve();
+   const target=renderer.getRenderTarget(),fog=world.fog,stand=new T.Mesh(new T.BufferGeometry().setAttribute('position',new T.Float32BufferAttribute(9,3)).setAttribute('normal',new T.Float32BufferAttribute(9,3)),blocker);
+   renderer.setRenderTarget(depth);world.fog=null;
+   const blocked=renderer.compileAsync(stand,eye,world);world.fog=fog;
+   renderer.setRenderTarget(volumes[write]);
+   const gathered=renderer.compileAsync(pointScene,pointCamera);renderer.setRenderTarget(target);
+   return Promise.all([blocked,gathered]).finally(()=>stand.geometry.dispose());
+  },
   /** A bake is under way: what the materials show is about to be replaced. */
   get baking(){return step>=0;},
   /** Advances a bake `count` directions; true when a finished result was swapped in. */

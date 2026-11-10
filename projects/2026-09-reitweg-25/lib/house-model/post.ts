@@ -157,6 +157,17 @@ class FocusPass extends Pass{
  dispose(){this.dof.dispose();}
 }
 
+/** The materials a pass draws its full-screen quads with: those it holds, alone or in lists, and those on its quads. */
+function passMaterials(pass:Pass){
+ const found=new Set<T.Material>();
+ const look=(value:unknown,lists:boolean)=>{
+  if(value instanceof T.Material)found.add(value);
+  else if(value instanceof FullScreenQuad)found.add(value.material);
+  else if(lists&&Array.isArray(value))for(const item of value)look(item,false);
+ };
+ for(const value of Object.values(pass))look(value,true);
+ return found;
+}
 /** `lens` (Extreme) adds the camera of lens.ts: metered exposure, autofocus depth of field at eye level, sun shafts and
  * grain. */
 /** `afterScene`: runs right after the scene is drawn, its target still bound. */
@@ -251,6 +262,16 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
   compileAsync:(object:T.Object3D)=>{
    const previous=renderer.getRenderTarget();renderer.setRenderTarget(target);
    const done=renderer.compileAsync(object,camera,scene);renderer.setRenderTarget(previous);return done;
+  },
+  /** Compiles the chain's own shaders in the background, as its passes draw them: on a quad of their own, without
+   * lights, into a target of the chain's. Drawn cold, each would compile in turn inside the first frame. The last pass
+   * is left out: it draws to the screen and picks its shader as it does. */
+  compilePasses:()=>{
+   const quads=new T.Group(),plane=new T.BufferGeometry().setAttribute('position',new T.Float32BufferAttribute([-1,3,0,-1,-1,0,3,-1,0],3)).setAttribute('uv',new T.Float32BufferAttribute([0,2,0,0,2,0],2));
+   for(const pass of composer.passes)if(pass!==output&&pass!==scenePass)for(const material of passMaterials(pass))quads.add(new T.Mesh(plane,material));
+   const previous=renderer.getRenderTarget();renderer.setRenderTarget(target);
+   const done=renderer.compileAsync(quads,new T.OrthographicCamera(-1,1,1,-1,0,1));renderer.setRenderTarget(previous);
+   return done.finally(()=>plane.dispose());
   },
   /** Draws what `lens` sees once into a corner of the chain's target and nothing else of the frame. The graphics card
    * prepares a shader at its first draw, which can hold the page for a moment: this spends that moment out of sight,
