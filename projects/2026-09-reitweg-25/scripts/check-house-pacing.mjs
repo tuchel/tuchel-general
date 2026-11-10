@@ -12,7 +12,16 @@ const viewer=fs.readFileSync('lib/house-model/viewer.ts','utf8');
 // wait while away.
 assert(/addEventListener\('blur',away\)/.test(viewer)&&/addEventListener\('focus',back\)/.test(viewer),'focus is followed');
 assert(/!interfaceOpen&&!elsewhere&&now-lastChange>LIVE_TRACE\.rest/.test(viewer),'tracing waits while away');
-assert(/if\(!elsewhere\)\{if\(bake&&baked\('sky bake',\(\)=>bake\.update\(\)\)\)changed\(\);if\(bounce&&baked\('bounce bake',\(\)=>bounce\.update\(\)\)\)changed\(\);\}/.test(viewer),'bakes wait while away');
+assert(/if\(!elsewhere\)\{if\(bake&&baked\('sky bake',\(\)=>bake\.update\(calm\?SKY_BAKE\.resting:SKY_BAKE\.moving\)\)\)relit\(\);if\(bounce&&baked\('bounce bake',\(\)=>bounce\.update\(\)\)\)relit\(\);\}/.test(viewer),'bakes wait while away');
+
+// 2. After a renovation, floor or sun change the sky light re-bakes. A resting view draws once and waits for it rather
+// than refining frames the bake will replace; the bake takes more directions a frame at rest than in motion; and when a
+// bake lands on a resting view, the view stays at rest (full resolution, no moving frame in between).
+const sky=fs.readFileSync('lib/house-model/sky-visibility.ts','utf8'),bakeRates=/export const SKY_BAKE=\{moving:(\d+),resting:(\d+)\}/.exec(sky);
+assert(bakeRates&&+bakeRates[1]>=4&&+bakeRates[2]>+bakeRates[1]&&+bakeRates[2]<=32,'more sky directions a frame at rest than in motion');
+assert(/get baking\(\)\{return step>=0;\}/.test(sky),'the bake says when it is under way');
+assert(/waiting=!!bake\?\.baking&&!elsewhere,refine=!!post&&still&&post\.accumulated<\(waiting\?1:tier\.refineFrames\)/.test(viewer),'a resting view draws once while the sky bakes');
+assert(/const relit=\(\)=>\{const since=lastChange;changed\(\);if\(!live&&performance\.now\(\)-since>REST\)lastChange=since;\};/.test(viewer),'a landed bake leaves a resting view at rest');
 
 // 6. Motion: a lower resolution while the view moves, full resolution the moment it rests; computers only.
 for(const q of ['extreme','detailed'])assert(tiers[q].motionScale>=.6&&tiers[q].motionScale<1,`${q} draws moving frames at ${tiers[q].motionScale}×`);
@@ -29,4 +38,4 @@ assert(/canvas\.dataset\.programs=/.test(viewer),'tests can read how many progra
 // With a post stack the scene is drawn into its own target, without tone mapping: compiled for the screen instead, the
 // programs would not be the ones the scene pass uses, and each floor's first visit would compile its own again.
 assert(/const done=post\?post\.compileAsync\(scene\):renderer\.compileAsync\(scene,camera\)/.test(viewer),'precompiled as the scene pass draws');
-console.log(`Passed: tracing and bakes pause while the browser is not focused; moving frames at ${tiers.extreme.motionScale}× on computers; bounce and tracing follow a dragged sun after 150 ms; shaders for other floors and dusk compile ahead.`);
+console.log(`Passed: tracing and bakes pause while the browser is not focused; a resting view waits for the sky bake (${bakeRates[2]} directions a frame at rest, ${bakeRates[1]} in motion); moving frames at ${tiers.extreme.motionScale}× on computers; bounce and tracing follow a dragged sun after 150 ms; shaders for other floors and dusk compile ahead.`);
