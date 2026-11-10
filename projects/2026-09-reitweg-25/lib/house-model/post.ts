@@ -252,6 +252,15 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
    const previous=renderer.getRenderTarget();renderer.setRenderTarget(target);
    const done=renderer.compileAsync(object,camera,scene);renderer.setRenderTarget(previous);return done;
   },
+  /** Draws what `lens` sees once into a corner of the chain's target and nothing else of the frame. The graphics card
+   * prepares a shader at its first draw, which can hold the page for a moment: this spends that moment out of sight,
+   * before the object is shown. */
+  warm:(lens:T.Camera)=>{
+   const previous=renderer.getRenderTarget(),test=target.scissorTest,box=target.scissor.clone(),shadows=renderer.shadowMap.needsUpdate;
+   target.scissorTest=true;target.scissor.set(0,0,1,1);renderer.shadowMap.needsUpdate=false;
+   renderer.setRenderTarget(target);renderer.render(scene,lens);renderer.setRenderTarget(previous);
+   target.scissorTest=test;target.scissor.copy(box);renderer.shadowMap.needsUpdate=shadows;
+  },
   /** Moving frames skip AO and accumulation; still frames refine towards a clean image. `indoor` (0–1) eases in the
    * interior finish (look.ts). With the lens, exposure follows the meter while the view moves and for the first frames
    * of a rest, then holds, so a settling image never changes brightness. */

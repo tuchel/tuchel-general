@@ -318,8 +318,9 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  guestBasement.forEach((a,i)=>{const b=guestBasement[(i+1)%4];wall(basement,a[0],a[1],b[0],b[1],BASEMENT_WALL,-2.3);});
  {q=at(262,1074);const column=add(cylinderGeo,m.plaster,basement);column.scale.set(.15,BASEMENT_WALL,.15);column.position.set(q[0],-2.3+BASEMENT_WALL/2,q[1]);column.userData.base=-2.3;column.userData.height=BASEMENT_WALL;cutWalls.push(column);}
  furnishHouse(ground,upper,basement,material);
- // `cars`: modelled cars for the garage's bays; false leaves the garage empty.
+ // `cars`: modelled cars for the garage's bays; false leaves the garage empty, for addCars to fill once they are loaded.
  if(cars!==false)ground.add(garageCars(cars));
+ const addCars=(models?:CarModels)=>{const group=garageCars(models);ground.add(group);return group;};
  const within=(x:number,z:number,points:number[][])=>{let inside=false;for(let i=0,j=points.length-1;i<points.length;j=i++){const [xi,zi]=points[i],[xj,zj]=points[j];if((zi>z)!==(zj>z)&&x<(xj-xi)*(z-zi)/(zj-zi)+xi)inside=!inside;}return inside;};
  const mainFootprint=[[W-.11,N-.11],[E+.11,N-.11],[E+.11,S+.11],[W-.11,S+.11]],indoors=(x:number,z:number)=>within(x,z,mainFootprint)||within(x,z,guestOutline)||within(x,z,linkOutline);
  // Pitched roofs: the main pitch follows the upper plan's height lines; other heights are model assumptions.
@@ -649,6 +650,6 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const applyState=(index:number)=>{setLevel(levels[Math.floor(index/combinations)]);setRenovations({...renovationState(),...Object.fromEntries(stateIds.map((id,i)=>[id,!!(index&(1<<i))]))});for(const o of toggled)o.visible=true;};
  // Upper-floor rooms stay visible behind the roofs in the whole-house view.
  const rendered=(mesh:T.Object3D)=>{for(let o:T.Object3D|null=mesh;o;o=o.parent){if(o.visible||o===basement)continue;if(o===upper&&currentLevel==='exterior'&&mesh.userData.alsoExterior)continue;return false;}return true;};
- return {root,site,trees,upper,basement,ceilings,pickables,detail,setRenovations,setLevel,dispose,stateCount:levels.length*combinations,stateOf,applyState,rendered,toggled};
+ return {root,site,trees,upper,basement,ceilings,pickables,detail,setRenovations,setLevel,dispose,stateCount:levels.length*combinations,stateOf,applyState,rendered,toggled,addCars};
 }
 export const levels:Level[]=['exterior','ground','upper','basement'];

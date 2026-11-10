@@ -75,7 +75,7 @@ export function createRoomProbes(renderer:T.WebGLRenderer,scene:T.Scene,receiver
  const uniforms={uRoomMaps:{value:maps.texture},uRoomMin:{value:rooms.map(()=>new T.Vector3())},uRoomMax:{value:rooms.map(()=>new T.Vector3())},
   uRoomCentre:{value:rooms.map(()=>new T.Vector3())},uRoomReady:{value:rooms.map(()=>0)},uRoomActive:{value:0}};
  const patched=new Set<T.Material>();
- for(const root of receivers)root.traverse(o=>{for(const m of materialsOf(o)){
+ const receive=(root:T.Object3D)=>root.traverse(o=>{for(const m of materialsOf(o)){
   if(patched.has(m)||!(m instanceof T.MeshStandardMaterial))continue;patched.add(m);
   addShaderFeature(m,{key:'room-reflection',compile:shader=>{
    Object.assign(shader.uniforms,uniforms);
@@ -105,11 +105,14 @@ export function createRoomProbes(renderer:T.WebGLRenderer,scene:T.Scene,receiver
     #endif`);
   }});
  }});
+ for(const root of receivers)receive(root);
  let boxes:ReturnType<typeof roomBoxes>|undefined,dirty=true,room=-1,face=0;const done=new Set<number>();
  const from=new T.Vector3();
  return {
   /** Bakes again: a new sun, or renovations changed what is in the rooms. */
   request:()=>{dirty=true;},
+  /** Something that arrives after the house (the garage's cars) reflects its room too, and is baked into it. */
+  add:(root:T.Object3D)=>{receive(root);dirty=true;},
   /** One cube face of the next probe; call in the whole-house view only. True when a room's map was swapped in. */
   step(camera:T.Camera){
    if(dirty){boxes=roomBoxes(rooms,solids());dirty=false;done.clear();room=-1;

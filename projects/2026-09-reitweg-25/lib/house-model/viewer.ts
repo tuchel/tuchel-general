@@ -47,8 +47,9 @@ export type ViewerOptions={
  /** True once the walker has left the start of an eye-level place (WANDER), where its caption no longer applies; false
   * on entering a place. */
  onWander?:(away:boolean)=>void;
- /** Modelled cars for the garage (car-models.ts), loaded beforehand; the traced cars stand in for any missing. */
- cars?:CarModels;
+ /** Modelled cars for the garage (car-models.ts), still loading: they are added after the first frame; the traced cars
+  * stand in for any missing. */
+ cars?:Promise<CarModels|undefined>;
  onMaterials?:(status:'loading'|'ready')=>void;
 };
 /** A dragged sun re-traces bounced light and the traced scene once it has been still this long (ms). */
@@ -98,7 +99,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const setting=realistic?landscapeContext({foliage,density:tier.farWoodland}):undefined;
  // The mapped woods further out (forests.ts) read as forest edges from eye level; from above they would read as blocks.
  const woods=setting?.vegetation.getObjectByName('distant-woods');if(woods)woods.visible=false;
- const model=buildHouseModel(realistic,setting?.group,foliage,tier.cars==='none'?false:options.cars);scene.add(model.root);
+ const model=buildHouseModel(realistic,setting?.group,foliage,false);scene.add(model.root);
  const stageGeometry=terrainWithPoolOpening(groundOpenings()),terrain=(x:number)=>realistic?-5*T.MathUtils.smoothstep(x,55,140):0;
  if(realistic){const p=stageGeometry.attributes.position;for(let i=0;i<p.count;i++)p.setY(i,terrain(p.getX(i)));stageGeometry.computeVertexNormals();}
  const stageMaterial=new T.MeshStandardMaterial({color:realistic?'#a0b18d':'#edece5',roughness:1});if(realistic)stageMaterial.userData.photo='lawn';
@@ -379,7 +380,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   reportHeading();
   const programs=String(renderer.info.programs?.length??0);if(canvas.dataset.programs!==programs)canvas.dataset.programs=programs;
   if(!ready){
-   ready=true;canvas.dataset.modelReady='true';options.onReady();
+   ready=true;canvas.dataset.modelReady='true';options.onReady();drawn();
    setTimeout(()=>void precompile(),1500);
   }
  };
@@ -410,6 +411,50 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // The first view's shaders compile before its first frame, in the background and side by side where the browser allows:
  // drawn cold, each would compile in turn inside that frame and hold the page for all of them. The sky light is set
  // first and the trees in view picked, so that what compiles is what the frame draws.
+ // The garage's modelled cars come in after the first frame: their files are 5 MB and their materials two dozen shaders,
+ // which the first frame would otherwise wait for. They are finished, batched and lit exactly as if built in with the
+ // house. Their shaders compile in the background, for the evening lamps off and on; the graphics card then prepares
+ // each at its first draw, so every batch is drawn once out of sight, a batch at a time (post.warm). Only then are
+ // the cars shown, and the light baked again with them in.
+ let drawn=()=>{};const firstFrame=new Promise<void>(resolve=>{drawn=resolve;}),WARM=7;
+ const addCars=async(loading:Promise<CarModels|undefined>)=>{
+  const models=await loading;if(disposed)return;
+  // A car at a time, with a breath between, while the first frame's shaders compile or the view is already in use.
+  const group=model.addCars(models),cars=[...group.children],late:T.Mesh[]=[];group.clear();
+  for(const car of cars){
+   group.add(car);if(textures)finishSurfaces(group,textures,waterTime);
+   late.push(...batchStatic({root:group,states:model.stateCount,apply:model.applyState,rendered:model.rendered}).meshes);
+   // Only the batches are drawn; the car they were merged from is let go.
+   group.clear();model.setLevel(level);model.setRenovations(renovations);
+   await new Promise(resolve=>setTimeout(resolve));if(disposed)return;
+  }
+  group.add(...late);group.visible=false;batches.meshes.push(...late);batches.sync(model.stateOf(level,renovations));
+  const opaque=late.filter(b=>materialsOf(b).every(m=>!m.transparent));
+  bake?.add(opaque);bounce?.add(opaque.filter(b=>materialsOf(b).every(m=>!m.alphaTest)),[group]);probes?.add(group);clouds?.shade([group]);if(live)addAlbedoOutput(group);
+  await firstFrame;if(disposed)return;
+  const lamps=lighting?.lamps,lit=lamps?.visible??false;
+  const compiled=[lit,!lit].map(on=>{if(lamps)lamps.visible=on;return post?post.compileAsync(group):renderer.compileAsync(group,camera,scene);});
+  if(lamps)lamps.visible=lit;
+  await Promise.all(compiled).catch(()=>{});
+  if(post){
+   const lights:T.Object3D[]=[];scene.traverse(o=>{if((o as T.Light).isLight)lights.push(o);});
+   for(const batch of late){
+    if(disposed)return;
+    const lens=rig.camera.clone(),shown=batch.visible,layers=batch.layers.mask;lens.layers.set(WARM);
+    for(const o of lights)o.layers.enable(WARM);
+    group.visible=batch.visible=true;batch.frustumCulled=false;batch.layers.set(WARM);
+    post.warm(lens);
+    group.visible=false;batch.visible=shown;batch.frustumCulled=true;batch.layers.mask=layers;
+    for(const o of lights)o.layers.disable(WARM);
+    await new Promise(resolve=>setTimeout(resolve,30));
+   }
+  }
+  if(disposed)return;
+  group.visible=true;applyState();
+  // Tests can read that the cars are in.
+  canvas.dataset.cars='shown';
+ };
+ if(options.cars&&tier.cars!=='none'){canvas.dataset.cars='loading';void addCars(options.cars).catch(error=>console.warn('Garage cars',error));}
  const begin=()=>{if(!disposed)frame=requestAnimationFrame(render);};
  if(lighting){lighting.update(camera,performance.now());cullTrees(false);(post?post.compileAsync(scene):renderer.compileAsync(scene,camera)).then(begin,begin);}
  else begin();
