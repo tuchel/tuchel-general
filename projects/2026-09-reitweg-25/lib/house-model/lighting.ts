@@ -158,8 +158,9 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
   const exposure=clamp(NOON_EXPOSURE*Math.pow(NOON_KEY/Math.max(key,1e-6),.72),.02,30);
   const daylight=T.MathUtils.smoothstep(r.elevation,-8,10),dusk=1-T.MathUtils.smoothstep(r.elevation,-3,7);
   lamps.visible=dusk>.02;
-  // Interior lamps light a floor to roughly 0.3% of the noon key, like 300 lux against 100 klx.
-  for(const o of lamps.children)if(o instanceof T.SpotLight)o.intensity=dusk*1.6;
+  // Interior lamps light a floor to roughly 0.2% of the noon key, like 200 lux against 100 klx: at the evening's exposure
+  // a pale sofa under one keeps its shape instead of burning out.
+  for(const o of lamps.children)if(o instanceof T.SpotLight)o.intensity=dusk*1;
   for(const m of lampMaterials){m.emissiveIntensity=dusk*3;}
   for(const {material,base} of lines)material.color.copy(base).multiplyScalar(clamp(Math.pow(key/NOON_KEY,.3),.03,1)*NOON_EXPOSURE/exposure);
   reading={...r,exposure,dusk,daylight,key};
