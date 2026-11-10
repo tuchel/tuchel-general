@@ -10,7 +10,7 @@ import {MeshBVH} from 'three-mesh-bvh';
 // probes a surface blends see the point it reads from.
 await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/static-batch.ts','lib/house-model/sky-visibility.ts','lib/house-model/sky-links.ts','lib/house-model/experience-data.ts'],outdir:'tmp/sky-links-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
 const M=n=>import(`../tmp/sky-links-check/${n}.mjs`);
-const [{buildHouseModel},{batchStatic},{PROBE_GRID},{createLinker,reaches},{places}]=await Promise.all(['build-model','static-batch','sky-visibility','sky-links','experience-data'].map(M));
+const [{buildHouseModel},{batchStatic},{PROBE_GRID},{createLinker,reaches,reachTable},{places}]=await Promise.all(['build-model','static-batch','sky-visibility','sky-links','experience-data'].map(M));
 
 // The house as the viewer bakes it: opaque batches, whole-house state, cut-out cards left out.
 const model=buildHouseModel(true);
@@ -74,6 +74,20 @@ const share=x=>(100*x/points).toFixed(1)+'%';
 assert(points>3000&&sloped>200,`enough surface sampled (${points} points, ${sloped} on slopes)`);
 assert(leakPlain>points*.05,`plain filtering reads through walls and roofs here (${share(leakPlain)} of points)`);
 assert(leakLinked<leakPlain/4,`the linked blend mostly does not (${share(leakLinked)} of points, against ${share(leakPlain)})`);
+// The materials look up which corners of a cell are joined (reachTable) instead of searching at every pixel: for every
+// cell, the outer half cells included, the table holds exactly what the search finds.
+t=performance.now();const table=reachTable(links,grid);const tableMs=performance.now()-t;
+assert.equal(table.length,(grid.nx+1)*(grid.ny+1)*(grid.nz+1)*8);
+let cells=0,walled=0;
+for(let y=-1;y<grid.ny;y++)for(let z=-1;z<grid.nz;z++)for(let x=-1;x<grid.nx;x++,cells++){
+ const g0=[x,y,z],l=[];
+ for(let k=0;k<8;k++){const c=[0,1,2].map(i=>Math.min(dims[i]-1,Math.max(0,g0[i]+(k>>i&1))));l.push(links[c[0]+c[2]*grid.nx+c[1]*grid.nx*grid.nz]);}
+ const at=(((y+1)*(grid.nz+1)+(z+1))*(grid.nx+1)+(x+1))*8;
+ for(let a=0;a<8;a++){let mask=0;for(let k=0;k<8;k++)if(reaches(a,k,l))mask|=1<<k;if(mask!==table[at+a])assert.fail(`cell ${g0} corner ${a}: table ${table[at+a]}, search ${mask}`);}
+ if(table[at]!==255)walled++;
+}
+assert(walled>cells*.02&&walled<cells*.6,`some cells are cut by walls, most are open (${walled} of ${cells})`);
+assert(tableMs<1500,`the table is quick to build (${tableMs.toFixed(0)} ms)`);
 // The bake: enough directions that a probe seeing the sky through one roof window differs little from its neighbour.
 assert(/DIRECTIONS=256\b/.test(fs.readFileSync('lib/house-model/sky-visibility.ts','utf8')),'256 sky directions');
-console.log(`Passed: ${points} points on the walls and slopes round the master bedroom read sky light through a wall or roof ${share(leakPlain)} of the time with plain filtering and ${share(leakLinked)} with linked probes; links for ${links.length} probes in ${(linkMs/1000).toFixed(1)} s.`);
+console.log(`Passed: ${points} points on the walls and slopes round the master bedroom read sky light through a wall or roof ${share(leakPlain)} of the time with plain filtering and ${share(leakLinked)} with linked probes; links for ${links.length} probes in ${(linkMs/1000).toFixed(1)} s, and the table of ${cells} cells matches the search (${tableMs.toFixed(0)} ms).`);
