@@ -36,7 +36,13 @@ assert(/const SUN_SETTLE=150/.test(viewer),'150 ms');
 assert(/const precompile=async\(\)=>/.test(viewer)&&/for\(const \[floor,lamps\] of \[\['upper',false\],\['upper',true\],\['exterior',true\]\]/.test(viewer),'upper floor and dusk variants');
 assert(/canvas\.dataset\.programs=/.test(viewer),'tests can read how many programs exist');
 // The first view's own shaders compile the same way before its first frame, once the sky light they are built for is set.
-assert(/const begin=\(\)=>\{if\(!disposed\)frame=requestAnimationFrame\(render\);\};\n if\(lighting\)\{lighting\.update\(camera,performance\.now\(\)\);cullTrees\(false\);\(post\?post\.compileAsync\(scene\):renderer\.compileAsync\(scene,camera\)\)\.then\(begin,begin\);\}/.test(viewer),'the first view compiles before its first frame');
+assert(/const begin=\(\)=>\{if\(!disposed\)frame=requestAnimationFrame\(render\);\};\n if\(lighting\)\{\n(  \/\/.*\n)*  const passes=\[post\?\.compilePasses\(\),bake\?\.compileAsync\(\)\];\n  lighting\.update\(camera,performance\.now\(\)\);cullTrees\(false\);\n  Promise\.all\(\[post\?post\.compileAsync\(scene\):renderer\.compileAsync\(scene,camera\),\.\.\.passes\]\)\.then\(begin,begin\);\n \}/.test(viewer),'the first view, the image chain and the sky bake compile before the first frame');
+// The chain's passes compile on a quad like the one they draw with (position and uv only: a normal would make another
+// shader), into one of its targets; the last pass, which draws to the screen, is left to its first draw. The bake's
+// blocker compiles as it replaces the batches' materials (with normals, without fog), its points in their own scene.
+{const post=fs.readFileSync('lib/house-model/post.ts','utf8'),sky=fs.readFileSync('lib/house-model/sky-visibility.ts','utf8');
+ assert(/compilePasses:\(\)=>\{[\s\S]*?setAttribute\('position',[^)]*\)\)\.setAttribute\('uv',[\s\S]*?if\(pass!==output&&pass!==scenePass\)for\(const material of passMaterials\(pass\)\)quads\.add\(new T\.Mesh\(plane,material\)\);[\s\S]*?renderer\.setRenderTarget\(target\);\s*const done=renderer\.compileAsync\(quads,/.test(post),'the passes compile as they draw');
+ assert(/compileAsync:\(\)=>\{[\s\S]*?setAttribute\('normal',[\s\S]*?renderer\.setRenderTarget\(depth\);world\.fog=null;\s*const blocked=renderer\.compileAsync\(stand,eye,world\);world\.fog=fog;[\s\S]*?renderer\.compileAsync\(pointScene,pointCamera\)/.test(sky),'the bake compiles as it draws');}
 // With a post stack the scene is drawn into its own target, without tone mapping: compiled for the screen instead, the
 // programs would not be the ones the scene pass uses, and each floor's first visit would compile its own again.
 assert(/const done=post\?post\.compileAsync\(scene\):renderer\.compileAsync\(scene,camera\)/.test(viewer),'precompiled as the scene pass draws');
