@@ -35,6 +35,8 @@ assert(/const SUN_SETTLE=150/.test(viewer),'150 ms');
 // 9. Shaders for every floor, renovation, eye level and dusk compile in the background after the first frame.
 assert(/const precompile=async\(\)=>/.test(viewer)&&/for\(const \[floor,lamps\] of \[\['upper',false\],\['upper',true\],\['exterior',true\]\]/.test(viewer),'upper floor and dusk variants');
 assert(/canvas\.dataset\.programs=/.test(viewer),'tests can read how many programs exist');
+// The first view's own shaders compile the same way before its first frame, once the sky light they are built for is set.
+assert(/const begin=\(\)=>\{if\(!disposed\)frame=requestAnimationFrame\(render\);\};\n if\(lighting\)\{lighting\.update\(camera,performance\.now\(\)\);cullTrees\(false\);\(post\?post\.compileAsync\(scene\):renderer\.compileAsync\(scene,camera\)\)\.then\(begin,begin\);\}/.test(viewer),'the first view compiles before its first frame');
 // With a post stack the scene is drawn into its own target, without tone mapping: compiled for the screen instead, the
 // programs would not be the ones the scene pass uses, and each floor's first visit would compile its own again.
 assert(/const done=post\?post\.compileAsync\(scene\):renderer\.compileAsync\(scene,camera\)/.test(viewer),'precompiled as the scene pass draws');
