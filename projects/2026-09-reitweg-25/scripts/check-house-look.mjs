@@ -16,6 +16,9 @@ for(const f of [out,inside]){for(const x of [0,.5**2.2,1])assert(Math.abs(sCurve
 assert(inside.contrast>out.contrast&&inside.saturation>out.saturation,'interiors get more contrast and colour');
 assert(inside.occlusion<out.occlusion-.2,`corner shading is lighter indoors (${inside.occlusion} vs ${out.occlusion})`);
 const post=fs.readFileSync('lib/house-model/post.ts','utf8');assert(/finish\(/.test(post)&&/uBalance/.test(post)&&/uLook/.test(post),'the output pass applies the finish');
+// Leaf edges anti-aliased by alpha-to-coverage leave alpha below one; the finished image is opaque, or the page shows
+// through them as grey specks.
+assert(/gl_FragColor = texture2D\( tDiffuse, vUv \);gl_FragColor\.a=1\.0;/.test(post),'the output pass writes an opaque image');
 // Indoors the shadow lift raises the side of a room the sun misses; black and the sunlit tones stay, and outdoors none.
 assert.equal(out.lift,0,'no shadow lift outdoors');
 assert(shadowLift(0,inside.lift)===0&&shadowLift(.25,inside.lift)>.3&&shadowLift(.9,inside.lift)-.9<.001,`the shadow lift raises dark tones only (0.25 → ${shadowLift(.25,inside.lift).toFixed(3)})`);
