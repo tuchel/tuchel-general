@@ -1,6 +1,6 @@
 import * as T from 'three';
 import {MeshBVH} from 'three-mesh-bvh';
-import {materialsOf} from './shader-features';
+import {addShaderFeature,after,materialsOf} from './shader-features';
 
 /** Real blades around an eye-level camera: dense within a few metres, thinning to the
  * textured lawn by 16 m. Clumps grow only where a downward ray first meets lawn. */
@@ -17,6 +17,9 @@ export function eyeLevelGrass(scene:T.Scene,surfaces:T.Mesh[]){
  const geometry=new T.BufferGeometry();
  geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));geometry.setAttribute('color',new T.Float32BufferAttribute(colors,3));geometry.setAttribute('normal',new T.Float32BufferAttribute(normals,3));
  const material=new T.MeshStandardMaterial({vertexColors:true,roughness:.85,side:T.DoubleSide});
+ // A blade takes the light the lawn under it takes, whichever of its faces is seen: drawn two-sided, the far face would
+ // otherwise be lit from below, and half the blades stand dark on a bright lawn.
+ addShaderFeature(material,{key:'grass-lit-as-lawn',compile:shader=>{shader.fragmentShader=after(shader.fragmentShader,'normal_fragment_begin','normal=normalize((viewMatrix*vec4(0.0,1.0,0.0,0.0)).xyz);');}});
  const capacity=RINGS.reduce((n,[a,b,d])=>n+Math.round(Math.PI*(b*b-a*a)*d),0);
  const mesh=new T.InstancedMesh(geometry,material,capacity);mesh.name='eye-level-grass';mesh.receiveShadow=true;mesh.visible=false;mesh.count=0;mesh.frustumCulled=false;mesh.userData.sway='grass';
  scene.add(mesh);
