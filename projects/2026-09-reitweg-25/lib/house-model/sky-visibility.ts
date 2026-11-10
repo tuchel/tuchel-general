@@ -57,7 +57,7 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
  const links=new T.Data3DTexture(new Uint8Array((nx+1)*(nz+1)*(ny+1)*8),(nx+1)*2,nz+1,ny+1);links.format=T.RGBAFormat;links.minFilter=links.magFilter=T.NearestFilter;
  const uniforms={uSkyVolume:{value:volumes[0].texture as T.Texture},uSkyReach:{value:links},uSkyMin:{value:BOX.min.clone()},uSkyGrid:{value:new T.Vector3(nx,ny,nz)},uSkyCell:{value:CELL},uSkyReady:{value:0},uSkyLinked:{value:0},uSkyBounce:{value:bounce}};
  const patched=new Set<T.Material>();
- for(const root of receivers)root.traverse(o=>{for(const m of materialsOf(o)){
+ const receive=(root:T.Object3D)=>root.traverse(o=>{for(const m of materialsOf(o)){
   if(patched.has(m)||!(m instanceof T.MeshStandardMaterial)||m.transparent)continue;patched.add(m);
   addShaderFeature(m,{key:'sky-visibility',compile:shader=>{
    Object.assign(shader.uniforms,uniforms);
@@ -126,6 +126,7 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
     }`);
   }});
  }});
+ for(const root of receivers)receive(root);
  for(const o of occluders)o.layers.enable(2);
  let world:T.Object3D|undefined=occluders[0];while(world?.parent)world=world.parent;
  let step=-1,write=1;
@@ -151,7 +152,7 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
  // The links worker gets the house once, in world space, tagged with its batch; leaves and other cut-out cards let light
  // through and are left out.
  let linker:Worker|undefined,job=0,sent='';
- const linkable=occluders.filter(o=>materialsOf(o).every(m=>!m.alphaTest));
+ const solid=(o:T.Mesh)=>materialsOf(o).every(m=>!m.alphaTest),linkable=occluders.filter(solid);
  const shown=(o:T.Object3D)=>{for(let a:T.Object3D|null=o;a;a=a.parent)if(!a.visible)return false;return true;};
  const relink=()=>{
   if(!linker){
@@ -173,6 +174,12 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
  return {
   probes:nx*ny*nz,
   request:()=>{step=0;relink();},
+  /** Meshes that arrive after the house (the garage's cars): lit by the sky light and in its way from the next bake,
+   * which the caller requests. The links worker starts again with them. */
+  add:(meshes:T.Mesh[])=>{
+   for(const o of meshes){receive(o);o.layers.enable(2);if(solid(o))linkable.push(o);}
+   linker?.terminate();linker=undefined;sent='';
+  },
   /** A bake is under way: what the materials show is about to be replaced. */
   get baking(){return step>=0;},
   /** Advances a bake `count` directions; true when a finished result was swapped in. */

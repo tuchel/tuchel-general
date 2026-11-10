@@ -26,7 +26,7 @@ export function bakeSunBounce(occluders:T.Mesh[],receivers:T.Object3D[],sun:T.Di
  const uniforms={uBounceLight:{value:lightTexture},uBounceDirection:{value:directionTexture},uBounceSun:{value:new T.Color(0,0,0)},
   uBounceMin:{value:BOX.min.clone()},uBounceGrid:{value:new T.Vector3(nx,ny,nz)},uBounceCell:{value:CELL},uBounceReady:{value:0}};
  const patched=new Set<T.Material>();
- for(const root of receivers)root.traverse(o=>{for(const m of materialsOf(o)){
+ const receive=(root:T.Object3D)=>root.traverse(o=>{for(const m of materialsOf(o)){
   if(patched.has(m)||!(m instanceof T.MeshStandardMaterial)||m.transparent)continue;patched.add(m);
   addShaderFeature(m,{key:'sun-bounce',compile:shader=>{
    Object.assign(shader.uniforms,uniforms);
@@ -66,6 +66,7 @@ export function bakeSunBounce(occluders:T.Mesh[],receivers:T.Object3D[],sun:T.Di
     }`);
   }});
  }});
+ for(const root of receivers)receive(root);
 
  // Workers start on the first request: each gets the house once, in world space, tagged with its batch.
  let workers:Worker[]=[],job=0,busy=false,pending=false,fresh=false,sent='';
@@ -105,6 +106,14 @@ export function bakeSunBounce(occluders:T.Mesh[],receivers:T.Object3D[],sun:T.Di
  return {
   /** Starts a fresh bake after the current one; call when the sun or the shown geometry changes. */
   request:()=>{pending=true;},
+  /** Meshes that arrive after the house (the garage's cars): lit by the bounced light and part of what it bounces off.
+   * The workers start again with them, and a fresh bake follows. */
+  add:(meshes:T.Mesh[],lit:T.Object3D[])=>{
+   for(const root of lit)receive(root);
+   occluders.push(...meshes);
+   for(const w of workers)w.terminate();
+   workers=[];sent='';job++;busy=false;pending=true;
+  },
   /** Keeps the sun's strength live and starts waiting bakes; true when a finished result was swapped in. */
   update:()=>{
    uniforms.uBounceSun.value.copy(sun.color).multiplyScalar(sun.visible?sun.intensity*bounceGain(bounces):0);

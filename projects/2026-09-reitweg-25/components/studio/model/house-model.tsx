@@ -68,13 +68,14 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
    setFellBack(quality);setReady(false);setQuality(lighter);
    const url=new URL(window.location.href);url.searchParams.set('quality',lighter);window.history.replaceState(null,'',url);
   };
-  // Detailed and Extreme show modelled cars, loaded beside the viewer's code so they are built in with the house.
-  const cars=tiers[quality].cars==='modelled'?import('@/lib/house-model/car-models').then(m=>m.loadCarModels()).catch(error=>{console.warn('Car models',error);return undefined;}):Promise.resolve(undefined);
-  Promise.all([import('@/lib/house-model/viewer'),cars]).then(([{createHouseViewer},carModels])=>{
+  // Detailed and Extreme show modelled cars, loaded beside the viewer's code; the viewer starts without waiting for them
+  // and adds them once its first frame is drawn.
+  const cars=tiers[quality].cars==='modelled'?import('@/lib/house-model/car-models').then(m=>m.loadCarModels()).catch(error=>{console.warn('Car models',error);return undefined;}):undefined;
+  import('@/lib/house-model/viewer').then(({createHouseViewer})=>{
    if(cancelled||!host.current)return;
    try{
     api.current=createHouseViewer(host.current,{
-     quality,cars:carModels,onSelect:r=>{setRegion(r);setPanel(null);},onReady:()=>setReady(true),onError:fail,onCapture:setCapture,onMaterials:setMaterials,
+     quality,cars,onSelect:r=>{setRegion(r);setPanel(null);},onReady:()=>setReady(true),onError:fail,onCapture:setCapture,onMaterials:setMaterials,
      onWander:setWandered,onHeading:deg=>{if(compass.current)compass.current.style.transform=`rotate(${deg}deg)`;},
      onRequest:()=>{const next=levelRef.current==='exterior'?'courtyard':'top';setView(next);setRegion(null);api.current?.view(next);},
     });
