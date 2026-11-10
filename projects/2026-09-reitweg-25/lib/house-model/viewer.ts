@@ -406,7 +406,13 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    await done.catch(()=>{});
   }
  };
- size();view('courtyard',true);frame=requestAnimationFrame(render);
+ size();view('courtyard',true);
+ // The first view's shaders compile before its first frame, in the background and side by side where the browser allows:
+ // drawn cold, each would compile in turn inside that frame and hold the page for all of them. The sky light is set
+ // first and the trees in view picked, so that what compiles is what the frame draws.
+ const begin=()=>{if(!disposed)frame=requestAnimationFrame(render);};
+ if(lighting){lighting.update(camera,performance.now());cullTrees(false);(post?post.compileAsync(scene):renderer.compileAsync(scene,camera)).then(begin,begin);}
+ else begin();
 
  /** A still at four thousand pixels as a PNG; with `limit` (bytes), as the largest PNG within it (photo-size.ts, fitPng),
   * its size in the file name. */
