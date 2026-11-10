@@ -16,6 +16,34 @@ const clamp=T.MathUtils.clamp;
 /** A deep blue night sky; the Preetham model alone fades to grey. Shared with the sky shader. */
 const NIGHT=[.0006,.0012,.003];
 const nightSky=`texColor+=vec3(${NIGHT.join(',')})*(1.0-smoothstep(-0.1,0.05,vSunDirection.y));`;
+/** The night sky above the garden: stars from the end of civil twilight, and the moon where it stands for the date and
+ * hour (sun-position.ts, moonPosition), its lit side turned to the sun. The moon is drawn at `MOON.scale` times its true
+ * half-degree so that its phase reads on a screen; by day it is the pale disc seen in a blue sky. Drawn with the sky, in
+ * the same pass. */
+export const MOON={scale:1.5,radius:.2725,/** Its lit surface against the June noon zenith sky. */brightness:.35};
+const celestial=`
+{
+ float starry=1.0-smoothstep(-0.2,-0.05,vSunDirection.y);
+ if(starry>0.0&&direction.y>0.0){
+  // One star at most in each cell of a grid on the sky, by a hash without sin (large arguments lose it on phones).
+  vec3 sp=direction*230.0,sc=floor(sp),h3=fract(sc*0.1031);h3+=dot(h3,h3.zyx+31.32);
+  float sh=fract((h3.x+h3.y)*h3.z);
+  if(sh>0.996){
+   float mag=fract(sh*917.0),tone=fract(sh*271.0);
+   texColor+=mix(vec3(1.0,0.86,0.72),vec3(0.75,0.85,1.0),tone)*(0.03+0.5*mag*mag*mag)*starry*smoothstep(0.02,0.25,direction.y)*(1.0-smoothstep(0.1,0.42,length(fract(sp)-0.5)));
+  }
+ }
+ if(dot(direction,uMoon.xyz)>0.999){
+  vec3 mx=normalize(cross(vec3(0.0,1.0,0.0),uMoon.xyz)),my=cross(uMoon.xyz,mx);
+  vec2 q=vec2(dot(direction,mx),dot(direction,my))/${Math.sin(MOON.radius*MOON.scale*Math.PI/180).toFixed(6)};float r2=dot(q,q);
+  if(r2<1.0){
+   vec3 n=q.x*mx+q.y*my-sqrt(1.0-r2)*uMoon.xyz;
+   // Maria: broad darker patches, fixed on the disc.
+   float seas=0.82+0.18*sin(q.x*5.1+1.3)*sin(q.y*4.3-0.7)+0.08*sin(q.x*11.0-q.y*9.0);
+   texColor+=uMoon.w*seas*(smoothstep(-0.04,0.12,dot(n,vSunDirection))+0.012)*(1.0-smoothstep(0.86,1.0,r2))*smoothstep(-0.01,0.06,direction.y);
+  }
+ }
+}`;
 export function skyRadiance(dir:T.Vector3,sun:T.Vector3,out=new T.Color()){
  const night=1-T.MathUtils.smoothstep(sun.y,-.1,.05);
  const sunE=1000*Math.max(0,1-Math.exp(-((1.6110731556870734-Math.acos(clamp(sun.y,-1,1)))/1.5)));
@@ -69,12 +97,15 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
  // Image light: skylight is less saturated than the visible sky, and the ground below the
  // horizon returns neutral bounce light (lawn, paving and floors averaged) instead of Preetham's dark lower sphere.
  const ground={value:new T.Color()},saturation={value:.55};
+ // The moon's direction and the radiance of its lit surface; no direction while it is below the horizon.
+ const moon={value:new T.Vector4()},moonRadiance=MOON.brightness*luminance(skyRadiance(new T.Vector3(0,1,0),NOON));
  for(const [s,disc] of [[sky,1],[envSky,0]] as const){
   const env=disc===0;
   s.material.onBeforeCompile=shader=>{
    if(env){shader.uniforms.uGround=ground;shader.uniforms.uEnvSaturation=saturation;shader.fragmentShader='uniform vec3 uGround;uniform float uEnvSaturation;\n'+shader.fragmentShader;}
+   else{shader.uniforms.uMoon=moon;shader.fragmentShader='uniform vec4 uMoon;\n'+shader.fragmentShader;}
    if(clouds){shader.uniforms.uClouds={value:clouds.sky};shader.fragmentShader=shader.fragmentShader.replace('void main() {','uniform sampler2D uClouds;\n'+clouds.sample+'\nvoid main() {');}
-   shader.fragmentShader=shader.fragmentShader.replace('gl_FragColor = vec4( texColor, 1.0 );',nightSky+(clouds?'\n{vec4 cloud=cloudsToward(direction);texColor=texColor*cloud.a+cloud.rgb;}':'')+(env?'\ntexColor=mix(vec3(dot(texColor,vec3(0.2126,0.7152,0.0722))),texColor,uEnvSaturation);texColor=mix(texColor,uGround,smoothstep(0.0,-0.06,direction.y));':'')+'\ngl_FragColor = vec4( texColor, 1.0 );');
+   shader.fragmentShader=shader.fragmentShader.replace('gl_FragColor = vec4( texColor, 1.0 );',nightSky+(env?'':celestial)+(clouds?'\n{vec4 cloud=cloudsToward(direction);texColor=texColor*cloud.a+cloud.rgb;}':'')+(env?'\ntexColor=mix(vec3(dot(texColor,vec3(0.2126,0.7152,0.0722))),texColor,uEnvSaturation);texColor=mix(texColor,uGround,smoothstep(0.0,-0.06,direction.y));':'')+'\ngl_FragColor = vec4( texColor, 1.0 );');
   };
   s.material.customProgramCacheKey=()=>(env?'reitweg-env-sky':'reitweg-sky')+(clouds?'-clouds':'');
   const u=s.material.uniforms;u.turbidity.value=SKY.turbidity;u.rayleigh.value=SKY.rayleigh;u.mieCoefficient.value=SKY.mie;u.mieDirectionalG.value=SKY.g;u.showSunDisc.value=disc;u.cloudCoverage.value=clouds?0:SKY.clouds;u.cloudDensity.value=.35;}
@@ -113,6 +144,7 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
   const r=sunStudyReading(study);
   sunVector.set(...sunDirection(r.azimuth,r.apparentElevation)).normalize();
   for(const s of [sky,envSky])s.material.uniforms.sunPosition.value.copy(sunVector);
+  if(r.moon.elevation>-1){const [x,y,z]=sunDirection(r.moon.azimuth,r.moon.elevation);moon.value.set(x,y,z,moonRadiance);}else moon.value.set(0,0,0,0);
   const transmittance=sunTransmittance(r.apparentElevation),strength=SUN_SCALE*luminance(transmittance);
   const peak=Math.max(transmittance.r,transmittance.g,transmittance.b,1e-6);
   sun.color.setRGB(transmittance.r/peak,transmittance.g/peak,transmittance.b/peak);

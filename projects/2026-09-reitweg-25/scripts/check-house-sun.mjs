@@ -3,7 +3,18 @@ import fs from 'node:fs';
 import * as T from 'three';
 import {build} from 'esbuild';
 await build({entryPoints:['lib/house-model/sun-position.ts'],outfile:'tmp/sun-check.mjs',bundle:true,platform:'node',format:'esm'});
-const {solarPosition,studyInstant,sunDirection,initialSunStudy,clockLabel,SUN_SITE}=await import('../tmp/sun-check.mjs');
+const {solarPosition,moonPosition,studyInstant,sunDirection,initialSunStudy,clockLabel,SUN_SITE}=await import('../tmp/sun-check.mjs');
+// The moon, against the two central eclipses of 2026: at the solar eclipse of 12 August (greatest 17:47 UTC) it stands
+// within a degree of the sun from the address, new; at the lunar eclipse of 3 March (greatest 11:34 UTC) it stands
+// opposite the sun, full, on the ecliptic.
+{const solar=new Date('2026-08-12T17:47:00Z'),m=moonPosition(solar),s=solarPosition(solar);
+ assert(Math.hypot((m.azimuth-s.azimuth)*Math.cos(s.elevation*Math.PI/180),m.elevation-s.elevation)<1,`the moon covers the sun on 12 August (${m.azimuth.toFixed(1)}°, ${m.elevation.toFixed(1)}° against ${s.azimuth.toFixed(1)}°, ${s.elevation.toFixed(1)}°)`);
+ assert(m.lit<.001,'new at a solar eclipse');
+ const lunar=moonPosition(new Date('2026-03-03T11:34:00Z'));
+ assert(lunar.elongation>179&&Math.abs(lunar.latitude)<1&&lunar.lit>.999,`full and on the ecliptic at the lunar eclipse (elongation ${lunar.elongation.toFixed(1)}°)`);
+ const lighting=fs.readFileSync('lib/house-model/lighting.ts','utf8');
+ assert(/nightSky\+\(env\?'':celestial\)/.test(lighting),'stars and the moon are drawn in the visible sky, not in the sky light');
+ assert(/if\(r\.moon\.elevation>-1\)\{const \[x,y,z\]=sunDirection\(r\.moon\.azimuth,r\.moon\.elevation\);/.test(lighting),'the moon stands where it is for the date and hour');}
 assert.equal(clockLabel(initialSunStudy.minutes),'09:00','the model opens at 09:00');
 // Fixtures independently evaluated with NOAA's published calculator main.js,
 // using the address coordinates, UTC times and its apparent altitude correction.

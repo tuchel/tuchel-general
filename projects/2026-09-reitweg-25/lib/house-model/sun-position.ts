@@ -36,8 +36,28 @@ export function solarPosition(date:Date,latitude:number=SUN_SITE.latitude,longit
  const refraction=elevation>85?0:elevation>5?(58.1/tan-.07/tan**3+.000086/tan**5)/3600:elevation>-.575?(1735+elevation*(-518.2+elevation*(103.4+elevation*(-12.79+elevation*.711))))/3600:-20.774/tan/3600;
  return {azimuth,elevation,apparentElevation:elevation+refraction};
 }
+/** The moon from the address: where it stands and how much of its disc is lit. Low-precision series (Astronomical
+ * Almanac; about 0.3° in longitude, 0.2° in latitude), with the parallax of an observer on the ground, which lowers the
+ * moon by up to a degree. `lit` is the lit share of the disc, 0 new to 1 full. */
+export function moonPosition(date:Date,latitude:number=SUN_SITE.latitude,longitude:number=SUN_SITE.longitude){
+ const days=date.getTime()/86400000+2440587.5-2451545,t=days/36525,sin=(d:number)=>Math.sin(d*rad);
+ const lambda=(218.32+481267.881*t+6.29*sin(135+477198.87*t)-1.27*sin(259.3-413335.36*t)+.66*sin(235.7+890534.22*t)+.21*sin(269.9+954397.74*t)-.19*sin(357.5+35999.05*t)-.11*sin(186.5+966404.03*t))*rad;
+ const beta=(5.13*sin(93.3+483202.02*t)+.28*sin(228.2+960400.89*t)-.28*sin(318.3+6003.15*t)-.17*sin(217.6-407332.21*t))*rad;
+ const obliquity=(23.439-.013*t)*rad;
+ const x=Math.cos(beta)*Math.cos(lambda),y=Math.cos(obliquity)*Math.cos(beta)*Math.sin(lambda)-Math.sin(obliquity)*Math.sin(beta),z=Math.sin(obliquity)*Math.cos(beta)*Math.sin(lambda)+Math.cos(obliquity)*Math.sin(beta);
+ const rightAscension=Math.atan2(y,x),declination=Math.asin(z);
+ // Greenwich mean sidereal time, then the moon's hour angle at the address.
+ const sidereal=mod(280.46061837+360.98564736629*days+longitude,360)*rad,hourAngle=sidereal-rightAscension,lat=latitude*rad;
+ const geocentric=Math.asin(Math.max(-1,Math.min(1,Math.sin(lat)*Math.sin(declination)+Math.cos(lat)*Math.cos(declination)*Math.cos(hourAngle))));
+ const azimuth=mod(deg*Math.atan2(Math.sin(hourAngle),Math.cos(hourAngle)*Math.sin(lat)-Math.tan(declination)*Math.cos(lat))+180,360);
+ const elevation=deg*geocentric-.95*Math.cos(geocentric);
+ // The sun's ecliptic longitude, for the moon's phase.
+ const m=(357.52911+35999.05029*t)*rad,sun=(280.46646+36000.76983*t)*rad+(1.914602*Math.sin(m)+.019993*Math.sin(2*m))*rad;
+ const elongation=Math.acos(Math.max(-1,Math.min(1,Math.cos(beta)*Math.cos(lambda-sun))));
+ return {azimuth,elevation,lit:(1-Math.cos(elongation))/2,elongation:elongation*deg,latitude:beta*deg};
+}
 export function sunDirection(azimuth:number,elevation:number):[number,number,number]{const a=(azimuth-SUN_SITE.planNorthBearing)*rad,h=elevation*rad;return [Math.sin(a)*Math.cos(h),Math.sin(h),-Math.cos(a)*Math.cos(h)];}
-export function sunStudyReading(s:SunStudy){const local=studyInstant(s.day,s.minutes);return {...local,...solarPosition(local.date)};}
+export function sunStudyReading(s:SunStudy){const local=studyInstant(s.day,s.minutes);return {...local,...solarPosition(local.date),moon:moonPosition(local.date)};}
 export const clockLabel=(minutes:number)=>`${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`;
 
 /** Daily events use UTC instants throughout, including days with clock changes.
