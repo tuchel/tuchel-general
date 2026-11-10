@@ -39,7 +39,7 @@ assert(Math.abs(sunDirection(90+SUN_SITE.planNorthBearing,0)[0]-1)<1e-10,'east r
 console.log('Passed: five NOAA fixtures across seasons/day/night, CET/CEST including both transitions, and model north/east registration from the survey.');
 
 await build({entryPoints:['lib/house-model/lighting.ts'],outfile:'tmp/lighting-check.mjs',bundle:true,platform:'node',format:'esm',packages:'external'});
-const {createLighting,skyRadiance}=await import('../tmp/lighting-check.mjs');
+const {createLighting,skyRadiance,HAZE_CAP}=await import('../tmp/lighting-check.mjs');
 const scene=new T.Scene(),root=new T.Group(),renderer={shadowMap:{needsUpdate:false}};
 const lighting=createLighting(renderer,scene,root,{shadowSize:1024});
 const noon=lighting.apply({enabled:true,day:172,minutes:780}),sun=lighting.sun;
@@ -53,6 +53,11 @@ const sunset=lighting.apply({enabled:true,day:172,minutes:1277});
 assert(grey(sunset)>.2*grey(noon),'sunset stays legible, not black');
 assert(scene.fog.color.r/scene.fog.color.b>noonFog.r/noonFog.b,'sunset haze is warmer than midday');
 assert(sunset.dusk>.3&&root.getObjectByName('evening-interior-light').visible,'interior lamps come on at dusk');
+// Golden hour, looking toward the sun: the haze is no brighter than HAZE_CAP white walls in that light.
+{const golden=lighting.apply({enabled:true,day:172,minutes:1232}),toSun=new T.PerspectiveCamera(),d=sun.position.clone().sub(sun.target.position);
+ toSun.lookAt(d.x,0,d.z);toSun.updateMatrixWorld();try{lighting.update(toSun,0);}catch{}
+ const c=scene.fog.color,haze=.2126*c.r+.7152*c.g+.0722*c.b;
+ assert(haze<=HAZE_CAP*golden.key/Math.PI*1.001,`golden hour haze toward the sun is ${(haze*Math.PI/golden.key).toFixed(1)} white walls bright`);assert(c.r>c.b,'and stays warm');}
 const night=lighting.apply({enabled:true,day:355,minutes:0});
 assert.equal(sun.intensity,0);assert(!sun.visible,'no direct sunlight at night');
 assert(grey(night)<grey(sunset),'night is darker than sunset');

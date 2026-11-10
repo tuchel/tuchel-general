@@ -87,6 +87,8 @@ const ROOM_BOOST=4.5;
 export const roomExposure=(openness:number)=>1+ROOM_BOOST*(1-T.MathUtils.smoothstep(openness,.03,.2));
 /** How far indoors a room exposure puts the camera: 0 outdoors, 1 in a closed room (the interior finish, look.ts). */
 export const indoorOf=(room:number)=>T.MathUtils.clamp((room-1)/ROOM_BOOST,0,1);
+/** The brightest haze, as a multiple of a white wall lit by the sun and sky of the moment. */
+export const HAZE_CAP=2;
 export type LightReading=ReturnType<typeof sunStudyReading>&{exposure:number;dusk:number;daylight:number;key:number};
 /** `clouds` (Extreme) replaces the sky's flat cloud layer with ray-marched cumulus (clouds.ts), in the visible sky and in
  * the sky light. */
@@ -135,7 +137,12 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
  const updateFog=(azimuth:number)=>{
   if(!scene.fog)return;viewAzimuth=azimuth;
   probe.set(Math.cos(azimuth),.035,Math.sin(azimuth)).normalize();
-  skyRadiance(probe,sunVector,horizon);scene.fog.color.copy(horizon);
+  skyRadiance(probe,sunVector,horizon);
+  // Toward a low sun the horizon glows many times brighter than anything the sun still lights, and haze of that colour
+  // whites out the tree line. Haze is lit by the same light as the ground: it is held to the brightness of a white wall
+  // in that light (HAZE_CAP), keeping its colour.
+  const cap=HAZE_CAP*(reading?.key??Infinity)/Math.PI,lum=luminance(horizon);if(lum>cap)horizon.multiplyScalar(cap/lum);
+  scene.fog.color.copy(horizon);
   // Distant ridges sit a little lighter than the sky behind them, as in the owner's photographs.
   const peak=Math.max(horizon.r,horizon.g,horizon.b,1e-6);
   for(const m of backdrops)m.color.setRGB(horizon.r*1.12/peak,horizon.g*1.12/peak,horizon.b*1.12/peak).multiplyScalar(peak*1.05);
