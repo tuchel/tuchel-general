@@ -133,7 +133,7 @@ export async function photographicScene(source:T.Scene,environment:T.Texture,sig
  const keyOf=(mesh:T.Mesh)=>{
   const inst=mesh as T.InstancedMesh;
   let key=`${mesh.geometry.uuid}|${materialsOf(mesh).map(m=>m.uuid+(ready(m)?'':'~')).join(',')}|${mesh.matrixWorld.elements.map(e=>e.toFixed(4)).join(',')}`;
-  if(inst.isInstancedMesh)key+=mesh.userData.instances!==undefined?`|trees ${mesh.userData.instances}`:`|${inst.count} ${inst.instanceMatrix.version} ${inst.instanceColor?.version??0}`;
+  if(inst.isInstancedMesh)key+=mesh.userData.instances!==undefined?`|trees ${mesh.userData.instances} ${mesh.userData.season??''}`:`|${inst.count} ${inst.instanceMatrix.version} ${inst.instanceColor?.version??0}`;
   return key;
  };
  const used=new Set<T.Object3D>();
