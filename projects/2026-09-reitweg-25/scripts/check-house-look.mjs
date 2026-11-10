@@ -11,6 +11,14 @@ const out=finish(0),inside=finish(1);
 assert.deepEqual(out.balance,[1,1,1],'outdoors keeps daylight white balance');
 assert(inside.balance[0]>1.05&&inside.balance[2]<.9,`indoors the balance warms (${inside.balance.map(v=>v.toFixed(3))})`);
 assert(Math.abs(luma(inside.balance)-1)<.01,'white balance keeps brightness');
+// In the evening the lamps are the room's light: the balance turns part of the way towards them, cooler than by day,
+// keeping brightness; outdoors nothing changes.
+{const lamplit=finish(1,1),lamp=[1,.694,.392],seen=lamp.map((c,i)=>c*lamplit.balance[i]),before=lamp.map((c,i)=>c*inside.balance[i]);
+ assert(lamplit.balance[0]<1&&lamplit.balance[2]>1.15,`by lamplight the balance cools (${lamplit.balance.map(v=>v.toFixed(3))})`);
+ assert(Math.abs(luma(lamplit.balance)-1)<.01,'and keeps brightness');
+ assert(seen[0]/seen[2]<2.1&&seen[0]/seen[2]>1.6&&before[0]/before[2]>3,`lamplight reads warm, not orange (red to blue ${(seen[0]/seen[2]).toFixed(2)}, was ${(before[0]/before[2]).toFixed(2)})`);
+ assert.deepEqual(finish(0,1).balance,[1,1,1],'outdoors keeps daylight white balance at dusk');
+ assert.deepEqual(finish(1,0).balance,inside.balance,'by day the indoor balance is unchanged');}
 for(const f of [out,inside]){for(const x of [0,.5**2.2,1])assert(Math.abs(sCurve(x,f.contrast)-x)<1e-6,`the S-curve holds ${x.toFixed(3)}`);
  assert(sCurve(.1,f.contrast)<.1&&sCurve(.5,f.contrast)>.5,'the S-curve deepens shadows and lifts light tones');assert(f.saturation>1);}
 assert(inside.contrast>out.contrast&&inside.saturation>out.saturation,'interiors get more contrast and colour');

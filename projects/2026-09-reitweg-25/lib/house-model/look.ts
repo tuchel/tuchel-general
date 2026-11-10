@@ -10,9 +10,15 @@
  *   sunlit wall takes 20 to 50 times the light of the shaded one, which the eye takes in at once and a single exposure
  *   cannot; black and the sunlit tones stay where they were (shadowLift). */
 const WARM=[1.089,.99,.832];
-export function finish(indoor:number){
- const t=Math.min(1,Math.max(0,indoor));
- return {balance:WARM.map(g=>1+(g-1)*t),contrast:1.1+.1*t,saturation:1.1+.15*t,occlusion:.85-.35*t,lift:LIFT*t};
+/** In the evening the lamps are the room's light, and they are already warm (#ffd9a8, linear 1, 0.69, 0.39), while what
+ * is left of the sky through the windows is blue. A camera balances part of the way towards the lamps: each channel's
+ * gain is the lamp's colour to the power −0.3, scaled to keep brightness, so lamplight reads as warm rather than orange
+ * and the walls the sky still reaches stay near white rather than turning blue. */
+const LAMPLIT=[.904,1.009,1.197];
+/** `lamps` (0–1): how far the evening lamps are on (lighting.ts, dusk). */
+export function finish(indoor:number,lamps=0){
+ const t=Math.min(1,Math.max(0,indoor)),l=t*Math.min(1,Math.max(0,lamps));
+ return {balance:WARM.map((g,i)=>1+(g-1)*t+(LAMPLIT[i]-g)*l),contrast:1.1+.1*t,saturation:1.1+.15*t,occlusion:.85-.35*t,lift:LIFT*t};
 }
 /** How far the shadow lift raises dark tones indoors (at most about 0.07 on the perceptual scale, around 0.2). */
 const LIFT=.8;

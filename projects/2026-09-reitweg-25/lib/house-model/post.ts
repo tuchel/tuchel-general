@@ -145,7 +145,8 @@ class FinishedOutput extends OutputPass{
   #ifdef SRGB_TRANSFER`);
   this.material.fragmentShader=shader;
  }
- set(indoor:number){const f=finish(indoor);(this.uniforms.uBalance.value as T.Vector3).set(f.balance[0],f.balance[1],f.balance[2]);(this.uniforms.uLook.value as T.Vector3).set(f.contrast,f.saturation,f.lift);return f;}
+ lamps=()=>0;
+ set(indoor:number){const f=finish(indoor,this.lamps());(this.uniforms.uBalance.value as T.Vector3).set(f.balance[0],f.balance[1],f.balance[2]);(this.uniforms.uLook.value as T.Vector3).set(f.contrast,f.saturation,f.lift);return f;}
 }
 
 /** Depth of field as a step of the chain (lens.ts). */
@@ -159,7 +160,8 @@ class FocusPass extends Pass{
 /** `lens` (Extreme) adds the camera of lens.ts: metered exposure, autofocus depth of field at eye level, sun shafts and
  * grain. */
 /** `afterScene`: runs right after the scene is drawn, its target still bound. */
-export type PostOptions={samples:number;ao:boolean;bloom:boolean;lens?:{sun:T.DirectionalLight};afterScene?:(renderer:T.WebGLRenderer,camera:T.Camera)=>void};
+/** `lamps`: how far the evening lamps are on (0–1), for the white balance indoors (look.ts). */
+export type PostOptions={lamps?:()=>number;samples:number;ao:boolean;bloom:boolean;lens?:{sun:T.DirectionalLight};afterScene?:(renderer:T.WebGLRenderer,camera:T.Camera)=>void};
 export type PostView={eyeLevel:boolean};
 export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions){
  const target=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,samples:options.samples,depthTexture:new T.DepthTexture(1,1)});
@@ -185,7 +187,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
  const accumulate=new AccumulatePass();composer.addPass(accumulate);
  const focusPass=depth?new FocusPass(new DepthOfField(depth.target.texture)):undefined;
  if(focusPass)composer.addPass(focusPass);
- const output=new FinishedOutput();composer.addPass(output);
+ const output=new FinishedOutput();composer.addPass(output);if(options.lamps)output.lamps=options.lamps;
  if(meter)output.uniforms.uGrain.value=LENS.grain;
  let traced:TracedBlend|undefined,focused:T.WebGLRenderTarget|undefined,scale=1,focus=NaN,last=0,seed=0;
  // The last denoised traced image, with its view and depth (keep, carry).
