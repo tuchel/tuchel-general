@@ -93,10 +93,16 @@ varying vec3 vSurfacePos;varying vec3 vSurfaceNormal;${projection}\n`+shader.fra
   shader.fragmentShader=after(shader.fragmentShader,'aomap_fragment','reflectedLight.indirectDiffuse*=surfaceCavity;reflectedLight.indirectSpecular*=mix(1.0,surfaceCavity,0.7);');
  }});
 }
-/** Thin glass reflects more at glancing angles; no transmission pass, no shadow. */
-export function fresnelGlass(material:T.MeshPhysicalMaterial,base=.12,tint='#e6efec'){
- Object.assign(material,{transmission:0,transparent:true,opacity:base,roughness:.03,metalness:0,depthWrite:false,envMapIntensity:1.35});
- material.color.set(tint);material.specularIntensity=1;material.side=T.DoubleSide;
+/** Thin glass reflects more at glancing angles; no transmission pass, no shadow. Glass has no surface colour of its own:
+ * it mirrors what is in front of it and dims what is behind. Its colour is black, so no light scatters off it (lit like a
+ * wall and blended in, that laid a grey veil over every room behind a window); its reflection is added whole over what
+ * is behind, which its opacity dims: a tenth or so seen square on, all of it at a glancing angle. `GLASS.ior` gives the
+ * reflectance of a double-glazed unit's four faces together, about 8% square on. */
+export const GLASS={ior:1.8};
+export function fresnelGlass(material:T.MeshPhysicalMaterial,base=.12){
+ Object.assign(material,{transmission:0,transparent:true,opacity:base,roughness:.03,metalness:0,depthWrite:false,envMapIntensity:1.35,ior:GLASS.ior});
+ material.color.set('#000000');material.specularIntensity=1;material.side=T.DoubleSide;
+ Object.assign(material,{blending:T.CustomBlending,blendSrc:T.OneFactor,blendDst:T.OneMinusSrcAlphaFactor});
  addShaderFeature(material,{key:'fresnel-glass',compile:shader=>{
   shader.fragmentShader=before(shader.fragmentShader,'opaque_fragment','diffuseColor.a=mix(diffuseColor.a,1.0,0.88*pow(1.0-abs(dot(normal,normalize(vViewPosition))),5.0));');
  }});
