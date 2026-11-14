@@ -28,6 +28,7 @@ export const SRC = {
   bernsteinOct: { label: 'ROIC News, Bernstein lifts SpaceX target to $268, Oct 26, 2026', url: 'https://www.roic.ai/news/bernstein-lifts-spacex-price-target-to-268-on-ai-computing-bet-sees-82-upside-10-26-2026' },
   phillipQ3: { label: 'TheStreet, Phillip Securities upgrades SpaceX to Buy, target $250 from $75, Oct 23, 2026', url: 'https://www.thestreet.com/investing/stocks/spacex-phillip-securities-250-upgrade' },
   qualcomm: { label: 'Via Satellite, SpaceX strikes deal with Qualcomm for terrestrial component of Starlink Mobile network, Nov 4, 2026', url: 'https://www.satellitetoday.com/connectivity/2026/11/04/spacex-strikes-deal-with-qualcomm-for-terrestrial-component-of-starlink-mobile-network/' },
+  flight15: { label: 'Interesting Engineering, SpaceX Starship 15\'s Super Heavy booster skips tower catch, heads for Gulf splashdown, Nov 13, 2026', url: 'https://interestingengineering.com/space/spacex-starship-15th-flight-booster-catch-skipped' },
   oppInit: { label: 'Reuters via The Star, Oppenheimer launches first SpaceX coverage at Outperform, $190, Jun 11, 2026', url: 'https://www.thestar.com.my/tech/tech-news/2026/06/11/oppenheimer-launches-wall-street039s-first-coverage-of-spacex-with-bullish-outlook' },
   oppJun: { label: 'Investing.com, Oppenheimer raises SpaceX target to $250 from $190, Jun 18, 2026', url: 'https://ng.investing.com/news/stock-market-news/spacex-stock-target-raised-at-oppenheimer-heres-the-new-12month-forecast-2565697' },
   mbRatings: { label: 'MarketBeat, SPCX analyst ratings history', url: 'https://www.marketbeat.com/stocks/NASDAQ/SPCX/forecast/' },
@@ -113,6 +114,7 @@ export const EVENTS: KeyEvent[] = [
   { date: '2026-08-14', title: 'Cursor acquisition closes', detail: 'Adds $608M to Q3 2026 revenue.', source: SRC.cursor },
   { date: '2026-10-20', title: 'Q3 2026 results', detail: 'Q1 2027 revenue guided to $33–37B on the call.', source: SRC.q3 },
   { date: '2026-11-04', title: 'Qualcomm deal for Starlink Mobile', detail: 'Multiyear; base stations for tens of thousands of US sites from 2027.', source: SRC.qualcomm },
+  { date: '2026-11-13', title: 'Starship Flight 15 reaches orbit', detail: 'Deployed Starlink satellites; booster catch called off for a Gulf splashdown.', source: SRC.flight15 },
 ];
 
 /** Daily closing price, USD. Jun 12–Oct 15 from Yahoo Finance; Oct 16–20 from StockAnalysis. */
@@ -224,6 +226,7 @@ const CLOSES = `
 2026-11-10 143.09
 2026-11-11 139.75
 2026-11-12 139.94
+2026-11-13 139.11
 `;
 
 /** `intraday` marks a price taken during the session, before the close. */
