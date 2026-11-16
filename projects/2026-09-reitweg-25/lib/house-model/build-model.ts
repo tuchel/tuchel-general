@@ -29,8 +29,8 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 /** The living room's two south windows sit low over a timber window bench, the narrow opening light on the side away
  * from the chimney (owner photographs inside and out): metres along the south wall from its west end, at x −6. */
 const SOUTH_WINDOWS=[{from:1.6,to:4.2,sill:.5,head:2.2,mullion:1.6+.4*2.6,bench:true},{from:7.83,to:10.26,sill:.5,head:2.2,mullion:10.26-.4*2.43,bench:true}];
-/** The x of each upright in those windows' frames: both sides and the division of each. */
-export const SOUTH_WINDOW_LINES=SOUTH_WINDOWS.flatMap(o=>[o.from,o.mullion,o.to].map(t=>t-6));
+/** Those windows as x ranges, west to east, with the x of each one's division. */
+export const SOUTH_WINDOW_SPANS=SOUTH_WINDOWS.map(o=>[o.from-6,o.to-6,o.mullion-6]);
 export const SPILL={radiance:.03,reach:4.5,spread:.6,height:.075,sill:.5};
 export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:ReturnType<typeof foliageMaterials>,cars?:CarModels|false){
  const root=new T.Group(),ground=new T.Group(),upper=new T.Group(),basement=new T.Group(),roofs=new T.Group(),site=new T.Group(),trees=new T.Group();
@@ -379,24 +379,30 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
    skin(shape,southGable?asBuilt:face);
    if(southGable){
     const opened=new T.Group();opened.name='south-gable-glazing';opened.visible=false;face.add(opened);(additions.masterWindows??=[]).push(opened);
-    // Each side from 15 cm beside the chimney to its knee wall (0.55 m high to the east, 0.4 m to the west), 5 cm above
-    // the floor to 3 m, and 12 cm under the sloped ceiling.
+    // Glass from 5 cm above the floor to 3 m, and 12 cm under the sloped ceiling. The knee walls are 0.55 m high to the
+    // east, 0.4 m to the west.
     const sill=3.15,cap=6.1,top=(x:number)=>Math.min(cap,ridge-rise*Math.abs(x)/half-.045-CEILING-.12),knee=(ridge-.045-CEILING-.12-cap)*half/rise;
     const u=(x:number)=>(x-a[0])/dx*len,bar=(x1:number,y1:number,x2:number,y2:number,parent:T.Group=opened)=>segment(parent,[u(x1),y1,0],[u(x2),y2,0],.07,m.dark);
-    // The evenly spaced uprights give way to the aligned ones with Master Windows · Aligned Mullions.
-    const even=new T.Group();even.name='south-gable-even-mullions';even.userData.replacedBy='alignedGable';opened.add(even);
-    const aligned=new T.Group();aligned.name='south-gable-aligned-mullions';aligned.visible=false;opened.add(aligned);(additions.alignedGable??=[]).push(aligned);
+    // A glazed version of the gable: the wall with the given panes cut out, the glass and a frame round each pane.
+    const glaze=(parent:T.Group,panes:{name:string;points:number[][]}[])=>{
+     const outlines=panes.map(({points})=>points.map(([x,y])=>new T.Vector2(u(x),y)));
+     const glazed=new T.Shape(profile);glazed.holes.push(...holes,...outlines.map(o=>new T.Path(o)));skin(glazed,parent);
+     outlines.forEach((outline,i)=>{const pane=new T.ExtrudeGeometry(new T.Shape(outline),{depth:.03,bevelEnabled:false});pane.translate(0,0,-.015);add(pane,glass,parent).name=panes[i].name;
+      outline.forEach((q,j)=>{const r=outline[(j+1)%outline.length];bar(a[0]+q.x*dx/len,q.y,a[0]+r.x*dx/len,r.y,parent);});});};
+    // The pane between x0 < x1 from the sill up to 3 m or the sloped ceiling, whichever is lower (corners at the knees).
+    const span=(x0:number,x1:number)=>[[x0,sill],[x1,sill],[x1,top(x1)],...[knee,-knee].filter(k=>k>x0&&k<x1).map(k=>[k,cap]),[x0,top(x0)]];
+    // Master Bedroom & Bath Windows: each side from 15 cm beside the chimney to its knee wall, evenly divided. With
+    // Master Windows · Aligned Mullions this version gives way to the one below.
+    const even=new T.Group();even.name='south-gable-even-glazing';even.userData.replacedBy='alignedGable';opened.add(even);
     const sides=[{side:1,inner:.5,kneeHeight:.55,name:'master-bedroom-gable-glass'},{side:-1,inner:-.6,kneeHeight:WEST_KNEE,name:'master-bathroom-gable-glass'}].map(({side,inner,kneeHeight,name})=>{
-     const outer=side*((ridge-.045-CEILING-3.07-kneeHeight)*half/rise-.1),points=[[inner,sill],[outer,sill],[outer,top(outer)],[side*knee,cap],[inner,cap]];
-     return {inner,outer,name,outline:(side>0?points:points.reverse()).map(([x,y])=>new T.Vector2(u(x),y))};});
-    const glazed=new T.Shape(profile);glazed.holes.push(...holes,...sides.map(g=>new T.Path(g.outline)));skin(glazed,opened);
-    for(const {inner,outer,name,outline} of sides){
-     const pane=new T.ExtrudeGeometry(new T.Shape(outline),{depth:.03,bevelEnabled:false});pane.translate(0,0,-.015);add(pane,glass,opened).name=name;
-     outline.forEach((q,i)=>{const r=outline[(i+1)%outline.length];bar(a[0]+q.x*dx/len,q.y,a[0]+r.x*dx/len,r.y);});
-     const bays=Math.round(Math.abs(outer-inner)/1.1);for(let i=1;i<bays;i++){const x=inner+(outer-inner)*i/bays;bar(x,sill,x,top(x),even);}
-     // Master Windows · Aligned Mullions: uprights instead over the frames of the living room's south windows below, at
-     // each side and at each window's own division (as the facade above draws them), wherever they fall on this side.
-     for(const x of SOUTH_WINDOW_LINES)if(x>Math.min(inner,outer)+.2&&x<Math.max(inner,outer)-.2)bar(x,sill,x,top(x),aligned);}
+     const outer=side*((ridge-.045-CEILING-3.07-kneeHeight)*half/rise-.1);return {inner,outer,name,points:span(Math.min(inner,outer),Math.max(inner,outer))};});
+    glaze(even,sides);
+    for(const {inner,outer} of sides){const bays=Math.round(Math.abs(outer-inner)/1.1);for(let i=1;i<bays;i++){const x=inner+(outer-inner)*i/bays;bar(x,sill,x,top(x),even);}}
+    // Master Windows · Aligned Mullions: glass only straight above the living room's two south windows below, as wide as
+    // each, with an upright over each window's division; beside the chimney and out to the knee walls the gable is wall.
+    const aligned=new T.Group();aligned.name='south-gable-aligned-glazing';aligned.visible=false;opened.add(aligned);(additions.alignedGable??=[]).push(aligned);
+    glaze(aligned,SOUTH_WINDOW_SPANS.map(([x0,x1])=>({name:x0>0?'master-bedroom-gable-glass':'master-bathroom-gable-glass',points:span(x0,x1)})));
+    for(const [,,x] of SOUTH_WINDOW_SPANS)bar(x,sill,x,top(x),aligned);
    }
   }
   // The east roof has three groups and one high window; the photos rule out an even row.
