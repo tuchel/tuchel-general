@@ -7,6 +7,7 @@ import {planPoint as p,PLAN_SCALE,type Level} from './site-data';
 import {buildFrontWall} from './front-wall';
 import {buildFrontGarage} from './front-garage';
 import {loungeChair} from './lounge-chair';
+import {passable} from './walk';
 import {renovationState,type RenovationId,type RenovationState} from './renovation-data';
 
 // Register the permit inset to the original ground plan with ONE uniform scale.
@@ -70,7 +71,8 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  // Kitchen: the Winter Garden and the original kitchen (C) as one floor.
  const kitchen=groups.kitchen,[kitchenEast,kitchenSouth]=kitchenPoint(639,809);
  poly(kitchen,[[WG_WEST,WG_NORTH],[WG_EAST,WG_NORTH],[WG_EAST,HOUSE_NORTH],[kitchenEast,HOUSE_NORTH],[kitchenEast,kitchenSouth],[HOUSE_WEST,kitchenSouth],[HOUSE_WEST,WG_SOUTH],[WG_WEST,WG_SOUTH]],FLOOR-.015,.018,m.stone).name='confirmed-abc-kitchen-floor';
- // The glass faces: north, west, south (to the house) and the north arm's east end. Each has its approved bay count.
+ // The glass faces: north, west, south (beside the house) and the north arm's east end. Each has its approved bay count;
+ // the south face is a sliding door in both versions.
  const runs=[[[WG_WEST,WG_NORTH],[WG_EAST,WG_NORTH]],[[WG_WEST,WG_NORTH],[WG_WEST,WG_SOUTH]],[[WG_WEST,WG_SOUTH],[HOUSE_WEST,WG_SOUTH]],[[WG_EAST,WG_NORTH],[WG_EAST,HOUSE_NORTH]]] as [number,number][][];
  // A member from p to q with a w × h section.
  const V=(x:number,y:number,z:number)=>new T.Vector3(x,y,z);
@@ -81,10 +83,28 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
   const o=new T.Mesh(geometry,mat);o.position.set(a[0],0,a[1]);o.rotation.y=-Math.atan2(b[1]-a[1],b[0]-a[0]);o.castShadow=o.receiveShadow=true;parent.add(o);return o;};
  /** Black aluminium glazing along each run: posts between `bays[i]` equal bays, a sill and a head rail at 2.50 m, and
   * horizontal transoms at the heights given (above the floor). */
- function curtainWall(g:T.Group,bays:number[],transoms:number[]){runs.forEach(([a,b],i)=>{const len=Math.hypot(b[0]-a[0],b[1]-a[1]),bay=place(g,a[0],a[1],-Math.atan2(b[1]-a[1],b[0]-a[0]),FLOOR),n=bays[i],w=len/n;
+ function curtainWall(g:T.Group,bays:number[],transoms:number[]){runs.forEach(([a,b],i)=>{if(i===2){slidingDoor(g,a,b);return;}const len=Math.hypot(b[0]-a[0],b[1]-a[1]),bay=place(g,a[0],a[1],-Math.atan2(b[1]-a[1],b[0]-a[0]),FLOOR),n=bays[i],w=len/n;
   for(let k=0;k<n;k++)box(bay,(k+.5)*w,0,0,w-.04,FRAME,.026,clear).name='winter-garden-pane';
   for(let k=0;k<=n;k++)box(bay,k*w,0,0,.06,FRAME,.12,m.metal).name='winter-garden-post';
   for(const y of [0,FRAME-.07,...transoms.map(t=>t-.025)])box(bay,len/2,y,0,len,y===0?.06:y===FRAME-.07?.07:.05,.1,m.metal).name='winter-garden-rail';});}
+ /** The south end, beside the house: a full-height lift-and-slide door filling the face between black posts, under the
+  * same 2.50 m head rail. A fixed leaf on the west half outside and a sliding leaf on the house half on the room side,
+  * overlapping behind their meeting stiles; each leaf framed, with a deeper bottom rail, and a long lever inside on the
+  * sliding leaf. The sliding leaf parks over the fixed one, opening the half by the house wall onto the path. */
+ const steel=material('#a9aeab');
+ function slidingDoor(g:T.Group,a:number[],b:number[]){const len=Math.hypot(b[0]-a[0],b[1]-a[1]),bay=place(g,a[0],a[1],-Math.atan2(b[1]-a[1],b[0]-a[0]),FLOOR),mid=len/2;
+  // Local +z is outside (south), so the fixed leaf sits 3 cm out and the sliding one 3 cm in.
+  for(const k of [0,len])box(bay,k,0,0,.06,FRAME,.12,m.metal).name='winter-garden-post';
+  box(bay,len/2,0,0,len,.06,.12,m.metal).name='winter-garden-rail';box(bay,len/2,FRAME-.07,0,len,.07,.12,m.metal).name='winter-garden-rail';
+  const y0=.06,h=FRAME-.07-y0;
+  for(const [lo,hi,d,name] of [[.03,mid+.03,.03,'winter-garden-door-fixed'],[mid-.03,len-.03,-.03,'winter-garden-door-leaf']] as [number,number,number,string][]){
+   const leaf=new T.Group();leaf.name=name;leaf.position.z=d;bay.add(leaf);
+   box(leaf,(lo+hi)/2,y0,0,hi-lo-.04,h,.024,clear).name='winter-garden-pane';
+   const toMid=(lo+hi)/2<mid,stile=toMid?hi-.055:lo+.055;
+   for(const x of [toMid?lo+.045:hi-.045,stile])box(leaf,x,y0,0,x===stile?.11:.09,h,.05,m.metal).name='winter-garden-door-frame';
+   box(leaf,(lo+hi)/2,y0,0,hi-lo,.14,.05,m.metal).name='winter-garden-door-frame';box(leaf,(lo+hi)/2,y0+h-.08,0,hi-lo,.08,.05,m.metal).name='winter-garden-door-frame';
+   // The lever inside at the meeting stile, and a pull outside on the stile by the house wall.
+   if(d<0){box(leaf,stile,y0+.9,-.06,.025,.34,.035,steel).name='winter-garden-door-handle';box(leaf,hi-.045,y0+.85,.035,.03,.45,.02,steel).name='winter-garden-door-handle';passable(leaf);}}}
  // The roof: glass on bars that run from the outer edges up to the house or to the hip, which the bars meet.
  const roofPlane=(parent:T.Object3D,polygon:number[][])=>{const tri=T.ShapeUtils.triangulateShape(polygon.map(([x,z])=>new T.Vector2(x,z)),[]),P:T.Vector3[]=[];
   const top=(i:number)=>V(polygon[i][0],roofTop(polygon[i][0],polygon[i][1]),polygon[i][1]),bottom=(i:number)=>top(i).setY(top(i).y-.03);
@@ -106,7 +126,8 @@ export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,mater
  // As permitted: the walls and roof the Large Panes version replaces. The Zinc Roof (set aside) replaces them too.
  const asPermitted=new T.Group();asPermitted.name='winter-garden-as-permitted';asPermitted.userData.replacedBy='catslide';kitchen.add(asPermitted);
  const permitWalls=new T.Group();permitWalls.name='winter-garden-permit-glazing';permitWalls.userData.replacedBy='wideGlass';asPermitted.add(permitWalls);
- // Posts on a 1.10 m grid (7 bays north, 8 west, 3 south, 2 at the east end), transoms at 0.65 m and 2.10 m.
+ // Posts on a 1.10 m grid (7 bays north, 8 west, 2 at the east end), transoms at 0.65 m and 2.10 m; the south face is the
+ // full-height sliding door.
  curtainWall(permitWalls,[7,8,3,2],[.65,2.1]);
  // The old north-west corner stays as a T of wall: 1.72 m of the north wall, standing 0.54 m out past the west wall,
  // and 2.35 m of the west wall. South of it the west wall opens onto the garden dining under a lintel, to 4.10 m short
