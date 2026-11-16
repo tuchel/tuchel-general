@@ -391,13 +391,14 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
       outline.forEach((q,j)=>{const r=outline[(j+1)%outline.length];bar(a[0]+q.x*dx/len,q.y,a[0]+r.x*dx/len,r.y,parent);});});};
     // The pane between x0 < x1 from the sill up to 3 m or the sloped ceiling, whichever is lower (corners at the knees).
     const span=(x0:number,x1:number)=>[[x0,sill],[x1,sill],[x1,top(x1)],...[knee,-knee].filter(k=>k>x0&&k<x1).map(k=>[k,cap]),[x0,top(x0)]];
-    // Master Bedroom & Bath Windows: each side from 15 cm beside the chimney to its knee wall, evenly divided. With
-    // Master Windows · Aligned Mullions this version gives way to the one below.
-    const even=new T.Group();even.name='south-gable-even-glazing';even.userData.replacedBy='alignedGable';opened.add(even);
+    // Master Bedroom & Bath Windows: each side from 15 cm beside the chimney to its knee wall, with an upright over each
+    // frame line of the living room's south windows below (both sides and the division of each). With Master Windows ·
+    // Aligned Mullions this version gives way to the one below.
+    const full=new T.Group();full.name='south-gable-full-glazing';full.userData.replacedBy='alignedGable';opened.add(full);
     const sides=[{side:1,inner:.5,kneeHeight:.55,name:'master-bedroom-gable-glass'},{side:-1,inner:-.6,kneeHeight:WEST_KNEE,name:'master-bathroom-gable-glass'}].map(({side,inner,kneeHeight,name})=>{
      const outer=side*((ridge-.045-CEILING-3.07-kneeHeight)*half/rise-.1);return {inner,outer,name,points:span(Math.min(inner,outer),Math.max(inner,outer))};});
-    glaze(even,sides);
-    for(const {inner,outer} of sides){const bays=Math.round(Math.abs(outer-inner)/1.1);for(let i=1;i<bays;i++){const x=inner+(outer-inner)*i/bays;bar(x,sill,x,top(x),even);}}
+    glaze(full,sides);
+    for(const {inner,outer} of sides)for(const x of SOUTH_WINDOW_SPANS.flat())if(x>Math.min(inner,outer)+.2&&x<Math.max(inner,outer)-.2)bar(x,sill,x,top(x),full);
     // Master Windows · Aligned Mullions: glass only straight above the living room's two south windows below, as wide as
     // each, with an upright over each window's division; beside the chimney and out to the knee walls the gable is wall.
     const aligned=new T.Group();aligned.name='south-gable-aligned-glazing';aligned.visible=false;opened.add(aligned);(additions.alignedGable??=[]).push(aligned);
