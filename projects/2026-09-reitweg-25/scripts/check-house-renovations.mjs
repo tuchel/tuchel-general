@@ -113,7 +113,7 @@ assert(southAt(-.7).some(h=>[h.object.material].flat().some(m=>!m.transparent)),
 // floor's east façade leaves the gable as it is.
 const gableAt=(x,y)=>{southRay.set(new T.Vector3(x,y,8.6),new T.Vector3(0,0,1));southRay.far=1.4;return southRay.intersectObject(model.root,true).filter(h=>h.object.isMesh&&visible(h.object));};
 const opaque=hits=>hits.some(h=>[h.object.material].flat().some(m=>!m.transparent));
-const bedroom=[[.75,3.3],[1.2,5.95],[3.3,4.2],[3,4.9],[4.7,3.35],[4.3,3.8]],bathroom=bedroom.map(([x,y])=>[-.11-x,y]);
+const bedroom=[[.75,3.3],[1.2,5.95],[3.65,4.2],[3,4.9],[4.7,3.35],[4.6,3.6]],bathroom=bedroom.map(([x,y])=>[-.11-x,y]);
 for(const [east,masterWindows] of [[false,false],[true,false],[false,true],[true,true]]){model.setRenovations({...renovationState(),east,masterWindows});model.setLevel('exterior');model.root.updateMatrixWorld(true);
  for(const [room,points] of [['bedroom',bedroom],['bathroom',bathroom]])for(const [x,y] of points)assert.equal(opaque(gableAt(x,y)),!masterWindows,`master ${room} gable at x ${x.toFixed(2)}, y ${y} is ${masterWindows?'glazed':'solid'} with the option ${masterWindows?'on':'off'} (east façade ${east?'on':'off'})`);
  for(const x of [.3,-.53])assert(opaque(gableAt(x,4.5)),`the wall beside the chimney stays solid at x ${x}`);
@@ -125,7 +125,7 @@ for(const [east,masterWindows] of [[false,false],[true,false],[false,true],[true
 {const {SOUTH_WINDOW_SPANS}=await import('../tmp/renovation-check/build-model.mjs');assert.equal(SOUTH_WINDOW_SPANS.length,2);
  const lit=hits=>hits.length&&!opaque(hits);
  model.setRenovations({...renovationState(),masterWindows:true,alignedGable:true});model.setLevel('exterior');model.root.updateMatrixWorld(true);
- assert(!visible(model.root.getObjectByName('south-gable-even-glazing'))&&visible(model.root.getObjectByName('south-gable-aligned-glazing')),'the aligned glazing replaces the even one');
+ assert(!visible(model.root.getObjectByName('south-gable-full-glazing'))&&visible(model.root.getObjectByName('south-gable-aligned-glazing')),'the aligned glazing replaces the full one');
  for(const [x0,x1,mid] of SOUTH_WINDOW_SPANS){
   for(const x of [x0,mid,x1]){assert(opaque(gableAt(x,3.6)),`an upright stands over the window frame at x ${x.toFixed(2)}`);
    southRay.set(new T.Vector3(x,1.5,10.4),new T.Vector3(0,0,-1));southRay.far=1.2;assert(southRay.intersectObject(model.root,true).some(h=>h.object.isMesh&&visible(h.object)&&![h.object.material].flat().some(m=>m.transparent)&&h.point.y<2.4),`the window below has a frame at x ${x.toFixed(2)}`);}
@@ -133,7 +133,10 @@ for(const [east,masterWindows] of [[false,false],[true,false],[false,true],[true
   for(const x of [x0-.3,x1+.3])assert(opaque(gableAt(x,3.6)),`the gable is wall beside the window at x ${x.toFixed(2)}`);}
  for(const [x,y] of [[.75,3.3],[-.85,3.3],[4.7,3.35],[-4.9,3.35]])assert(opaque(gableAt(x,y)),`the gable is wall at x ${x}, y ${y}, outside the windows' widths`);
  model.setRenovations({...renovationState(),masterWindows:true});model.root.updateMatrixWorld(true);
- assert(visible(model.root.getObjectByName('south-gable-even-glazing'))&&!visible(model.root.getObjectByName('south-gable-aligned-glazing')),'the even glazing is back without the aligned version');}
+ assert(visible(model.root.getObjectByName('south-gable-full-glazing'))&&!visible(model.root.getObjectByName('south-gable-aligned-glazing')),'the full glazing is back without the aligned version');
+ // The full glazing has its uprights over the same frame lines, its glass running on beside them to the chimney and the knee walls.
+ for(const x of SOUTH_WINDOW_SPANS.flat())assert(opaque(gableAt(x,3.6)),`with the full glazing an upright stands over the window frame at x ${x.toFixed(2)}`);
+ for(const [x,y] of [[.75,3.3],[-.85,3.3],[4.7,3.35],[-4.9,3.35]])assert(!opaque(gableAt(x,y)),`with the full glazing the gable is glass at x ${x}, y ${y}`);}
 model.setRenovations(renovationState());
 // Layout Updates' library takes the dining alcove: bookshelves, a desk and a lounge chair inside the alcove's walls, the hall
 // doorway and the opening to the family room kept clear, the same with the east façade open or closed.
