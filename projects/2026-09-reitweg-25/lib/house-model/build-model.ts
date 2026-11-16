@@ -26,6 +26,11 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 /** Lamplight on the ground outside the glazing: `radiance` at the glass, against about 0.02 for an oak floor under the
  * lamps; `reach` metres out, widening by `spread` metres a side per metre; `height` clears the highest paving (0.055 m);
  * openings with a sill above `sill` cast none. */
+/** The living room's two south windows sit low over a timber window bench, the narrow opening light on the side away
+ * from the chimney (owner photographs inside and out): metres along the south wall from its west end, at x −6. */
+const SOUTH_WINDOWS=[{from:1.6,to:4.2,sill:.5,head:2.2,mullion:1.6+.4*2.6,bench:true},{from:7.83,to:10.26,sill:.5,head:2.2,mullion:10.26-.4*2.43,bench:true}];
+/** The x of each upright in those windows' frames: both sides and the division of each. */
+export const SOUTH_WINDOW_LINES=SOUTH_WINDOWS.flatMap(o=>[o.from,o.mullion,o.to].map(t=>t-6));
 export const SPILL={radiance:.03,reach:4.5,spread:.6,height:.075,sill:.5};
 export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:ReturnType<typeof foliageMaterials>,cars?:CarModels|false){
  const root=new T.Group(),ground=new T.Group(),upper=new T.Group(),basement=new T.Group(),roofs=new T.Group(),site=new T.Group(),trees=new T.Group();
@@ -191,9 +196,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  capture('kitchen',ground,()=>facade(ground,[W,N],[kitchenEast,N],[{from:1.8,to:3,sill:.7,head:2.15,mullion:2.4}],'kitchen'));
  // The garden bedroom's north wall, behind the bed, has no window (owner).
  facade(ground,[kitchenEast,N],[E,N],[{from:5.48-northSplit,to:6.55-northSplit,sill:0,head:2.2}],'main');
- // The living room's two south windows sit low over a timber window bench, the narrow opening light on the side away
- // from the chimney (owner photographs inside and out).
- capture('east',ground,()=>facade(ground,[W,S],[E,S],[{from:1.6,to:4.2,sill:.5,head:2.2,mullion:1.6+.4*2.6,bench:true},{from:7.83,to:10.26,sill:.5,head:2.2,mullion:10.26-.4*2.43,bench:true}],'main'));
+ // The living room's two south windows (SOUTH_WINDOWS).
+ capture('east',ground,()=>facade(ground,[W,S],[E,S],SOUTH_WINDOWS,'main'));
  for(const [a,b,c,d] of [[965,194,965,382],[964,386,1003,386],[1030,388,1043,388],[988,389,988,464],[814,464,850,464],[877,464,952,464],[980,464,1001,464],[1029,464,1043,464],[1043,388,1126,388],[1175,388,1218,388],[1050,388,1050,462],[1114,428,1114,462],[1050,462,1114,462],[1050,470,1050,620],[1050,653,1050,669],[1050,524,1215,524],[1037,669,1078,669],[814,669,959,669],[893,464,893,609],[893,652,893,669],[829,507,893,507],[869,559,893,559],[869,598,893,598],[829,598,833,598]])wall(ground,a,b,c,d);
  // The walk-in pantry's west side is solid down to its wall with the WC: the thick wall drawn between it and the facade.
  wall(ground,816,466,816,505).scale.z=26*PLAN_SCALE;
@@ -378,7 +382,10 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
     // Each side from 15 cm beside the chimney to its knee wall (0.55 m high to the east, 0.4 m to the west), 5 cm above
     // the floor to 3 m, and 12 cm under the sloped ceiling.
     const sill=3.15,cap=6.1,top=(x:number)=>Math.min(cap,ridge-rise*Math.abs(x)/half-.045-CEILING-.12),knee=(ridge-.045-CEILING-.12-cap)*half/rise;
-    const u=(x:number)=>(x-a[0])/dx*len,bar=(x1:number,y1:number,x2:number,y2:number)=>segment(opened,[u(x1),y1,0],[u(x2),y2,0],.07,m.dark);
+    const u=(x:number)=>(x-a[0])/dx*len,bar=(x1:number,y1:number,x2:number,y2:number,parent:T.Group=opened)=>segment(parent,[u(x1),y1,0],[u(x2),y2,0],.07,m.dark);
+    // The evenly spaced uprights give way to the aligned ones with Master Windows · Aligned Mullions.
+    const even=new T.Group();even.name='south-gable-even-mullions';even.userData.replacedBy='alignedGable';opened.add(even);
+    const aligned=new T.Group();aligned.name='south-gable-aligned-mullions';aligned.visible=false;opened.add(aligned);(additions.alignedGable??=[]).push(aligned);
     const sides=[{side:1,inner:.5,kneeHeight:.55,name:'master-bedroom-gable-glass'},{side:-1,inner:-.6,kneeHeight:WEST_KNEE,name:'master-bathroom-gable-glass'}].map(({side,inner,kneeHeight,name})=>{
      const outer=side*((ridge-.045-CEILING-3.07-kneeHeight)*half/rise-.1),points=[[inner,sill],[outer,sill],[outer,top(outer)],[side*knee,cap],[inner,cap]];
      return {inner,outer,name,outline:(side>0?points:points.reverse()).map(([x,y])=>new T.Vector2(u(x),y))};});
@@ -386,7 +393,10 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
     for(const {inner,outer,name,outline} of sides){
      const pane=new T.ExtrudeGeometry(new T.Shape(outline),{depth:.03,bevelEnabled:false});pane.translate(0,0,-.015);add(pane,glass,opened).name=name;
      outline.forEach((q,i)=>{const r=outline[(i+1)%outline.length];bar(a[0]+q.x*dx/len,q.y,a[0]+r.x*dx/len,r.y);});
-     const bays=Math.round(Math.abs(outer-inner)/1.1);for(let i=1;i<bays;i++){const x=inner+(outer-inner)*i/bays;bar(x,sill,x,top(x));}}
+     const bays=Math.round(Math.abs(outer-inner)/1.1);for(let i=1;i<bays;i++){const x=inner+(outer-inner)*i/bays;bar(x,sill,x,top(x),even);}
+     // Master Windows · Aligned Mullions: uprights instead over the frames of the living room's south windows below, at
+     // each side and at each window's own division (as the facade above draws them), wherever they fall on this side.
+     for(const x of SOUTH_WINDOW_LINES)if(x>Math.min(inner,outer)+.2&&x<Math.max(inner,outer)-.2)bar(x,sill,x,top(x),aligned);}
    }
   }
   // The east roof has three groups and one high window; the photos rule out an even row.
@@ -643,7 +653,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // A renovation whose parts each sit in a group of their own (its group and its additions), as do its originals, toggles
  // outside the states: all those groups stay shown while states are enumerated, and the batches parented to them follow
  // their visibility, on top of the states of any group around them (the east façade's centred dining table).
- const renovationIds=Object.keys(renovationState()) as RenovationId[],grouped=new Set<RenovationId>(['masterWindows','nook','nookWindow','garage','skylights','catslide','wideGlass']);
+ const renovationIds=Object.keys(renovationState()) as RenovationId[],grouped=new Set<RenovationId>(['masterWindows','alignedGable','nook','nookWindow','garage','skylights','catslide','wideGlass']);
  const stateIds=renovationIds.filter(id=>!grouped.has(id)),combinations=1<<stateIds.length;
  const toggled=[...grouped].flatMap(id=>[renovation.groups[id],...(originals[id]??[]),...(additions[id]??[])]);
  const stateOf=(level:Level,state:RenovationState)=>levels.indexOf(level)*combinations+stateIds.reduce((bits,id,i)=>bits|(state[id]?1<<i:0),0);

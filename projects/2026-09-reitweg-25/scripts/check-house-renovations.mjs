@@ -7,18 +7,26 @@ await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/sola
 const {buildHouseModel}=await import('../tmp/renovation-check/build-model.mjs');
 const {solarPanels,solarRoofs,solarModule,roofSkylights}=await import('../tmp/renovation-check/solar-layout.mjs');
 const {renovations,renovationState,offered,offeredState}=await import('../tmp/renovation-check/renovation-data.mjs');
-// The panel offers eight renovations (two of them Winter Gardens, one at a time) for now; the terrace dining, fireside lounge, arrival wall (superseded by the front
-// garage) and solar stay in the model, set aside:
-// off with "All on" and when a link names them.
-assert.deepEqual(offered.map(r=>r.id),['kitchen','catslide','east','masterWindows','nookWindow','nook','garage','skylights'],'offered renovations');
-assert.deepEqual(offered.map(r=>r.title),['Winter Garden · Glass','Winter Garden · Zinc Roof','Lower East Façade Glass','Master Bedroom & Bath Windows','Office Nook Window Expansion','Layout Updates','Front Garage','Guest Wing Skylights'],'short names in the Changes panel');
+// The panel offers nine renovations (two of them Winter Gardens and two of them master windows, one of each at a time) for
+// now; the zinc-roofed Winter Garden, terrace dining, fireside lounge, arrival wall (superseded by the front garage) and
+// solar stay in the model, set aside: off with "All on" and when a link names them.
+assert.deepEqual(offered.map(r=>r.id),['kitchen','wideGlass','east','masterWindows','alignedGable','nookWindow','nook','garage','skylights'],'offered renovations');
+assert.deepEqual(offered.map(r=>r.title),['Winter Garden · As Permitted','Winter Garden · Large Panes','Lower East Façade Glass','Master Bedroom & Bath Windows','Master Windows · Aligned Mullions','Office Nook Window Expansion','Layout Updates','Front Garage','Guest Wing Skylights'],'short names in the Changes panel');
 for(const id of ['terrace','courtyard','front','solar','catslide'])assert.equal(offeredState()[id],false,`${id} stays off with All on`);
-// The Zinc Roof is the Winter Garden with its other roof: a link naming it turns the Winter Garden on too, and the two tiles
-// are one at a time.
-{const {toggled,shownOn}=await import('../tmp/renovation-check/renovation-data.mjs'),zinc=offeredState(['catslide']);
- assert(zinc.kitchen&&zinc.catslide,'a Zinc Roof link brings its Winter Garden');assert(!shownOn(zinc,'kitchen')&&shownOn(zinc,'catslide'),'only the Zinc Roof tile shows on');
- const glass=toggled(zinc,'kitchen');assert(glass.kitchen&&!glass.catslide,'the glass tile swaps the roof');
- assert.deepEqual([toggled(glass,'kitchen'),toggled(zinc,'catslide')].map(s=>[s.kitchen,s.catslide]),[[false,false],[false,false]],'either tile turns the Winter Garden off');}
+// The Large Panes are the Winter Garden with other glazing: a link naming them turns the Winter Garden on too, and the two
+// tiles are one at a time.
+{const {toggled,shownOn}=await import('../tmp/renovation-check/renovation-data.mjs'),panes=offeredState(['wideGlass']);
+ assert(panes.kitchen&&panes.wideGlass,'a Large Panes link brings its Winter Garden');assert(!shownOn(panes,'kitchen')&&shownOn(panes,'wideGlass'),'only the Large Panes tile shows on');
+ const permitted=toggled(panes,'kitchen');assert(permitted.kitchen&&!permitted.wideGlass,'the As Permitted tile swaps the glazing');
+ assert.deepEqual([toggled(permitted,'kitchen'),toggled(panes,'wideGlass')].map(s=>[s.kitchen,s.wideGlass]),[[false,false],[false,false]],'either tile turns the Winter Garden off');}
+// The aligned master windows are the glazed gable with other uprights: a link naming them turns the gable on too, and the
+// two tiles are one at a time; "All on" shows the evenly divided gable.
+{const {toggled,shownOn}=await import('../tmp/renovation-check/renovation-data.mjs'),aligned=offeredState(['alignedGable']);
+ assert(aligned.masterWindows&&aligned.alignedGable,'an aligned link brings its glazed gable');assert(!shownOn(aligned,'masterWindows')&&shownOn(aligned,'alignedGable'),'only the aligned tile shows on');
+ const even=toggled(aligned,'masterWindows');assert(even.masterWindows&&!even.alignedGable,'the even tile swaps the uprights');
+ assert.deepEqual([toggled(even,'masterWindows'),toggled(aligned,'alignedGable')].map(s=>[s.masterWindows,s.alignedGable]),[[false,false],[false,false]],'either tile turns the glazed gable off');
+ assert(offeredState().masterWindows&&!offeredState().alignedGable,'All on shows the evenly divided gable');
+ assert.deepEqual(toggled(aligned,'kitchen').alignedGable,true,'a Winter Garden tile leaves the master windows as they are');}
 // Looking closer at the arrival wall flies low over the far verge of the road, the wall square in front: an overview,
 // not an eye-level place, held close enough on a narrow screen to stay clear of the trees beyond the road.
 {const {viewpoints}=await import('../tmp/renovation-check/site-data.mjs'),wall=renovations.find(r=>r.id==='front'),v=viewpoints[wall.view];
@@ -111,6 +119,16 @@ for(const [east,masterWindows] of [[false,false],[true,false],[false,true],[true
  for(const x of [.3,-.53])assert(opaque(gableAt(x,4.5)),`the wall beside the chimney stays solid at x ${x}`);
  for(const x of [1,-1.11])assert(opaque(gableAt(x,6.45)),`the gable above the new glass stays solid at x ${x}`);
  for(const x of [-2.35,2.35])assert.equal(gableAt(x,4).some(h=>h.object.name==='gable-window'),!masterWindows,`the single window at x ${x} is ${masterWindows?'gone':'there'}`);}
+// Master Windows · Aligned Mullions: each upright of the living room's two south windows (both sides and the division)
+// runs on up through the gable glass, the evenly spaced uprights gone; panes between them are clear.
+{const {SOUTH_WINDOW_LINES}=await import('../tmp/renovation-check/build-model.mjs');assert.equal(SOUTH_WINDOW_LINES.length,6);
+ model.setRenovations({...renovationState(),masterWindows:true,alignedGable:true});model.setLevel('exterior');model.root.updateMatrixWorld(true);
+ assert(!visible(model.root.getObjectByName('south-gable-even-mullions'))&&visible(model.root.getObjectByName('south-gable-aligned-mullions')),'the aligned uprights replace the even ones');
+ for(const x of SOUTH_WINDOW_LINES){assert(opaque(gableAt(x,3.6)),`an upright stands over the window frame at x ${x.toFixed(2)}`);
+  southRay.set(new T.Vector3(x,1.5,10.4),new T.Vector3(0,0,-1));southRay.far=1.2;assert(southRay.intersectObject(model.root,true).some(h=>h.object.isMesh&&visible(h.object)&&![h.object.material].flat().some(m=>m.transparent)&&h.point.y<2.4),`the window below has a frame at x ${x.toFixed(2)}`);}
+ const lines=[...SOUTH_WINDOW_LINES,.5,-.6].sort((a,b)=>a-b);for(let i=0;i+1<lines.length;i++)if(lines[i]*lines[i+1]>0){const x=(lines[i]+lines[i+1])/2;assert(!opaque(gableAt(x,3.6)),`the pane at x ${x.toFixed(2)} is clear between the aligned uprights`);}
+ model.setRenovations({...renovationState(),masterWindows:true});model.root.updateMatrixWorld(true);
+ assert(visible(model.root.getObjectByName('south-gable-even-mullions'))&&!visible(model.root.getObjectByName('south-gable-aligned-mullions')),'the even uprights are back without the aligned version');}
 model.setRenovations(renovationState());
 // Layout Updates' library takes the dining alcove: bookshelves, a desk and a lounge chair inside the alcove's walls, the hall
 // doorway and the opening to the family room kept clear, the same with the east façade open or closed.
