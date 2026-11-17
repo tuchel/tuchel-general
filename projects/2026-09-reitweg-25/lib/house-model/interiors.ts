@@ -202,8 +202,17 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  for(const [x,w] of [[1008,8],[1064,40],[1120,8]]){const screen=place(upper,x,340);box(screen,0,.05,0,w*12/434,2,.025,clear);box(screen,0,2.05,0,w*12/434,.022,.026,m.charcoal);}
  rod(shower,[0,.08,-.67],[0,2.12,-.67],.023,m.charcoal);rod(shower,[0,2.12,-.67],[0,2.12,-.34],.023,m.charcoal);box(shower,0,2.095,-.34,.22,.035,.22,m.charcoal);
  for(const [x,side] of [[1000,1],[1128,-1]]){const door=place(upper,x,379);door.name='north-bath-bedroom-door-'+x;box(door,side*.46,.015,0,.92,2.03,.045,m.pine);box(door,side*.78,1.02,-.047,.12,.023,.03,m.charcoal);passable(door);}
- // Guest upper study: daybed under the west slope, worktop opposite; no invented double bed.
- g=place(upper,225,657,-Math.PI/2-.093);g.name='guest-study-daybed-against-wall';bench(g,0,0,4.5);desk(place(upper,369,661,Math.PI/2-.093),3.6);g=place(upper,311,664,-.093);rug(g,1.75,3.2,m.cream,true);
+ // Guest upper study (owner photograph from its door). A built-in spruce daybed fills the west side under the slope from
+ // the gable to the door wall: a platform about 1.9 m deep and 0.45 m high, drawers in its front, its front edge just
+ // behind the roof's posts, a grey mattress and cushions along the knee wall. A white desk about 2.4 m long stands on
+ // the east wall between the door wall and the tie beam: drawer unit and printer at the north end, two white shelves
+ // above, a black chair. No invented double bed.
+ g=wing(-2.255,-6.05);g.name='guest-study-daybed-against-wall';box(g,0,0,0,1.91,.45,6.2,m.pine);box(g,-.45,.45,-.45,.95,.12,5,m.grey,true);
+ for(const [z,mat] of [[-2.6,m.grey],[-2.1,m.navy],[-1.5,m.grey],[-.6,m.rust],[.4,m.navy],[1.3,m.grey]] as [number,T.Material][]){const o=box(g,-.78,.57,z,.14,.36,.44,mat,true);o.rotation.z=-.3;}
+ for(const z of [-2.3,-.75,.8,2.35]){box(g,.957,.06,z,.012,.33,1.5,m.pine);for(const d of [-.06,.06])round(group(g,.975,.3,z+d,0),0,0,0,.022,.02,m.charcoal).rotation.z=Math.PI/2;}
+ g=wing(1.08,-4.25);g.name='guest-study-desk';box(g,0,.71,0,.62,.04,2.4,m.white);box(g,.02,0,-.94,.56,.71,.5,m.white);for(const y of [.1,.3,.5])box(g,-.266,y+.14,-.94,.012,.02,.16,m.charcoal);box(g,.02,0,1.17,.56,.71,.04,m.white);
+ box(g,.02,.75,-.92,.4,.19,.46,m.charcoal,true);for(const y of [1.25,1.62])box(g,.185,y,-.2,.25,.035,1.7,m.white);chair(g,-.72,.25,-Math.PI/2,m.charcoal);
+ g=wing(.05,-6.9);rug(g,1.75,3.2,m.cream,true);
  // Gallery kitchenette and small red bistro table beside the staircase.
  g=place(upper,342,878,Math.PI/2-.093);cabinets(g,2.8,.86,m.white);sink(g,-.63,0,.92);box(g,.73,.925,0,.47,.023,.44,m.charcoal);g=place(upper,290,865);round(g,0,.7,0,.48,.045,m.rust);round(g,0,0,0,.25,.035,m.rust);round(g,0,.035,0,.035,.665,m.rust);rug(place(upper,309,914,-.093),.7,1.4,m.pink);
  // Guest bedroom: the bed turned across the room, its head to the west knee wall, centred under the west slope's roof windows
