@@ -1,0 +1,233 @@
+{
+  "asOf": "2026-09-18",
+  "includedFalcon9": 688,
+  "excluded": [
+    {
+      "id": "2012-A10",
+      "vehicle": "Grasshopper",
+      "code": "AS"
+    },
+    {
+      "id": "2012-A22",
+      "vehicle": "Grasshopper",
+      "code": "AS"
+    },
+    {
+      "id": "2012-A25",
+      "vehicle": "Grasshopper",
+      "code": "AS"
+    },
+    {
+      "id": "2013-A02",
+      "vehicle": "Grasshopper",
+      "code": "AS"
+    },
+    {
+      "id": "2013-A06",
+      "vehicle": "Grasshopper",
+      "code": "AS"
+    },
+    {
+      "id": "2013-A11",
+      "vehicle": "Grasshopper",
+      "code": "AS"
+    },
+    {
+      "id": "2013-A12",
+      "vehicle": "Grasshopper",
+      "code": "AS"
+    },
+    {
+      "id": "2013-A19",
+      "vehicle": "Grasshopper",
+      "code": "AS"
+    },
+    {
+      "id": "2014-A06",
+      "vehicle": "Falcon 9R",
+      "code": "AS"
+    },
+    {
+      "id": "2014-A07",
+      "vehicle": "Falcon 9R",
+      "code": "AS"
+    },
+    {
+      "id": "2014-A09",
+      "vehicle": "Falcon 9R",
+      "code": "AS"
+    },
+    {
+      "id": "2014-A51",
+      "vehicle": "Falcon 9R",
+      "code": "AS"
+    },
+    {
+      "id": "2014-A13",
+      "vehicle": "Falcon 9R",
+      "code": "AF"
+    },
+    {
+      "id": "2016-E01",
+      "vehicle": "Falcon 9",
+      "code": "OE"
+    },
+    {
+      "id": "2018-017",
+      "vehicle": "Falcon Heavy",
+      "code": "DS"
+    },
+    {
+      "id": "2019-021",
+      "vehicle": "Falcon Heavy",
+      "code": "OS"
+    },
+    {
+      "id": "2019-036",
+      "vehicle": "Falcon Heavy",
+      "code": "OS"
+    },
+    {
+      "id": "2022-144",
+      "vehicle": "Falcon Heavy",
+      "code": "OS"
+    },
+    {
+      "id": "2023-008",
+      "vehicle": "Falcon Heavy",
+      "code": "OS"
+    },
+    {
+      "id": "2023-060",
+      "vehicle": "Falcon Heavy",
+      "code": "OS"
+    },
+    {
+      "id": "2023-108",
+      "vehicle": "Falcon Heavy",
+      "code": "OS"
+    },
+    {
+      "id": "2023-157",
+      "vehicle": "Falcon Heavy",
+      "code": "DS"
+    },
+    {
+      "id": "2023-210",
+      "vehicle": "Falcon Heavy",
+      "code": "OS"
+    },
+    {
+      "id": "2024-119",
+      "vehicle": "Falcon Heavy",
+      "code": "OS"
+    },
+    {
+      "id": "2024-182",
+      "vehicle": "Falcon Heavy",
+      "code": "DS"
+    },
+    {
+      "id": "2026-096",
+      "vehicle": "Falcon Heavy",
+      "code": "OS"
+    },
+    {
+      "id": "2026-199",
+      "vehicle": "Falcon Heavy",
+      "code": "DS"
+    }
+  ],
+  "annual": [
+    {
+      "year": 2010,
+      "count": 2
+    },
+    {
+      "year": 2011,
+      "count": 0
+    },
+    {
+      "year": 2012,
+      "count": 2
+    },
+    {
+      "year": 2013,
+      "count": 3
+    },
+    {
+      "year": 2014,
+      "count": 6
+    },
+    {
+      "year": 2015,
+      "count": 7
+    },
+    {
+      "year": 2016,
+      "count": 8
+    },
+    {
+      "year": 2017,
+      "count": 18
+    },
+    {
+      "year": 2018,
+      "count": 20
+    },
+    {
+      "year": 2019,
+      "count": 11
+    },
+    {
+      "year": 2020,
+      "count": 26
+    },
+    {
+      "year": 2021,
+      "count": 31
+    },
+    {
+      "year": 2022,
+      "count": 60
+    },
+    {
+      "year": 2023,
+      "count": 91
+    },
+    {
+      "year": 2024,
+      "count": 132
+    },
+    {
+      "year": 2025,
+      "count": 165
+    },
+    {
+      "year": 2026,
+      "count": 106
+    }
+  ],
+  "pairedIntervals": 602,
+  "missingBoosterIdentity": 25,
+  "cadenceFit": {
+    "ceiling": 3.6619270049109702,
+    "k": 0.6808450490313586,
+    "midpoint": 2023.5155741591134,
+    "rmse": 0.6579734196940535,
+    "r2": 0.6990884770360661
+  },
+  "reuseFit": {
+    "upper": 356.0719,
+    "floor": 31.704073408825632,
+    "span": 324.3678265911744,
+    "k": 0.47022721031348785,
+    "midpoint": 2017.7704063321066,
+    "rmse": 24.21958089241275,
+    "r2": 0.7640339723659648
+  },
+  "sha256": {
+    "starship-gcat.html": "321614378c152328a25a6e05e552700f2c53a5ac89dd337a31f3a04daaaa0c50",
+    "falcon9-gcat.html": "944e6b367bcf5a89551cc5fbae4973e407fd0cfb7502e4e85065d0c4422fbe0f"
+  }
+}
