@@ -252,6 +252,11 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  {const run=wing(1.09,4.2);run.name='guest-suite-wardrobes';run.userData.addedBy='guestSuite';const doors=8,long=4.8,w=long/doors;
   box(run,.02,0,0,.56,.08,long,m.pine);box(run,0,.08,0,.6,2.06,long,m.pine);box(run,-.01,2.14,0,.62,.06,long+.02,m.pine);
   for(let i=0;i<doors;i++){const z=-long/2+(i+.5)*w,meet=i%2?-1:1;box(run,-.306,.12,z,.012,1.98,w-.012,m.pine);box(run,-.314,.2,z,.008,1.82,w-.16,m.cream);rod(run,[-.33,.8,z+meet*(w/2-.05)],[-.33,1.4,z+meet*(w/2-.05)],.018,m.brass);}}
+ // A built-in oak bench along the shower room's wall in the bedroom, from the knee wall to that wall's corner (owner's
+ // sketch): 2.4 m long, 0.45 m deep and high, four drawers under an oak top.
+ {const seat=wing(-1.995,4.645);seat.name='guest-suite-bench';seat.userData.addedBy='guestSuite';const long=2.4,n=4,w=(long-.04)/n;
+  box(seat,0,0,-.03,long-.04,.06,.37,m.charcoal);box(seat,0,.06,-.01,long,.35,.43,m.oak);box(seat,0,.41,0,long+.02,.04,.47,m.oak);
+  for(let i=0;i<n;i++){const x=-long/2+.02+(i+.5)*w;box(seat,x,.08,.21,w-.012,.31,.012,m.oak);for(const d of [-.07,.07])round(group(seat,x+d,.235,.222,0),0,0,0,.016,.02,m.charcoal).rotation.x=Math.PI/2;}}
  // Basement: laundry matches the labelled HWR, wine racks the narrow Wein room.
  g=place(basement,1140,480,Math.PI);cabinets(g,3.8,.88,m.navy);for(let i=0;i<4;i++){const x=-1.02+i*.66;box(g,x,.03,-.03,.6,.81,.6,m.white);const drum=mesh(g,new T.TorusGeometry(.19,.036,8,24),m.charcoal,x,.46,-.345);drum.rotation.set(0,0,0);mesh(g,new T.CircleGeometry(.15,24),m.grey,x,.46,-.349);}box(g,0,.89,0,3.85,.05,.65,m.oak);
  g=place(basement,871,558,-Math.PI/2);for(const x of [-1.85,-.93,0,.93,1.85]){const rack=group(g,x,0,0);box(rack,0,0,.23,.9,1.85,.07,m.oak);for(const side of [-.43,.43])box(rack,side,0,0,.055,1.85,.5,m.oak);for(let y=.05;y<1.8;y+=.3){box(rack,0,y,0,.87,.04,.5,m.oak);for(let k=0;k<4;k++){const bottle=round(group(rack,-.3+k*.2,y+.11,0),0,0,0,.055,.3,m.marble);bottle.rotation.x=Math.PI/2;}}}
