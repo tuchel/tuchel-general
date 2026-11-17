@@ -16,6 +16,8 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  const nickel=material('#d5d8d6','#c3c7c6',.25);nickel.metalness=.85;const zellige=material('#aab08a','#5f6b38',.18);const clay=material('#dccdb6','#b99c7c',.95);
  // Worktops are solid oak, without the floorboards' seams (owner photographs of the kitchen).
  const worktop=material('#c4b69f','#af8555',.8);const tile=material('#e2ddd2','#d4cbbb',.4);
+ // The gallery's bistro table in its photographed coral red.
+ const coral=material('#d9aaa2','#d4483e');
  const clear=new T.MeshPhysicalMaterial({color:'#cfddda',roughness:.12,transparent:true,opacity:.4,depthWrite:false,side:T.DoubleSide});
  const unit=new T.BoxGeometry(1,1,1),soft=new RoundedBoxGeometry(1,1,1,2,.08),cyl=new T.CylinderGeometry(1,1,1,20),ball=new T.SphereGeometry(1,12,8);
  function mesh(parent:T.Group,geo:T.BufferGeometry,mat:T.Material,x:number,y:number,z:number,w=1,h=1,d=1){const o=new T.Mesh(geo,mat);o.position.set(x,y,z);o.scale.set(w,h,d);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o;}
@@ -213,8 +215,14 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  g=wing(1.08,-4.25);g.name='guest-study-desk';box(g,0,.71,0,.62,.04,2.4,m.white);box(g,.02,0,-.94,.56,.71,.5,m.white);for(const y of [.1,.3,.5])box(g,-.266,y+.14,-.94,.012,.02,.16,m.charcoal);box(g,.02,0,1.17,.56,.71,.04,m.white);
  box(g,.02,.75,-.92,.4,.19,.46,m.charcoal,true);for(const y of [1.25,1.62])box(g,.185,y,-.2,.25,.035,1.7,m.white);chair(g,-.72,.25,-Math.PI/2,m.charcoal);
  g=wing(.05,-6.9);rug(g,1.75,3.2,m.cream,true);
- // Gallery kitchenette and small red bistro table beside the staircase.
- g=place(upper,342,878,Math.PI/2-.093);cabinets(g,2.8,.86,m.white);sink(g,-.63,0,.92);box(g,.73,.925,0,.47,.023,.44,m.charcoal);g=place(upper,290,865);round(g,0,.7,0,.48,.045,m.rust);round(g,0,0,0,.25,.035,m.rust);round(g,0,.035,0,.035,.665,m.rust);rug(place(upper,309,914,-.093),.7,1.4,m.pink);
+ // Gallery kitchenette along the east wall.
+ g=place(upper,342,878,Math.PI/2-.093);cabinets(g,2.8,.86,m.white);sink(g,-.63,0,.92);box(g,.73,.925,0,.47,.023,.44,m.charcoal);
+ // The red folding bistro table, about 0.7 m across, stands against the bedroom wall between its door and the atrium
+ // rail, a pink vase on it; a striped kilim runs down the middle of the gallery (owner photograph from the study door).
+ g=wing(-1.1,1.04);g.name='guest-gallery-bistro-table';round(g,0,.7,0,.34,.02,coral);
+ for(const d of [-.2,.2]){rod(g,[-.24,0,d],[.24,.7,d],.018,coral);rod(g,[.24,0,d],[-.24,.7,d],.018,coral);}for(const x of [-.24,.24]){rod(g,[x,.012,-.2],[x,.012,.2],.018,coral);rod(g,[x*.4,.4,-.2],[x*.4,.4,.2],.014,coral);}
+ round(g,.05,.72,0,.055,.1,m.pink);mesh(g,ball,m.pink,.05,.85,0,.045,.045,.045);
+ g=wing(-.32,-.62);g.name='guest-gallery-kilim';box(g,0,.004,0,1.2,.012,2.4,m.pink);[m.rust,m.grey,rugPink,m.rust,m.cream,m.grey,rugPink,m.rust,m.grey].forEach((mat,i)=>box(g,0,.016,-1.04+i*.26,1.2,.004,.13,mat));
  // Guest bedroom: the bed turned across the room, its head to the west knee wall, centred under the west slope's roof windows
  // (owner's request); a stump table either side.
  g=place(upper,214.6,1149.2,Math.PI/2-.093);g.name='guest-bedroom-bed-under-skylights';bed(g,1.8);
