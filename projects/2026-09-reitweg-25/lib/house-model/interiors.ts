@@ -226,7 +226,7 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  // Guest bedroom: the bed turned across the room, its head to the west knee wall, centred under the west slope's roof windows
  // (owner's request); a stump table either side.
  g=place(upper,214.6,1149.2,Math.PI/2-.093);g.name='guest-bedroom-bed-under-skylights';bed(g,1.8);
- g=place(upper,343,977,Math.PI/2-.093);g.name='guest-bedroom-corner-vanity';vanity(g,.75,false);
+ g=place(upper,343,977,Math.PI/2-.093);g.name='guest-bedroom-corner-vanity';g.userData.replacedBy='guestSuite';vanity(g,.75,false);
  // Guest shower room (owner photographs from its door and from inside), inner faces at x −2.98 to −0.96, z 1.6 to 4.21:
  // pale stone tiles; a wall-hung toilet on the north wall, about 0.8 m from the east wall, its paper holder beside it; a
  // low open spruce shelf along the west wall under the roof window; a glazed shower about 0.9 m square in the south-east
@@ -243,6 +243,9 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  rod(g,[-.45,1.15,-.04],[-.45,2,-.04],.022,m.brass);rod(g,[-.45,1.9,-.04],[-.45,1.84,-.16],.02,m.brass);round(g,-.45,1.8,-.17,.05,.03,m.brass);rod(g,[-.58,1,-.05],[-.32,1,-.05],.025,m.brass);
  g=wing(-2.3,4.21);g.name='guest-upper-bath-towel-rail';for(const x of [-.24,.24])rod(g,[x,.58,-.07],[x,1.26,-.07],.03,m.brass);for(const y of [.64,.84,1.02,1.2])rod(g,[-.24,y,-.07],[.24,y,-.07],.025,m.brass);
  g=wing(-.87,2.32);g.name='guest-upper-bath-open-door';box(g,.44,.015,0,.8,2.03,.045,m.pine);box(g,.74,1.03,.04,.11,.024,.035,m.charcoal);passable(g);
+ // Guest Suite Updates. The washbasin leaves the bedroom for the shower room: the same oak stand, 0.55 m wide, on the
+ // north wall between the toilet and the east wall, an oak mirror cabinet over it.
+ g=wing(-1.235,1.87,Math.PI);g.name='guest-suite-bath-vanity';g.userData.addedBy='guestSuite';vanity(g,.55,false);box(g,0,1.3,.2,.42,.6,.12,m.oak);box(g,0,1.33,.138,.36,.54,.006,nickel);
  // Basement: laundry matches the labelled HWR, wine racks the narrow Wein room.
  g=place(basement,1140,480,Math.PI);cabinets(g,3.8,.88,m.navy);for(let i=0;i<4;i++){const x=-1.02+i*.66;box(g,x,.03,-.03,.6,.81,.6,m.white);const drum=mesh(g,new T.TorusGeometry(.19,.036,8,24),m.charcoal,x,.46,-.345);drum.rotation.set(0,0,0);mesh(g,new T.CircleGeometry(.15,24),m.grey,x,.46,-.349);}box(g,0,.89,0,3.85,.05,.65,m.oak);
  g=place(basement,871,558,-Math.PI/2);for(const x of [-1.85,-.93,0,.93,1.85]){const rack=group(g,x,0,0);box(rack,0,0,.23,.9,1.85,.07,m.oak);for(const side of [-.43,.43])box(rack,side,0,0,.055,1.85,.5,m.oak);for(let y=.05;y<1.8;y+=.3){box(rack,0,y,0,.87,.04,.5,m.oak);for(let k=0;k<4;k++){const bottle=round(group(rack,-.3+k*.2,y+.11,0),0,0,0,.055,.3,m.marble);bottle.rotation.x=Math.PI/2;}}}

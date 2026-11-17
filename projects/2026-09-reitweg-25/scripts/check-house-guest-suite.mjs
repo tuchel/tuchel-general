@@ -23,3 +23,14 @@ assert.equal(struts.length,posts.length,'a raking strut at each post');
 for(const {at,size} of [...posts,...purlin])assert(at.x+size.x/2<-.5,'posts and purlin keep west of the ridge');
 for(const {at} of struts)assert(at.x<-1.5,'struts run down to the west');
 console.log(`Passed: the guest wing's roof frame stands ${GUEST_FRAME.offset} m west of the ridge on ${posts.length} posts, with ${ties.length} tie beams to the east wall clear of a head and ${struts.length} raking struts; nothing stands under the ridge.`);
+
+// Guest Suite Updates: the bedroom's washbasin goes and the shower room's comes, in the whole-house view (where the upper
+// floor's own group is hidden) and on the upper floor; neither shows on the ground floor.
+{const visible=o=>{for(;o;o=o.parent)if(!o.visible)return false;return true;};
+ const basin=root.getObjectByName('guest-bedroom-corner-vanity'),moved=root.getObjectByName('guest-suite-bath-vanity');assert(basin&&moved,'both washbasins exist');
+ for(const level of ['exterior','upper']){model.setLevel(level);
+  model.setRenovations(renovationState());assert(visible(basin)&&!visible(moved),`${level}: the washbasin stands in the bedroom`);
+  model.setRenovations({...renovationState(),guestSuite:true});assert(!visible(basin)&&visible(moved),`${level}: Guest Suite Updates moves it into the shower room`);}
+ model.setLevel('ground');assert(!visible(basin)&&!visible(moved),'neither shows on the ground floor');
+ for(const o of [basin,moved])assert(model.toggled.includes(o),'each toggles with the option, outside the batched states');
+ console.log('Passed: Guest Suite Updates swaps the bedroom washbasin for one in the shower room, in the whole-house and upper-floor views.');}
