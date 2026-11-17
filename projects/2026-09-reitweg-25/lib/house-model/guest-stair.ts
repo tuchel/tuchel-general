@@ -2,7 +2,7 @@ import * as T from 'three';
 import {planPoint} from './site-data';
 
 /** Guest stair from the ground plan: a wall-side flight rising north from the Entrée, three winders in the
- * north-west corner and a flight east along the north wall. */
+ * north-west corner and a flight east along the north wall, with built-in bookshelves under that flight. */
 export function guestStair(timber:T.Material,steel:T.Material){
  const g=new T.Group();g.name='guest-ground-turning-stair';
  const [x,z]=planPoint(112,808);g.position.set(x,0,z);g.rotation.y=-.093;
@@ -34,5 +34,16 @@ export function guestStair(timber:T.Material,steel:T.Material){
  // Stringers along the open edges.
  rail([east-.02,base,start],[east-.02,step(5)-.07,northFlightSouth],.075);
  rail([east,step(8)-.07,northFlightSouth-.02],[end,top-.07,northFlightSouth-.02],.075);
+ // Built-in spruce bookshelves fill the triangle under the north flight, their front toward the Entrée: three bays of
+ // open compartments under a top that follows the flight, the tall end against the yoga room's wall (owner photograph
+ // from the Entrée).
+ {const shelves=new T.Group();shelves.name='guest-stair-bookshelves';g.add(shelves);
+  const from=east+.04,to=end-.03,front=northFlightSouth-.07,deep=.38,bays=3,wide=(to-from)/bays,under=(x:number)=>step(8)-.2+(x-east)/(end-east)*(top-step(8));
+  const part=(x:number,y:number,z:number,w:number,h:number,d:number)=>{const o=box(x,y,z,w,h,d,timber);g.remove(o);shelves.add(o);return o;};
+  for(let i=0;i<=bays;i++){const x=from+i*wide;part(x,base,front-deep/2,.03,under(x)-base,deep);}
+  for(let i=0;i<bays;i++){const a=from+i*wide,b=a+wide;for(let y=base;y<under(a)-.12;y+=.42)part((a+b)/2,y,front-deep/2,wide,.03,deep);}
+  const slope=part((from+to)/2,0,front-deep/2,Math.hypot(to-from,under(to)-under(from))+.03,.03,deep);slope.position.y=(under(from)+under(to))/2;slope.rotation.z=Math.atan2(under(to)-under(from),to-from);
+  const back=new T.Mesh(new T.ExtrudeGeometry(new T.Shape([[from,base],[to,base],[to,under(to)],[from,under(from)]].map(([x,y])=>new T.Vector2(x,y))),{depth:.02,bevelEnabled:false}),timber);
+  back.position.z=front-deep;back.castShadow=true;back.receiveShadow=true;shelves.add(back);}
  return g;
 }
