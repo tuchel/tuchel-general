@@ -18,7 +18,7 @@ import {furnishHouse} from './interiors';
 import {roofSkylights,guestSkylightsAdded} from './solar-layout';
 import {buildRenovations,winterGardenOutline} from './renovations';
 import {renovationState,type RenovationId,type RenovationState} from './renovation-data';
-import {planPoint as p,sitePoint as s,plotOutline,treePositions,MEADOW_TREES,guestRoofFrame,GUEST_ROOF,UPPER_PLAN_X_OFFSET,BASEMENT_PLAN_X_OFFSET,PLAN_SCALE,type Level,type Region} from './site-data';
+import {planPoint as p,sitePoint as s,plotOutline,treePositions,MEADOW_TREES,guestRoofFrame,GUEST_ROOF,GUEST_FRAME,UPPER_PLAN_X_OFFSET,BASEMENT_PLAN_X_OFFSET,PLAN_SCALE,type Level,type Region} from './site-data';
 import {basementStairWell,hallStairWell,HALL_WELL,buildBasementStair,buildLightWells,BASEMENT_WINDOWS} from './site-openings';
 import {passable} from './walk';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
@@ -428,7 +428,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
     box(reveal,-side*.63,y+.02,0,.12,.1,.84,m.blind).castShadow=false;
     passable(reveal);
    }
-   box(g,0,ceiling(0)-.22,0,.16,.22,Math.min(length-.3,lined),m.spruce);
+   if(kind!=='guest')box(g,0,ceiling(0)-.22,0,.16,.22,Math.min(length-.3,lined),m.spruce);
    // Windows sit at different heights, so one window's flanking rafter can pass another: it stops at that window's reveal.
    // Rafters run down into the knee walls and end behind them, before the upper floor and inside the outer walls: none
    // shows in a ground-floor room or out under the eaves (the guest wing's reach 2.8 m past its courtyard wall).
@@ -456,7 +456,24 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
     box(g,0,y-.1,z,reach*2,.2,.14,m.spruce);
     for(const side of [-1,1]){rafter(side,z);segment(g,[side*reach*.3,y,z],[side*reach*.62,ceiling(reach*.62)-.12,z],.12,m.spruce);}
    }
-   if(kind==='guest'){const posts=[[260,650],[247,786],[240,1040]].map(([x,z])=>{const [px,pz]=p(x,z),dx=px+UPPER_PLAN_X_OFFSET-cx,dz=pz-cz;return dx*Math.sin(rotation)+dz*Math.cos(rotation);});for(const z of posts){box(g,0,3.1,z,.14,ceiling(0)-.2-3.1,.14,m.spruce);for(const d of [-1,1])segment(g,[0,ceiling(0)-1.1,z],[0,ceiling(0)-.22,z+d*.9],.08,m.spruce);}}
+   // The guest wing's frame stands west of the ridge, not under it (upper plan's post marks; owner photographs of the
+   // study, gallery, bedroom and shower room): a purlin under the west slope 1.2 m from the ridge, on posts at the two
+   // gables, in the study, at the stair's head and in the bedroom, each with braces along the purlin, a tie beam across
+   // to the east wall and a raking strut down to the west knee wall. A sixth frame stands in the bedroom's north wall,
+   // its tie beam on the bedroom side. The ridge itself is plain plaster.
+   if(kind==='guest'){
+    const along=([x,z]:number[])=>{const [px,pz]=p(x,z),dx=px+UPPER_PLAN_X_OFFSET-cx,dz=pz-cz;return dx*Math.sin(rotation)+dz*Math.cos(rotation);};
+    const x=-GUEST_FRAME.offset,head=ceiling(x)-.19,east=GUEST_FRAME.east,west=GUEST_FRAME.west,ends=lined/2-.25,pitch=rise/half;
+    box(g,x,head,0,.16,.21,ends*2,m.spruce).name='guest-purlin';
+    const tie=(z:number,from:number)=>{box(g,(from+east)/2,head-.02,z,east-from,.2,.16,m.spruce).name='guest-tie-beam';};
+    const brace=(z:number,d:number)=>segment(g,[x,head-.95,z],[x,head-.02,z+d*.93],.1,m.spruce);
+    for(const z of GUEST_FRAME.posts.map(along)){
+     box(g,x,3.1,z,.16,head-3.1,.16,m.spruce).name='guest-post';tie(z,x+.08);
+     for(const d of [-1,1])if(Math.abs(z+d*.93)<ends)brace(z,d);
+     segment(g,[x-.06,head-.14,z],[west,head-.14-(x-.06-west)*pitch,z],.13,m.spruce).name='guest-strut';
+    }
+    const wall=along(GUEST_FRAME.wall);tie(wall+.17,GUEST_FRAME.door);brace(wall-.09,-1);
+   }
   }
   for(const surface of above)keepAbove(g,surface);
   return (x:number,z:number)=>{const dx=x-cx,dz=z-cz;return ridge-rise*Math.abs(dx*Math.cos(rotation)-dz*Math.sin(rotation))/half-.045;};

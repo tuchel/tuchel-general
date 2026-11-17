@@ -17,6 +17,10 @@ export const BASEMENT_PLAN_X_OFFSET = -20 * PLAN_SCALE;
 export const guestRoofCorners:Point[] = [[160,535],[525,570],[466,1247],[92,1213]].map(([x,z])=>planPoint(x-52,z));
 /** The guest roof's eave and ridge heights (m) and how far its slopes reach past the traced eave outline, each side. */
 export const GUEST_ROOF={eave:2.94,ridge:6.75,overhang:.09};
+/** The guest wing's exposed roof frame, in the roof's own frame (m, across the ridge): the purlin's distance west of the
+ * ridge, and where the upper rooms' east wall and west knee wall stand (x; west is negative). Posts as marked on the upper
+ * plan (trace pixels), with the point where the bedroom's north wall meets the purlin, and that wall's doorway edge. */
+export const GUEST_FRAME={offset:1.2,east:1.45,west:-3.22,posts:[[299.5,567],[287.5,684.7],[272.4,832.7],[248,1079.8],[236,1199]],wall:[268,942],door:-.78};
 export const guestRoofFrame = (()=>{
  const [nw,ne,se,sw]=guestRoofCorners;
  const north:Point=[(nw[0]+ne[0])/2,(nw[1]+ne[1])/2];
