@@ -324,6 +324,11 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  guestBasement.forEach((a,i)=>{const b=guestBasement[(i+1)%4];wall(basement,a[0],a[1],b[0],b[1],BASEMENT_WALL,-2.3);});
  {q=at(262,1074);const column=add(cylinderGeo,m.plaster,basement);column.scale.set(.15,BASEMENT_WALL,.15);column.position.set(q[0],-2.3+BASEMENT_WALL/2,q[1]);column.userData.base=-2.3;column.userData.height=BASEMENT_WALL;cutWalls.push(column);}
  furnishHouse(ground,upper,basement,material);
+ // Upper-floor furniture that a renovation adds or replaces stands in a group of its own beside the upper floor's: its
+ // batches hang from its own groups (static-batch.ts), which the upper floor's group, hidden in the whole-house view,
+ // would hide with it.
+ const upperSwaps=new T.Group();upperSwaps.name='upper-floor-swaps';upperSwaps.position.copy(upper.position);root.add(upperSwaps);
+ for(const o of [...upper.children])if(o.userData.addedBy||o.userData.replacedBy)upperSwaps.add(o);
  // `cars`: modelled cars for the garage's bays; false leaves the garage empty, for addCars to fill once they are loaded.
  if(cars!==false)ground.add(garageCars(cars));
  const addCars=(models?:CarModels)=>{const group=garageCars(models);ground.add(group);return group;};
@@ -625,11 +630,11 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // Office Nook Window Expansion: the alcove's window and garden door become one fixed pane from the floor, from the
  // window's north jamb to the door's south jamb, in the oak-and-black frame.
  facade(renovation.groups.nookWindow,[E,N+alcoveNorth],[E,N+alcoveSouth],[{from:10.3-alcoveNorth,to:13-alcoveNorth,sill:0,head:2.2,kind:'fixed'}],'main');
- for(const part of [ground,site])part.traverse(o=>{const id=o.userData.replacedBy as RenovationId|undefined;if(id)(originals[id]??=[]).push(o);});
+ for(const part of [ground,site,upperSwaps])part.traverse(o=>{const id=o.userData.replacedBy as RenovationId|undefined;if(id)(originals[id]??=[]).push(o);});
  // The front garage's roof and cobbles, built with the roofs and the drive.
  additions.garage!.push(renovation.garageRoof,site.getObjectByName('garage-cobbles')!,site.getObjectByName('garage-beds')!);
  // Furniture a renovation adds outside its own group (Layout Updates' family room and living room) is shown with it.
- ground.traverse(o=>{const id=o.userData.addedBy as RenovationId|undefined;if(id)(additions[id]??=[]).push(o);});
+ for(const part of [ground,upperSwaps])part.traverse(o=>{const id=o.userData.addedBy as RenovationId|undefined;if(id)(additions[id]??=[]).push(o);});
  // Ground-floor ceilings over the whole footprint, open above the two stairs. They close the ground floor
  // under the upper floor in the whole-house and upper-floor views, and lift off for the ground-floor cutaway.
  const ceilings=new T.Group();ceilings.name='interior-ceilings';ground.add(ceilings);
@@ -673,13 +678,13 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const setRenovations=(next:RenovationState)=>{active={...next};applyRenovations();};
  // One consistent natural-material palette across the original house and all proposals.
  for(const mat of materials)mat.color.set(mat.userData.timber);garden.setFinish('timber');lineMat.opacity=.2;
- const setLevel=(level:Level)=>{currentLevel=level;if(setting)setting.visible=level==='exterior';ceilings.visible=level==='exterior'||level==='upper';slats.visible=level==='exterior'||level==='upper';site.visible=level!=='basement';trees.visible=level==='exterior';roofs.visible=level==='exterior'||level==='upper';for(const mat of roofMaterials){mat.clippingPlanes=level==='upper'?[sectionCut]:null;mat.clipShadows=true;}ground.visible=level!=='basement';upper.visible=level==='upper';basement.visible=level==='basement';for(const mesh of cutWalls){const h=mesh.userData.height as number,y=mesh.userData.base as number;const cap=mesh.parent===upper?4.12:mesh.parent===basement?-1:1.17;const full=level==='exterior'||(level==='upper'&&mesh.parent!==upper),shown=full?h:Math.max(0,Math.min(h,cap-y));mesh.visible=shown>0;mesh.scale.y=Math.max(.001,shown);mesh.position.y=y+shown/2;}applyRenovations();};
+ const setLevel=(level:Level)=>{currentLevel=level;if(setting)setting.visible=level==='exterior';ceilings.visible=level==='exterior'||level==='upper';slats.visible=level==='exterior'||level==='upper';site.visible=level!=='basement';trees.visible=level==='exterior';roofs.visible=level==='exterior'||level==='upper';for(const mat of roofMaterials){mat.clippingPlanes=level==='upper'?[sectionCut]:null;mat.clipShadows=true;}ground.visible=level!=='basement';upper.visible=level==='upper';upperSwaps.visible=level==='exterior'||level==='upper';basement.visible=level==='basement';for(const mesh of cutWalls){const h=mesh.userData.height as number,y=mesh.userData.base as number;const cap=mesh.parent===upper?4.12:mesh.parent===basement?-1:1.17;const full=level==='exterior'||(level==='upper'&&mesh.parent!==upper),shown=full?h:Math.max(0,Math.min(h,cap-y));mesh.visible=shown>0;mesh.scale.y=Math.max(.001,shown);mesh.position.y=y+shown/2;}applyRenovations();};
  const dispose=()=>{const gs=new Set<T.BufferGeometry>(),ms=new Set<T.Material>();root.traverse(o=>{if(o instanceof T.Mesh||o instanceof T.Line){gs.add(o.geometry);(Array.isArray(o.material)?o.material:[o.material]).forEach(a=>ms.add(a));}});gs.forEach(g=>g.dispose());ms.forEach(m=>{if(m instanceof T.MeshStandardMaterial)m.map?.dispose();m.dispose();});};
  // Every floor × renovation combination, for static batching: state = floor*combinations + renovation bits.
  // A renovation whose parts each sit in a group of their own (its group and its additions), as do its originals, toggles
  // outside the states: all those groups stay shown while states are enumerated, and the batches parented to them follow
  // their visibility, on top of the states of any group around them (the east façade's centred dining table).
- const renovationIds=Object.keys(renovationState()) as RenovationId[],grouped=new Set<RenovationId>(['masterWindows','alignedGable','nook','nookWindow','garage','skylights','catslide','wideGlass']);
+ const renovationIds=Object.keys(renovationState()) as RenovationId[],grouped=new Set<RenovationId>(['masterWindows','alignedGable','nook','nookWindow','garage','skylights','catslide','wideGlass','guestSuite']);
  const stateIds=renovationIds.filter(id=>!grouped.has(id)),combinations=1<<stateIds.length;
  const toggled=[...grouped].flatMap(id=>[renovation.groups[id],...(originals[id]??[]),...(additions[id]??[])]);
  const stateOf=(level:Level,state:RenovationState)=>levels.indexOf(level)*combinations+stateIds.reduce((bits,id,i)=>bits|(state[id]?1<<i:0),0);

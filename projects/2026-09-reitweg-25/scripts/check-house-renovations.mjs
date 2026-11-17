@@ -10,8 +10,8 @@ const {renovations,renovationState,offered,offeredState}=await import('../tmp/re
 // The panel offers nine renovations (two of them Winter Gardens and two of them master windows, one of each at a time) for
 // now; the zinc-roofed Winter Garden, terrace dining, fireside lounge, arrival wall (superseded by the front garage) and
 // solar stay in the model, set aside: off with "All on" and when a link names them.
-assert.deepEqual(offered.map(r=>r.id),['kitchen','wideGlass','east','masterWindows','alignedGable','nookWindow','nook','garage','skylights'],'offered renovations');
-assert.deepEqual(offered.map(r=>r.title),['Winter Garden · As Permitted','Winter Garden · Large Panes','Lower East Façade Glass','Master Bedroom & Bath Windows','Master Windows · Aligned Mullions','Office Nook Window Expansion','Layout Updates','Front Garage','Guest Wing Skylights'],'short names in the Changes panel');
+assert.deepEqual(offered.map(r=>r.id),['kitchen','wideGlass','east','masterWindows','alignedGable','nookWindow','nook','garage','skylights','guestSuite'],'offered renovations');
+assert.deepEqual(offered.map(r=>r.title),['Winter Garden · As Permitted','Winter Garden · Large Panes','Lower East Façade Glass','Master Bedroom & Bath Windows','Master Windows · Aligned Mullions','Office Nook Window Expansion','Layout Updates','Front Garage','Guest Wing Skylights','Guest Suite Updates'],'short names in the Changes panel');
 for(const id of ['terrace','courtyard','front','solar','catslide'])assert.equal(offeredState()[id],false,`${id} stays off with All on`);
 // The Large Panes are the Winter Garden with other glazing: a link naming them turns the Winter Garden on too, and the two
 // tiles are one at a time.

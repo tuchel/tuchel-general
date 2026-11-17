@@ -115,6 +115,8 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
   const r=renovations.find(item=>item.id===id)!;
   // The arrival wall, the front garage, the guest roof's windows, the master suite's gable and the roof's solar array are
   // seen from outside, each from its own overview.
+  // The guest suite's changes are seen from inside it, standing in the bedroom.
+  if(id==='guestSuite'){chooseView('guest');return;}
   if(id==='front'||id==='garage'||id==='skylights'||id==='masterWindows'||id==='alignedGable'||id==='solar'){chooseLevel('exterior');setView(r.view);apply(r.view);return;}
   setLevel('ground');api.current?.setLevel('ground');setView(null);api.current?.focus(r.center[0],r.center[1],.5,r.span);
  };
