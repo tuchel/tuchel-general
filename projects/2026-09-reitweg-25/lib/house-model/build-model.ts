@@ -294,7 +294,9 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const guestAtrium=[[212,796],[267,802],[254,932],[198,926]].map(([x,z])=>p(x,z));
  // The stair opening meets the west edge; a notch avoids floor crossing the turning flight.
  const guestSlabGeo=new T.ExtrudeGeometry(guestSlabShape,{depth:.15,bevelEnabled:false});guestSlabGeo.rotateX(-Math.PI/2);const guestSlab=add(guestSlabGeo,m.floor,upper,'guest');guestSlab.position.y=2.95;guestSlab.name='guest-floor-with-atrium';
- partitions.push({walls:[[207,780,292,789],[324,793,371,798],[193,934,267,942],[305,946,356,951],[186,1035,257,1043],[193,934,186,1035],[267,942,263,980],[260,1012,257,1043]],floor:3.07,roof:'guest'});
+ // The bedroom's door lines up with the study's across the gallery, and the shower room's east wall with its west jamb;
+ // the shower room's door is at the shower's side (upper plan; owner photographs from the study door and the bedroom).
+ partitions.push({walls:[[207,780,292,789],[324,793,371,798],[193,934,277.5,943.4],[309.6,946.4,356,951],[186,1035,264.8,1043.9],[193,934,186,1035],[274.3,943,271.7,971.1],[268.8,1001.7,264.8,1043.9]],floor:3.07,roof:'guest'});
  // Named without "stair": the whole-house view leaves out upper-floor pieces named for stairs (duplicates of the ground ones).
  const guestLanding=poly([[246,797],[267,802],[263,839],[242,836]].map(([x,z])=>p(x,z)),.15,2.95,m.floor,upper);guestLanding.name='guest-upper-landing';
  for(const [a,b] of [[p(263,839),guestAtrium[2]],[guestAtrium[2],guestAtrium[3]]] as [number[],number[]][]){

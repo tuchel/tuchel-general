@@ -1,7 +1,7 @@
 import * as T from 'three';
 import {passable} from './walk';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
-import {planPoint as p} from './site-data';
+import {planPoint as p,guestRoofFrame,UPPER_PLAN_X_OFFSET} from './site-data';
 import {loungeChair} from './lounge-chair';
 
 /** Recognizable existing pieces reconstructed from the original photo library.
@@ -23,6 +23,9 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  const round=(g:T.Group,x:number,y:number,z:number,r:number,h:number,mat:T.Material)=>mesh(g,cyl,mat,x,y+h/2,z,r,h,r);
  const group=(parent:T.Group,x:number,y:number,z:number,angle=0)=>{const g=new T.Group();g.position.set(x,y,z);g.rotation.y=angle;parent.add(g);return g;};
  const place=(parent:T.Group,x:number,z:number,angle=0)=>{const q=p(x,z);return group(parent,q[0],parent===upper?3.1:parent===basement?-2.3:.16,q[1],angle);};
+ /** A spot on the guest wing's upper floor in its roof's frame: x across (0 under the ridge, west negative), z along the
+  * wing (north negative), metres; the group's x and z run the same way. */
+ const wing=(x:number,z:number,turn=0)=>{const {center:[cx,cz],rotation:r}=guestRoofFrame;return group(upper,cx+x*Math.cos(r)+z*Math.sin(r)-UPPER_PLAN_X_OFFSET,3.1,cz-x*Math.sin(r)+z*Math.cos(r),r+turn);};
  const rod=(g:T.Group,a:number[],b:number[],width:number,mat:T.Material)=>{const u=new T.Vector3(...a),v=new T.Vector3(...b),len=u.distanceTo(v);const o=mesh(g,cyl,mat,...u.clone().add(v).multiplyScalar(.5).toArray() as [number,number,number],width/2,len,width/2);o.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),v.sub(u).normalize());return o;};
  const rug=(g:T.Group,w:number,d:number,mat=m.cream,pattern=false)=>{box(g,0,.01,0,w,.012,d,mat);if(pattern)for(let i=-w/2+.15;i<w/2;i+=.24){const stripe=box(g,i,.024,0,.025,.006,d,m.charcoal);stripe.rotation.y=.12;} };
  function chair(parent:T.Group,x:number,z:number,angle=0,mat=m.white){const g=group(parent,x,0,z,angle);box(g,0,.43,0,.48,.06,.46,m.pine,true);for(const a of [-.2,.2])for(const b of [-.19,.19])rod(g,[a,0,b],[a*.86,.48,b*.86],.038,mat);rod(g,[-.23,.45,.2],[-.23,.86,.22],.035,mat);rod(g,[.23,.45,.2],[.23,.86,.22],.035,mat);box(g,0,.8,.22,.49,.09,.045,mat,true);rod(g,[-.18,.47,.21],[0,.79,.22],.026,mat);rod(g,[.18,.47,.21],[0,.79,.22],.026,mat);}
@@ -207,10 +210,22 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  // (owner's request); a stump table either side.
  g=place(upper,214.6,1149.2,Math.PI/2-.093);g.name='guest-bedroom-bed-under-skylights';bed(g,1.8);
  g=place(upper,343,977,Math.PI/2-.093);g.name='guest-bedroom-corner-vanity';vanity(g,.75,false);
- g=place(upper,217,958,Math.PI-.093);g.name='guest-upper-bath-toilet';box(g,0,.02,0,.4,.36,.58,m.white,true);box(g,0,.38,0,.43,.065,.61,m.white,true);box(g,0,.03,.25,.43,.74,.13,m.white,true);
- // The guest shower sits under the slope: the screen on the low side stays short, the riser stands on the high side.
- g=place(upper,223,1018,-.093);g.name='guest-upper-bath-shower';box(g,0,.015,0,1.72,.045,.91,m.white,true);box(g,-.5,.06,-.49,.64,1,.025,clear);box(g,-.5,1.06,-.49,.64,.022,.025,m.charcoal);rod(g,[.78,.08,.43],[.78,2.08,.43],.025,m.charcoal);rod(g,[.78,2.08,.43],[.78,2.08,.12],.025,m.charcoal);box(g,.78,2.05,.12,.22,.03,.22,m.charcoal);
- g=place(upper,263,980,-.093);g.name='guest-upper-bath-open-door';box(g,-.4,.015,0,.8,2.03,.045,m.pine);box(g,-.69,1.03,-.04,.11,.024,.035,m.charcoal);passable(g);
+ // Guest shower room (owner photographs from its door and from inside), inner faces at x −2.98 to −0.96, z 1.6 to 4.21:
+ // pale stone tiles; a wall-hung toilet on the north wall, about 0.8 m from the east wall, its paper holder beside it; a
+ // low open spruce shelf along the west wall under the roof window; a glazed shower about 0.9 m square in the south-east
+ // corner, its door hung on a narrow fixed pane beside the room's door, its west pane cut under the slope, brass fittings
+ // on the south wall and a brass towel rail beside it. The room's door opens out into the bedroom.
+ g=wing(-1.97,2.905);g.name='guest-upper-bath-tiles';box(g,0,.004,0,2.02,.012,2.61,tile);
+ g=wing(-1.75,1.6,Math.PI);g.name='guest-upper-bath-toilet';box(g,0,.2,-.29,.37,.2,.54,m.white,true);box(g,0,.4,-.29,.39,.035,.56,m.white,true);box(g,0,.95,-.012,.25,.16,.012,m.white);
+ box(g,.42,.72,-.03,.16,.03,.05,m.brass);round(group(g,.42,.66,-.06,0),0,0,0,.055,.11,m.white).rotation.z=Math.PI/2;
+ g=wing(-2.78,2.75);g.name='guest-upper-bath-shelf';box(g,0,0,0,.4,.1,2.3,m.pine);box(g,0,.42,0,.4,.05,2.3,m.pine);for(const z of [-1.13,1.13])box(g,0,.1,z,.4,.32,.04,m.pine);
+ const showerGlass=clear.clone();showerGlass.opacity=.14;
+ g=wing(-.96,4.21);g.name='guest-upper-bath-shower';box(g,-.45,.006,-.475,.9,.012,.95,m.grey);box(g,-.45,.02,-.06,.7,.006,.06,m.brass);
+ box(g,-.1,.02,-.95,.2,1.93,.012,showerGlass);box(g,-.55,.02,-.95,.69,1.93,.012,showerGlass);box(g,-.9,.02,-.475,.012,1.93,.95,showerGlass);
+ for(const y of [.3,1.65])box(g,-.2,y,-.95,.07,.06,.03,m.brass);round(group(g,-.84,1.02,-.97,0),0,0,0,.02,.04,m.brass).rotation.x=Math.PI/2;
+ rod(g,[-.45,1.15,-.04],[-.45,2,-.04],.022,m.brass);rod(g,[-.45,1.9,-.04],[-.45,1.84,-.16],.02,m.brass);round(g,-.45,1.8,-.17,.05,.03,m.brass);rod(g,[-.58,1,-.05],[-.32,1,-.05],.025,m.brass);
+ g=wing(-2.3,4.21);g.name='guest-upper-bath-towel-rail';for(const x of [-.24,.24])rod(g,[x,.58,-.07],[x,1.26,-.07],.03,m.brass);for(const y of [.64,.84,1.02,1.2])rod(g,[-.24,y,-.07],[.24,y,-.07],.025,m.brass);
+ g=wing(-.87,2.32);g.name='guest-upper-bath-open-door';box(g,.44,.015,0,.8,2.03,.045,m.pine);box(g,.74,1.03,.04,.11,.024,.035,m.charcoal);passable(g);
  // Basement: laundry matches the labelled HWR, wine racks the narrow Wein room.
  g=place(basement,1140,480,Math.PI);cabinets(g,3.8,.88,m.navy);for(let i=0;i<4;i++){const x=-1.02+i*.66;box(g,x,.03,-.03,.6,.81,.6,m.white);const drum=mesh(g,new T.TorusGeometry(.19,.036,8,24),m.charcoal,x,.46,-.345);drum.rotation.set(0,0,0);mesh(g,new T.CircleGeometry(.15,24),m.grey,x,.46,-.349);}box(g,0,.89,0,3.85,.05,.65,m.oak);
  g=place(basement,871,558,-Math.PI/2);for(const x of [-1.85,-.93,0,.93,1.85]){const rack=group(g,x,0,0);box(rack,0,0,.23,.9,1.85,.07,m.oak);for(const side of [-.43,.43])box(rack,side,0,0,.055,1.85,.5,m.oak);for(let y=.05;y<1.8;y+=.3){box(rack,0,y,0,.87,.04,.5,m.oak);for(let k=0;k<4;k++){const bottle=round(group(rack,-.3+k*.2,y+.11,0),0,0,0,.055,.3,m.marble);bottle.rotation.x=Math.PI/2;}}}
