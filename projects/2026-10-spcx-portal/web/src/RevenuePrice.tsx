@@ -21,7 +21,8 @@ import { median, priceOn, targetsAt, vintage, type TargetAt } from './targets.ts
 const DAY = 86_400_000;
 const t = (iso: string) => Date.parse(`${iso}T00:00:00Z`);
 // Price scale tops, $; 4 intervals each, so price gridlines meet revenue's. With targets
-// shown the scale holds every vintage's highest target, so switching vintages never rescales.
+// shown the scale is fixed for every vintage, so switching vintages never rescales; a target above
+// it is pinned to the top edge with an arrow and its value, and its tip gives the full figure.
 const PX_MAX = 240;
 const PX_MAX_TARGETS = 600;
 
@@ -60,8 +61,7 @@ const TARGETS_END = Date.UTC(Number(LAST_HORIZON.slice(0, 4)), Number(LAST_HORIZ
 
 // The headline and takeaways state claims; fail the render if the data stops supporting them.
 const y26 = QUARTERS.filter((q) => q.start >= '2026');
-const maxTarget = Math.max(...Object.values(TARGETS).flat().map((d) => d.target));
-if (!y26.every((q, i) => i === 0 || q.revenue > y26[i - 1].revenue) || maxTarget > PX_MAX_TARGETS
+if (!y26.every((q, i) => i === 0 || q.revenue > y26[i - 1].revenue) || MEDIANS.some((m) => m.median > PX_MAX_TARGETS)
   || MEDIANS.some((m) => m.median <= priceOn(m.date).close)) {
   throw new Error('RevenuePrice: headline no longer matches the data');
 }
@@ -302,12 +302,17 @@ export function RevenuePrice({ mode, targets: initialTargets = null, events: ini
           const k = seen.get(key) ?? 0;
           seen.set(key, k + 1);
           const dx = k === 0 ? 0 : (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 7;
-          return { d, x: x(t(d.horizon)) + dx, y: yP(d.target) };
+          return { d, x: x(t(d.horizon)) + dx, y: yP(Math.min(d.target, PX_MAX_TARGETS)), off: d.target > PX_MAX_TARGETS };
         }) : [];
         const targetDots: Dot[] = placed.map(({ d, x: tx, y: ty }) => ({
           id: `t-${d.firm}`, cx: tx, cy: ty, r: 4,
           fill: d.reported ? c('series2') : c('halo'), stroke: c('series2'), strokeWidth: 1.5, hit: 8,
-          label: `${d.firm} target ${usd0(d.target)} for ${fmtDay(d.horizon)}`, tip: targetTip(d, vin.date),
+          label: `${d.firm} target ${usd0(d.target)} for ${fmtDay(d.horizon)}${d.target > PX_MAX_TARGETS ? ', above the chart scale' : ''}`, tip: targetTip(d, vin.date),
+        }));
+        // Off-scale targets: the dot is pinned to the top edge and tagged just below with an arrow and
+        // the value, running right into the scale's margin, between its $600 and $450 labels.
+        const offScale: Label[] = placed.filter((p) => p.off).map(({ d, x: tx, y: ty }) => ({
+          id: `off-${d.firm}`, x: tx - 4, y: ty + 19, text: `↑ ${usd0(d.target)}`, anchor: 'start', size: 11, weight: 600, fill: c('series2'), halo: c('halo'),
         }));
         const connectors = placed.map(({ d, x: tx, y: ty }) => ({ id: `t-${d.firm}`, x1: x(t(d.set)), y1: yP(priceOn(d.set).close), x2: tx, y2: ty }));
         // Key events: small diamonds along the top of the plot; one that would crowd its neighbour steps down a row.
@@ -367,6 +372,7 @@ export function RevenuePrice({ mode, targets: initialTargets = null, events: ini
                 <Connectors data={connectors} />
                 <Rules data={[{ id: 'median', x1: cx, x2: width - m.r, y1: yP(med), y2: yP(med), stroke: c('series2'), width: 1.25, dash: '3 3' }]} />
                 <Dots data={targetDots} className="spcx-targets" />
+                <Texts data={offScale} />
               </>
             )}
           </>
