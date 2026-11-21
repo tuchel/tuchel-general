@@ -34,6 +34,8 @@ export const SRC = {
   piperInit: { label: 'Investing.com, Piper cautious on SpaceX, points to near-term headwinds (initiates at Neutral, $156), Jul 16, 2026', url: 'https://ng.investing.com/news/stock-market-news/piper-cautious-on-spacex-points-to-nearterm-headwinds-2603515' },
   piperAug: { label: 'Investing.com, Piper Sandler cuts SpaceX stock price target on lockup concerns, $140 from $156, Aug 5, 2026', url: 'https://www.investing.com/news/analyst-ratings/piper-sandler-cuts-spacex-stock-price-target-on-lockup-concerns-93CH-4836745' },
   piperOct: { label: 'Investing.com, Piper Sandler reiterates Neutral rating on SpaceX stock at $140, Oct 21, 2026', url: 'https://ca.investing.com/news/stock-market-news/piper-sandler-reiterates-neutral-rating-on-spacex-stock-at-140-93CH-4893838' },
+  cfraInit: { label: 'Motley Fool, SpaceX earned its first Wall Street sell rating (CFRA, Sell, $115), Jun 12, 2026', url: 'https://www.fool.com/investing/2026/06/16/didnt-take-long-spacex-first-wall-st-sell-rating/' },
+  cfraNov: { label: 'Motley Fool via Mitrade, CFRA keeps Sell and $115 target, Nov 17, 2026', url: 'https://www.mitrade.com/insights/news/live-news/article-8-2258831-20261117' },
   oppInit: { label: 'Reuters via The Star, Oppenheimer launches first SpaceX coverage at Outperform, $190, Jun 11, 2026', url: 'https://www.thestar.com.my/tech/tech-news/2026/06/11/oppenheimer-launches-wall-street039s-first-coverage-of-spacex-with-bullish-outlook' },
   oppJun: { label: 'Investing.com, Oppenheimer raises SpaceX target to $250 from $190, Jun 18, 2026', url: 'https://ng.investing.com/news/stock-market-news/spacex-stock-target-raised-at-oppenheimer-heres-the-new-12month-forecast-2565697' },
   mbRatings: { label: 'MarketBeat, SPCX analyst ratings history', url: 'https://www.marketbeat.com/stocks/NASDAQ/SPCX/forecast/' },
@@ -236,6 +238,7 @@ const CLOSES = `
 2026-11-17 141.70
 2026-11-18 143.50
 2026-11-19 138.43
+2026-11-20 127.79
 `;
 
 /** `intraday` marks a price taken during the session, before the close. */
@@ -289,6 +292,7 @@ export const FIRMS: Firm[] = [
   { firm: 'Susquehanna', rating: 'Neutral', points: [pt('2026-10-20', 173, SRC.mbRatings), pt('2026-10-21', 176, SRC.mbRatings)] },
   { firm: 'Oppenheimer', rating: 'Outperform', points: [pt('2026-06-11', 190, SRC.oppInit), pt('2026-06-18', 250, SRC.oppJun), pt('2026-09-02', 280, SRC.mbRatings)] },
   { firm: 'Piper Sandler', rating: 'Neutral', points: [pt('2026-07-16', 156, SRC.piperInit), pt('2026-08-05', 140, SRC.piperAug), pt('2026-10-21', 140, SRC.piperOct)] },
+  { firm: 'CFRA', rating: 'Sell', points: [pt('2026-06-12', 115, SRC.cfraInit), pt('2026-11-17', 115, SRC.cfraNov)] },
   { firm: 'Phillip Securities', rating: 'Buy', points: [pt('2026-10-20', 75, SRC.phillipQ3), pt('2026-10-23', 250, SRC.phillipQ3)] },
 ];
 
