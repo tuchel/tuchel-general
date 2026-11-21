@@ -1,5 +1,6 @@
 import "./style.css";
 import { VIEW_H, VIEW_W } from "./art/renderer";
+import { WEAPON_SVGS } from "./art/weaponIcons";
 import { AudioEngine } from "./engine/audio";
 import { InputManager } from "./engine/input";
 import type { EndingChoice, MissionId, MissionStats, SaveData } from "./engine/types";
@@ -376,12 +377,13 @@ class AppShell {
             <div class="hp-track"><div class="hp-fill ${hpPct < 35 ? "low" : ""}" style="width:${hpPct}%"></div></div>
             <strong>${hud.hp}</strong>
           </div>
-          <div class="hud-pill mono" style="border-left-color:#FF9500;">
-            <span>${hud.weaponName}</span>
-            <strong>${ammoText}</strong>
-            <span style="opacity:0.45;">|</span>
-            <span style="color:#57C7FF;">EMP ${hud.empCount}</span>
-          </div>
+          <button class="hud-weapon-card mono" id="hud-weapon-swap" type="button" title="Swap Weapon (Q)">
+            <span class="hud-weapon-svg">${WEAPON_SVGS[hud.weaponId]}</span>
+            <span class="hud-weapon-meta">
+              <strong>${hud.weaponName}</strong>
+              <span>${ammoText} · <em style="color:#57C7FF;font-style:normal;">EMP ${hud.empCount}</em></span>
+            </span>
+          </button>
         </div>
         <div class="hud-group">
           <div class="hud-pill mono">
@@ -397,6 +399,9 @@ class AppShell {
     `;
 
     this.hudEl.querySelector("#hud-pause")?.addEventListener("click", () => this.showPauseModal());
+    this.hudEl.querySelector("#hud-weapon-swap")?.addEventListener("click", () => {
+      this.input.triggerTouchAction("weapon");
+    });
     this.hudEl.querySelector("#hud-codec")?.addEventListener("click", () => {
       this.input.triggerTouchAction("codec");
     });

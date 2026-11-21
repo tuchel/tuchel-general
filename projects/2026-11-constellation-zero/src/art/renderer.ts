@@ -15,6 +15,7 @@ import type {
 } from "../engine/types";
 import type { VfxSystem } from "../engine/vfx";
 import { ArtAtlas } from "./atlas";
+import { InkSpriteBank } from "./inkSprites";
 
 export const VIEW_W = 960;
 export const VIEW_H = 540;
@@ -69,6 +70,7 @@ export interface RenderSnapshot {
 
 export class OrbitalInkRenderer {
   private atlas = new ArtAtlas();
+  private sprites = new InkSpriteBank();
   private stars: Array<{ x: number; y: number; r: number; a: number }> = [];
   private rainDrops: Array<{ x: number; y: number; len: number; spd: number }> = [];
   private motes: Array<{ x: number; y: number; r: number; spd: number; phase: number }> = [];
@@ -192,6 +194,7 @@ export class OrbitalInkRenderer {
       ctx.globalAlpha = 1;
     }
     this.drawInkVignette(ctx, snap.alertState);
+    this.drawTacticalRadar(ctx, snap);
 
     // 8. Zone Banner
     if (snap.bannerTimer > 0 && snap.bannerText) {
@@ -457,56 +460,29 @@ export class OrbitalInkRenderer {
         }
         ctx.stroke();
       } else if (p.kind === "cover") {
-        // High-craft Liquid-Cooled Server Rack Cover Unit (matching Style A concept!)
-        // Soft floor light bounce under server rack
-        const glowColor = missionId === 4 ? "rgba(255, 59, 47, 0.16)" : "rgba(77, 168, 218, 0.18)";
-        const rg = ctx.createRadialGradient(p.x + p.w * 0.5, p.y + p.h, 4, p.x + p.w * 0.5, p.y + p.h, 46);
+        // High-craft Liquid-Cooled Server Rack Cover Monolith (Style A signature!)
+        const glowColor = missionId === 4 ? "rgba(255, 59, 47, 0.24)" : "rgba(87, 199, 255, 0.24)";
+        const rg = ctx.createRadialGradient(p.x + p.w * 0.5, p.y + p.h, 4, p.x + p.w * 0.5, p.y + p.h, 52);
         rg.addColorStop(0, glowColor);
         rg.addColorStop(1, "rgba(0,0,0,0)");
         ctx.fillStyle = rg;
-        ctx.fillRect(p.x - 24, p.y + p.h - 14, p.w + 48, 26);
+        ctx.fillRect(p.x - 28, p.y + p.h - 14, p.w + 56, 28);
 
-        // Beveled metallic body
-        const bg = ctx.createLinearGradient(p.x, p.y, p.x + p.w, p.y + p.h);
-        bg.addColorStop(0, "#3A4D61");
-        bg.addColorStop(0.55, "#1E2B39");
-        bg.addColorStop(1, "#0B1018");
-        ctx.fillStyle = bg;
-        ctx.fillRect(p.x, p.y, p.w, p.h);
-
-        // Stark white cel highlight along top-left bevel
-        ctx.fillStyle = "#E8F2FA";
-        ctx.fillRect(p.x + 2, p.y + 2, p.w - 4, 4);
-        ctx.fillRect(p.x + 2, p.y + 2, 3, p.h - 6);
-
-        // Recessed server bay + glowing blades + vertical coolant tube
-        ctx.fillStyle = "#080C12";
-        ctx.fillRect(p.x + 7, p.y + 10, p.w - 22, p.h - 15);
-        for (let r = 0; r < 4; r++) {
-          const lit = Math.sin(t * 4.5 + p.x * 0.1 + r * 1.4) > -0.15;
-          ctx.fillStyle =
-            missionId === 4 && r === 1
-              ? "#FF3B2F"
-              : lit
-              ? "#57C7FF"
-              : "#1D3244";
-          ctx.fillRect(p.x + 10, p.y + 13 + r * 7, p.w - 28, 3);
+        const spr = this.sprites.get(missionId === 4 ? "cover_rack_core" : "cover_rack");
+        if (spr) {
+          ctx.drawImage(spr, p.x - 4, p.y - 4, p.w + 8, p.h + 6);
+        } else {
+          ctx.fillStyle = "#1E2B39";
+          ctx.fillRect(p.x, p.y, p.w, p.h);
         }
-        // Right-side ink shadow & glowing vertical coolant pipe
-        ctx.fillStyle = "#0C121B";
-        ctx.fillRect(p.x + p.w - 13, p.y + 6, 11, p.h - 8);
-        ctx.fillStyle = missionId === 1 ? "#FF9500" : "#57C7FF";
-        ctx.fillRect(p.x + p.w - 9, p.y + 12, 3, p.h - 18);
-
-        // Bold sumi-e ink outline & crosshatch corner ticks
-        ctx.strokeStyle = "#04060A";
-        ctx.lineWidth = 3.2;
-        ctx.strokeRect(p.x, p.y, p.w, p.h);
+        // Live pulsing server blade indicator shimmer
+        const pulseA = 0.25 + 0.45 * Math.max(0, Math.sin(t * 5 + p.x * 0.08));
+        ctx.fillStyle = missionId === 4 ? `rgba(255, 59, 47, ${pulseA})` : `rgba(87, 199, 255, ${pulseA})`;
+        ctx.fillRect(p.x + 12, p.y + 13, p.w * 0.45, 3);
       } else if (p.kind === "destructible") {
         const hpRatio = (p.hp ?? 1) / (p.maxHp ?? 1);
         ctx.fillStyle = "#2E1A1A";
         ctx.fillRect(p.x, p.y, p.w, p.h);
-        // Diagonal caution hazard stripes
         ctx.save();
         ctx.beginPath();
         ctx.rect(p.x + 3, p.y + 3, p.w - 6, p.h - 6);
@@ -551,7 +527,6 @@ export class OrbitalInkRenderer {
         ctx.ellipse(0, 0, d.radius, d.radius * 0.42, 0, 0, Math.PI * 2);
         ctx.fill();
       } else {
-        // Calligraphic ink splatter blotch
         ctx.fillStyle = d.color;
         ctx.beginPath();
         ctx.ellipse(0, 0, d.radius, d.radius * 0.48, 0, 0, Math.PI * 2);
@@ -604,32 +579,23 @@ export class OrbitalInkRenderer {
     for (const n of nodes) {
       ctx.save();
       ctx.translate(n.x, n.y);
-      const col = n.hacked ? "#4DA8DA" : "#FF9500";
-      const rg = ctx.createRadialGradient(0, -8, 4, 0, -8, 34);
-      rg.addColorStop(0, n.hacked ? "rgba(77, 168, 218, 0.25)" : "rgba(255, 149, 0, 0.25)");
+      const rg = ctx.createRadialGradient(0, -10, 4, 0, -10, 40);
+      rg.addColorStop(0, n.hacked ? "rgba(87, 199, 255, 0.34)" : "rgba(255, 149, 0, 0.34)");
       rg.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = rg;
       ctx.beginPath();
-      ctx.arc(0, -8, 34, 0, Math.PI * 2);
+      ctx.arc(0, -10, 40, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = "#121C28";
-      ctx.strokeStyle = "#04060A";
-      ctx.lineWidth = 3;
-      ctx.fillRect(-17, -28, 34, 38);
-      ctx.strokeRect(-17, -28, 34, 38);
+      const spr = this.sprites.get(n.hacked ? "hack_terminal_dark" : "hack_terminal");
+      if (spr) {
+        ctx.drawImage(spr, -24, -40, 48, 55);
+      }
 
-      ctx.strokeStyle = col;
-      ctx.lineWidth = 1.6;
-      ctx.strokeRect(-14, -25, 28, 32);
-
-      ctx.fillStyle = n.hacked ? "#4DA8DA" : Math.sin(t * 7) > 0 ? "#FF9500" : "#66360D";
-      ctx.fillRect(-10, -20, 20, 12);
-
-      ctx.fillStyle = "#EEF5FA";
+      ctx.fillStyle = n.hacked ? "#57C7FF" : Math.sin(t * 7) > 0 ? "#FFD080" : "#FF9500";
       ctx.font = "900 9px monospace";
       ctx.textAlign = "center";
-      ctx.fillText(n.hacked ? "DARK" : "HACK", 0, -34);
+      ctx.fillText(n.hacked ? "SECTOR DARK" : "HACK GRID", 0, -44);
       ctx.restore();
     }
   }
@@ -687,62 +653,25 @@ export class OrbitalInkRenderer {
       ctx.save();
       ctx.translate(p.x, p.y);
 
-      // Soft cryo-pod ambient glow
-      const glow = ctx.createRadialGradient(0, 18, 4, 0, 18, 36);
-      glow.addColorStop(0, "rgba(87, 199, 255, 0.28)");
+      const pulse = 0.65 + Math.sin(t * 5 + p.x) * 0.35;
+      const glow = ctx.createRadialGradient(0, 18, 4, 0, 18, 44);
+      glow.addColorStop(0, `rgba(87, 199, 255, ${0.38 * pulse})`);
       glow.addColorStop(1, "rgba(87, 199, 255, 0)");
       ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.arc(0, 18, 36, 0, Math.PI * 2);
+      ctx.arc(0, 18, 44, 0, Math.PI * 2);
       ctx.fill();
 
-      // Pressurized emergency glass pod
-      ctx.fillStyle = "rgba(18, 40, 58, 0.52)";
-      ctx.strokeStyle = "#57C7FF";
-      ctx.lineWidth = 2;
-      ctx.fillRect(-16, -4, 32, 46);
-      ctx.strokeRect(-16, -4, 32, 46);
-      // Diagonal glass reflection
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(-12, 2);
-      ctx.lineTo(-2, 16);
-      ctx.stroke();
+      const spr = this.sprites.get("pow_pod");
+      if (spr) {
+        const wobble = Math.sin(t * 4 + p.x) * 1.2;
+        ctx.drawImage(spr, -24 + wobble * 0.25, -14, 48, 64);
+      }
 
-      // Articulated waving orbital engineer
-      const wave = Math.sin(t * 7.5 + p.x) * 6;
-      ctx.fillStyle = "#E6F0F8";
-      ctx.strokeStyle = "#06080D";
-      ctx.lineWidth = 2.4;
-      ctx.beginPath();
-      ctx.arc(0, 8, 6.8, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = "#FF9500";
-      ctx.fillRect(-3, 6, 6, 3.5);
-      // Jumpsuit torso & legs
-      ctx.fillStyle = "#DCE7F0";
-      ctx.beginPath();
-      ctx.moveTo(-7, 15);
-      ctx.lineTo(7, 15);
-      ctx.lineTo(6, 34);
-      ctx.lineTo(-6, 34);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      // Waving arm
-      ctx.strokeStyle = "#F2F6FA";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(6, 18);
-      ctx.lineTo(15, 6 + wave);
-      ctx.stroke();
-
-      ctx.fillStyle = "#7CE0FF";
-      ctx.font = "900 9px monospace";
+      ctx.fillStyle = "#8BE8FF";
+      ctx.font = "900 9.5px monospace";
       ctx.textAlign = "center";
-      ctx.fillText("SOS // POW", 0, -10);
+      ctx.fillText(`SOS // ${p.name}`, 0, -18);
       ctx.restore();
     }
   }
@@ -750,32 +679,31 @@ export class OrbitalInkRenderer {
   private drawPickups(ctx: CanvasRenderingContext2D, pickups: PickupItem[], t: number): void {
     for (const item of pickups) {
       if (item.collected) continue;
-      const bob = Math.sin(t * 4.5 + item.x) * 4;
+      const bob = Math.sin(t * 4.5 + item.x) * 4.5;
       const color = item.kind === "medgel" ? "#4CE08A" : item.kind === "emp" ? "#57C7FF" : "#FF9500";
       ctx.save();
       ctx.translate(item.x, item.y + bob);
 
-      const rg = ctx.createRadialGradient(0, 0, 2, 0, 0, 26);
-      rg.addColorStop(0, `${color}44`);
+      const rg = ctx.createRadialGradient(0, 0, 3, 0, 0, 32);
+      rg.addColorStop(0, `${color}55`);
       rg.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = rg;
       ctx.beginPath();
-      ctx.arc(0, 0, 26, 0, Math.PI * 2);
+      ctx.arc(0, 0, 32, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = "#0E1620";
-      ctx.strokeStyle = "#04060A";
-      ctx.lineWidth = 3;
-      ctx.fillRect(-15, -12, 30, 24);
-      ctx.strokeRect(-15, -12, 30, 24);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1.6;
-      ctx.strokeRect(-13, -10, 26, 20);
+      const key = item.kind === "medgel" ? "item_medgel" : item.kind === "emp" ? "item_emp" : "item_weapon";
+      const spr = this.sprites.get(key);
+      if (spr) {
+        const w = item.kind === "weapon" ? 42 : 34;
+        const h = item.kind === "weapon" ? 33 : 34;
+        ctx.drawImage(spr, -w * 0.5, -h * 0.5, w, h);
+      }
 
       ctx.fillStyle = color;
-      ctx.font = "900 9px monospace";
+      ctx.font = "900 8.5px monospace";
       ctx.textAlign = "center";
-      ctx.fillText(item.kind === "medgel" ? "+HP" : item.kind === "emp" ? "EMP" : "WPN", 0, 3);
+      ctx.fillText(item.kind === "medgel" ? "MED-GEL" : item.kind === "emp" ? "EMP ARC" : "WEAPON", 0, -21);
       ctx.restore();
     }
   }
@@ -905,129 +833,47 @@ export class OrbitalInkRenderer {
 
     const flash = e.hitFlash > 0;
     const stunned = e.state === "stunned" || e.disabledByHack;
+    if (flash) ctx.filter = "brightness(2.8) contrast(1.4)";
 
     if (e.kind === "trooper") {
-      // Contact shadow
-      ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.58)";
       ctx.beginPath();
-      ctx.ellipse(0, e.h * 0.5, 14, 4, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, e.h * 0.5, 16, 4.5, 0, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.scale(e.facing, 1);
-      const stride = Math.abs(e.vx) > 5 ? Math.sin(t * 10.5) * 7 : 0;
-      ctx.strokeStyle = "#04060A";
-      ctx.lineWidth = 2.8;
-      ctx.lineJoin = "round";
-
-      // Back leg
-      ctx.fillStyle = flash ? "#FFFFFF" : "#151E2A";
-      ctx.beginPath();
-      ctx.moveTo(-4, 6);
-      ctx.lineTo(2, 6);
-      ctx.lineTo(0 - stride * 0.7, 26);
-      ctx.lineTo(-7 - stride * 0.7, 26);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Front armored leg with knee guard
-      ctx.fillStyle = flash ? "#FFFFFF" : "#37495E";
-      ctx.beginPath();
-      ctx.moveTo(-1, 6);
-      ctx.lineTo(7, 6);
-      ctx.lineTo(9 + stride * 0.7, 26);
-      ctx.lineTo(1 + stride * 0.7, 26);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Armored torso carapace (half cel-lit steel, half deep ink shadow)
-      ctx.fillStyle = flash ? "#FFFFFF" : "#44586E";
-      ctx.beginPath();
-      ctx.moveTo(-11, -12);
-      ctx.lineTo(11, -13);
-      ctx.lineTo(8, 8);
-      ctx.lineTo(-9, 8);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = flash ? "#FFFFFF" : "#111924";
-      ctx.beginPath();
-      ctx.moveTo(-11, -12);
-      ctx.lineTo(0, -12);
-      ctx.lineTo(-2, 8);
-      ctx.lineTo(-9, 8);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Shoulder armor & helmet
-      ctx.fillStyle = flash ? "#FFFFFF" : "#D6E3EE";
-      ctx.beginPath();
-      ctx.moveTo(-7, -23);
-      ctx.lineTo(8, -24);
-      ctx.lineTo(10, -14);
-      ctx.lineTo(-8, -14);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      // Menacing crimson optic slit
-      ctx.fillStyle = stunned ? "#57C7FF" : "#FF3B2F";
-      ctx.fillRect(1, -20, 9, 3.5);
-
-      // Detailed pulse rifle
-      ctx.fillStyle = "#0A0E14";
-      ctx.strokeStyle = "#8FA6BC";
-      ctx.lineWidth = 1.2;
-      ctx.fillRect(2, -6, 22, 5.5);
-      ctx.strokeRect(2, -6, 22, 5.5);
-      ctx.fillStyle = "#FF3B2F";
-      ctx.fillRect(16, -5, 6, 1.8);
-    } else if (e.kind === "drone" || e.kind === "interceptor") {
-      const hover = Math.sin(t * 6.5 + e.x) * 4;
+      const moving = Math.abs(e.vx) > 6;
+      const frame = moving && Math.floor(t * 7.5) % 2 === 1 ? "trooper_b" : "trooper_a";
+      const spr = this.sprites.get(frame);
+      if (spr) {
+        const bob = moving ? Math.abs(Math.sin(t * 7.5)) * -2 : 0;
+        ctx.drawImage(spr, -31, -33 + bob, 62, 62);
+      }
+    } else if (e.kind === "drone") {
+      const hover = Math.sin(t * 6.5 + e.x) * 4.5;
       ctx.translate(0, hover);
       ctx.scale(e.facing, 1);
-
-      // Swept orbital killer-drone blades (matching Style A silhouette!)
-      ctx.strokeStyle = "#04060A";
-      ctx.lineWidth = 3;
-      ctx.fillStyle = flash ? "#FFFFFF" : "#182330";
-      // Upper & lower swept thruster blades
-      ctx.beginPath();
-      ctx.moveTo(22, -1);
-      ctx.lineTo(2, -14);
-      ctx.lineTo(-24, -18);
-      ctx.lineTo(-14, -4);
-      ctx.lineTo(-24, 14);
-      ctx.lineTo(0, 12);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Stark white ceramic dorsal highlight
-      ctx.fillStyle = flash ? "#FFFFFF" : "#E5EFF7";
-      ctx.beginPath();
-      ctx.moveTo(18, -2);
-      ctx.lineTo(2, -11);
-      ctx.lineTo(-14, -12);
-      ctx.lineTo(-4, -3);
-      ctx.closePath();
-      ctx.fill();
-
-      // Glowing scanner aperture + halo
+      const spr = this.sprites.get("drone");
+      if (spr) {
+        ctx.drawImage(spr, -34, -24, 68, 48);
+      }
       const eyeCol = stunned ? "#57C7FF" : e.state === "combat" ? "#FF3B2F" : "#FF9500";
-      const eg = ctx.createRadialGradient(11, 0, 1, 11, 0, 14);
+      const eg = ctx.createRadialGradient(16, 0, 1, 16, 0, 16);
       eg.addColorStop(0, eyeCol);
       eg.addColorStop(1, "rgba(255, 149, 0, 0)");
       ctx.fillStyle = eg;
       ctx.beginPath();
-      ctx.arc(11, 0, 14, 0, Math.PI * 2);
+      ctx.arc(16, 0, 16, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = "#FFFFFF";
-      ctx.beginPath();
-      ctx.arc(11, 0, 3.5, 0, Math.PI * 2);
-      ctx.fill();
+    } else if (e.kind === "interceptor") {
+      const hover = Math.sin(t * 5.5 + e.x) * 5;
+      ctx.translate(0, hover);
+      const spr = this.sprites.get("interceptor");
+      if (spr) {
+        ctx.drawImage(spr, -34, -20, 68, 40);
+      }
     } else if (e.kind === "camera" || e.kind === "turret") {
-      ctx.fillStyle = flash ? "#FFFFFF" : "#1B2736";
+      ctx.fillStyle = "#1B2736";
       ctx.strokeStyle = "#04060A";
       ctx.lineWidth = 3;
       ctx.fillRect(-15, -11, 30, 22);
@@ -1039,80 +885,33 @@ export class OrbitalInkRenderer {
       ctx.fillStyle = stunned ? "#57C7FF" : "#FF3B2F";
       ctx.fillRect(15, -3.5, 6, 7);
     } else if (e.kind === "heavy") {
-      // Heavy Exo-Walker Mech
-      ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
       ctx.beginPath();
-      ctx.ellipse(0, e.h * 0.5, 24, 5, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, e.h * 0.5, 28, 6, 0, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.scale(e.facing, 1);
-      const step = Math.abs(e.vx) > 5 ? Math.sin(t * 6) * 5 : 0;
-      ctx.strokeStyle = "#04060A";
-      ctx.lineWidth = 3.4;
+      const bob = Math.abs(e.vx) > 5 ? Math.abs(Math.sin(t * 5.5)) * -3 : 0;
+      const spr = this.sprites.get("heavy");
+      if (spr) {
+        ctx.drawImage(spr, -40, -40 + bob, 80, 76);
+      }
 
-      // Reverse-jointed heavy hydraulic legs
-      ctx.fillStyle = "#121A24";
-      ctx.beginPath();
-      ctx.moveTo(-14, 12);
-      ctx.lineTo(-4, 12);
-      ctx.lineTo(-8 - step, 32);
-      ctx.lineTo(-18 - step, 32);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = "#2A394A";
-      ctx.beginPath();
-      ctx.moveTo(2, 12);
-      ctx.lineTo(14, 12);
-      ctx.lineTo(17 + step, 32);
-      ctx.lineTo(5 + step, 32);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Armored hulking carapace
-      ctx.fillStyle = flash ? "#FFFFFF" : "#253445";
-      ctx.beginPath();
-      ctx.moveTo(-20, -24);
-      ctx.lineTo(16, -28);
-      ctx.lineTo(20, 14);
-      ctx.lineTo(-18, 16);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Ceramic shoulder cowl
-      ctx.fillStyle = flash ? "#FFFFFF" : "#E3EDF5";
-      ctx.beginPath();
-      ctx.moveTo(-16, -24);
-      ctx.lineTo(14, -26);
-      ctx.lineTo(10, -14);
-      ctx.lineTo(-16, -14);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Glowing crimson sensor eye
-      ctx.fillStyle = stunned ? "#57C7FF" : "#FF3B2F";
-      ctx.fillRect(4, -20, 12, 5);
-
-      // Glowing hexagonal frontal energy shield
       if (e.shielded && !stunned) {
-        const sg = ctx.createLinearGradient(18, -26, 28, 22);
-        sg.addColorStop(0, "rgba(120, 224, 255, 0.55)");
+        const sg = ctx.createLinearGradient(20, -30, 32, 26);
+        sg.addColorStop(0, "rgba(120, 224, 255, 0.62)");
         sg.addColorStop(1, "rgba(77, 168, 218, 0.2)");
         ctx.fillStyle = sg;
         ctx.strokeStyle = "#7CE0FF";
         ctx.lineWidth = 2.6;
-        ctx.fillRect(19, -26, 8, 50);
-        ctx.strokeRect(19, -26, 8, 50);
+        ctx.fillRect(22, -28, 9, 56);
+        ctx.strokeRect(22, -28, 9, 56);
       }
     }
 
+    ctx.filter = "none";
     ctx.restore();
 
-    // EMP Stun electric arcs
     if (stunned) {
       ctx.strokeStyle = "#7CE0FF";
       ctx.lineWidth = 2;
@@ -1124,25 +923,23 @@ export class OrbitalInkRenderer {
       ctx.stroke();
     }
 
-    // Iconic MGS "?" and "!" Ink Alert Emblems
     if (e.state === "combat") {
-      this.drawAlertEmblem(ctx, cx, e.y - 22, "!", "#FF3B2F");
+      this.drawAlertEmblem(ctx, cx, e.y - 24, "!", "#FF3B2F");
     } else if (e.awareness > 18 || e.state === "investigate") {
-      this.drawAlertEmblem(ctx, cx, e.y - 22, "?", "#FF9500");
+      this.drawAlertEmblem(ctx, cx, e.y - 24, "?", "#FF9500");
     }
 
     if (e.hp < e.maxHp) {
       ctx.fillStyle = "#05070B";
-      ctx.fillRect(e.x, e.y - 10, e.w, 4.5);
+      ctx.fillRect(e.x, e.y - 11, e.w, 4.5);
       ctx.fillStyle = "#FF3B2F";
-      ctx.fillRect(e.x + 1, e.y - 9, (e.w - 2) * Math.max(0, e.hp / e.maxHp), 2.5);
+      ctx.fillRect(e.x + 1, e.y - 10, (e.w - 2) * Math.max(0, e.hp / e.maxHp), 2.5);
     }
   }
 
   private drawAlertEmblem(ctx: CanvasRenderingContext2D, x: number, y: number, sym: string, color: string): void {
     ctx.save();
     ctx.translate(x, y);
-    // Sumi-e ink splatter diamond backing
     ctx.fillStyle = "#05070B";
     ctx.beginPath();
     ctx.moveTo(0, -16);
@@ -1176,269 +973,118 @@ export class OrbitalInkRenderer {
     }
 
     if (p.inBox) {
-      // High-craft Crinkled Gold-Kapton MLI-09 Thermal-Foil Box!
       const bob = Math.abs(p.vx) > 10 ? Math.sin(t * 16) * 2.5 : 0;
       ctx.translate(0, bob);
-      const fg = ctx.createLinearGradient(-20, -42, 22, 0);
-      fg.addColorStop(0, "#F3DC8A");
-      fg.addColorStop(0.45, "#C79E3F");
-      fg.addColorStop(1, "#5C4415");
-      ctx.fillStyle = fg;
-      ctx.strokeStyle = "#05070B";
-      ctx.lineWidth = 3.4;
-      ctx.fillRect(-21, -42, 42, 42);
-      ctx.strokeRect(-21, -42, 42, 42);
-
-      // Metallic foil crinkle facets
-      ctx.fillStyle = "rgba(255, 252, 232, 0.42)";
-      ctx.beginPath();
-      ctx.moveTo(-19, -40);
-      ctx.lineTo(10, -40);
-      ctx.lineTo(-3, -19);
-      ctx.lineTo(-19, -25);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = "#090C11";
-      ctx.font = "900 8.5px monospace";
-      ctx.textAlign = "center";
-      ctx.fillText("MLI-09", 0, -14);
-
+      const boxSpr = this.sprites.get("mli_box");
+      if (boxSpr) {
+        ctx.drawImage(boxSpr, -26, -50, 52, 52);
+      }
       if (Math.abs(p.vx) > 8) {
-        ctx.fillStyle = "#070A0F";
-        ctx.fillRect(-10, -32, 20, 5.5);
+        ctx.fillStyle = "#06080D";
+        ctx.fillRect(-10, -34, 20, 5.5);
         ctx.fillStyle = "#FF3B2F";
-        ctx.fillRect(p.facing > 0 ? 1 : -7, -30.5, 6, 2.8);
+        ctx.fillRect(p.facing > 0 ? 1 : -7, -32.5, 6, 2.8);
       }
       ctx.restore();
       return;
     }
 
-    const bodyH = p.crouching ? 36 : 54;
+    const bodyH = p.crouching ? 40 : 62;
     const moving = p.onGround && Math.abs(p.vx) > 14;
-    const stride = moving ? Math.sin(p.animTime * 13.5) * 9 : 0;
     const breath = moving ? 0 : Math.sin(t * 3.2) * 1.1;
-    const lean = moving ? p.facing * 0.08 : 0;
 
-    // Ground ink shadow
     if (p.onGround) {
-      ctx.fillStyle = "rgba(0, 0, 0, 0.62)";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
       ctx.beginPath();
-      ctx.ellipse(0, 1, 18, 4.5, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 1, 20, 5, 0, 0, Math.PI * 2);
       ctx.fill();
     }
 
     ctx.save();
-    ctx.rotate(lean);
     ctx.scale(p.facing, 1);
-
-    ctx.strokeStyle = "#04060A";
-    ctx.lineWidth = 2.9;
-    ctx.lineJoin = "round";
-
-    // Dynamic flowing tactical tether / oxygen ribbon behind pack
-    ctx.strokeStyle = "#162230";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(-13, -bodyH + 22);
-    ctx.quadraticCurveTo(
-      -24 - Math.abs(p.vx) * 0.04,
-      -bodyH + 26 + Math.sin(t * 8) * 4,
-      -20 - Math.abs(p.vx) * 0.05,
-      -bodyH + 38
-    );
-    ctx.stroke();
-
-    // Sculpted EVA Life-Support Pack with cooling vent & blue LED
-    ctx.strokeStyle = "#04060A";
-    ctx.lineWidth = 2.8;
-    ctx.fillStyle = "#1C2938";
-    ctx.beginPath();
-    ctx.moveTo(-18, -bodyH + 11 + breath);
-    ctx.lineTo(-7, -bodyH + 9 + breath);
-    ctx.lineTo(-7, -bodyH + 11 + bodyH * 0.46 + breath);
-    ctx.lineTo(-17, -bodyH + 10 + bodyH * 0.42 + breath);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = "#57C7FF";
-    ctx.fillRect(-15.5, -bodyH + 15 + breath, 4.5, 3);
-
-    // Articulated tactical legs with ceramic thigh plates & obsidian mag-boots
-    if (p.crouching) {
-      ctx.fillStyle = "#182330";
-      ctx.beginPath();
-      ctx.moveTo(-11, -15);
-      ctx.lineTo(2, -15);
-      ctx.lineTo(0, 0);
-      ctx.lineTo(-13, 0);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = "#EDF4F9";
-      ctx.beginPath();
-      ctx.moveTo(-2, -15);
-      ctx.lineTo(14, -12);
-      ctx.lineTo(12, 0);
-      ctx.lineTo(2, 0);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-    } else {
-      // Back leg
-      ctx.fillStyle = "#202E3F";
-      ctx.beginPath();
-      ctx.moveTo(-5, -22);
-      ctx.lineTo(2, -22);
-      ctx.lineTo(1 - stride * 0.78, 0);
-      ctx.lineTo(-8 - stride * 0.78, 0);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Front leg (stark ceramic white highlight + knee pad + heavy boot)
-      ctx.fillStyle = "#F0F6FA";
-      ctx.beginPath();
-      ctx.moveTo(-2, -22);
-      ctx.lineTo(7, -22);
-      ctx.lineTo(10 + stride * 0.78, 0);
-      ctx.lineTo(0 + stride * 0.78, 0);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Knee pad & heavy obsidian boot
-      ctx.fillStyle = "#0F1722";
-      ctx.fillRect(0 + stride * 0.4, -14, 8, 4.5);
-      ctx.fillRect(1 + stride * 0.7, -7, 9, 7);
+    const poseKey = p.crouching
+      ? "mercer_crouch"
+      : !p.onGround && eva
+      ? "mercer_eva"
+      : moving
+      ? Math.floor(p.animTime * 9.5) % 2 === 0
+        ? "mercer_run_a"
+        : "mercer_run_b"
+      : "mercer_stand";
+    const spr = this.sprites.get(poseKey);
+    if (spr) {
+      const runBob = moving ? Math.abs(Math.sin(p.animTime * 9.5)) * -3 : breath;
+      const size = p.crouching ? 62 : 66;
+      ctx.drawImage(spr, -size * 0.5, -size + 4 + runBob, size, size);
     }
-
-    // Tapered Armored Torso & Tactical Harness
-    const torsoY = (p.crouching ? -31 : -43) + breath;
-    const torsoH = p.crouching ? 18 : 23;
-    ctx.fillStyle = "#F2F7FB";
-    ctx.beginPath();
-    ctx.moveTo(-10, torsoY + 2);
-    ctx.lineTo(11, torsoY);
-    ctx.lineTo(8, torsoY + torsoH);
-    ctx.lineTo(-8, torsoY + torsoH);
-    ctx.closePath();
-    ctx.fill();
-    // Heavy sumi-e back shadow + tactical belt
-    ctx.fillStyle = "#121C29";
-    ctx.beginPath();
-    ctx.moveTo(-10, torsoY + 2);
-    ctx.lineTo(1, torsoY + 1);
-    ctx.lineTo(-1, torsoY + torsoH);
-    ctx.lineTo(-8, torsoY + torsoH);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = "#090E15";
-    ctx.fillRect(-9, torsoY + torsoH - 5, 18, 5);
-    // Sculpted shoulder pauldron
-    ctx.fillStyle = "#E4EEF6";
-    ctx.beginPath();
-    ctx.ellipse(-1, torsoY + 4, 7.5, 4.5, -0.2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    // Contoured Aerospace Helmet + Signature Shinkawa Crimson Visor Slash!
-    const headY = (p.crouching ? -38 : -50) + breath;
-    ctx.fillStyle = "#F4F8FC";
-    ctx.beginPath();
-    ctx.arc(1, headY, 9.8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = "#182433";
-    ctx.beginPath();
-    ctx.arc(1, headY, 9.4, Math.PI * 0.65, Math.PI * 1.55);
-    ctx.fill();
-    ctx.fillStyle = "#070B11";
-    ctx.beginPath();
-    ctx.ellipse(5.3, headY + 0.5, 6.4, 5.6, 0.08, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Dramatic crimson calligraphy streak across visor
-    ctx.strokeStyle = "#FF3B2F";
-    ctx.lineWidth = 2.6;
-    ctx.beginPath();
-    ctx.moveTo(1.5, headY + 1.5);
-    ctx.lineTo(13, headY - 3.5);
-    ctx.stroke();
-
     ctx.restore();
 
-    // Aimed Weapon Arm + Detailed Tactical Weapon + Laser Sight
-    const shoulderY = (p.crouching ? -22 : -34) + breath;
+    // Articulated Aimed Weapon + Laser Sight aligned to Mercer's shoulder!
+    const shoulderY = (p.crouching ? -24 : -35) + breath;
     ctx.save();
     ctx.translate(0, shoulderY);
     ctx.rotate(p.aimAngle);
 
     ctx.strokeStyle =
-      p.weaponId === "silenced_rail" ? "rgba(87, 199, 255, 0.28)" : "rgba(255, 59, 47, 0.34)";
-    ctx.lineWidth = 1.2;
+      p.weaponId === "silenced_rail" ? "rgba(87, 199, 255, 0.3)" : "rgba(255, 59, 47, 0.36)";
+    ctx.lineWidth = 1.25;
     ctx.beginPath();
-    ctx.moveTo(18, 0);
-    ctx.lineTo(148, 0);
+    ctx.moveTo(20, 0);
+    ctx.lineTo(155, 0);
     ctx.stroke();
 
-    // Armored forearm
-    ctx.fillStyle = "#DCE7F0";
+    // Armored forearm & detailed Shinkawa weapon silhouette
+    ctx.fillStyle = "#E4EEF6";
     ctx.strokeStyle = "#04060A";
     ctx.lineWidth = 2;
-    ctx.fillRect(1, -3, 10, 6);
-    ctx.strokeRect(1, -3, 10, 6);
+    ctx.fillRect(0, -3.2, 11, 6.4);
+    ctx.strokeRect(0, -3.2, 11, 6.4);
 
-    // Distinct weapon silhouettes
     ctx.fillStyle = "#0A0F16";
     ctx.strokeStyle = "#E8F2FA";
-    ctx.lineWidth = 1.2;
+    ctx.lineWidth = 1.3;
     if (p.weaponId === "silenced_rail") {
-      ctx.fillRect(8, -3.2, 23, 5.2);
-      ctx.strokeRect(8, -3.2, 23, 5.2);
+      ctx.fillRect(8, -3.2, 24, 5.2);
+      ctx.strokeRect(8, -3.2, 24, 5.2);
       ctx.fillStyle = "#57C7FF";
-      ctx.fillRect(16, -1.2, 5, 1.5);
+      ctx.fillRect(16, -1.2, 6, 1.5);
     } else if (p.weaponId === "piercing_rail") {
-      ctx.fillRect(5, -4.5, 33, 8);
-      ctx.strokeRect(5, -4.5, 33, 8);
+      ctx.fillRect(5, -4.6, 35, 8.2);
+      ctx.strokeRect(5, -4.6, 35, 8.2);
       ctx.fillStyle = "#FF3B2F";
-      ctx.fillRect(15, -1.6, 20, 2.4);
+      ctx.fillRect(15, -1.6, 22, 2.5);
     } else if (p.weaponId === "micro_missiles") {
-      ctx.fillRect(5, -5.5, 25, 10);
-      ctx.strokeRect(5, -5.5, 25, 10);
+      ctx.fillRect(5, -5.8, 27, 10.5);
+      ctx.strokeRect(5, -5.8, 27, 10.5);
       ctx.fillStyle = "#FF9500";
-      ctx.fillRect(24, -4, 4, 3);
-      ctx.fillRect(24, 1, 4, 3);
+      ctx.fillRect(25, -4.2, 4.5, 3);
+      ctx.fillRect(25, 1.2, 4.5, 3);
     } else {
-      ctx.fillRect(6, -4.2, 27, 7.5);
-      ctx.strokeRect(6, -4.2, 27, 7.5);
+      ctx.fillRect(6, -4.2, 28, 7.6);
+      ctx.strokeRect(6, -4.2, 28, 7.6);
       ctx.fillStyle = p.weaponId === "pulse_carbine" ? "#57C7FF" : "#FF9500";
-      ctx.fillRect(14, -1.5, 11, 2);
+      ctx.fillRect(14, -1.6, 12, 2.2);
     }
     ctx.restore();
 
-    // EVA thruster fuel gauge
     if (eva && !p.onGround) {
-      ctx.fillStyle = "rgba(8, 13, 20, 0.78)";
-      ctx.fillRect(-16, -bodyH - 15, 32, 4.5);
+      ctx.fillStyle = "rgba(8, 13, 20, 0.82)";
+      ctx.fillRect(-16, -bodyH - 12, 32, 4.5);
       ctx.fillStyle = "#57C7FF";
-      ctx.fillRect(-15, -bodyH - 14, 30 * p.evaFuel, 2.5);
+      ctx.fillRect(-15, -bodyH - 11, 30 * p.evaFuel, 2.5);
     }
 
-    // Dramatic CQC Sumi-e Blade Arc
     if (p.cqcAnim > 0) {
       const k = p.cqcAnim / 0.22;
       ctx.strokeStyle = "#FF3B2F";
-      ctx.lineWidth = 9 * k;
+      ctx.lineWidth = 10 * k;
       ctx.beginPath();
-      ctx.arc(p.facing * 12, -26, 40, p.facing > 0 ? -1.15 : Math.PI - 0.95, p.facing > 0 ? 0.95 : Math.PI + 1.15);
+      ctx.arc(p.facing * 14, -28, 42, p.facing > 0 ? -1.15 : Math.PI - 0.95, p.facing > 0 ? 0.95 : Math.PI + 1.15);
       ctx.stroke();
       ctx.strokeStyle = "#FFFFFF";
-      ctx.lineWidth = 3.5 * k;
+      ctx.lineWidth = 3.8 * k;
       ctx.beginPath();
-      ctx.arc(p.facing * 12, -26, 38, p.facing > 0 ? -1.1 : Math.PI - 0.9, p.facing > 0 ? 0.9 : Math.PI + 1.1);
+      ctx.arc(p.facing * 14, -28, 40, p.facing > 0 ? -1.1 : Math.PI - 0.9, p.facing > 0 ? 0.9 : Math.PI + 1.1);
       ctx.stroke();
     }
 
@@ -1460,72 +1106,38 @@ export class OrbitalInkRenderer {
       ctx.globalAlpha = 0.48;
     }
 
-    // Twin Mach Shock-Diamond Plasma Plumes (killed during Cold Drift stealth!)
+    // Twin Mach Shock-Diamond Plasma Plumes (off during Cold Drift!)
     if (!p.coldDrift) {
-      const flameLen = 36 + Math.sin(t * 42) * 10;
-      const g = ctx.createLinearGradient(-26, 0, -26 - flameLen, 0);
-      g.addColorStop(0, "#FFFFFF");
-      g.addColorStop(0.35, "#7CE0FF");
-      g.addColorStop(0.75, "rgba(77, 168, 218, 0.45)");
-      g.addColorStop(1, "rgba(77, 168, 218, 0)");
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.moveTo(-24, -10);
-      ctx.lineTo(-28 - flameLen, 0);
-      ctx.lineTo(-24, 10);
-      ctx.closePath();
-      ctx.fill();
+      const flameLen = 40 + Math.sin(t * 42) * 11;
+      for (const py of [-7, 7]) {
+        const g = ctx.createLinearGradient(-32, py, -32 - flameLen, py);
+        g.addColorStop(0, "#FFFFFF");
+        g.addColorStop(0.35, "#7CE0FF");
+        g.addColorStop(0.75, "rgba(77, 168, 218, 0.45)");
+        g.addColorStop(1, "rgba(77, 168, 218, 0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.moveTo(-30, py - 5);
+        ctx.lineTo(-32 - flameLen, py);
+        ctx.lineTo(-30, py + 5);
+        ctx.closePath();
+        ctx.fill();
+      }
     }
 
-    // Sculpted Delta-Wing Starship Vesper
-    ctx.fillStyle = p.coldDrift ? "#5E90B2" : "#F0F6FA";
-    ctx.strokeStyle = "#04060A";
-    ctx.lineWidth = 3.2;
-    ctx.beginPath();
-    ctx.moveTo(38, 0);
-    ctx.lineTo(8, -14);
-    ctx.lineTo(-28, -21);
-    ctx.lineTo(-19, -7);
-    ctx.lineTo(-28, 0);
-    ctx.lineTo(-19, 7);
-    ctx.lineTo(-28, 21);
-    ctx.lineTo(8, 14);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+    const spr = this.sprites.get("starship");
+    if (spr) {
+      if (p.coldDrift) ctx.filter = "hue-rotate(155deg) brightness(0.9)";
+      ctx.drawImage(spr, -46, -24, 92, 48);
+      ctx.filter = "none";
+    }
 
-    // Heavy ink thermal belly tiles
-    ctx.fillStyle = "#151F2C";
-    ctx.beginPath();
-    ctx.moveTo(38, 0);
-    ctx.lineTo(8, 14);
-    ctx.lineTo(-28, 21);
-    ctx.lineTo(-19, 7);
-    ctx.lineTo(-28, 0);
-    ctx.closePath();
-    ctx.fill();
-
-    // Wing panel seams & crimson squadron stripe
-    ctx.strokeStyle = "#FF3B2F";
-    ctx.lineWidth = 2.4;
-    ctx.beginPath();
-    ctx.moveTo(-18, -15);
-    ctx.lineTo(4, -9);
-    ctx.stroke();
-
-    // Cockpit visor canopy
-    ctx.fillStyle = p.coldDrift ? "#57C7FF" : "#FF3B2F";
-    ctx.beginPath();
-    ctx.ellipse(12, -3, 9, 3.8, 0.1, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Cold Drift thermal stealth field
     if (p.coldDrift) {
       ctx.strokeStyle = "#7CE0FF";
       ctx.setLineDash([5, 4]);
       ctx.lineWidth = 1.8;
       ctx.beginPath();
-      ctx.ellipse(3, 0, 46, 26, 0, 0, Math.PI * 2);
+      ctx.ellipse(2, 0, 50, 28, 0, 0, Math.PI * 2);
       ctx.stroke();
       ctx.setLineDash([]);
     }
@@ -1540,158 +1152,72 @@ export class OrbitalInkRenderer {
     if (b.id === "iron_gantry") {
       ctx.save();
       ctx.translate(cx, cy);
-      // Heavy ground shadow
-      ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.68)";
       ctx.beginPath();
-      ctx.ellipse(0, 66, 68, 9, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 68, 76, 10, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Armored Treads with bogie wheels
-      ctx.fillStyle = "#0E141D";
-      ctx.strokeStyle = "#04060A";
-      ctx.lineWidth = 4;
-      ctx.fillRect(-60, 36, 120, 30);
-      ctx.strokeRect(-60, 36, 120, 30);
-      for (let wx = -44; wx <= 44; wx += 22) {
-        ctx.fillStyle = "#2E3E50";
-        ctx.beginPath();
-        ctx.arc(wx, 51, 8, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-      }
-
-      // Towering Crane-Loader Torso
-      const hull = ctx.createLinearGradient(-56, -64, 56, 38);
-      hull.addColorStop(0, flash ? "#FFFFFF" : "#3E5166");
-      hull.addColorStop(0.55, flash ? "#FFFFFF" : "#1C2734");
-      hull.addColorStop(1, "#0B1018");
-      ctx.fillStyle = hull;
-      ctx.beginPath();
-      ctx.moveTo(-54, -52);
-      ctx.lineTo(-34, -64);
-      ctx.lineTo(48, -58);
-      ctx.lineTo(54, 38);
-      ctx.lineTo(-52, 38);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Stark white ceramic shoulder carapace
-      ctx.fillStyle = flash ? "#FFFFFF" : "#E5EFF7";
-      ctx.beginPath();
-      ctx.moveTo(-48, -54);
-      ctx.lineTo(36, -56);
-      ctx.lineTo(28, -32);
-      ctx.lineTo(-46, -32);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Glowing Hydraulic Coolant Louvers (physically glow bright molten amber when open!)
       const ventOpen = b.vulnerableTimer > 0 || b.stunTimer > 0;
       if (ventOpen) {
-        const vg = ctx.createRadialGradient(0, 0, 8, 0, 0, 56);
-        vg.addColorStop(0, "rgba(255, 165, 30, 0.55)");
+        const vg = ctx.createRadialGradient(0, 4, 8, 0, 4, 72);
+        vg.addColorStop(0, "rgba(255, 165, 30, 0.6)");
         vg.addColorStop(1, "rgba(255, 149, 0, 0)");
         ctx.fillStyle = vg;
         ctx.beginPath();
-        ctx.arc(0, 0, 56, 0, Math.PI * 2);
+        ctx.arc(0, 4, 72, 0, Math.PI * 2);
         ctx.fill();
       }
-      ctx.fillStyle = ventOpen ? "#FFAA22" : "#3A1717";
-      ctx.fillRect(-28, -14, 56, 28);
-      ctx.strokeRect(-28, -14, 56, 28);
+
+      if (flash) ctx.filter = "brightness(2.5)";
+      const spr = this.sprites.get(ventOpen ? "boss_iron_gantry_vent" : "boss_iron_gantry");
+      if (spr) {
+        const shakeX = b.attackTelegraph > 0 ? Math.sin(t * 50) * 3 : 0;
+        ctx.drawImage(spr, -88 + shakeX, -78, 164, 152);
+      }
+      ctx.filter = "none";
+
       if (ventOpen) {
         ctx.fillStyle = "#FFF7DF";
-        ctx.font = "900 10px monospace";
+        ctx.font = "900 10.5px monospace";
         ctx.textAlign = "center";
-        ctx.fillText("VENT OPEN // CRIT!", 0, -24);
+        ctx.fillText("COOLANT VENT OPEN // 2X CRIT!", 0, -82);
       }
-
-      // Menacing crimson optic sensor
-      ctx.fillStyle = b.stunTimer > 0 ? "#57C7FF" : "#FF3B2F";
-      ctx.fillRect(-40, -45, 28, 7);
-
-      // Articulated Hydraulic Pincer Claw Arm
-      const clawReach = b.attackTelegraph > 0 ? -24 : Math.sin(t * 4.5) * 8;
-      ctx.fillStyle = "#18222F";
-      ctx.fillRect(-92 + clawReach, -20, 44, 18);
-      ctx.strokeRect(-92 + clawReach, -20, 44, 18);
-      ctx.fillStyle = "#DDE7F0";
-      ctx.beginPath();
-      ctx.moveTo(-92 + clawReach, -22);
-      ctx.lineTo(-108 + clawReach, -30);
-      ctx.lineTo(-100 + clawReach, -10);
-      ctx.lineTo(-108 + clawReach, 8);
-      ctx.lineTo(-92 + clawReach, 0);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
       ctx.restore();
     } else if (b.id === "valkyrie_09") {
       ctx.save();
       ctx.translate(cx, cy);
-      // Twin orbital engine plumes
-      const pl = ctx.createLinearGradient(44, 0, 96, 0);
+      const pl = ctx.createLinearGradient(44, 0, 108, 0);
       pl.addColorStop(0, "#FF9500");
       pl.addColorStop(1, "rgba(255, 59, 47, 0)");
       ctx.fillStyle = pl;
-      ctx.fillRect(42, -16, 48, 8);
-      ctx.fillRect(42, 8, 48, 8);
+      ctx.fillRect(46, -18, 56, 9);
+      ctx.fillRect(46, 9, 56, 9);
 
-      // Razor-edged swept-forward stealth gunship
-      ctx.fillStyle = flash ? "#FFFFFF" : "#182330";
-      ctx.strokeStyle = "#04060A";
-      ctx.lineWidth = 3.8;
-      ctx.beginPath();
-      ctx.moveTo(-60, 0);
-      ctx.lineTo(6, -40);
-      ctx.lineTo(56, -24);
-      ctx.lineTo(36, 0);
-      ctx.lineTo(56, 24);
-      ctx.lineTo(6, 40);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
+      if (flash) ctx.filter = "brightness(2.5)";
+      const spr = this.sprites.get("boss_valkyrie");
+      if (spr) {
+        ctx.drawImage(spr, -72, -48, 144, 96);
+      }
+      ctx.filter = "none";
 
-      ctx.fillStyle = flash ? "#FFFFFF" : "#E8F2FA";
-      ctx.beginPath();
-      ctx.moveTo(-46, 0);
-      ctx.lineTo(10, -26);
-      ctx.lineTo(26, 0);
-      ctx.closePath();
-      ctx.fill();
-
-      // Core scanner eye
-      ctx.fillStyle = "#FF3B2F";
-      ctx.beginPath();
-      ctx.arc(-12, 0, 10, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#FFFFFF";
-      ctx.beginPath();
-      ctx.arc(-14, -2, 3.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Rotating segmented hexagonal energy shield arc
       if (b.stunTimer <= 0) {
         ctx.strokeStyle = "rgba(124, 224, 255, 0.35)";
         ctx.lineWidth = 12;
         ctx.beginPath();
-        ctx.arc(0, 0, 68, b.shieldAngle - 0.92, b.shieldAngle + 0.92);
+        ctx.arc(0, 0, 72, b.shieldAngle - 0.92, b.shieldAngle + 0.92);
         ctx.stroke();
         ctx.strokeStyle = "#7CE0FF";
         ctx.lineWidth = 3.5;
         ctx.beginPath();
-        ctx.arc(0, 0, 68, b.shieldAngle - 0.92, b.shieldAngle + 0.92);
+        ctx.arc(0, 0, 72, b.shieldAngle - 0.92, b.shieldAngle + 0.92);
         ctx.stroke();
       }
       ctx.restore();
     } else if (b.id === "mirror") {
-      // Optical tether beams connecting active prisms to Mirror
       for (const r of b.relays) {
         if (!r.active) continue;
         const ry = r.y + Math.sin(t * 5 + r.x) * 6;
-        ctx.strokeStyle = "rgba(255, 149, 0, 0.24)";
+        ctx.strokeStyle = "rgba(255, 149, 0, 0.28)";
         ctx.lineWidth = 2;
         ctx.setLineDash([6, 6]);
         ctx.beginPath();
@@ -1702,29 +1228,29 @@ export class OrbitalInkRenderer {
 
         ctx.save();
         ctx.translate(r.x, ry);
-        const pg = ctx.createRadialGradient(0, 0, 3, 0, 0, 28);
-        pg.addColorStop(0, "rgba(255, 149, 0, 0.45)");
+        const pg = ctx.createRadialGradient(0, 0, 3, 0, 0, 30);
+        pg.addColorStop(0, "rgba(255, 149, 0, 0.5)");
         pg.addColorStop(1, "rgba(255, 149, 0, 0)");
         ctx.fillStyle = pg;
         ctx.beginPath();
-        ctx.arc(0, 0, 28, 0, Math.PI * 2);
+        ctx.arc(0, 0, 30, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.fillStyle = "#162433";
         ctx.strokeStyle = "#FF9500";
         ctx.lineWidth = 2.6;
         ctx.beginPath();
-        ctx.moveTo(0, -19);
-        ctx.lineTo(16, 0);
-        ctx.lineTo(0, 19);
-        ctx.lineTo(-16, 0);
+        ctx.moveTo(0, -20);
+        ctx.lineTo(17, 0);
+        ctx.lineTo(0, 20);
+        ctx.lineTo(-17, 0);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         ctx.fillStyle = "#FFF0D0";
         ctx.font = "900 9px monospace";
         ctx.textAlign = "center";
-        ctx.fillText("PRISM", 0, -25);
+        ctx.fillText("PRISM", 0, -26);
         ctx.restore();
       }
 
@@ -1732,7 +1258,7 @@ export class OrbitalInkRenderer {
         if (c.hp <= 0) continue;
         ctx.save();
         ctx.translate(c.x, c.y);
-        ctx.globalAlpha = 0.56 + Math.sin(t * 14) * 0.16;
+        ctx.globalAlpha = 0.55 + Math.sin(t * 14) * 0.16;
         this.drawMirrorChassis(ctx, false, t, true);
         ctx.restore();
       }
@@ -1745,7 +1271,6 @@ export class OrbitalInkRenderer {
       ctx.save();
       ctx.translate(cx, cy);
 
-      // Sweeping orbital plasma beam with bright white core
       if (b.sweepingBeamActive) {
         ctx.save();
         ctx.rotate(b.sweepingBeamAngle);
@@ -1770,21 +1295,20 @@ export class OrbitalInkRenderer {
         ctx.restore();
       }
 
-      // Outer radiant neural aura
-      const aura = ctx.createRadialGradient(0, 0, 20, 0, 0, 130);
-      aura.addColorStop(0, b.phase === 3 ? "rgba(87, 199, 255, 0.4)" : "rgba(255, 59, 47, 0.36)");
+      const aura = ctx.createRadialGradient(0, 0, 20, 0, 0, 140);
+      aura.addColorStop(0, b.phase === 3 ? "rgba(87, 199, 255, 0.45)" : "rgba(255, 59, 47, 0.38)");
       aura.addColorStop(1, "rgba(0, 0, 0, 0)");
       ctx.fillStyle = aura;
       ctx.beginPath();
-      ctx.arc(0, 0, 130, 0, Math.PI * 2);
+      ctx.arc(0, 0, 140, 0, Math.PI * 2);
       ctx.fill();
 
-      // 3 Counter-rotating gyroscopic ceramic-and-ink containment rings
+      // Triple counter-rotating gyroscopic containment rings
       ctx.save();
       ctx.rotate(t * (1.2 + b.phase * 0.45));
       ctx.strokeStyle = b.phase === 3 ? "#57C7FF" : "#FF3B2F";
       ctx.lineWidth = 4.5;
-      ctx.strokeRect(-62, -62, 124, 124);
+      ctx.strokeRect(-66, -66, 132, 132);
       ctx.restore();
 
       ctx.save();
@@ -1792,88 +1316,44 @@ export class OrbitalInkRenderer {
       ctx.strokeStyle = "#E8F2FA";
       ctx.lineWidth = 3.5;
       ctx.beginPath();
-      ctx.arc(0, 0, 78, 0, Math.PI * 1.55);
+      ctx.arc(0, 0, 82, 0, Math.PI * 1.55);
       ctx.stroke();
       ctx.restore();
 
-      ctx.save();
-      ctx.rotate(t * 1.7);
-      ctx.strokeStyle = "rgba(87, 199, 255, 0.7)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(0, 0, 92, 0.4, 2.2);
-      ctx.arc(0, 0, 92, 3.5, 5.2);
-      ctx.stroke();
-      ctx.restore();
-
-      // Central Neural Core Sphere
-      const cg = ctx.createRadialGradient(0, 0, 6, 0, 0, 50);
-      cg.addColorStop(0, flash ? "#FFFFFF" : "#F2FBFF");
-      cg.addColorStop(0.5, b.phase === 3 ? "#57C7FF" : "#FF3B2F");
-      cg.addColorStop(1, "#090E16");
-      ctx.fillStyle = cg;
-      ctx.beginPath();
-      ctx.arc(0, 0, 50, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "#04060A";
-      ctx.lineWidth = 4;
-      ctx.stroke();
-
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.75)";
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      ctx.arc(0, 0, 28, 0, Math.PI * 2);
-      ctx.stroke();
+      if (flash) ctx.filter = "brightness(2.5)";
+      const spr = this.sprites.get("boss_lark");
+      if (spr) {
+        ctx.save();
+        ctx.rotate(t * 0.35);
+        ctx.drawImage(spr, -72, -72, 144, 144);
+        ctx.restore();
+      }
+      ctx.filter = "none";
       ctx.restore();
     }
   }
 
   private drawMirrorChassis(ctx: CanvasRenderingContext2D, flash: boolean, t: number, isClone: boolean): void {
-    // Orbiting crystalline ink shards
     for (let i = 0; i < 4; i++) {
       const a = t * 1.8 + (i * Math.PI) / 2;
       ctx.fillStyle = i % 2 === 0 ? "#0A0F17" : "#DCE7F0";
       ctx.beginPath();
-      ctx.arc(Math.cos(a) * 52, Math.sin(a) * 52, 4.5, 0, Math.PI * 2);
+      ctx.arc(Math.cos(a) * 54, Math.sin(a) * 54, 4.5, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    ctx.fillStyle = flash ? "#FFFFFF" : isClone ? "#1E3A4C" : "#DCE7F0";
-    ctx.strokeStyle = "#04060A";
-    ctx.lineWidth = 3.5;
-    ctx.beginPath();
-    ctx.moveTo(0, -42);
-    ctx.lineTo(38, -12);
-    ctx.lineTo(24, 40);
-    ctx.lineTo(-24, 40);
-    ctx.lineTo(-38, -12);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+    if (flash) ctx.filter = "brightness(2.5)";
+    else if (isClone) ctx.filter = "hue-rotate(165deg) brightness(0.9)";
+    const spr = this.sprites.get("boss_mirror");
+    if (spr) {
+      ctx.drawImage(spr, -48, -48, 96, 96);
+    }
+    ctx.filter = "none";
 
-    ctx.fillStyle = "#141E2B";
-    ctx.beginPath();
-    ctx.moveTo(0, -42);
-    ctx.lineTo(38, -12);
-    ctx.lineTo(24, 40);
-    ctx.lineTo(0, 40);
-    ctx.closePath();
-    ctx.fill();
-
-    // Dual amber / crimson iris lenses with glow
-    ctx.fillStyle = "#FF9500";
-    ctx.beginPath();
-    ctx.arc(-13, -4, 7.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#FF3B2F";
-    ctx.beginPath();
-    ctx.arc(13, -4, 7.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.strokeStyle = isClone ? "rgba(87, 199, 255, 0.55)" : "rgba(255, 59, 47, 0.6)";
+    ctx.strokeStyle = isClone ? "rgba(87, 199, 255, 0.55)" : "rgba(255, 59, 47, 0.65)";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(0, 0, 50 + Math.sin(t * 7) * 3, 0, Math.PI * 2);
+    ctx.arc(0, 0, 52 + Math.sin(t * 7) * 3, 0, Math.PI * 2);
     ctx.stroke();
   }
 
@@ -2112,24 +1592,30 @@ export class OrbitalInkRenderer {
     ctx.closePath();
     ctx.fill();
 
-    // Feature bespoke Shinkawa portrait inside Mirror & Lark boss splashes!
+    // Feature bespoke Shinkawa artwork inside ALL 4 boss splashes!
     const portrait =
       boss?.id === "mirror"
         ? this.atlas.getPortrait("mirror")
         : boss?.id === "lark_prime"
         ? this.atlas.getPortrait("lark")
+        : boss?.id === "iron_gantry"
+        ? this.sprites.get("boss_iron_gantry_vent")
+        : boss?.id === "valkyrie_09"
+        ? this.sprites.get("boss_valkyrie")
         : null;
     if (portrait) {
       ctx.save();
-      ctx.globalAlpha = 0.88;
-      ctx.drawImage(portrait, VIEW_W - 240, VIEW_H * 0.5 - 92, 184, 184);
+      ctx.fillStyle = "rgba(8, 12, 18, 0.9)";
+      ctx.fillRect(VIEW_W - 246, VIEW_H * 0.5 - 94, 192, 188);
+      ctx.globalAlpha = 0.94;
+      ctx.drawImage(portrait, VIEW_W - 240, VIEW_H * 0.5 - 88, 180, 176);
       ctx.strokeStyle = "#FF3B2F";
       ctx.lineWidth = 3;
-      ctx.strokeRect(VIEW_W - 240, VIEW_H * 0.5 - 92, 184, 184);
+      ctx.strokeRect(VIEW_W - 246, VIEW_H * 0.5 - 94, 192, 188);
       ctx.restore();
     }
 
-    const textCenterX = portrait ? VIEW_W * 0.4 : VIEW_W * 0.5;
+    const textCenterX = portrait ? VIEW_W * 0.38 : VIEW_W * 0.5;
     ctx.textAlign = "center";
     ctx.fillStyle = "#FF9500";
     ctx.font = "900 12px monospace";
@@ -2148,4 +1634,104 @@ export class OrbitalInkRenderer {
     ctx.fillText(splash.quote, textCenterX, VIEW_H * 0.66);
     ctx.restore();
   }
+
+  /**
+   * MGS Soliton-style compact orbital tactical radar strip showing nearby threats,
+   * POW beacons, hack terminals, and Mirror's glitch phantom blips.
+   */
+  private drawTacticalRadar(ctx: CanvasRenderingContext2D, snap: RenderSnapshot): void {
+    const rw = 148;
+    const rh = 42;
+    const rx = VIEW_W - rw - 14;
+    const ry = 46;
+    const rangeX = 760;
+
+    ctx.save();
+    ctx.fillStyle = snap.alertState === "ALERT" ? "rgba(38, 10, 12, 0.78)" : "rgba(7, 13, 22, 0.76)";
+    ctx.strokeStyle = snap.alertState === "ALERT" ? "rgba(255, 59, 47, 0.75)" : "rgba(87, 199, 255, 0.45)";
+    ctx.lineWidth = 1.4;
+    ctx.fillRect(rx, ry, rw, rh);
+    ctx.strokeRect(rx, ry, rw, rh);
+
+    // Subtle radar grid & animated scan sweep line
+    ctx.strokeStyle = "rgba(87, 199, 255, 0.14)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(rx, ry + rh * 0.5);
+    ctx.lineTo(rx + rw, ry + rh * 0.5);
+    ctx.moveTo(rx + rw * 0.5, ry);
+    ctx.lineTo(rx + rw * 0.5, ry + rh);
+    ctx.stroke();
+
+    const sweepX = rx + ((snap.time * 95) % rw);
+    ctx.strokeStyle = "rgba(87, 199, 255, 0.35)";
+    ctx.beginPath();
+    ctx.moveTo(sweepX, ry);
+    ctx.lineTo(sweepX, ry + rh);
+    ctx.stroke();
+
+    const mapX = (wx: number) => rx + rw * 0.5 + ((wx - snap.player.x) / rangeX) * (rw * 0.5);
+    const mapY = (wy: number) => ry + 5 + (wy / VIEW_H) * (rh - 10);
+
+    // POW beacons (cyan diamonds)
+    for (const pow of snap.pows) {
+      if (pow.rescued) continue;
+      const bx = mapX(pow.x);
+      if (bx < rx + 3 || bx > rx + rw - 3) continue;
+      const by = mapY(pow.y);
+      ctx.fillStyle = "#57C7FF";
+      ctx.fillRect(bx - 2.5, by - 2.5, 5, 5);
+    }
+
+    // Hack nodes (amber)
+    for (const h of snap.hackNodes) {
+      if (h.hacked) continue;
+      const bx = mapX(h.x);
+      if (bx < rx + 3 || bx > rx + rw - 3) continue;
+      ctx.fillStyle = "#FF9500";
+      ctx.fillRect(bx - 2, mapY(h.y) - 2, 4, 4);
+    }
+
+    // Enemy blips + mini vision wedge
+    for (const e of snap.enemies) {
+      if (e.state === "dead") continue;
+      const bx = mapX(e.x);
+      if (bx < rx + 3 || bx > rx + rw - 3) continue;
+      const by = mapY(e.y);
+      ctx.fillStyle = e.state === "stunned" ? "#4DA8DA" : e.state === "combat" ? "#FF3B2F" : "#FF9500";
+      ctx.beginPath();
+      ctx.arc(bx, by, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      if (e.state !== "stunned") {
+        ctx.strokeStyle = "rgba(255, 149, 0, 0.55)";
+        ctx.beginPath();
+        ctx.moveTo(bx, by);
+        ctx.lineTo(bx + Math.cos(e.aimAngle) * 8, by + Math.sin(e.aimAngle) * 5);
+        ctx.stroke();
+      }
+    }
+
+    // Mirror HUD Spoof: spawn fake glitching phantom radar blips!
+    if (snap.hudGlitchTimer > 0) {
+      for (let i = 0; i < 6; i++) {
+        const gx = rx + 8 + ((Math.sin(snap.time * 17 + i * 3.1) * 0.5 + 0.5) * (rw - 16));
+        const gy = ry + 6 + ((Math.cos(snap.time * 13 + i * 2.3) * 0.5 + 0.5) * (rh - 12));
+        ctx.fillStyle = "#FF3B2F";
+        ctx.fillRect(gx - 2, gy - 2, 4, 4);
+      }
+    }
+
+    // Player center blip (stark white)
+    ctx.fillStyle = "#FFFFFF";
+    ctx.beginPath();
+    ctx.arc(rx + rw * 0.5, mapY(snap.player.y + 20), 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(180, 212, 235, 0.72)";
+    ctx.font = "bold 7.5px monospace";
+    ctx.textAlign = "left";
+    ctx.fillText(snap.hudGlitchTimer > 0 ? "SOLITON // JAMMED" : "SOLITON RADAR", rx + 4, ry + 9);
+    ctx.restore();
+  }
 }
+
