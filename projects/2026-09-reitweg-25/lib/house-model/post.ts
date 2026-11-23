@@ -32,8 +32,10 @@ class DepthHandoff extends Pass{
 /** The scene, then whatever must see its depth before anything else draws over it (tree-occlusion.ts). */
 class ScenePass extends RenderPass{
  afterScene?:(renderer:T.WebGLRenderer,camera:T.Camera)=>void;
+ /** The depth of the scene as last drawn. */
+ depth:T.DepthTexture|null=null;
  render(renderer:T.WebGLRenderer,writeBuffer:T.WebGLRenderTarget,readBuffer:T.WebGLRenderTarget,deltaTime:number,maskActive:boolean){
-  super.render(renderer,writeBuffer,readBuffer,deltaTime,maskActive);this.afterScene?.(renderer,this.camera);
+  super.render(renderer,writeBuffer,readBuffer,deltaTime,maskActive);this.depth=readBuffer.depthTexture;this.afterScene?.(renderer,this.camera);
  }
 }
 /** Averages sub-pixel-jittered frames while the camera is still: clean edges and settled AO. */
@@ -55,10 +57,14 @@ class AccumulatePass extends Pass{
   u.current.value=read.texture;u.history.value=history.texture;u.weight.value=1/(this.frames+1);
   renderer.setRenderTarget(next);this.quad.render(renderer);
   this.targets=[next,history];this.frames++;
-  u.current.value=next.texture;u.weight.value=1;renderer.setRenderTarget(this.renderToScreen?null:write);this.quad.render(renderer);
+  // Without clearing: after the AO pass this buffer is the one the scene was drawn into, and its depth is still read
+  // by what is drawn over the frame (snowfall.ts).
+  const clear=renderer.autoClear;renderer.autoClear=false;
+  u.current.value=next.texture;u.weight.value=1;renderer.setRenderTarget(this.renderToScreen?null:write);this.quad.render(renderer);renderer.autoClear=clear;
  }
  /** The settled image, before the finish. */
  get latest(){return this.targets[0].texture;}
+ get settled(){return this.targets[0];}
  dispose(){for(const t of this.targets)t.dispose();this.material.dispose();this.quad.dispose();}
 }
 /** Blends a path-traced image over the settled live one. While the traced image is grainy, an edge-aware filter smooths
@@ -222,6 +228,17 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
   output.uniforms.uSeed.value=seed=(seed+1)%64;
   renderer.toneMappingExposure=exposure*scale;
  };
+ /** `image` to the canvas through the lens's focus, where it is on, and the finish, with new grain. */
+ const finishToScreen=(image:T.WebGLRenderTarget)=>{
+  output.uniforms.uSeed.value=seed=(seed+1)%64;
+  let finished=image;
+  if(focusPass?.enabled){
+   focused??=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false});
+   if(focused.width!==image.width||focused.height!==image.height)focused.setSize(image.width,image.height);
+   focusPass.dof.render(renderer,image.texture,focused,focusPass.focus,focusPass.scale);finished=focused;
+  }
+  output.renderToScreen=true;output.render(renderer,null as unknown as T.WebGLRenderTarget,finished,0,false);
+ };
  /** Draws `image` over the settled live image through the finish (TracedBlend); `reproject`: it is the kept image. */
  const present=(image:T.Texture,amount:number,radius:number,exposure:number,indoor:number,demodulated:boolean,reproject:boolean)=>{
    output.set(indoor);output.uniforms.uP3.value=renderer.outputColorSpace===DisplayP3ColorSpace?1:0;
@@ -243,14 +260,8 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
    if(scene.fog instanceof T.Fog){u.fogColor.value.copy(scene.fog.color);u.fogRange.value.set(scene.fog.near,scene.fog.far);}
    renderer.setRenderTarget(traced.target);traced.quad.render(renderer);
    // Exposure and focus hold while the view rests; the grain keeps moving.
-   renderer.toneMappingExposure=exposure*scale;output.uniforms.uSeed.value=seed=(seed+1)%64;
-   let finished=traced.target;
-   if(focusPass?.enabled){
-    focused??=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false});
-    if(focused.width!==size.x||focused.height!==size.y)focused.setSize(size.x,size.y);
-    focusPass.dof.render(renderer,traced.target.texture,focused,focusPass.focus,focusPass.scale);finished=focused;
-   }
-   output.renderToScreen=true;output.render(renderer,null as unknown as T.WebGLRenderTarget,finished,0,false);
+   renderer.toneMappingExposure=exposure*scale;
+   finishToScreen(traced.target);
  };
  return {
   composer,
@@ -298,6 +309,11 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
    composer.render();
   },
   get accumulated(){return accumulate.frames;},
+  /** The settled image to the canvas again, as its last refined frame showed it and without drawing the scene: under
+   * what moves over a resting view (snowfall.ts). Only while frames are accumulated. */
+  replay:()=>finishToScreen(accumulate.settled),
+  /** The scene's depth as last drawn. */
+  get depth(){return scenePass.depth;},
   /** Shows a path-traced image (linear, before exposure) over the settled live image, through the same finish. `amount`
    * 0–1 blends it in; `radius` (traced pixels) smooths its grain (TracedBlend). */
   present:(image:T.Texture,amount:number,radius:number,exposure:number,indoor=0,demodulated=false)=>present(image,amount,radius,exposure,indoor,demodulated,false),

@@ -28,6 +28,13 @@ const source=fs.readFileSync('lib/house-model/snow.ts','utf8');
 assert(!/uniform\s+(highp\s+)?sampler/.test(source),'snow adds no sampler');assert(!/\bsin\(/.test(source),'no sin in the snow shaders');
 assert(!/defines|needsUpdate/.test(source),'the amount never recompiles a shader');
 
+// Snow mode (snowfall.ts): the flakes are one draw placed by its vertex shader, with no buffer written after the first
+// frame; the viewer builds them when it is first turned on and draws them only while it is on, over the settled image.
+const fall=fs.readFileSync('lib/house-model/snowfall.ts','utf8'),viewer=fs.readFileSync('lib/house-model/viewer.ts','utf8');
+assert.equal(fall.match(/new T\.Points\(/g)?.length,1,'the flakes are one draw');assert(!/needsUpdate|setUsage/.test(fall),'no buffer is written while it snows');
+assert(/if\(on&&!snowfall\)\{const made=snowfall=createSnowfall\(/.test(viewer),'the flakes are built when snow mode is first turned on');
+assert(/const flakes=snowing&&flakesReady&&/.test(viewer)&&/if\(post\.accumulated>0\)\{post\.replay\(\);fall\(\);return;\}/.test(viewer),'a resting view is not drawn again under the flakes');
+
 // The model as the viewer shows it, whole-house view.
 const model=buildHouseModel(true);
 const batches=batchStatic({root:model.root,states:model.stateCount,apply:model.applyState,rendered:model.rendered,externalRoots:[model.trees,...model.toggled]});
