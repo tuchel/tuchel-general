@@ -9,9 +9,9 @@ import {MeshBVH} from 'three-mesh-bvh';
 // against the model itself: every upward face with a roof over it is one the snow is kept off, and the open ground,
 // roofs and terraces are not.
 fs.mkdirSync('tmp/snow-check',{recursive:true});
-await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/static-batch.ts','lib/house-model/sky-visibility.ts','lib/house-model/sky-links.ts','lib/house-model/snow.ts','lib/house-model/renovation-data.ts','lib/house-model/christmas-tree.ts'],outdir:'tmp/snow-check',outExtension:{'.js':'.mjs'},bundle:true,splitting:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
+await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/static-batch.ts','lib/house-model/sky-visibility.ts','lib/house-model/sky-links.ts','lib/house-model/snow.ts','lib/house-model/renovation-data.ts','lib/house-model/christmas-tree.ts','lib/house-model/snow-slab.ts'],outdir:'tmp/snow-check',outExtension:{'.js':'.mjs'},bundle:true,splitting:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
 const M=n=>import(`../tmp/snow-check/${n}.mjs`);
-const [{buildHouseModel},{batchStatic},{PROBE_GRID},{createLinker,coverSize,COVER},{snowOn,SNOW_SEASON,snowCovers,underCover,snowSurfaces,snow},{renovationState},{christmasTree,CHRISTMAS_TREE}]=await Promise.all(['build-model','static-batch','sky-visibility','sky-links','snow','renovation-data','christmas-tree'].map(M));
+const [{buildHouseModel},{batchStatic},{PROBE_GRID},{createLinker,coverSize,COVER},{snowOn,SNOW_SEASON,snowCovers,underCover,snowSurfaces,snow},{renovationState},{christmasTree,CHRISTMAS_TREE},{snowSlabs,SLAB}]=await Promise.all(['build-model','static-batch','sky-visibility','sky-links','snow','renovation-data','christmas-tree','snow-slab'].map(M));
 
 // The dates.
 const day=(month,date)=>Math.round((Date.UTC(2026,month-1,date)-Date.UTC(2026,0,1))/864e5)+1;
@@ -106,5 +106,31 @@ for(const [label,on] of Object.entries(states)){
  assert(bare<open*.004,`${label}: ${bare.toFixed(1)} of ${open.toFixed(0)} m² of open surfaces take no snow`);
  console.log(`${label}: ${roofed.toFixed(0)} m² under roofs stay clear (${wrong.toFixed(2)} m² not), ${open.toFixed(0)} m² in the open take the snow (${bare.toFixed(2)} m² not).`);
 }
+
+// The roofs' packed layer (snow-slab.ts): one material, a mesh under every roof slope, cut only once snow lies, as deep
+// as the roof's pitch lets it lie, open around the roof windows and the chimney, and out of the batches, the walker's
+// way and the photographs.
+{const slabs=snowSlabs(model.root,()=>undefined),source=fs.readFileSync('lib/house-model/snow-slab.ts','utf8');
+ assert(!/\bsin\(/.test(source)&&!/defines|needsUpdate/.test(source),'the layer is shaped by the snow uniforms alone');
+ assert(slabs.meshes.length>=10&&slabs.meshes.every(m=>m.material===slabs.material&&!m.visible&&!m.geometry.index),'no layer is cut or drawn before snow lies');
+ const panels=model.root.getObjectByName(SLAB.panels);panels.visible=false;slabs.show(true);let triangles=0;const pitch={};
+ for(const m of slabs.meshes){
+  assert(m.userData.dynamic&&m.userData.skipPhotographic&&m.userData.passable&&m.castShadow&&m.receiveShadow,`${m.parent.name}: the layer casts and takes shadow and stays out of batches, obstacles and photographs`);
+  assert(m.visible&&m.geometry.index,`${m.parent.name} carries a layer`);triangles+=m.geometry.index.count/3;
+  const n=new T.Vector3().fromBufferAttribute(m.geometry.attributes.normal,0).transformDirection(m.matrixWorld),slab=m.geometry.attributes.slab;
+  pitch[m.parent.name]=Math.round(T.MathUtils.radToDeg(Math.acos(n.y)));
+  let margin=0,lip=0;for(let i=0;i<slab.count;i++){if(slab.getX(i)<0)margin++;if(slab.getY(i)===1&&slab.getX(i)<.001)lip++;}
+  assert(lip>20,`${m.parent.name}: the layer has an edge to round off`);
+  if(/^(main|guest)-roof-slope--1$/.test(m.parent.name))assert(margin>100,`${m.parent.name}: the layer is melted back around its roof windows`);
+ }
+ const deep=name=>SLAB.depth*Math.min(1,(SLAB.none-pitch[name])/(SLAB.none-SLAB.full));
+ assert(deep('main-roof-slope-1')>.12&&deep('main-roof-slope-1')<.18,`the main roof carries ${deep('main-roof-slope-1').toFixed(2)} m`);
+ assert.equal(deep('bin-room-roof'),SLAB.depth,'a low roof carries the whole depth');
+ assert(triangles<200000,`the layers are ${triangles} triangles`);
+ panels.visible=true;slabs.show(true);
+ assert(slabs.meshes.every(m=>m.visible!==SLAB.panelled.test(m.parent.name)),'the roofs under solar panels go without the layer');
+ panels.visible=false;slabs.show(false);assert(slabs.meshes.every(m=>!m.visible),'nothing of it is drawn without snow');
+ console.log(`The roofs' packed snow: ${slabs.meshes.length} layers, ${triangles} triangles; ${Object.entries(pitch).map(([k,v])=>`${k} ${v}° ${(deep(k)*100).toFixed(0)} cm`).join(', ')}.`);
+ slabs.dispose();}
 model.dispose();
 console.log('Passed: snow lies from mid-December to the end of February, on open surfaces only, for the house as built and with its renovations.');
