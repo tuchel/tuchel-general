@@ -14,6 +14,7 @@ on:
       - 'projects/2026-09-reitweg-25/**'
       - 'daycare-search/**'
       - 'projects/2026-10-spcx-portal/web/**'
+      - 'projects/2026-11-constellation-zero/**'
       - 'shared/charts/src/**'
       - '.github/workflows/deploy-pages.yml'
       - '.github/workflows/deploy-metro-budget-tax.yml'
@@ -52,6 +53,7 @@ jobs:
             projects/2026-09-reitweg-25/package-lock.json
             daycare-search/package-lock.json
             projects/2026-10-spcx-portal/web/package-lock.json
+            projects/2026-11-constellation-zero/package-lock.json
             shared/charts/package-lock.json
 
       - name: Install & build Metro Budget Tax
@@ -118,10 +120,17 @@ jobs:
           npm ci
           npm run build
 
+      - name: Install & build CONSTELLATION ZERO
+        working-directory: projects/2026-11-constellation-zero
+        run: |
+          npm ci
+          npm test
+          npm run build
+
       - name: Stage Pages artifact
         run: |
           SITE="${{ github.workspace }}/_site"
-          mkdir -p "$SITE/tax" "$SITE/metro-budget-tax" "$SITE/star-mind" "$SITE/whale" "$SITE/storytime" "$SITE/gyms" "$SITE/drone" "$SITE/reitweg-25" "$SITE/daycare-search" "$SITE/spcx"
+          mkdir -p "$SITE/tax" "$SITE/metro-budget-tax" "$SITE/star-mind" "$SITE/whale" "$SITE/storytime" "$SITE/gyms" "$SITE/drone" "$SITE/reitweg-25" "$SITE/daycare-search" "$SITE/spcx" "$SITE/constellation-zero"
           cp -a projects/2026-07-metro-budget-tax/web/dist/. "$SITE/tax/"
           cp -a projects/2026-07-star-mind/game/dist/. "$SITE/star-mind/"
           cp -a projects/2026-07-san-juan-whale-map/web/dist/. "$SITE/whale/"
@@ -131,6 +140,7 @@ jobs:
           cp -a projects/2026-09-reitweg-25/dist-pages/. "$SITE/reitweg-25/"
           cp -a daycare-search/dist/. "$SITE/daycare-search/"
           cp -a projects/2026-10-spcx-portal/web/dist/. "$SITE/spcx/"
+          cp -a projects/2026-11-constellation-zero/dist/. "$SITE/constellation-zero/"
 
           # Keep old metro path working as a redirect
           cat > "$SITE/metro-budget-tax/index.html" <<'HTML'
@@ -183,6 +193,7 @@ jobs:
                 <h1>tuchel-general</h1>
                 <p>Published project surfaces from the personal monorepo.</p>
                 <ul>
+                  <li><a href="constellation-zero/">CONSTELLATION ZERO</a> — Metal Gear Solid × Metal Slug orbital ink stealth shooter</li>
                   <li><a href="whale/">San Juan Whale Odds</a> — boat-renter whale map</li>
                   <li><a href="star-mind/">STAR MIND</a> — Metal Slug–style space shooter</li>
                   <li><a href="tax/">Metro Budget &amp; Tax Explorer</a></li>
