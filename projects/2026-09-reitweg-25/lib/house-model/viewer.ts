@@ -28,6 +28,7 @@ import {loadSurfaceTextures,finishSurfaces} from './surface-materials';
 import {bakeSkyVisibility,SKY_BAKE} from './sky-visibility';
 import {bakeSunBounce} from './sun-bounce';
 import {eyeLevelGrass} from './grass';
+import {snow,snowOn,snowSurfaces,snowCovers} from './snow';
 import {createWalker,type WalkInput} from './walk';
 import {tierFor,type Quality} from './device-tier';
 import {createPerfReadout} from './perf-readout';
@@ -95,7 +96,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const rig=createCameraRig(camera,controls,reduced);
 
  // Scene: house, setting and ground.
- const foliage=realistic?foliageMaterials(tier.trees):undefined;let season=initialSunStudy.day;
+ const foliage=realistic?foliageMaterials(tier.trees):undefined;let season=initialSunStudy.day,study=initialSunStudy;
  const setting=realistic?landscapeContext({foliage,density:tier.farWoodland}):undefined;
  // The mapped woods further out (forests.ts) read as forest edges from eye level; from above they would read as blocks.
  const woods=setting?.vegetation.getObjectByName('distant-woods');if(woods)woods.visible=false;
@@ -135,7 +136,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const pickables:T.Object3D[]=[...batches.meshes.filter(b=>b.userData.region)];
  model.root.traverse(o=>{if(o instanceof T.InstancedMesh&&o.userData.region)pickables.push(o);});
  let level:Level='exterior',renovations=renovationState(),place:Place|undefined;
- const bake=realistic&&tier.skyBake?bakeSkyVisibility(renderer,batches.meshes.filter(b=>[b.material].flat().every(m=>!m.transparent&&m.userData.photo!=='lawn')),[model.root,stage],tier.sunBounce?.55:.7):undefined;
+ const bake=realistic&&tier.skyBake?bakeSkyVisibility(renderer,batches.meshes.filter(b=>[b.material].flat().every(m=>!m.transparent&&m.userData.photo!=='lawn')),[model.root,stage],tier.sunBounce?.55:.7,batches.meshes.filter(b=>materialsOf(b).every(m=>m.transparent&&!m.userData.water))):undefined;
  // Sunlight bounced indoors: the house itself, without trees and planting.
  // Renovations' batches, and those of the originals they replace, sit under their own groups (model.toggled): the guest
  // wing's west roof slope among them.
@@ -151,8 +152,13 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // start each time. The basement view leaves them out; the ground-floor cutaway, whichever of them is upstairs.
  let sims:{group:T.Group;routines:ReturnType<typeof createRoutines>;figures:Awaited<ReturnType<typeof loadSims>>['figures']}|undefined,simsOn=false,simsLoading=false;
  const showSims=()=>{if(sims)sims.group.visible=simsOn&&level!=='basement';};
+ // Snow lies by the sun study's date (snow.ts), and with it the light changes. Only in the whole-house view: a floor's
+ // section opens its rooms to the sky.
+ const snowNow=()=>study.enabled&&level==='exterior'?snowOn(study.day):0;
+ const relight=()=>{snow.amount=lighting?snowNow():0;return lighting?.apply(study,snow.amount);};
  const applyState=()=>{
   model.setLevel(level);model.setRenovations(renovations);batches.sync(model.stateOf(level,renovations));
+  snow.cover(snowCovers(renovations));if(lighting&&snowNow()!==snow.amount)relight();
   stage.visible=level!=='basement';showNeighbors();showSims();renderer.shadowMap.needsUpdate=true;
   bake?.request();bounce?.request();probes?.request();live?.invalidate();invalidate();
  };
@@ -163,6 +169,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const panorama=scene.getObjectByName('alpine-panorama') as T.Mesh|undefined,panoramaAt=new T.Vector3();
  if(panorama)panorama.onBeforeRender=(_r,_s,view)=>{if(view!==rig.camera)return;panorama.position.set(view.position.x,0,view.position.z);panorama.updateMatrixWorld();};
  clouds?.shade([scene]);
+ // Snow lies on every lit material, the sky light's among them (snow.ts).
+ if(realistic)snowSurfaces([scene]);
  // Walking at eye level: W A S D (Shift to run) on computers, the joysticks on phones.
  const walker=createWalker(rig.lens,()=>[...batches.meshes,stage]),walkInput:WalkInput={forward:0,strafe:0,run:false},lookRate={x:0,y:0};
  const walkAnchor=new T.Vector3(),skyAnchor=new T.Vector3(),placeStart=new T.Vector3();let joystick=false,room=1,roomTarget=1,wandered=false;
@@ -338,7 +346,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   // A settled view hands over to path tracing; the floor-plan section of the upper floor cuts roofs with clipping
   // planes, which the tracer cannot, so it stays live.
   if(captures?.active)live?.release();
-  if(live&&post&&still&&!refine&&!needsFrame&&level!=='upper'&&!captures?.active&&!interfaceOpen&&!elsewhere&&now-lastChange>LIVE_TRACE.rest&&live.wanted){
+  // Nor does the tracer know snow (photographic-scene.ts): while it lies, the view stays live.
+  if(live&&post&&still&&!refine&&!needsFrame&&level!=='upper'&&!captures?.active&&!snow.amount&&!interfaceOpen&&!elsewhere&&now-lastChange>LIVE_TRACE.rest&&live.wanted){
    if(!resting){resting=true;perf?.rest(now);}
    const traced=live.step();
    perf?.trace(now,traced,{ready:live.ready,finished:!live.wanted});
@@ -430,7 +439,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   }
   group.add(...late);group.visible=false;batches.meshes.push(...late);batches.sync(model.stateOf(level,renovations));
   const opaque=late.filter(b=>materialsOf(b).every(m=>!m.transparent));
-  bake?.add(opaque);bounce?.add(opaque.filter(b=>materialsOf(b).every(m=>!m.alphaTest)),[group]);probes?.add(group);clouds?.shade([group]);if(live)addAlbedoOutput(group);
+  bake?.add(opaque);bounce?.add(opaque.filter(b=>materialsOf(b).every(m=>!m.alphaTest)),[group]);probes?.add(group);clouds?.shade([group]);snowSurfaces([group]);if(live)addAlbedoOutput(group);
   await firstFrame;if(disposed)return;
   const lamps=lighting?.lamps,lit=lamps?.visible??false;
   const compiled=[lit,!lit].map(on=>{if(lamps)lamps.visible=on;return post?post.compileAsync(group):renderer.compileAsync(group,camera,scene);});
@@ -491,14 +500,14 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   zoom:(factor:number)=>{captures?.stop();rig.zoomBy(factor);changed();},
   setLevel:(l:Level)=>{captures?.stop();leaveEyeLevel();const floorChanged=l!==level;level=l;applyState();if(floorChanged)controls.target.y=l==='basement'?-2:l==='upper'?3.1:1;rig.project();changed();},
   setRenovations:(state:RenovationState)=>{captures?.stop();renovations={...state};applyState();},
-  // The trees follow the date (seasonTrees); with the sun study off they stand in midsummer leaf.
-  setSun:(study:SunStudy):LightReading|undefined=>{if(!lighting)return;const r=lighting.apply(study),day=study.enabled?study.day:initialSunStudy.day;if(foliage&&day!==season){season=day;seasonTrees(scene,foliage,day);renderer.shadowMap.needsUpdate=true;live?.invalidate();}fitShadowToView();clearTimeout(sunSettle);sunSettle=setTimeout(()=>{bounce?.request();probes?.request();live?.relight();changed();},SUN_SETTLE);changed();return r;},
+  // The trees and the snow follow the date (seasonTrees, relight); with the sun study off the trees stand in midsummer leaf.
+  setSun:(next:SunStudy):LightReading|undefined=>{if(!lighting)return;study=next;const r=relight(),day=study.enabled?study.day:initialSunStudy.day;if(foliage&&day!==season){season=day;seasonTrees(scene,foliage,day);renderer.shadowMap.needsUpdate=true;live?.invalidate();}fitShadowToView();clearTimeout(sunSettle);sunSettle=setTimeout(()=>{bounce?.request();probes?.request();live?.relight();changed();},SUN_SETTLE);changed();return r;},
   /** Clouds and their shadows on or off (Extreme); room reflections and the traced image follow the re-baked sky. */
   setClouds:(on:boolean)=>{if(!lighting?.setClouds(on))return;clearTimeout(cloudSettle);cloudSettle=setTimeout(()=>{probes?.request();live?.relight();changed();},SUN_SETTLE);changed();},
   /** The neighbors' buildings on or off; their shadows and the traced image follow. */
   setNeighbors:(on:boolean)=>{
    if(on===neighborsOn)return;neighborsOn=on;
-   if(on&&!neighbors){neighbors=neighborHouses(x=>stage.position.y+terrain(x));scene.add(neighbors);clouds?.shade([neighbors]);}
+   if(on&&!neighbors){neighbors=neighborHouses(x=>stage.position.y+terrain(x));scene.add(neighbors);clouds?.shade([neighbors]);snowSurfaces([neighbors]);}
    showNeighbors();renderer.shadowMap.needsUpdate=true;live?.invalidate();changed();
   },
   /** Sims Mode on or off: the two figures go about their routines in the house and garden, from the start (sims.ts). */

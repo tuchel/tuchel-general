@@ -24,7 +24,8 @@ export const PROBE_GRID={box:BOX,cell:CELL};
 // scaled by how much of the sky its room sees through windows (a closed basement stays dim). The share is .7 alone,
 // and .55 where bounced sunlight is traced as well (sun-bounce.ts).
 
-export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],receivers:T.Object3D[],bounce=.7){
+/** `panes`: the glass, which the sky light passes but snow does not (sky-links.ts, COVER). */
+export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],receivers:T.Object3D[],bounce=.7,panes:T.Mesh[]=[]){
  const size=BOX.getSize(new T.Vector3()),nx=Math.round(size.x/CELL),ny=Math.round(size.y/CELL),nz=Math.round(size.z/CELL);
  // Texture axes: width = x, height = z, layers = y.
  const volumes=[0,1].map(()=>{const v=new T.WebGL3DRenderTarget(nx,nz,ny,{type:T.HalfFloatType,depthBuffer:false});v.texture.minFilter=v.texture.magFilter=T.LinearFilter;v.texture.wrapS=v.texture.wrapT=v.texture.wrapR=T.ClampToEdgeWrapping;return v;});
@@ -53,8 +54,9 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
  const pointScene=new T.Scene();pointScene.add(cloud);const pointCamera=new T.OrthographicCamera(-1,1,1,-1,0,1);
  const directions=Array.from({length:DIRECTIONS},(_,i)=>{const y=1-2*(i+.5)/DIRECTIONS,r=Math.sqrt(1-y*y),a=i*2.399963;return new T.Vector3(Math.cos(a)*r,y,Math.sin(a)*r);});
  // Which probes round a surface are joined to one another (sky-links.ts, reachTable), worked out off the page's thread
- // for each shown state: two texels a cell, for cells from one below the grid.
- const links=new T.Data3DTexture(new Uint8Array((nx+1)*(nz+1)*(ny+1)*8),(nx+1)*2,nz+1,ny+1);links.format=T.RGBAFormat;links.minFilter=links.magFilter=T.NearestFilter;
+ // for each shown state: two texels a cell, for cells from one below the grid; and a last layer of what stands over the
+ // grid (sky-links.ts, COVER), which snow reads (snow.ts).
+ const links=new T.Data3DTexture(new Uint8Array((nx+1)*(nz+1)*(ny+2)*8),(nx+1)*2,nz+1,ny+2);links.format=T.RGBAFormat;links.minFilter=links.magFilter=T.NearestFilter;
  const uniforms={uSkyVolume:{value:volumes[0].texture as T.Texture},uSkyReach:{value:links},uSkyMin:{value:BOX.min.clone()},uSkyGrid:{value:new T.Vector3(nx,ny,nz)},uSkyCell:{value:CELL},uSkyReady:{value:0},uSkyLinked:{value:0},uSkyBounce:{value:bounce}};
  const patched=new Set<T.Material>();
  const receive=(root:T.Object3D)=>root.traverse(o=>{for(const m of materialsOf(o)){
@@ -152,22 +154,23 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
  // The links worker gets the house once, in world space, tagged with its batch; leaves and other cut-out cards let light
  // through and are left out.
  let linker:Worker|undefined,job=0,sent='';
- const solid=(o:T.Mesh)=>materialsOf(o).every(m=>!m.alphaTest),linkable=occluders.filter(solid);
+ const solid=(o:T.Mesh)=>materialsOf(o).every(m=>!m.alphaTest),linkable=occluders.filter(solid);let linked=[...linkable,...panes];
  const shown=(o:T.Object3D)=>{for(let a:T.Object3D|null=o;a;a=a.parent)if(!a.visible)return false;return true;};
  const relink=()=>{
   if(!linker){
-   let count=0;for(const o of linkable)count+=o.geometry.attributes.position.count;
+   linked=[...linkable,...panes];
+   let count=0;for(const o of linked)count+=o.geometry.attributes.position.count;
    const positions=new Float32Array(count*3),batch=new Uint16Array(count),v=new T.Vector3();
-   let at=0;linkable.forEach((o,b)=>{const p=o.geometry.attributes.position;o.updateMatrixWorld();for(let i=0;i<p.count;i++,at++){v.fromBufferAttribute(p,i).applyMatrix4(o.matrixWorld);positions[at*3]=v.x;positions[at*3+1]=v.y;positions[at*3+2]=v.z;batch[at]=b;}});
+   let at=0;linked.forEach((o,b)=>{const p=o.geometry.attributes.position;o.updateMatrixWorld();for(let i=0;i<p.count;i++,at++){v.fromBufferAttribute(p,i).applyMatrix4(o.matrixWorld);positions[at*3]=v.x;positions[at*3+1]=v.y;positions[at*3+2]=v.z;batch[at]=b;}});
    const linkGrid:LinkGrid={min:BOX.min.toArray() as [number,number,number],cell:CELL,nx,ny,nz};
    linker=new Worker(new URL('./sky-links.worker.ts',import.meta.url),{type:'module'});
-   linker.postMessage({kind:'init',positions,batch,grid:linkGrid},[positions.buffer,batch.buffer]);
+   linker.postMessage({kind:'init',positions,batch,grid:linkGrid,panes:linkable.length},[positions.buffer,batch.buffer]);
    linker.onmessage=({data}:MessageEvent<{kind:'reach';job:number;reach:Uint8Array}>)=>{
     if(data.job!==job)return;
     links.image.data=data.reach;links.needsUpdate=true;uniforms.uSkyLinked.value=1;
    };
   }
-  const visible=Uint8Array.from(linkable,o=>shown(o)?1:0),key=visible.join('');
+  const visible=Uint8Array.from(linked,o=>shown(o)?1:0),key=visible.join('');
   if(key===sent)return;sent=key;
   linker.postMessage({kind:'visible',visible,job:++job});
  };

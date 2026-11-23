@@ -28,6 +28,8 @@ export const winterGardenOutline:[number,number][]=[[WG_WEST,WG_NORTH],[WG_EAST,
 const FLOOR=.142,FRAME=2.5,EDGE=2.65,FALL=Math.tan(3*Math.PI/180);
 /** The roof's top at a point: rising from the outer edges, the two arms meeting at a hip over the corner. */
 const roofTop=(x:number,z:number)=>FLOOR+EDGE+FALL*Math.min(x-WG_WEST,z-WG_NORTH);
+/** The glass roof's lowest line, at its outer edges. */
+export const WG_GLASS_EDGE=FLOOR+EDGE;
 type MaterialFactory=(pale:string,natural?:string,roughness?:number)=>T.MeshStandardMaterial;
 export function buildRenovations(ground:T.Group,roofs:T.Group,site:T.Group,material:MaterialFactory){
  const groups={} as Record<RenovationId,T.Group>;

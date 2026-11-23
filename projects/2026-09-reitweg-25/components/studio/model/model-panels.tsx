@@ -7,6 +7,7 @@ import type {Place,CaptureState} from '@/lib/house-model/experience-data';
 import {interiorRooms} from '@/lib/house-model/interior-data';
 import {sheets,mapMarkers,sheetOf,wholeViews,type Sheet} from '@/lib/house-model/view-map';
 import {sunDayEvents,clockLabel,studyDate,SUN_SITE,sunStudyReading} from '@/lib/house-model/sun-position';
+import {snowOn} from '@/lib/house-model/snow-season';
 import type {Quality} from '@/lib/house-model/device-tier';
 import {PHOTO_LIMIT} from '@/lib/house-model/photo-size';
 
@@ -73,7 +74,7 @@ export function LightPanel({day,minutes,onChange}:{day:number;minutes:number;onC
  // The presets sit on the time band where the thumb's centre lands for their time (the thumb is 8 px wide).
  const at=(m:number)=>`calc(${m/1435*100}% + ${(.5-m/1435)*8}px)`;
  return <div className="model-panel-body model-light">
-  <div className="model-light-heading"><span>{date}</span><span>{sun}</span><button className="model-link" onClick={now}>Now</button></div>
+  <div className="model-light-heading"><span>{date}{snowOn(day)>.05&&' · snow'}</span><span>{sun}</span><button className="model-link" onClick={now}>Now</button></div>
   <div className="model-light-time" style={{'--sunrise':`${events.sunrise.minutes/1435*100}%`,'--sunset':`${events.sunset.minutes/1435*100}%`} as React.CSSProperties}>
    <Slider aria-label="Time of day" min={0} max={1435} step={5} value={[minutes]} onValueChange={v=>onChange(day,v[0])}/>
    {presets(events).map(p=><button key={p.label} className="model-light-mark" data-night={p.minutes<events.sunrise.minutes||p.minutes>events.sunset.minutes||undefined} style={{left:at(p.minutes)}}

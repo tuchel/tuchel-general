@@ -1,12 +1,13 @@
 import * as T from 'three';
 
 /** Several modules extend the same standard materials (surfaces, wind, glass, sky light).
- * Features compose in the order they were added and share one program cache key. */
-export type ShaderFeature={key:string;compile:(shader:T.WebGLProgramParametersWithUniforms)=>void};
+ * Features compose in the order they were added and share one program cache key; one marked `last` composes after
+ * every other, whenever they are added (snow.ts reads what the sky light declares). */
+export type ShaderFeature={key:string;last?:boolean;compile:(shader:T.WebGLProgramParametersWithUniforms)=>void};
 export function addShaderFeature(material:T.Material,feature:ShaderFeature){
  const list:ShaderFeature[]=material.userData.shaderFeatures??=[];
  if(list.some(f=>f.key===feature.key))return;
- list.push(feature);
+ list.push(feature);list.sort((a,b)=>+!!a.last-+!!b.last);
  material.onBeforeCompile=shader=>{for(const f of list)f.compile(shader);};
  material.customProgramCacheKey=()=>list.map(f=>f.key).join('|');
  material.needsUpdate=true;

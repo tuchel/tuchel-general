@@ -29,8 +29,9 @@ export function foliageMaterials(style:TreeStyle='leaves'){
  const leaves=cards();
  // Backlit leaves glow: sunlight passing through toward the viewer adds a warm green transmission.
  const translucency={key:'leaf-translucency',compile:(shader:T.WebGLProgramParametersWithUniforms)=>{
-  const lights=T.ShaderChunk.lights_fragment_begin.replace(/RE_Direct\( directLight,/g,'reflectedLight.directDiffuse+=directLight.color*material.diffuseColor*vec3(.75,.95,.45)*(.42*pow(saturate(dot(-geometryViewDir,directLight.direction)),2.0)+.12*saturate(-dot(geometryNormal,directLight.direction)));\nRE_Direct( directLight,');
-  shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_begin>',lights);
+  const lights=T.ShaderChunk.lights_fragment_begin.replace(/RE_Direct\( directLight,/g,'reflectedLight.directDiffuse+=LEAF_GLOW*directLight.color*material.diffuseColor*vec3(.75,.95,.45)*(.42*pow(saturate(dot(-geometryViewDir,directLight.direction)),2.0)+.12*saturate(-dot(geometryNormal,directLight.direction)));\nRE_Direct( directLight,');
+  // Snow lying on a leaf lets none through (snow.ts defines LEAF_GLOW for the materials it lies on).
+  shader.fragmentShader='#ifndef LEAF_GLOW\n#define LEAF_GLOW 1.0\n#endif\n'+shader.fragmentShader.replace('#include <lights_fragment_begin>',lights);
  }};
  addShaderFeature(leaves,translucency);
  const shadow=()=>new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking,alphaTest:.42,side:T.DoubleSide});

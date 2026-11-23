@@ -9,11 +9,13 @@ import {MeshBVH,SAH} from 'three-mesh-bvh';
  * A probe inside a wall or slab sees only the backs of faces and is joined to none. */
 export type LinkGrid={min:[number,number,number];cell:number;nx:number;ny:number;nz:number};
 
-export function createLinker(positions:Float32Array,batch:Uint16Array,grid:LinkGrid){
+/** `panes`: batches from this one on are glass, which sky light passes: they part no probes, but stand over the grid. */
+export function createLinker(positions:Float32Array,batch:Uint16Array,grid:LinkGrid,panes=Infinity){
  const {min,cell,nx,ny,nz}=grid,ray=new T.Ray(),axes=[new T.Vector3(1,0,0),new T.Vector3(0,1,0),new T.Vector3(0,0,1)];
- /** Grid order: x fastest, then z, then y, as the sky volume's layers. */
- return (visible:Uint8Array)=>{
-  const keep:number[]=[];for(let v=0;v<batch.length;v+=3)if(visible[batch[v]])keep.push(v);
+ /** Grid order: x fastest, then z, then y, as the sky volume's layers. `cover`: filled with what stands over the grid
+  * (coverSize), from the same triangles. */
+ return (visible:Uint8Array,cover?:Uint8Array)=>{
+  const keep:number[]=[],glass:number[]=[];for(let v=0;v<batch.length;v+=3)if(visible[batch[v]])(batch[v]<panes?keep:glass).push(v);
   const p=new Float32Array(keep.length*9);keep.forEach((v,i)=>p.set(positions.subarray(v*3,v*3+9),i*9));
   const g=new T.BufferGeometry();g.setAttribute('position',new T.BufferAttribute(p,3));
   const links=new Uint8Array(nx*ny*nz);
@@ -29,9 +31,26 @@ export function createLinker(positions:Float32Array,batch:Uint16Array,grid:LinkG
    }
    links[k]=bits;
   }
+  if(cover){
+   const q=new Float32Array(glass.length*9);glass.forEach((v,i)=>q.set(positions.subarray(v*3,v*3+9),i*9));
+   const pane=new T.BufferGeometry();pane.setAttribute('position',new T.BufferAttribute(q,3));const glazing=glass.length?new MeshBVH(pane):undefined;
+   const top=min[1]+ny*cell,down=new T.Vector3(0,-1,0);ray.direction.copy(down);
+   for(let j=0;j<=nz;j++)for(let i=0;i<(nx+1)*2;i++)for(let c=0;c<2;c++){
+    ray.origin.set(min[0]+(i+.5)*COVER.cell,top+1,min[2]+(j*2+c+.5)*COVER.cell);
+    const y=Math.max(bvh.raycastFirst(ray,T.DoubleSide,0,ny*cell+1)?.point.y??min[1],glazing?.raycastFirst(ray,T.DoubleSide,0,ny*cell+1)?.point.y??min[1]);
+    cover[(j*(nx+1)*2+i)*4+c]=Math.round(T.MathUtils.clamp((y-min[1])/(ny*cell),0,1)*255);
+   }
+  }
   return links;
  };
 }
+
+/** What stands highest over the grid, every quarter metre in plan: a roof, a table, the ground. Snow lies only on what
+ * is as high (snow.ts). It rides in the reach table's texture as one more layer, a texel for each quarter metre along x
+ * and half metre along z, two heights to a texel (red, then green, along z), each a byte from the grid's foot to its
+ * top. */
+export const COVER={cell:.25};
+export const coverSize=(grid:LinkGrid)=>(grid.nx+1)*2*(grid.nz+1)*4;
 
 /** Whether corner `b` of a grid cell is reached from corner `a` (bit 0 x, bit 1 y, bit 2 z) along the cell's edges, x
  * then y then z or the reverse; `links` holds the eight corners' bits. As the shader reads it (sky-visibility.ts). */
