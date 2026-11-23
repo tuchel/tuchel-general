@@ -530,7 +530,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    * their shader compiled, in the background, the first time. */
   setSnowing:(on:boolean)=>{
    if(!lighting||on===snowing)return;
-   snowing=on;settling=true;settledAt=performance.now();relight();
+   snowing=on;settling=true;settledAt=performance.now();post?.keepDepth(on);relight();
    if(on&&!snowfall){const made=snowfall=createSnowfall(bake?.cover);void renderer.compileAsync(made.points,camera).catch(()=>{}).then(()=>{flakesReady=true;changed();});}
    clearTimeout(sunSettle);sunSettle=setTimeout(()=>{bounce?.request();probes?.request();live?.relight();changed();},SUN_SETTLE);changed();
   },
