@@ -1,6 +1,6 @@
 'use client';
 import {useMemo,useState,type CSSProperties} from 'react';
-import {Sun,Sunrise,Sunset,Moon} from 'lucide-react';
+import {Sun,Sunrise,Sunset,Moon,Snowflake} from 'lucide-react';
 import {Slider} from '@/components/ui/slider';
 import {viewpoints,type Level,type Viewpoint} from '@/lib/house-model/site-data';
 import type {Place,CaptureState} from '@/lib/house-model/experience-data';
@@ -76,7 +76,7 @@ export function LightPanel({day,minutes,onChange,snowing,onSnowing}:{day:number;
  const at=(m:number)=>`calc(${m/1435*100}% + ${(.5-m/1435)*8}px)`;
  return <div className="model-panel-body model-light">
   <div className="model-light-heading"><span>{date}{(snowing||snowOn(day)>.05)&&' · snow'}</span><span>{sun}</span>
-   {snowing!==undefined&&<button className="model-link" aria-pressed={snowing} title="Snow falls; out of season the date moves to mid-January" onClick={()=>onSnowing(!snowing)}>{snowing?'Stop snow':'Let it snow'}</button>}
+   {snowing!==undefined&&<button className="model-snow" aria-pressed={snowing} aria-label={snowing?'Stop the snow':'Let it snow'} title={snowing?'Stop the snow':'Let it snow'} onClick={()=>onSnowing(!snowing)}><Snowflake size={15} aria-hidden/></button>}
    <button className="model-link" onClick={now}>Now</button></div>
   <div className="model-light-time" style={{'--sunrise':`${events.sunrise.minutes/1435*100}%`,'--sunset':`${events.sunset.minutes/1435*100}%`} as React.CSSProperties}>
    <Slider aria-label="Time of day" min={0} max={1435} step={5} value={[minutes]} onValueChange={v=>onChange(day,v[0])}/>
