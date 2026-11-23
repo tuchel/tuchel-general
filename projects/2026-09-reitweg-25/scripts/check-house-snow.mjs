@@ -9,9 +9,9 @@ import {MeshBVH} from 'three-mesh-bvh';
 // against the model itself: every upward face with a roof over it is one the snow is kept off, and the open ground,
 // roofs and terraces are not.
 fs.mkdirSync('tmp/snow-check',{recursive:true});
-await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/static-batch.ts','lib/house-model/sky-visibility.ts','lib/house-model/sky-links.ts','lib/house-model/snow.ts','lib/house-model/renovation-data.ts'],outdir:'tmp/snow-check',outExtension:{'.js':'.mjs'},bundle:true,splitting:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
+await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/static-batch.ts','lib/house-model/sky-visibility.ts','lib/house-model/sky-links.ts','lib/house-model/snow.ts','lib/house-model/renovation-data.ts','lib/house-model/christmas-tree.ts'],outdir:'tmp/snow-check',outExtension:{'.js':'.mjs'},bundle:true,splitting:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
 const M=n=>import(`../tmp/snow-check/${n}.mjs`);
-const [{buildHouseModel},{batchStatic},{PROBE_GRID},{createLinker,coverSize,COVER},{snowOn,SNOW_SEASON,snowCovers,underCover,snowSurfaces,snow},{renovationState}]=await Promise.all(['build-model','static-batch','sky-visibility','sky-links','snow','renovation-data'].map(M));
+const [{buildHouseModel},{batchStatic},{PROBE_GRID},{createLinker,coverSize,COVER},{snowOn,SNOW_SEASON,snowCovers,underCover,snowSurfaces,snow},{renovationState},{christmasTree,CHRISTMAS_TREE}]=await Promise.all(['build-model','static-batch','sky-visibility','sky-links','snow','renovation-data','christmas-tree'].map(M));
 
 // The dates.
 const day=(month,date)=>Math.round((Date.UTC(2026,month-1,date)-Date.UTC(2026,0,1))/864e5)+1;
@@ -34,6 +34,18 @@ const fall=fs.readFileSync('lib/house-model/snowfall.ts','utf8'),viewer=fs.readF
 assert.equal(fall.match(/new T\.Points\(/g)?.length,1,'the flakes are one draw');assert(!/needsUpdate|setUsage/.test(fall),'no buffer is written while it snows');
 assert(/if\(on&&!snowfall\)\{const made=snowfall=createSnowfall\(/.test(viewer),'the flakes are built when snow mode is first turned on');
 assert(/const flakes=snowing&&flakesReady&&/.test(viewer)&&/if\(post\.accumulated>0\)\{post\.replay\(\);fall\(\);return;\}/.test(viewer),'a resting view is not drawn again under the flakes');
+
+// The Christmas tree (christmas-tree.ts): hidden until the viewer shows it with the whole snow, outside the static batches
+// and the photographs' scene, three draws of modest size, under the family room's ceiling and inside its walls.
+{const tree=christmasTree(),meshes=[];tree.group.traverse(o=>{if(o.isMesh)meshes.push(o);});
+ assert(!tree.group.visible&&tree.glow.intensity===0&&!tree.glow.castShadow,'the tree and its glow start hidden, and the glow casts no shadow');
+ assert.equal(meshes.length,3,'the tree is three draws');assert(meshes.every(o=>o.userData.dynamic&&o.userData.skipPhotographic&&o.userData.passable&&!o.material.map),'the tree stays out of batches, photographs and the walker’s way, without textures');
+ const triangles=meshes.reduce((n,o)=>n+o.geometry.attributes.position.count/3,0),box=new T.Box3().setFromObject(tree.group);
+ assert(triangles<30000,`the tree is ${triangles} triangles`);
+ assert(box.min.y>.159&&box.max.y<2.62&&box.max.z<9.26&&box.max.x<5.6,`the tree stands inside the room (${box.min.toArray().map(v=>v.toFixed(2))} to ${box.max.toArray().map(v=>v.toFixed(2))})`);
+ tree.show(true,2,1);assert(tree.group.visible&&tree.glow.intensity>0&&Math.abs(meshes[2].material.emissiveIntensity*2-CHRISTMAS_TREE.bulb)<1e-6,'shown, its bulbs hold their brightness on the screen and its glow comes on with the lamps');
+ tree.show(false,2,1);assert(!tree.group.visible&&tree.glow.intensity===0,'and off with it');tree.dispose();}
+assert(/festive\?\.show\(study\.enabled&&\(snowing\|\|snowOn\(study\.day\)===1\)/.test(viewer),'the tree stands while the snow lies whole or falls');
 
 // The model as the viewer shows it, whole-house view.
 const model=buildHouseModel(true);
