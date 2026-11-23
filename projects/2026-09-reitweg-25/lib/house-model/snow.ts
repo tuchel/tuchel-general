@@ -82,13 +82,14 @@ function worldPosition(shader:T.WebGLProgramParametersWithUniforms){
  return 'vSnowWorld';
 }
 /** How a `surface` material takes it, by uniform, so that all of them keep the programs they shared: x the height grass
- * loses under it, y how far a flower shrinks to nothing, z how far what still shows pales to straw, w the slope's weight (little for setts, whose joints fill). */
-const HOW={surface:new T.Vector4(0,0,0,SNOW.slope),leaf:new T.Vector4(0,0,0,1.6),blade:new T.Vector4(.75,0,1,SNOW.slope),bloom:new T.Vector4(0,1,0,SNOW.slope),sett:new T.Vector4(0,0,0,.25)};
-/** x: the most of a surface it hides: all of a roof or a lawn, most of a leaf, and half of what a bare tree keeps of its
+ * loses under it, y how far a flower shrinks to nothing, z how far what still shows pales to straw, w the slope's weight (little for setts, whose joints fill). Fountain grass (`reed`) stands through the
+ * winter with its plumes, as straw. */
+const HOW={surface:new T.Vector4(0,0,0,SNOW.slope),leaf:new T.Vector4(0,0,0,1.6),blade:new T.Vector4(.75,0,1,SNOW.slope),reed:new T.Vector4(0,0,1,SNOW.slope),bloom:new T.Vector4(0,1,0,SNOW.slope),sett:new T.Vector4(0,0,0,.25)};
+/** x: the most of a surface it hides: all of a roof or a lawn, most of a leaf, a fifth of a standing grass, and half of what a bare tree keeps of its
  * leaf cards, which stand for twigs (foliage.ts) and so read as rimed, not as white leaves. y: how far the leaf or lawn
  * that still shows darkens to its winter green. z: how fine it clumps: a leaf card carries it in tufts, not as a white
  * leaf. */
-const MOST={surface:{value:new T.Vector3(1,0,1)},lawn:{value:new T.Vector3(1,.7,1)},leaf:{value:new T.Vector3(.85,1,4)},twig:{value:new T.Vector3(.5,0,1)}};
+const MOST={surface:{value:new T.Vector3(1,0,1)},lawn:{value:new T.Vector3(1,.7,1)},leaf:{value:new T.Vector3(.85,1,4)},twig:{value:new T.Vector3(.5,0,1)},reed:{value:new T.Vector3(.2,0,1)}};
 /** The snow as a shader feature, for a material that builds on it (snow-slab.ts). */
 export const snowFeature=(kind:SnowKind)=>feature(kind);
 const feature=(kind:SnowKind,how=HOW.surface,most=MOST.surface)=>({key:'snow-'+kind,last:true,compile:(shader:T.WebGLProgramParametersWithUniforms)=>{
@@ -149,14 +150,14 @@ const feature=(kind:SnowKind,how=HOW.surface,most=MOST.surface)=>({key:'snow-'+k
   ${open}
   vec3 snowUnder=snowCover(${p});
   snowLie=snowOn(${p},snowN.y,snowOpen*(1.0-snowUnder.y),uSnowHow.w,uSnowMost.z)*uSnowMost.x;
-  diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.5,0.44,0.3),uSnow*uSnowHow.z*0.6)*mix(vec3(1.0),vec3(0.6,0.62,0.56),uSnow*uSnowMost.y);snowLie=max(snowLie,uSnowHow.z*uSnow*vSnowTip*0.8);
+  diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.5,0.44,0.3),uSnow*uSnowHow.z*0.6)*mix(vec3(1.0),vec3(0.6,0.62,0.56),uSnow*uSnowMost.y);snowLie=max(snowLie,uSnowHow.z*uSnow*vSnowTip*0.8*uSnowMost.x);
   diffuseColor.rgb=mix(diffuseColor.rgb,vec3(${SNOW.albedo.join(',')})*snowTone,snowLie);roughnessFactor=mix(roughnessFactor,0.86,snowLie);metalnessFactor*=1.0-snowLie;
  }`);
  // Snow in shade is lit by the sky alone, and reads blue.
  shader.fragmentShader=before(shader.fragmentShader,'aomap_fragment',`reflectedLight.indirectDiffuse*=mix(vec3(1.0),vec3(${SNOW.shade.join(',')}),snowLie);`);
 }});
 
-const BLADES=/grass/,BLOOMS=/flowers|blooms|perennials/,SETTS=/cobble/;
+const BLADES=/grass/,REEDS=/^fountain-grass/,BLOOMS=/flowers|blooms|perennials/,SETTS=/cobble/;
 /** Lets the snow lie on every lit material under `roots`: one uniform (snow.amount) on the programs they already have,
  * which costs a branch while it is 0. Materials that light themselves (lamps, screens) and see-through ones other than
  * glass and water are left alone. Call it after the sky light has taken its materials (sky-visibility.ts), and again for
@@ -170,7 +171,8 @@ export function snowSurfaces(roots:T.Object3D[]){
   else if(m.transparent){if(hasShaderFeature(m,'fresnel-glass'))addShaderFeature(m,feature('glass'));}
   // Leaves and needles take a dusting on whatever of the crown faces up, steeper than a roof holds it.
   else{const leaf=m.userData.foliage==='leaves'||m.userData.photo==='foliage'||m.userData.hedgeBody;
-   addShaderFeature(m,feature('surface',BLOOMS.test(o.name)?HOW.bloom:BLADES.test(o.name)?HOW.blade:SETTS.test(o.name)?HOW.sett:leaf?HOW.leaf:HOW.surface,hasShaderFeature(m,'leaf-fall')?MOST.twig:leaf?MOST.leaf:m.userData.photo==='lawn'?MOST.lawn:MOST.surface));}
+   const reed=REEDS.test(o.name);
+   addShaderFeature(m,feature('surface',reed?HOW.reed:BLOOMS.test(o.name)?HOW.bloom:BLADES.test(o.name)?HOW.blade:SETTS.test(o.name)?HOW.sett:leaf?HOW.leaf:HOW.surface,reed?MOST.reed:hasShaderFeature(m,'leaf-fall')?MOST.twig:leaf?MOST.leaf:m.userData.photo==='lawn'?MOST.lawn:MOST.surface));}
  }});
 }
 const hasSnow=(m:T.Material)=>!!(m.userData.shaderFeatures as {key:string}[]|undefined)?.some(f=>f.key.startsWith('snow-'));
