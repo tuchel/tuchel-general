@@ -34,10 +34,9 @@ export const underCover=(covers:SnowCover[],x:number,y:number,z:number)=>covers.
  * under a thin, broken cover. `glass`: a dusting on a glass roof. `far`: the Alps and their foreland whiten. */
 export type SnowKind='surface'|'water'|'glass'|'far';
 
-const GLSL=`
-uniform float uSnow;uniform vec4 uSnowCoverA[${SNOW.covers}];uniform vec4 uSnowCoverB[${SNOW.covers}];
-float snowLie=0.0,snowTone=1.0;
-#define LEAF_GLOW (1.0-snowLie)
+/** The noise the snow is patched with and the roofs that keep it off, for either stage of a shader. */
+export const SNOW_GLSL=`
+uniform vec4 uSnowCoverA[${SNOW.covers}];uniform vec4 uSnowCoverB[${SNOW.covers}];
 // A hash without sin, which loses large arguments on some graphics cards.
 float snowHash(vec2 c){vec3 p=fract(vec3(c.xyx)*.1031);p+=dot(p,p.yzx+33.33);return fract((p.x+p.y)*p.z);}
 float snowNoise(vec2 p){vec2 i=floor(p),f=p-i;f=f*f*(3.0-2.0*f);
@@ -48,6 +47,11 @@ vec3 snowCover(vec3 p){vec3 c=vec3(0.0,0.0,-1e4);
   float e=1.0-smoothstep(0.94,1.0,max(abs(dot(d,uSnowCoverA[k].zw)),abs(dot(d,uSnowCoverB[k].xy))));
   if(e>0.0){c.z=max(c.z,uSnowCoverB[k].z);c.y=max(c.y,e*step(p.y,uSnowCoverB[k].z));c.x=max(c.x,e*step(0.5,uSnowCoverB[k].w)*step(uSnowCoverB[k].z,p.y));}}
  return c;}
+`;
+const GLSL=`
+uniform float uSnow;${SNOW_GLSL}
+float snowLie=0.0,snowTone=1.0;
+#define LEAF_GLOW (1.0-snowLie)
 // How much of a surface the snow covers: all of what lies flat under an open sky, thinning with the slope, and in soft
 // patches, which widen as it settles or melts. The patches fade where they would be smaller than a pixel.
 float snowOn(vec3 p,float up,float open,float slope,float grain){
@@ -61,6 +65,8 @@ float snowOn(vec3 p,float up,float open,float slope,float grain){
 const amount={value:0};
 const coverA={value:Array.from({length:SNOW.covers},()=>new T.Vector4())},coverB={value:Array.from({length:SNOW.covers},()=>new T.Vector4(0,0,-1e4,0))};
 const uniforms={uSnow:amount,uSnowCoverA:coverA,uSnowCoverB:coverB};
+/** The snow's uniforms, for a shader that is shaped by it (snow-slab.ts). */
+export const snowUniforms=uniforms;
 /** The roofs' uniforms (snow.cover), for what else must stay out from under them (snowfall.ts). */
 export const snowRoofs={uSnowCoverA:coverA,uSnowCoverB:coverB};
 /** A world position for the fragment shader: the sky light's own where the material has it (sky-visibility.ts). */
@@ -83,6 +89,8 @@ const HOW={surface:new T.Vector4(0,0,0,SNOW.slope),leaf:new T.Vector4(0,0,0,1.6)
  * that still shows darkens to its winter green. z: how fine it clumps: a leaf card carries it in tufts, not as a white
  * leaf. */
 const MOST={surface:{value:new T.Vector3(1,0,1)},lawn:{value:new T.Vector3(1,.7,1)},leaf:{value:new T.Vector3(.85,1,4)},twig:{value:new T.Vector3(.5,0,1)}};
+/** The snow as a shader feature, for a material that builds on it (snow-slab.ts). */
+export const snowFeature=(kind:SnowKind)=>feature(kind);
 const feature=(kind:SnowKind,how=HOW.surface,most=MOST.surface)=>({key:'snow-'+kind,last:true,compile:(shader:T.WebGLProgramParametersWithUniforms)=>{
  Object.assign(shader.uniforms,uniforms);
  if(kind==='far'){
