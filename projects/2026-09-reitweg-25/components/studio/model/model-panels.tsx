@@ -60,7 +60,7 @@ const presets=(events:ReturnType<typeof sunDayEvents>)=>[
  {label:'Golden hour',icon:Sunset,minutes:Math.round(events.sunset.minutes-45)},
  {label:'Dusk',icon:Moon,minutes:Math.round(events.sunset.minutes+25)},
 ];
-/** `snowing`: snow mode, where the detail setting has it; it falls, and lies whatever the date. */
+/** `snowing`: snow mode, where the detail setting has it; it falls in winter only, so turning it on moves the date there. */
 export function LightPanel({day,minutes,onChange,snowing,onSnowing}:{day:number;minutes:number;onChange:(day:number,minutes:number)=>void;snowing?:boolean;onSnowing:(on:boolean)=>void}){
  const events=useMemo(()=>sunDayEvents(day),[day]),reading=sunStudyReading({enabled:true,day,minutes});
  const date=studyDate(day).toLocaleDateString('en-GB',{timeZone:'UTC',day:'numeric',month:'long'});
@@ -76,7 +76,7 @@ export function LightPanel({day,minutes,onChange,snowing,onSnowing}:{day:number;
  const at=(m:number)=>`calc(${m/1435*100}% + ${(.5-m/1435)*8}px)`;
  return <div className="model-panel-body model-light">
   <div className="model-light-heading"><span>{date}{(snowing||snowOn(day)>.05)&&' · snow'}</span><span>{sun}</span>
-   {snowing!==undefined&&<button className="model-link" aria-pressed={snowing} title="Snow falls, and lies whatever the date" onClick={()=>onSnowing(!snowing)}>{snowing?'Stop snow':'Let it snow'}</button>}
+   {snowing!==undefined&&<button className="model-link" aria-pressed={snowing} title="Snow falls; out of season the date moves to mid-January" onClick={()=>onSnowing(!snowing)}>{snowing?'Stop snow':'Let it snow'}</button>}
    <button className="model-link" onClick={now}>Now</button></div>
   <div className="model-light-time" style={{'--sunrise':`${events.sunrise.minutes/1435*100}%`,'--sunset':`${events.sunset.minutes/1435*100}%`} as React.CSSProperties}>
    <Slider aria-label="Time of day" min={0} max={1435} step={5} value={[minutes]} onValueChange={v=>onChange(day,v[0])}/>
