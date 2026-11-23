@@ -176,6 +176,8 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
  };
  return {
   probes:nx*ny*nz,
+  /** The uniforms that read the height standing over a point from the links' last layer (sky-links.ts, COVER). */
+  cover:{uSkyReach:uniforms.uSkyReach,uSkyMin:uniforms.uSkyMin,uSkyGrid:uniforms.uSkyGrid,uSkyCell:uniforms.uSkyCell,uSkyLinked:uniforms.uSkyLinked},
   request:()=>{step=0;relink();},
   /** Meshes that arrive after the house (the garage's cars): lit by the sky light and in its way from the next bake,
    * which the caller requests. The links worker starts again with them. */

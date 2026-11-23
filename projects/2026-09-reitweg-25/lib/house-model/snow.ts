@@ -61,6 +61,8 @@ float snowOn(vec3 p,float up,float open,float slope,float grain){
 const amount={value:0};
 const coverA={value:Array.from({length:SNOW.covers},()=>new T.Vector4())},coverB={value:Array.from({length:SNOW.covers},()=>new T.Vector4(0,0,-1e4,0))};
 const uniforms={uSnow:amount,uSnowCoverA:coverA,uSnowCoverB:coverB};
+/** The roofs' uniforms (snow.cover), for what else must stay out from under them (snowfall.ts). */
+export const snowRoofs={uSnowCoverA:coverA,uSnowCoverB:coverB};
 /** A world position for the fragment shader: the sky light's own where the material has it (sky-visibility.ts). */
 function worldPosition(shader:T.WebGLProgramParametersWithUniforms){
  if(shader.vertexShader.includes('vSkyWorld'))return 'vSkyWorld';

@@ -12,6 +12,10 @@ export const SKY={turbidity:3,rayleigh:1.4,mie:.005,g:.8,clouds:.22};
  * little softer against a sky light that keeps more of its blue, so shadows on snow read blue; the ground returns
  * `ground` of the light that falls on it, where lawn and paving return about 15%; and the view is exposed by `exposure`
  * more, as a photographer opens up for snow so that it reads white. */
+/** While snow falls (snowfall.ts): cloud closes the sky (`coverage`, `density` of the calculated sky's own clouds), `sun`
+ * of the sunlight comes through it, the sky light loses its colour (`saturation`), and the
+ * view is exposed by `exposure` less than so dim a sun would ask, so that the day reads grey. */
+export const OVERCAST={coverage:1,density:.9,sun:.1,saturation:.3,exposure:.78};
 export const WINTER={turbidity:3.8,mie:.007,sun:.9,saturation:.8,ground:[.6,.64,.7],exposure:1.2};
 const totalRayleigh=[5.804542996261093e-6,1.3562911419845635e-5,3.0265902468824876e-5];
 const mieConst=[1.8399918514433978e14,2.7798023919660528e14,4.0790479543861094e14];
@@ -153,22 +157,23 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
   const peak=Math.max(horizon.r,horizon.g,horizon.b,1e-6);
   for(const m of backdrops)m.color.setRGB(horizon.r*1.12/peak,horizon.g*1.12/peak,horizon.b*1.12/peak).multiplyScalar(peak*1.05);
  };
- const apply=(study:SunStudy,snow=0):LightReading=>{
+ const apply=(study:SunStudy,snow=0,overcast=0):LightReading=>{
   const r=sunStudyReading(study);
   sunVector.set(...sunDirection(r.azimuth,r.apparentElevation)).normalize();
-  for(const s of [sky,envSky]){const u=s.material.uniforms;u.sunPosition.value.copy(sunVector);u.turbidity.value=T.MathUtils.lerp(SKY.turbidity,WINTER.turbidity,snow);u.mieCoefficient.value=T.MathUtils.lerp(SKY.mie,WINTER.mie,snow);}
+  for(const s of [sky,envSky]){const u=s.material.uniforms;u.sunPosition.value.copy(sunVector);u.turbidity.value=T.MathUtils.lerp(SKY.turbidity,WINTER.turbidity,snow);u.mieCoefficient.value=T.MathUtils.lerp(SKY.mie,WINTER.mie,snow);
+   u.cloudCoverage.value=T.MathUtils.lerp(clouds?0:SKY.clouds,OVERCAST.coverage,overcast);u.cloudDensity.value=T.MathUtils.lerp(.35,OVERCAST.density,overcast);}
   if(r.moon.elevation>-1){const [x,y,z]=sunDirection(r.moon.azimuth,r.moon.elevation);moon.value.set(x,y,z,moonRadiance);}else moon.value.set(0,0,0,0);
   const transmittance=sunTransmittance(r.apparentElevation),strength=SUN_SCALE*luminance(transmittance);
   const peak=Math.max(transmittance.r,transmittance.g,transmittance.b,1e-6);
   sun.color.setRGB(transmittance.r/peak,transmittance.g/peak,transmittance.b/peak);
-  sun.intensity=strength*T.MathUtils.smoothstep(r.apparentElevation,-.833,1.5)*T.MathUtils.lerp(1,WINTER.sun,snow);
+  sun.intensity=strength*T.MathUtils.smoothstep(r.apparentElevation,-.833,1.5)*T.MathUtils.lerp(1,WINTER.sun,snow)*T.MathUtils.lerp(1,OVERCAST.sun,overcast);
   sun.position.copy(sun.target.position).addScaledVector(sunVector,160);
   sun.visible=sun.intensity>0;
   const irradiance=luminance(skyIrradiance(sunVector)),key=irradiance+sun.intensity*Math.max(0,sunVector.y);
   // Lawn, paving and planting average to a mid-dark, green-leaning albedo; lying snow returns most of the light.
-  ground.value.setRGB(.15,.145,.13).lerp(winterGround,snow).multiplyScalar(key/Math.PI);saturation.value=T.MathUtils.lerp(.55,WINTER.saturation,snow);
+  ground.value.setRGB(.15,.145,.13).lerp(winterGround,snow).multiplyScalar(key/Math.PI);saturation.value=T.MathUtils.lerp(T.MathUtils.lerp(.55,WINTER.saturation,snow),OVERCAST.saturation,overcast);
   // Partial adaptation: dusk reads as dusk, night stays legible.
-  const exposure=clamp(NOON_EXPOSURE*Math.pow(NOON_KEY/Math.max(key,1e-6),.72),.02,30)*T.MathUtils.lerp(1,WINTER.exposure,snow);
+  const exposure=clamp(NOON_EXPOSURE*Math.pow(NOON_KEY/Math.max(key,1e-6),.72),.02,30)*T.MathUtils.lerp(1,WINTER.exposure,snow)*T.MathUtils.lerp(1,OVERCAST.exposure,overcast);
   const daylight=T.MathUtils.smoothstep(r.elevation,-8,10),dusk=1-T.MathUtils.smoothstep(r.elevation,-3,7);
   lamps.visible=dusk>.02;
   // Interior lamps light a floor to roughly 0.2% of the noon key, like 200 lux against 100 klx: at the evening's exposure

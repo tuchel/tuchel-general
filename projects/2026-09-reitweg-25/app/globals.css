@@ -156,9 +156,9 @@ body:has(.house-model-page) .topbar{display:none!important}
 .model-more-toggles button{flex:1 1 auto;padding:0 12px;white-space:nowrap;min-height:32px;border-radius:999px;border:1px solid var(--model-line);background:#ffffffb0;color:var(--model-ink);font-size:13px;cursor:pointer}
 .model-more-toggles button[aria-pressed="true"]{background:var(--model-accent);border-color:transparent;color:#fff}
 .model-more>.model-link{margin-top:2px}
-.model-light-heading{display:flex;align-items:baseline;gap:10px;margin:4px 32px 10px 2px;font-size:13px;color:var(--model-muted)}
+.model-light-heading{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;margin:4px 32px 10px 2px;font-size:13px;color:var(--model-muted)}
 .model-light-heading span:first-child{color:var(--model-ink);font-weight:600}
-.model-light-heading .model-link{margin:0 0 0 auto}
+.model-light-heading .model-link{margin:0}.model-light-heading .model-link:first-of-type{margin-left:auto}
 .model-light-time{position:relative;margin-bottom:12px}
 .model-light-time [data-slot=slider-track]{height:28px;border-radius:14px;background:linear-gradient(to right,#58657d 0,#58657d var(--sunrise),#efd6a0 var(--sunrise),#f5e7c3 50%,#efd6a0 var(--sunset),#58657d var(--sunset))}
 .model-light-time [data-slot=slider-range]{background:transparent}
