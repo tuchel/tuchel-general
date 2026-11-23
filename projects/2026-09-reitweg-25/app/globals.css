@@ -158,7 +158,12 @@ body:has(.house-model-page) .topbar{display:none!important}
 .model-more>.model-link{margin-top:2px}
 .model-light-heading{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;margin:4px 32px 10px 2px;font-size:13px;color:var(--model-muted)}
 .model-light-heading span:first-child{color:var(--model-ink);font-weight:600}
-.model-light-heading .model-link{margin:0}.model-light-heading .model-link:first-of-type{margin-left:auto}
+.model-light-heading .model-link{margin:0}.model-light-heading>button:first-of-type{margin-left:auto}
+.model-snow{align-self:center;display:grid;place-items:center;width:28px;height:28px;margin:-6px 0;padding:0;border-radius:50%;border:1px solid var(--model-line);background:#ffffffb0;color:var(--model-accent);cursor:pointer;transition:background .2s,color .2s,border-color .2s}
+.model-snow:hover svg{transform:rotate(30deg)}.model-snow svg{transition:transform .3s}
+.model-snow[aria-pressed="true"]{background:var(--model-accent);border-color:var(--model-accent);color:#fff}
+.model-snow[aria-pressed="true"] svg{animation:model-snow-turn 12s linear infinite}
+@keyframes model-snow-turn{to{transform:rotate(360deg)}}
 .model-light-time{position:relative;margin-bottom:12px}
 .model-light-time [data-slot=slider-track]{height:28px;border-radius:14px;background:linear-gradient(to right,#58657d 0,#58657d var(--sunrise),#efd6a0 var(--sunrise),#f5e7c3 50%,#efd6a0 var(--sunset),#58657d var(--sunset))}
 .model-light-time [data-slot=slider-range]{background:transparent}
@@ -190,7 +195,7 @@ body:has(.house-model-page) .topbar{display:none!important}
 .model-about ul{padding-left:18px;margin:18px 0}
 .model-about li{margin:6px 0}
 .model-about .button-row{display:flex;gap:18px;margin-bottom:18px}
-@media(prefers-reduced-motion:reduce){.model-loading svg{animation:none}.model-compass span{transition:none}}
+@media(prefers-reduced-motion:reduce){.model-loading svg,.model-snow[aria-pressed="true"] svg{animation:none}.model-compass span{transition:none}}
 @media(max-width:767px),(max-width:950px) and (max-height:500px){
  body:has(.house-model-page) .studio-sidebar{display:none!important}
  .house-model-page{left:0;z-index:80;height:100dvh;bottom:auto}
