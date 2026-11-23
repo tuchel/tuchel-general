@@ -194,6 +194,9 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
  const lensCamera=options.lens&&camera instanceof T.PerspectiveCamera?camera:undefined;
  const depth=lensCamera?new DepthCapture(lensCamera):undefined;
  if(depth)composer.insertPass(depth,1);
+ // What falls over the finished frame (snowfall.ts) hides behind the scene by this copy of its depth, in metres from the
+ // camera, taken as the scene is drawn: the scene's own depth buffer does not outlast every pass after it (the lens's).
+ let fallDepth=depth;
  let bloom:QuarterResolutionBloom|undefined;
  // Faint and tight: a glow at the sun, glints and sunlit glass, never a veil over the room.
  if(options.bloom){bloom=new QuarterResolutionBloom(new T.Vector2(1,1),.06,.1,1);composer.addPass(bloom);}
@@ -312,8 +315,13 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
   /** The settled image to the canvas again, as its last refined frame showed it and without drawing the scene: under
    * what moves over a resting view (snowfall.ts). Only while frames are accumulated. */
   replay:()=>finishToScreen(accumulate.settled),
-  /** The scene's depth as last drawn. */
-  get depth(){return scenePass.depth;},
+  /** Keeps the scene's depth for what falls over the frame, or stops keeping it; the lens keeps it anyway. */
+  keepDepth:(on:boolean)=>{
+   if(!fallDepth&&on&&camera instanceof T.PerspectiveCamera){fallDepth=new DepthCapture(camera);fallDepth.setSize(composer.readBuffer.width,composer.readBuffer.height);composer.insertPass(fallDepth,1);}
+   if(fallDepth&&fallDepth!==depth)fallDepth.enabled=on;
+  },
+  /** The scene's depth as last drawn, in metres from the camera (keepDepth). */
+  get depth(){return fallDepth?.enabled?fallDepth.target.texture:null;},
   /** Shows a path-traced image (linear, before exposure) over the settled live image, through the same finish. `amount`
    * 0–1 blends it in; `radius` (traced pixels) smooths its grain (TracedBlend). */
   present:(image:T.Texture,amount:number,radius:number,exposure:number,indoor=0,demodulated=false)=>present(image,amount,radius,exposure,indoor,demodulated,false),

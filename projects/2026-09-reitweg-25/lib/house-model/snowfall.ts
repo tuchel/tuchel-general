@@ -13,7 +13,7 @@ const f=(v:number)=>v.toFixed(4);
  * world, wrapped into the box around the camera, so walking through them shows real parallax. None falls under a roof:
  * the height over each point is read from the sky light's links (sky-links.ts, COVER) and the roofs it does not know
  * (snow.ts, snowCovers), so rooms and porches stay clear while it falls outside their windows. They are drawn over the
- * finished image, behind whatever the scene's depth says is nearer. `sky`: the sky light's uniforms, where there is one. */
+ * finished image, behind whatever the scene's depth says is nearer: each flake whole, by its own distance. `sky`: the sky light's uniforms, where there is one. */
 export function createSnowfall(sky?:Record<string,T.IUniform>){
  const seeds=new Float32Array(SNOWFALL.count*3),chance=new Float32Array(SNOWFALL.count);
  let state=20260123;const random=()=>{state=(state*1664525+1013904223)>>>0;return state/4294967296;};
@@ -25,7 +25,7 @@ export function createSnowfall(sky?:Record<string,T.IUniform>){
    #ifdef ROOFED
    uniform highp sampler3D uSkyReach;uniform vec3 uSkyMin;uniform vec3 uSkyGrid;uniform float uSkyCell;uniform float uSkyLinked;
    #endif
-   varying float vAlpha;varying float vSoft;
+   varying float vAlpha;varying float vSoft;varying float vAway;
    void main(){
     float r=chance,q=fract(r*61.0),turn=uTime*(0.5+q*0.6)+r*40.0;
     vec3 p=position*uBox;
@@ -48,19 +48,19 @@ export function createSnowfall(sky?:Record<string,T.IUniform>){
     float size=mix(${f(SNOWFALL.size[0])},${f(SNOWFALL.size[1])},q)*scale/d,blur=${f(SNOWFALL.blur)}*scale*max(0.0,1.0/d-${f(1/SNOWFALL.focus)}),wide=size+blur;
     // Out of focus a flake spreads and thins; smaller than a pixel it dims instead of flickering.
     float small=min(1.0,wide/1.5);
-    vAlpha=alpha*small*mix(1.0,size/wide,0.8);vSoft=blur/wide;
+    vAlpha=alpha*small*mix(1.0,size/wide,0.8);vSoft=blur/wide;vAway=d;
     gl_PointSize=min(max(wide,1.5),64.0);gl_Position=vAlpha<0.004||-mv.z<0.12?vec4(2.0,2.0,2.0,1.0):projectionMatrix*mv;
    }`,
-  fragmentShader:`uniform sampler2D uDepth;uniform vec2 uView;uniform vec3 uLight;varying float vAlpha;varying float vSoft;
+  fragmentShader:`uniform sampler2D uDepth;uniform vec2 uView;uniform vec3 uLight;varying float vAlpha;varying float vSoft;varying float vAway;
    void main(){
-    if(gl_FragCoord.z>texture2D(uDepth,gl_FragCoord.xy/uView).r)discard;
+    if(vAway>texture2D(uDepth,gl_FragCoord.xy/uView).r)discard;
     gl_FragColor=vec4(uLight,vAlpha*(1.0-smoothstep(mix(0.45,0.0,vSoft),1.0,length(gl_PointCoord-0.5)*2.0)));
    }`});
  const points=new T.Points(geometry,material);points.frustumCulled=false;
  const day=new T.Color(.97,.98,1),night=new T.Color(.5,.56,.7),eye=new T.Vector3();
  return {
   points,
-  /** Draws the flakes over the frame on the canvas, `seconds` into the fall. `depth`: the scene's, as last drawn.
+  /** Draws the flakes over the frame on the canvas, `seconds` into the fall. `depth`: the scene's, as last drawn, in metres from the camera (post.ts, keepDepth).
    * `daylight` (0–1): white by day, pale blue at night. */
   draw:(renderer:T.WebGLRenderer,camera:T.Camera,depth:T.Texture,seconds:number,daylight:number)=>{
    camera.getWorldDirection(uniforms.uMiddle.value).multiply(uniforms.uBox.value).multiplyScalar(.4).add(camera.getWorldPosition(eye));
