@@ -326,8 +326,9 @@ const EVERGREEN:TreeKind[]=['pine','mugo','spruce'];
 /** The year in the trees that shed, by day of the year: leaves open over `flush` (the first of April to mid-May), turn
  * over `turn` (mid-September to late October) and are down by the end of `fall` (late November). Each tree runs up to
  * `spread` days early or late. `patches`: how finely a leaf card thins (cells across the leaf atlas); `bare`: the share
- * of a card that is gone in winter, the rest standing for twigs. */
-export const SHED={flush:[91,135],turn:[258,300],fall:[300,330],spread:16,patches:14,bare:.72};
+ * of a card that is gone once the leaves are down, the rest the few that hang on. Those go too over `late` (December),
+ * leaving the limbs alone, and bud over `bud` (March) to what the flush opens from. */
+export const SHED={flush:[91,135],turn:[258,300],fall:[300,330],late:[335,360],bud:[60,91],spread:16,patches:14,bare:.72};
 const TWIG=[1.3,.55,.9],FRESH=[1.22,1.2,.7],RUSSET=[1.7,.8,.45],YELLOW=[2.3,1.55,.5],ORANGE=[2.6,1.1,.4],RED=[2.6,.62,.5];
 const ramp=(v:number,[a,b]:number[])=>T.MathUtils.smoothstep(v,a,b),blend=(a:number[],b:number[],t:number)=>a.map((v,i)=>v+(b[i]-v)*t);
 /** How much of its leaf a tree has shed on `day`: 1 in winter, 0 from mid-May to late October. */
@@ -339,10 +340,10 @@ export function leafTint(kind:TreeKind,day:number,vary:number){
  return blend(blend(blend([1,1,1],autumn,ramp(d,SHED.turn)),kind==='cherry'?[.8,.5,.3]:RUSSET,.7*ramp(d,SHED.fall)),TWIG,ramp(d,[SHED.fall[1]-12,SHED.fall[1]+8]));
 }
 /** Sets the trees under `root` to `day` of the year: the colour of each tree that sheds, and how much leaf it carries.
- * In winter such a tree shows its limbs through thinned leaf cards, and its solid crown and modelled leaves are put
- * away; the path tracer then sees the limbs alone. Evergreens, hedges and shrubs keep their leaf. */
+ * In winter such a tree shows its limbs through thinned leaf cards, bare of them from late December to March, and its
+ * solid crown and modelled leaves are put away; the path tracer then sees the limbs alone. Evergreens, hedges and shrubs keep their leaf. */
 export function seasonTrees(root:T.Object3D,materials:FoliageMaterials,day:number){
- const shed=shedOn(day),bare=shed>.5;materials.fall.shed.value=shed;
+ const shed=shedOn(day),bare=shed>.5,gone=shed*(1+.5*(day<SHED.bud[1]?1-ramp(day,SHED.bud):ramp(day,SHED.late)));materials.fall.shed.value=gone;
  root.traverse(o=>{
   ((o.userData.treeSets??[]) as TreeSet[]).forEach((set,k)=>{
    if(EVERGREEN.includes(set.kind))return;
@@ -350,7 +351,7 @@ export function seasonTrees(root:T.Object3D,materials:FoliageMaterials,day:numbe
    set.order.clear();set.bare=bare;
    for(const mesh of [...set.crowns,...set.lod??[]]){
     const card=mesh.material===materials.fall.leaves,lod=!!set.lod?.includes(mesh);
-    if(!card)mesh.visible=!bare;else{mesh.userData.skipPhotographic=bare||lod;if(lod)mesh.castShadow=bare;}
+    if(!card)mesh.visible=!bare;else{mesh.visible=gone*SHED.bare<1.06;mesh.userData.skipPhotographic=bare||lod;if(lod)mesh.castShadow=bare;}
     mesh.userData.season=day;
    }
   });
