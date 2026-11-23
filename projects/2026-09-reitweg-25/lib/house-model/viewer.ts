@@ -30,6 +30,7 @@ import {bakeSunBounce} from './sun-bounce';
 import {eyeLevelGrass} from './grass';
 import {snow,snowOn,snowSurfaces,snowCovers} from './snow';
 import {createSnowfall,SNOWFALL,type Snowfall} from './snowfall';
+import {christmasTree} from './christmas-tree';
 import {createWalker,type WalkInput} from './walk';
 import {tierFor,type Quality} from './device-tier';
 import {createPerfReadout} from './perf-readout';
@@ -102,6 +103,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // The mapped woods further out (forests.ts) read as forest edges from eye level; from above they would read as blocks.
  const woods=setting?.vegetation.getObjectByName('distant-woods');if(woods)woods.visible=false;
  const model=buildHouseModel(realistic,setting?.group,foliage,false);scene.add(model.root);
+ // While the snow lies whole or falls, a Christmas tree stands in the family room (christmas-tree.ts).
+ const festive=realistic?christmasTree():undefined;if(festive)model.root.getObjectByName('ground-floor')?.add(festive.group);
  const stageGeometry=terrainWithPoolOpening(groundOpenings()),terrain=(x:number)=>realistic?-5*T.MathUtils.smoothstep(x,55,140):0;
  if(realistic){const p=stageGeometry.attributes.position;for(let i=0;i<p.count;i++)p.setY(i,terrain(p.getX(i)));stageGeometry.computeVertexNormals();}
  const stageMaterial=new T.MeshStandardMaterial({color:realistic?'#a0b18d':'#edece5',roughness:1});if(realistic)stageMaterial.userData.photo='lawn';
@@ -113,7 +116,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const clouds=realistic&&tier.clouds?createClouds(renderer):undefined;
  const lighting=realistic?createLighting(renderer,scene,model.root,{shadowSize:tier.shadowSize,clouds}):undefined;
  let sun:T.DirectionalLight,environment:T.WebGLRenderTarget|undefined;
- if(lighting){sun=lighting.sun;lighting.apply(initialSunStudy);lighting.fitShadow(SITE_CENTER,SITE_RADIUS);}
+ if(lighting){sun=lighting.sun;if(festive)lighting.lamps.add(festive.glow);lighting.apply(initialSunStudy);lighting.fitShadow(SITE_CENTER,SITE_RADIUS);}
  else{
   const pmrem=new T.PMREMGenerator(renderer),room=new RoomEnvironment();environment=pmrem.fromScene(room,.05);room.dispose();pmrem.dispose();
   scene.environment=environment.texture;scene.environmentIntensity=.3;scene.add(new T.HemisphereLight('#fffdf1','#b7bba7',1.5));
@@ -159,7 +162,11 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // ground, or off, the ground eases to its new state (`settling`); the light changes at once.
  let snowing=false,settling=false,settledAt=0,snowfall:Snowfall|undefined,flakesReady=false,snowSeconds=0;
  const snowNow=()=>study.enabled&&level==='exterior'?snowing?1:snowOn(study.day):0;
- const relight=()=>{const lies=lighting?snowNow():0;if(!settling)snow.amount=lies;return lighting?.apply(study,lies,snowing?1:0);};
+ const relight=()=>{
+  const lies=lighting?snowNow():0;if(!settling)snow.amount=lies;
+  const r=lighting?.apply(study,lies,snowing?1:0);if(r)festive?.show(study.enabled&&(snowing||snowOn(study.day)===1),r.exposure,r.dusk);
+  return r;
+ };
  const applyState=()=>{
   model.setLevel(level);model.setRenovations(renovations);batches.sync(model.stateOf(level,renovations));
   snow.cover(snowCovers(renovations));if(lighting&&!settling&&snowNow()!==snow.amount)relight();
@@ -562,7 +569,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   snapshot:rig.snapshot,
   restore:(s:Parameters<typeof rig.restore>[0])=>{rig.restore(s);changed();},
   dispose:()=>{
-   disposed=true;snowfall?.dispose();cancelAnimationFrame(frame);touches();perf?.dispose();occlusion?.dispose();steer?.dispose();probes?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);clearTimeout(cloudSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
+   disposed=true;snowfall?.dispose();festive?.dispose();cancelAnimationFrame(frame);touches();perf?.dispose();occlusion?.dispose();steer?.dispose();probes?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);clearTimeout(cloudSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
    canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('wheel',wheel);canvas.removeEventListener('keydown',key);
    bake?.dispose();bounce?.dispose();clouds?.dispose();grass?.dispose();post?.dispose();lighting?.dispose();textures?.dispose();environment?.dispose();
    const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
