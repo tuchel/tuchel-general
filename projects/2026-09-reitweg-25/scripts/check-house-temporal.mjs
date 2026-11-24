@@ -16,6 +16,10 @@ assert(/if\(temporal\)\{output\.enabled=false;if\(focusPass\)focusPass\.enabled=
 // frame's colours around it, and only where the last frame saw the same point may it stand a little past them.
 assert(/clip=lastViewProj\*world/.test(pass)&&/texture2D\(lastDepth,at\)\.r-expected/.test(pass),'looked up by depth');
 assert(/kept=clamp\(keptAt\(at\),lo-slack,hi\+slack\)/.test(pass)&&/slack=\(hi-lo\)\*\$\{TEMPORAL\.slack\.toFixed\(2\)\}\*seen\+0\.002\*seen/.test(pass),'held to the new frame');
+// A point the move uncovered has no kept colour of its own: it shows the new frame at once, so nothing trails behind
+// what passes in front. Elsewhere the kept colour may stand only a fifth of the local range past the new frame's.
+assert(/gl_FragColor=vec4\(seen>0\.5\?mix\(kept,mine,weight\*exp\(-\$\{TEMPORAL\.falloff\.toFixed\(1\)\}\*dot\(off,off\)\)\):c,1\.0\);/.test(pass),'uncovered points show the new frame');
+assert(/slack:\.2\}/.test(pass));
 // A changed light or scene under a still camera shows at once; the camera's own move carries the image, and so do
 // frames that follow one another without such a change.
 assert(/carried=this\.valid&&\(moved\|\|!this\.fresh\)/.test(pass)&&/reset\(\)\{this\.frames=0;this\.fresh=true;\}/.test(pass)&&/if\(temporal\)temporal\.reset\(\)/.test(post),'only a camera move carries');
