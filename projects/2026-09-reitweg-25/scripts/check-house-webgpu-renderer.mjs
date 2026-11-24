@@ -19,7 +19,7 @@ assert(/const makeSky=\(\)=>\(gpu\?new gpu\.SkyMesh\(\):new Sky\(\)\) as Sky/.te
 // A shader feature may carry the same effect as nodes; a material's features are composed in order into its colour,
 // roughness, normal and cavity, and no two materials share a program, since nodes hold a material's own textures.
 assert(/nodes\?:\(slots:NodeSlots\)=>void/.test(features)&&/if\(tsl\)composeNodes\(material,list\);/.test(features)&&/\+\(tsl\?'\|'\+material\.uuid:''\)/.test(features));
-assert(/drawWithNodes\(gpu\?\.tsl\);/.test(viewer));
+assert(/drawWithNodes\(gpu\?\.tsl&&\{\.\.\.gpu\.tsl,PhysicalLightingModel:gpu\.PhysicalLightingModel\}\);/.test(viewer));
 assert(/\},nodes:slots=>\{[\s\S]*?slots\.colour=\(slots\.colour\?\?materialColor\)\.mul\(albedo\);slots\.roughness=clamp\(texel\.a,\.05,1\);[\s\S]*?slots\.cavity=relief\.b;/.test(surfaces),'scanned and painted surfaces are drawn as nodes');
 // Light is changed in a lighting model of the material's own: three's, with what the features add for each light and
 // change in the light from all round. Leaves glow against the light, glass and water turn opaque at a glancing angle.
