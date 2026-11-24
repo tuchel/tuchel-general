@@ -236,7 +236,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
  if(meter)output.uniforms.uGrain.value=LENS.grain;
  let traced:TracedBlend|undefined,focused:T.WebGLRenderTarget|undefined,scale=1,focus=NaN,last=0,seed=0;
  // The last denoised traced image, with its view and depth (keep, carry).
- let kept:{light:T.WebGLRenderTarget;depth:T.WebGLRenderTarget;ratio:T.WebGLRenderTarget;camera:T.PerspectiveCamera;demodulated:boolean;generation:number;version:number}|undefined;
+ let kept:{/** How far (m) the view was from what it looked at. */reach:number;light:T.WebGLRenderTarget;depth:T.WebGLRenderTarget;ratio:T.WebGLRenderTarget;camera:T.PerspectiveCamera;demodulated:boolean;generation:number;version:number}|undefined;
  const copying=new T.ShaderMaterial({uniforms:{source:{value:null as T.Texture|null}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}',
   fragmentShader:'uniform sampler2D source;varying vec2 vUv;void main(){gl_FragColor=texture2D(source,vUv);}',depthTest:false,depthWrite:false}),copy=new FullScreenQuad(copying);
  /** Eases exposure toward the meter's reading and focus toward the middle of the frame. */
@@ -272,7 +272,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
   vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}',fragmentShader:lightCarryGlsl,depthTest:false,depthWrite:false}),relight=new FullScreenQuad(lighting);
  let lit:T.WebGLRenderTarget|undefined,carriedLight=0;
  const carryLight=(image:T.WebGLRenderTarget,view:PostView)=>{
-  carriedLight=kept&&depth&&lensCamera&&view.carry!==undefined&&kept.generation===view.carry&&kept.ratio.width>1?lightCarried(kept.camera,lensCamera):0;
+  carriedLight=kept&&depth&&lensCamera&&view.carry!==undefined&&kept.generation===view.carry&&kept.ratio.width>1?lightCarried(kept.camera,lensCamera,kept.reach):0;
   if(!kept||!depth||!lensCamera||carriedLight<=0)return image;
   lit??=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false});if(lit.width!==image.width||lit.height!==image.height)lit.setSize(image.width,image.height);
   const u=lighting.uniforms;u.frame.value=image.texture;u.ratio.value=kept.ratio.texture;u.depth.value=depth.target.texture;u.prevDepth.value=kept.depth.texture;u.amount.value=carriedLight;
@@ -386,7 +386,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
    if(!depth||!lensCamera)return;
    const source=image.image as {width:number;height:number},size=depth.target;
    kept??={light:new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false}),depth:new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false}),ratio:new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter}),
-    camera:new T.PerspectiveCamera(),demodulated:false,generation:-1,version:-1};
+    camera:new T.PerspectiveCamera(),demodulated:false,generation:-1,version:-1,reach:0};
    if(kept.version===image.version&&kept.generation===generation)return;
    kept.light.setSize(source.width,source.height);kept.depth.setSize(size.width,size.height);
    const previous=renderer.getRenderTarget();
@@ -395,7 +395,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
    // The blend is still set as it was for showing this image (present).
    if(traced&&temporal){kept.ratio.setSize(Math.ceil(traced.target.width/2),Math.ceil(traced.target.height/2));traced.material.uniforms.asRatio.value=1;renderer.setRenderTarget(kept.ratio);traced.quad.render(renderer);traced.material.uniforms.asRatio.value=0;}
    renderer.setRenderTarget(previous);
-   kept.camera.copy(lensCamera);kept.camera.updateMatrixWorld();kept.demodulated=demodulated;kept.generation=generation;kept.version=image.version;
+   kept.camera.copy(lensCamera);kept.camera.updateMatrixWorld();kept.demodulated=demodulated;kept.generation=generation;kept.version=image.version;kept.reach=Number.isFinite(focus)?focus:0;
   },
   /** Whether a kept image can stand in for `camera`'s view: the same scene and sun, and a small move (carry.ts). */
   carries:(camera:T.Camera,generation:number)=>!!kept&&kept.generation===generation&&carryApplies(kept.camera,camera),

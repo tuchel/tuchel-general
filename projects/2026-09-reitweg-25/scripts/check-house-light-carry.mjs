@@ -16,12 +16,18 @@ assert.equal(lightCarried(kept,at(0)),1);assert.equal(lightCarried(kept,at(LIGHT
 assert.equal(lightCarried(kept,at(LIGHT_CARRY.move*1.01)),0);assert.equal(lightCarried(kept,at(0,LIGHT_CARRY.turn*1.01)),0);
 const mid=lightCarried(kept,at(LIGHT_CARRY.move*(1+LIGHT_CARRY.full)/2));assert(mid>.3&&mid<.7,`it fades out toward the limit (${mid})`);
 assert(LIGHT_CARRY.move>=3,'several steps');
+// From the air a small turn of the orbit moves the camera many metres: the range grows with the distance to what the
+// traced view looked at.
+assert.equal(lightCarried(kept,at(9),60),1,'9 m is little when looking from 60 m');assert.equal(lightCarried(kept,at(9),2),0);
+assert(/kept\.reach=Number\.isFinite\(focus\)\?focus:0;/.test(post)&&/lightCarried\(kept\.camera,lensCamera,kept\.reach\)/.test(post));
+// Only the broad light is carried: the kept image is read `fine` levels down, so a traced leaf or ripple leaves no print.
+assert(LIGHT_CARRY.fine>=1&&LIGHT_CARRY.fine<LIGHT_CARRY.coarse);
 // What is carried is the traced image over the live one it replaced, point by point: light, not surface. In a moving
 // frame each pixel's point is looked up where the traced view saw it; a point that view did not see, or saw near its
 // edge, takes the light of its part of the frame.
 assert(/clamp\(\(t\+0\.004\)\/\(live\+0\.004\),\$\{LIGHT_CARRY\.least\.toFixed\(2\)\},\$\{LIGHT_CARRY\.most\.toFixed\(1\)\}\)/.test(post),'the ratio is bounded');
 assert(lightCarryGlsl.includes('abs(texture2D(prevDepth,at).r-expected)<')&&lightCarryGlsl.includes(`smoothstep(0.0,${LIGHT_CARRY.edge.toFixed(2)},min(min(at.x,at.y),min(1.0-at.x,1.0-at.y)))`));
-assert(lightCarryGlsl.includes(`gl_FragColor=vec4(c.rgb*mix(vec3(1.0),mix(texture2D(ratio,clamp(at,0.0,1.0),${LIGHT_CARRY.coarse.toFixed(1)}).rgb,texture2D(ratio,at).rgb,valid),amount),c.a);`),'an unseen point takes the light of its part of the frame');
+assert(lightCarryGlsl.includes(`gl_FragColor=vec4(c.rgb*mix(vec3(1.0),mix(texture2D(ratio,clamp(at,0.0,1.0),${LIGHT_CARRY.coarse.toFixed(1)}).rgb,texture2D(ratio,at,${LIGHT_CARRY.fine.toFixed(1)}).rgb,valid),amount),c.a);`),'an unseen point takes the light of its part of the frame');
 assert(/ratio:new T\.WebGLRenderTarget\(1,1,\{type:T\.HalfFloatType,depthBuffer:false,generateMipmaps:true,minFilter:T\.LinearMipmapLinearFilter\}\)/.test(post));
 // Only under the scene, sun and weather the image was traced for.
 // Until it has been judged on a real graphics card it is asked for with `?carry=on`.
