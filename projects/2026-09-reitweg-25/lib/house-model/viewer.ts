@@ -33,7 +33,7 @@ import {insideEntrancePolygon} from './entrance-garden';
 import {winterGardenOutline} from './renovations';
 import {createSnowfall,SNOWFALL,type Snowfall} from './snowfall';
 import {createRainfall,RAINFALL,type Rainfall} from './rainfall';
-import {createSmoke,type Smoke} from './smoke';
+import {createSmoke,FLUE_VAPOUR,type Smoke} from './smoke';
 import {mistAmount} from './mist';
 import {gardenLightPoints,GARDEN_LIGHTS} from './garden-lights';
 import {snowDrifts} from './snow-drift';
@@ -178,12 +178,15 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // Rain mode (rainfall.ts): the sky closes as for snow, drops fall over the view, and what stands outdoors wets.
  let raining=false,rainfall:Rainfall|undefined,dropsReady=false,wetAt=0;
  // The chimney smokes while snow lies (smoke.ts, Extreme): made, and its shader compiled, the first winter.
- let smoke:Smoke|undefined,smokeReady=false,smokeSeconds=0;
+ // The boiler's flue at the north gable steams as well, and in rain too (FLUE_VAPOUR).
+ let smoke:Smoke|undefined,vapour:Smoke|undefined,smokeReady=false,smokeSeconds=0,steam=0;
  const lightFire=()=>{
   if(smoke||!tier.weathered||!post)return;
   const chimney=scene.getObjectByName('chimney');if(!chimney)return;
   const top=new T.Box3().setFromObject(chimney),made=smoke=createSmoke(new T.Vector3((top.min.x+top.max.x)/2,top.max.y+.1,(top.min.z+top.max.z)/2));
-  void renderer.compileAsync(made.mesh,camera).catch(()=>{}).then(()=>{smokeReady=true;changed();});
+  const cap=scene.getObjectByName('flue-cap');
+  if(cap){const at=new T.Box3().setFromObject(cap);vapour=createSmoke(new T.Vector3((at.min.x+at.max.x)/2,at.max.y+.05,(at.min.z+at.max.z)/2),FLUE_VAPOUR);}
+  void Promise.all([made.mesh,vapour?.mesh].map(m=>m?renderer.compileAsync(m,camera).catch(()=>{}):undefined)).then(()=>{smokeReady=true;changed();});
  };
  // Where lamplight reaches the outdoor air, for the flakes that fall through it (snowfall.ts): a little out from each
  // glazed opening with a lit room behind it, and at each garden light.
@@ -434,12 +437,15 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   // Flakes fall over a resting view without the scene being drawn again: the settled image is shown once more and
   // they are drawn on it.
   const falling=!!post?.depth&&level==='exterior'&&!captures?.active,flakes=falling&&snowing&&flakesReady?snowfall:undefined,drops=falling&&raining&&dropsReady?rainfall:undefined;
-  if(snow.amount>0&&!smoke)lightFire();
-  const plume=falling&&smokeReady&&snow.amount>0?smoke:undefined;
+  if((snow.amount>0||raining)&&!smoke)lightFire();
+  // The flue's vapour comes and goes over a couple of seconds with the rain; with snow it follows the snow.
+  steam=Math.max(snow.amount,raining?Math.min(1,steam+delta/2):Math.max(0,steam-delta/2));
+  const plume=falling&&smokeReady&&(snow.amount>0||steam>0)?smoke:undefined;
   const fall=()=>{
    if(!post?.depth||!(flakes||drops||plume))return;
    snowSeconds+=delta;smokeSeconds+=delta;
-   plume?.draw(renderer,rig.camera,post.depth,smokeSeconds,lighting?.reading?.daylight??1,snow.amount);
+   if(plume&&snow.amount>0)plume.draw(renderer,rig.camera,post.depth,smokeSeconds,lighting?.reading?.daylight??1,snow.amount);
+   if(plume&&steam>0)vapour?.draw(renderer,rig.camera,post.depth,smokeSeconds,lighting?.reading?.daylight??1,steam);
    flakes?.draw(renderer,rig.camera,post.depth,snowSeconds,lighting?.reading?.daylight??1,lighting?.reading?.dusk??0);
    drops?.draw(renderer,rig.camera,post.depth,snowSeconds,lighting?.reading?.daylight??1);
   };
@@ -651,7 +657,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   snapshot:rig.snapshot,
   restore:(s:Parameters<typeof rig.restore>[0])=>{rig.restore(s);changed();},
   dispose:()=>{
-   disposed=true;snowfall?.dispose();rainfall?.dispose();smoke?.dispose();wet.value=0;slabs?.dispose();drifts?.dispose();festive?.dispose();cancelAnimationFrame(frame);touches();perf?.dispose();occlusion?.dispose();steer?.dispose();probes?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);clearTimeout(cloudSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
+   disposed=true;snowfall?.dispose();rainfall?.dispose();smoke?.dispose();vapour?.dispose();wet.value=0;slabs?.dispose();drifts?.dispose();festive?.dispose();cancelAnimationFrame(frame);touches();perf?.dispose();occlusion?.dispose();steer?.dispose();probes?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);clearTimeout(cloudSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
    canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('wheel',wheel);canvas.removeEventListener('keydown',key);
    bake?.dispose();bounce?.dispose();clouds?.dispose();grass?.dispose();post?.dispose();lighting?.dispose();textures?.dispose();environment?.dispose();
    const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
