@@ -8,14 +8,28 @@ export type ShaderFeature={key:string;last?:boolean;compile:(shader:T.WebGLProgr
  nodes?:(slots:NodeSlots)=>void};
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** What a material's features hand on to one another and, at the end, to the material, as nodes of `tsl` (three/tsl):
- * its colour, roughness, world normal and how much indirect light its hollows keep. */
-export type NodeSlots={tsl:any;colour?:any;roughness?:any;normal?:any;cavity?:any};
+ * its colour, roughness, world normal, how much indirect light its hollows keep, and its opacity. */
+export type NodeSlots={tsl:any;colour?:any;roughness?:any;normal?:any;cavity?:any;opacity?:any;
+ /** Light added for each lamp or sun after three's own (`light` holds lightDirection, lightColor and reflectedLight). */
+ direct:((light:any)=>void)[];
+ /** Changes to the light arriving from all round, before three uses it (`context` holds irradiance, iblIrradiance and radiance). */
+ indirect:((context:any)=>void)[]};
 let tsl:any;
-/** Features also build nodes from here on, with this `three/tsl`; none, for the WebGL renderer. */
+/** Features also build nodes from here on, with this `three/tsl` and three's `PhysicalLightingModel`; none, for the
+ * WebGL renderer. */
 export const drawWithNodes=(kit?:unknown)=>{tsl=kit;};
 function composeNodes(material:T.Material,list:ShaderFeature[]){
- const slots:NodeSlots={tsl};for(const f of list)f.nodes?.(slots);
- Object.assign(material as any,{colorNode:slots.colour??null,roughnessNode:slots.roughness??null,normalNode:slots.normal?tsl.transformNormalToView(slots.normal):null,aoNode:slots.cavity??null});
+ const slots:NodeSlots={tsl,direct:[],indirect:[]};for(const f of list)f.nodes?.(slots);
+ // Light is changed in a lighting model of the material's own, three's with the features' additions.
+ const m=material as T.MeshPhysicalMaterial,lit=slots.direct.length+slots.indirect.length>0;
+ class Lighting extends tsl.PhysicalLightingModel{
+  constructor(...layers:boolean[]){super(...layers);}
+  direct(light:any,builder:any){super.direct(light,builder);for(const add of slots.direct)add(light);}
+  indirect(builder:any){for(const change of slots.indirect)change(builder.context);super.indirect(builder);}
+ }
+ if(lit)(material as any).setupLightingModel=()=>m.isMeshPhysicalMaterial?new Lighting(m.clearcoat>0,m.sheen>0,m.iridescence>0,m.anisotropy>0,m.transmission>0,m.dispersion>0):new Lighting();
+ else delete (material as any).setupLightingModel;
+ Object.assign(material as any,{colorNode:slots.colour??null,roughnessNode:slots.roughness??null,normalNode:slots.normal?tsl.transformNormalToView(slots.normal):null,aoNode:slots.cavity??null,opacityNode:slots.opacity??null});
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 export function addShaderFeature(material:T.Material,feature:ShaderFeature){

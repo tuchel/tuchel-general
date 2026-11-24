@@ -1,6 +1,6 @@
 import * as T from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
-import {addShaderFeature,after} from './shader-features';
+import {addShaderFeature,after,type NodeSlots} from './shader-features';
 import {plainShadow} from './soft-shadows';
 
 /** Trees as instanced archetypes: a bark skeleton plus a crown. Computers draw modelled
@@ -33,6 +33,9 @@ export function foliageMaterials(style:TreeStyle='leaves'){
   const lights=T.ShaderChunk.lights_fragment_begin.replace(/RE_Direct\( directLight,/g,'reflectedLight.directDiffuse+=LEAF_GLOW*directLight.color*material.diffuseColor*vec3(.75,.95,.45)*(.42*pow(saturate(dot(-geometryViewDir,directLight.direction)),2.0)+.12*saturate(-dot(geometryNormal,directLight.direction)));\nRE_Direct( directLight,');
   // Snow lying on a leaf lets none through (snow.ts defines LEAF_GLOW for the materials it lies on).
   shader.fragmentShader='#ifndef LEAF_GLOW\n#define LEAF_GLOW 1.0\n#endif\n'+shader.fragmentShader.replace('#include <lights_fragment_begin>',lights);
+ },nodes:(slots:NodeSlots)=>{
+  const {vec3,diffuseColor,positionViewDirection,normalView}=slots.tsl;
+  slots.direct.push(({lightDirection,lightColor,reflectedLight})=>reflectedLight.directDiffuse.addAssign(lightColor.mul(diffuseColor.rgb).mul(vec3(.75,.95,.45)).mul(positionViewDirection.negate().dot(lightDirection).saturate().pow(2).mul(.42).add(normalView.dot(lightDirection).negate().saturate().mul(.12)))));
  }};
  addShaderFeature(leaves,translucency);
  const shadow=()=>new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking,alphaTest:.42,side:T.DoubleSide});

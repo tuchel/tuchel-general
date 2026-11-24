@@ -19,8 +19,15 @@ assert(/const makeSky=\(\)=>\(gpu\?new gpu\.SkyMesh\(\):new Sky\(\)\) as Sky/.te
 // A shader feature may carry the same effect as nodes; a material's features are composed in order into its colour,
 // roughness, normal and cavity, and no two materials share a program, since nodes hold a material's own textures.
 assert(/nodes\?:\(slots:NodeSlots\)=>void/.test(features)&&/if\(tsl\)composeNodes\(material,list\);/.test(features)&&/\+\(tsl\?'\|'\+material\.uuid:''\)/.test(features));
-assert(/drawWithNodes\(gpu\?\.tsl\);/.test(viewer));
+assert(/drawWithNodes\(gpu\?\.tsl&&\{\.\.\.gpu\.tsl,PhysicalLightingModel:gpu\.PhysicalLightingModel\}\);/.test(viewer));
 assert(/\},nodes:slots=>\{[\s\S]*?slots\.colour=\(slots\.colour\?\?materialColor\)\.mul\(albedo\);slots\.roughness=clamp\(texel\.a,\.05,1\);[\s\S]*?slots\.cavity=relief\.b;/.test(surfaces),'scanned and painted surfaces are drawn as nodes');
+// Light is changed in a lighting model of the material's own: three's, with what the features add for each light and
+// change in the light from all round. Leaves glow against the light, glass and water turn opaque at a glancing angle.
+assert(/class Lighting extends tsl\.PhysicalLightingModel\{[\s\S]*?direct\(light:any,builder:any\)\{super\.direct\(light,builder\);for\(const add of slots\.direct\)add\(light\);\}[\s\S]*?indirect\(builder:any\)\{for\(const change of slots\.indirect\)change\(builder\.context\);super\.indirect\(builder\);\}/.test(features));
+const foliage=fs.readFileSync('lib/house-model/foliage.ts','utf8');
+assert(/slots\.direct\.push\(\(\{lightDirection,lightColor,reflectedLight\}\)=>reflectedLight\.directDiffuse\.addAssign\(/.test(foliage));
+assert(/slots\.opacity=mix\(slots\.opacity\?\?materialOpacity,1,normalView\.dot\(positionViewDirection\)\.abs\(\)\.oneMinus\(\)\.pow\(5\)\.mul\(\.88\)\);/.test(surfaces),'glass');
+assert(/const t=uniform\(0\)\.onRenderUpdate\(\(\)=>time\.value\)/.test(surfaces)&&/\.oneMinus\(\)\.pow\(4\)\.mul\(\.92\)\);/.test(surfaces),'pool water');
 // It draws no line loops.
 assert(!/T\.LineLoop/.test(lib),'no line loop in the model');
 console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky, sun and textured surfaces there.');
