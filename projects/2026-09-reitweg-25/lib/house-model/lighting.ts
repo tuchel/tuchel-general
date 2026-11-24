@@ -3,6 +3,7 @@ import {Sky} from 'three/addons/objects/Sky.js';
 import {FullScreenQuad} from 'three/addons/postprocessing/Pass.js';
 import {sunStudyReading,sunDirection,type SunStudy} from './sun-position';
 import {CLOUDS,type Clouds} from './clouds';
+import {SHADOW_RANGE,packShadow} from './soft-shadows';
 
 /** One sky drives everything: the visible sky, image-based light and reflections,
  * sun colour and strength, haze and exposure. Sky scattering follows three's
@@ -110,7 +111,7 @@ export const HAZE_CAP=2;
 export type LightReading=ReturnType<typeof sunStudyReading>&{exposure:number;dusk:number;daylight:number;key:number};
 /** `clouds` (Extreme) replaces the sky's flat cloud layer with ray-marched cumulus (clouds.ts), in the visible sky and in
  * the sky light. */
-export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Object3D,options:{shadowSize:number;clouds?:Clouds}){
+export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Object3D,options:{shadowSize:number;clouds?:Clouds;/** Shadows that soften with distance (soft-shadows.ts). */soft?:boolean}){
  const clouds=options.clouds;
  const sky=new Sky();sky.name='calculated-sun-sky';sky.userData.skipPhotographic=true;sky.scale.setScalar(20000);sky.frustumCulled=false;scene.add(sky);
  const envSky=new Sky();envSky.scale.setScalar(20000);const envScene=new T.Scene();envScene.add(envSky);
@@ -209,15 +210,17 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
   envTarget=pmrem.fromCubemap(cubeTarget.texture,envTarget);
   scene.environment=envTarget.texture;scene.environmentIntensity=1;envDirty=false;
  };
+ // Softened shadows: the frame's turn of the sampling pattern, with the map's scale (soft-shadows.ts).
+ let fitted=1;const turnShadow=(turn:number)=>{if(options.soft)sun.shadow.radius=packShadow(turn,fitted);};
  const fitShadow=(center:T.Vector3,radius:number)=>{
   const cam=sun.shadow.camera;sun.target.position.copy(center);sun.target.updateMatrixWorld();
   sun.position.copy(center).addScaledVector(lightVector,radius*2.4+60);
-  Object.assign(cam,{left:-radius,right:radius,top:radius,bottom:-radius,near:1,far:radius*4.8+120});cam.updateProjectionMatrix();
+  Object.assign(cam,{left:-radius,right:radius,top:radius,bottom:-radius,near:1,far:1+radius*SHADOW_RANGE.perRadius+SHADOW_RANGE.fixed});cam.updateProjectionMatrix();fitted=radius;turnShadow(0);
   const texel=radius*2/sun.shadow.mapSize.x;sun.shadow.normalBias=texel*1.6;sun.shadow.bias=-texel*.02;
   renderer.shadowMap.needsUpdate=true;
  };
  return {
-  sun,sky,lamps,apply,fitShadow,
+  sun,sky,lamps,apply,fitShadow,turnShadow,
   get reading(){return reading;},
   get exposure(){return (reading?.exposure??1)*room;},
   /** Extra exposure for where the camera stands (roomExposure). */

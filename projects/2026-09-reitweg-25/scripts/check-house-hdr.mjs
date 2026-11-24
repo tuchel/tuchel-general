@@ -16,9 +16,9 @@ assert(/float sceneLight=dot\(gl_FragColor\.rgb,vec3\(0\.2126,0\.7152,0\.0722\)\
 // Only while the screen is being given it, and never into a photograph or a recording (those leave in sRGB).
 assert(/hdr:\(\)=>screen&&renderer\.outputColorSpace===DisplayP3ColorSpace\?HDR\.peak:0/.test(viewer),'live view only');
 // Tried only where the screen shows above white and the browser can copy a floating-point canvas to WebGPU; the
-// canvas is made with alpha for that, and anything refused leaves the view as it was.
+// anything refused leaves the view as it was.
 assert(/\(dynamic-range: high\)/.test(hdr)&&/'drawingBufferStorage' in WebGL2RenderingContext\.prototype/.test(hdr)&&/'gpu' in navigator/.test(hdr));
-assert(/const bright=tier\.hdr&&hdrWanted\(\);/.test(viewer)&&/alpha:bright/.test(viewer));
+assert(/const bright=tier\.hdr&&hdrWanted\(\);/.test(viewer)&&/if\(bright\)void createHdrScreen\(/.test(viewer));
 assert(/toneMapping\?\.mode!=='extended'\)return;/.test(hdr)&&/drawingBufferFormat!==gl\.RGBA16F\)return;/.test(hdr)&&/catch\{return;\}/.test(hdr),'refusals leave the canvas alone');
 // Every frame drawn on the canvas reaches the screen over it.
 assert(/if\(screen&&renderer\.info\.render\.frame!==shown\)\{shown=renderer\.info\.render\.frame;screen\.present\(\);\}/.test(viewer));

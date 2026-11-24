@@ -46,6 +46,7 @@ import {neighborHouses} from './neighbors';
 import {renovationState,type RenovationState} from './renovation-data';
 import type {createRoutines,loadSims} from './sims';
 import {endStaleTouches} from './touches';
+import {installSoftShadows} from './soft-shadows';
 import {HDR,createHdrScreen,hdrWanted,type HdrScreen} from './hdr';
 import {viewpoints,type Level,type Region,type Viewpoint} from './site-data';
 
@@ -77,13 +78,14 @@ const SITE_CENTER=new T.Vector3(-5,0,8),SITE_RADIUS=70;
 
 export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const tier=tierFor(options.quality,undefined,options.extremeOnPhone),realistic=tier.quality!=='model';
- // A canvas that may be given floating point for a screen brighter than white (hdr.ts) has to be made with alpha.
+ // Whether to try for a screen brighter than white (hdr.ts).
  const bright=tier.hdr&&hdrWanted();
- const renderer=new T.WebGLRenderer({antialias:!realistic,alpha:bright,stencil:false,powerPreference:'high-performance'});
+ const renderer=new T.WebGLRenderer({antialias:!realistic,alpha:false,stencil:false,powerPreference:'high-performance'});
  // Floor views cut roofs at the wall height with per-material clipping.
  renderer.localClippingEnabled=true;
  renderer.setPixelRatio(Math.min(window.devicePixelRatio,tier.pixelRatio));
- renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFShadowMap;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
+ if(tier.softShadows)installSoftShadows();
+ renderer.shadowMap.enabled=true;renderer.shadowMap.type=tier.softShadows?T.BasicShadowMap:T.PCFShadowMap;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
  renderer.toneMapping=realistic?T.AgXToneMapping:T.ACESFilmicToneMapping;renderer.toneMappingExposure=.9;
  // Extreme on a wide-gamut screen draws in Display P3: colours the photographic grade saturates past sRGB stay saturated
  // instead of clipping (post.ts).
@@ -127,7 +129,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  let invalidate=()=>{};
  // Extreme: ray-marched cumulus and their shadows (clouds.ts).
  const clouds=realistic&&tier.clouds?createClouds(renderer):undefined;
- const lighting=realistic?createLighting(renderer,scene,model.root,{shadowSize:tier.shadowSize,clouds}):undefined;
+ const lighting=realistic?createLighting(renderer,scene,model.root,{shadowSize:tier.shadowSize,clouds,soft:tier.softShadows}):undefined;
  let sun:T.DirectionalLight,environment:T.WebGLRenderTarget|undefined;
  if(lighting){sun=lighting.sun;if(festive)lighting.lamps.add(festive.glow);lighting.apply(initialSunStudy);lighting.fitShadow(SITE_CENTER,SITE_RADIUS);}
  else{
@@ -470,6 +472,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    // Still frames are jittered by a part of a pixel and averaged; so are moving ones where they are blended into the
    // kept image (temporal.ts), which is how frames drawn smaller add up to full resolution.
    const jitter=still?post.accumulated>0:post.temporal;if(!still)moved=moved%16+1;
+   // The shadows' sampling pattern turns with the frames that are gathered (soft-shadows.ts).
+   lighting?.turnShadow(jitter?still?post.accumulated:moved:0);
    if(jitter){const i=still?post.accumulated:moved,size=renderer.getDrawingBufferSize(buffer);const k=still?1:1/drawnScale;camera.setViewOffset(size.x,size.y,(halton(i,2)-.5)*k,(halton(i,3)-.5)*k,size.x,size.y);}
    if(motion&&captures?.breezing&&tier.photographic)renderer.shadowMap.needsUpdate=true;
    probes?.setCamera(rig.camera);

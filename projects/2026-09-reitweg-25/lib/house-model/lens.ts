@@ -71,7 +71,15 @@ export class SunShafts extends Pass{
     sunDirection:{value:new T.Vector3()},sunLight:{value:new T.Vector3()},sigma:{value:new T.Vector2(LENS.air.outdoors,LENS.air.indoors)},indoor:{value:0},frame:{value:0},history:{value:null},weight:{value:1}},
    vertexShader:sharedVertex,
    fragmentShader:`precision highp sampler2DShadow;
-    uniform sampler2D depth;uniform sampler2DShadow shadow;uniform mat4 shadowMatrix;uniform mat4 projectionInverse;uniform mat4 cameraWorld;
+    uniform sampler2D depth;
+    #ifdef RAW_SHADOW
+    uniform sampler2D shadow;
+    #define sunLit(s) (s.z-0.0005<=texture2D(shadow,s.xy).r?1.0:0.0)
+    #else
+    uniform sampler2DShadow shadow;
+    #define sunLit(s) texture(shadow,vec3(s.xy,s.z-0.0005))
+    #endif
+    uniform mat4 shadowMatrix;uniform mat4 projectionInverse;uniform mat4 cameraWorld;
     uniform vec3 sunDirection;uniform vec3 sunLight;uniform vec2 sigma;uniform float indoor;uniform float frame;uniform sampler2D history;uniform float weight;varying vec2 vUv;
     float ign(vec2 p){return fract(52.9829189*fract(dot(p,vec2(0.06711056,0.00583715))));}
     void main(){
@@ -82,7 +90,7 @@ export class SunShafts extends Pass{
      float step=dist/${steps}.0,offset=fract(ign(gl_FragCoord.xy)+frame*0.618034),scattered=0.0;
      for(int i=0;i<${steps};i++){
       float t=step*(float(i)+offset);vec4 s=shadowMatrix*vec4(origin+dir*t,1.0);
-      float lit=(any(lessThan(s.xyz,vec3(0.0)))||any(greaterThan(s.xyz,vec3(1.0))))?1.0:texture(shadow,vec3(s.xy,s.z-0.0005));
+      float lit=(any(lessThan(s.xyz,vec3(0.0)))||any(greaterThan(s.xyz,vec3(1.0))))?1.0:sunLit(s);
       // A room's dusty air for its first metres, then the clear air beyond the glass.
       scattered+=lit*mix(sigma.x,sigma.y,indoor*(1.0-smoothstep(${LENS.air.room.toFixed(1)}-1.0,${LENS.air.room.toFixed(1)}+1.0,t)));
      }
@@ -105,6 +113,8 @@ export class SunShafts extends Pass{
   // Night: nothing to scatter; the frame passes through.
   if(!(sun.intensity>0)||!map){this.frames=0;this.add.uniforms.shafts.value=null;}
   else{
+   // The map is compared by the graphics card, or holds plain depths where shadows are softened (soft-shadows.ts).
+   const raw=!map.compareFunction;if(raw!==!!this.march.defines?.RAW_SHADOW){this.march.defines=raw?{RAW_SHADOW:1}:{};this.march.needsUpdate=true;}
    u.shadow.value=map;u.shadowMatrix.value.copy(sun.shadow.matrix);
    u.projectionInverse.value.copy(this.camera.projectionMatrixInverse);u.cameraWorld.value.copy(this.camera.matrixWorld);
    (u.sunDirection.value as T.Vector3).subVectors(sun.position,sun.target.position).normalize();
