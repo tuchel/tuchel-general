@@ -224,7 +224,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
 
  // Extreme: trees the house hides are counted right after the scene is drawn, and left out of the next frames.
  const occlusion=realistic&&tier.treeOcclusion?createTreeOcclusion(renderer.getContext() as WebGL2RenderingContext,scene):undefined;
- const post=realistic?createPost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,mist:tier.weathered,afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
+ const post=realistic?createPost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,mist:tier.weathered,wetMirror:tier.wetMirror,afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
  if(post){mistFor=r=>{if(scene.fog)post.setMist(study.enabled&&level==='exterior'&&!snowing&&!raining?mistAmount(r.apparentElevation,study.minutes,study.day):0,scene.fog.color);};if(lighting?.reading)mistFor(lighting.reading);}
  // Extreme: the pool mirrors the scene (pool-reflection.ts).
  const mirror=tier.poolMirror&&camera instanceof T.PerspectiveCamera?createPoolReflection(renderer,scene,camera,batches.meshes.filter(b=>materialsOf(b).some(m=>hasShaderFeature(m,'pool-water')))):undefined;

@@ -59,6 +59,8 @@ vec2 surfaceUV(vec3 p,vec3 n,out vec3 tu,out vec3 tv){
 export type Weathering='wall'|'roof'|'paving';
 /** How wet the rain has left what stands outdoors (0–1; viewer.ts): darker, and paving shines where water stands. */
 export const wet={value:0};
+/** How much of a puddle's mirror the thin film of water between puddles gives. */
+export const WET_FILM=.5;
 export const WEATHER={damp:.45,dampShade:.74,silver:.3,streak:.12,lichen:.05,blotch:.16,stain:.1};
 const weatherNoise=`
 float weatherHash(vec2 c){vec3 p=fract(vec3(c.xyx)*.1031);p+=dot(p,p.yzx+33.33);return fract((p.x+p.y)*p.z);}
@@ -84,7 +86,8 @@ const weatherCode:Record<Weathering,string>={
    float stain=smoothstep(0.6,0.88,weatherFbm(vSurfacePos.xz*1.9+11.0));surfaceAlbedo*=1.0-${f(WEATHER.stain)}*stain*flat_;
    surfaceWeather=(0.08*(blotch-0.5)-0.06*stain)*flat_;
    float puddle=smoothstep(0.42,0.6,weatherFbm(vSurfacePos.xz*0.55+5.0))*flat_;
-   surfaceAlbedo*=1.0-uWet*mix(0.4,0.5,puddle);surfaceWeather-=uWet*mix(0.35,0.9,puddle);surfacePuddle=uWet*puddle;}`,
+   surfaceAlbedo*=1.0-uWet*mix(0.4,0.5,puddle);surfaceWeather-=uWet*mix(0.35,0.9,puddle);surfacePuddle=uWet*puddle;
+   surfaceMirror=uWet*flat_*mix(${f(WET_FILM)},1.0,puddle);}`,
 };
 /** World-projected albedo, roughness, relief and cavity for one surface set. */
 function surfaceFeature(material:T.MeshStandardMaterial,surface:Surface,textures:SurfaceTextures,weather?:Weathering){
@@ -117,7 +120,7 @@ varying vec3 vSurfacePos;varying vec3 vSurfaceNormal;${projection}${weather?weat
     vec3 macro=texture(uSurfaceColor,vSurfacePos.xz/41.0).rgb/vec3(0.11,0.25,0.034);
     surfaceAlbedo*=mix(vec3(1.0),clamp(macro,0.7,1.3),0.55)*(1.0+0.045*sign(sin(vSurfacePos.x*2.86+vSurfacePos.z*0.35)));
    }
-   float surfaceWeather=0.0,surfacePuddle=0.0;
+   float surfaceWeather=0.0,surfacePuddle=0.0,surfaceMirror=0.0;
    ${weather?weatherCode[weather]:''}
    diffuseColor.rgb*=surfaceAlbedo;
    float surfaceCavity=surfaceRelief.b;`);
@@ -126,6 +129,9 @@ varying vec3 vSurfacePos;varying vec3 vSurfaceNormal;${projection}${weather?weat
    vec2 surfaceSlopeXY=(surfaceRelief.rg*2.0-1.0)*uSurfaceBump*(1.0-0.9*surfacePuddle);
    vec3 surfaceWorldN=normalize(surfaceN0*faceDirection+surfaceTU*surfaceSlopeXY.x+surfaceTV*surfaceSlopeXY.y);
    normal=normalize(mat3(viewMatrix)*surfaceWorldN);`);
+  // How far wet paving mirrors the scene, kept in the frame's alpha for the pass that draws the mirror image
+  // (wet-reflections.ts): 1 for none, down to a half for standing water.
+  if(weather==='paving')shader.fragmentShader=after(shader.fragmentShader,'opaque_fragment','gl_FragColor.a=1.0-0.5*surfaceMirror;');
   shader.fragmentShader=after(shader.fragmentShader,'aomap_fragment','reflectedLight.indirectDiffuse*=surfaceCavity;reflectedLight.indirectSpecular*=mix(1.0,surfaceCavity,0.7);');
  }});
 }
