@@ -11,6 +11,14 @@ const metres:Record<Surface,[number,number]>={cladding:[1.2,1.2],roof:[1.2,1.2],
 const onlySmall=new Set<string>(['linen','plaster','bark']);
 /** The colour each set was painted at; materials keep their own shade relative to it. */
 const painted:Record<Surface,string>={cladding:'#6e5946',roof:'#4d5453',oak:'#c6aa80',stone:'#cfccc0',lawn:'#a0b18d',deck:'#8c867b',linen:'#e7e0cc',plaster:'#e9e4d9'};
+/** Relief (Extreme): a scanned surface's height map gives it depth seen at an angle. Board gaps, tile laps and stone
+ * joints lie `depth` metres below the face, and the view ray is followed down to them in `steps` steps where the
+ * surface is nearer than `far` metres (fading from `near`); a ray never runs flatter than `flattest` to the face, so
+ * a glancing view does not smear. `height`: the levels (of 255) of each scan's height map that count as the gap's
+ * floor and the face, its 2nd and 98th percentiles. Sets that are flat (lawn, linen, plaster, and the oak boards,
+ * whose scan spans 4 levels) have none. */
+export const RELIEF={depth:{cladding:.02,roof:.03,oak:0,stone:.02,lawn:0,deck:.012,linen:0,plaster:0} as Record<Surface,number>,
+ height:{cladding:[91,174],roof:[86,214],stone:[77,223],deck:[112,139]} as Partial<Record<Surface,[number,number]>>,steps:10,near:9,far:14,flattest:.3};
 const bump:Record<Surface,number>={cladding:1,roof:.9,oak:.7,stone:.6,lawn:1,deck:.8,linen:.5,plaster:.5};
 export const surfaceUrl=(name:string,size:number,kind:'color'|'normal')=>`/assets/materials/${name}-${onlySmall.has(name)?512:size}-${kind}.webp`;
 const scanned:Record<string,{metres:number[];size:number}|undefined>=scannedSets.sets;
@@ -22,7 +30,7 @@ export function surfaceSet(name:string,size:number,useScanned:boolean):{color:st
  return {color:`${base}-color.webp`,normal:`${base}-normal.webp`,metres:set.metres[0]};
 }
 
-export type SurfaceTextures={size:number;get:(name:string)=>{color:T.Texture;normal:T.Texture;metres?:number};water:T.Texture;ready:Promise<void>;dispose:()=>void};
+export type SurfaceTextures={size:number;/** The sets are scans that carry height. */scanned:boolean;get:(name:string)=>{color:T.Texture;normal:T.Texture;metres?:number};water:T.Texture;ready:Promise<void>;dispose:()=>void};
 export function loadSurfaceTextures(size:512|1024,renderer:T.WebGLRenderer,onLoad:()=>void,useScanned=false):SurfaceTextures{
  const loader=new T.TextureLoader(),cache=new Map<string,T.Texture>(),pending:Promise<unknown>[]=[];
  const anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
@@ -35,7 +43,7 @@ export function loadSurfaceTextures(size:512|1024,renderer:T.WebGLRenderer,onLoa
  };
  const water=load(`/assets/materials/water-${size}-normal.webp`,false);
  return {
-  size,water,
+  size,water,scanned:useScanned,
   get:(name:string)=>{const set=surfaceSet(name,size,useScanned);return {color:load(set.color,true),normal:load(set.normal,false),metres:set.metres};},
   get ready(){return Promise.all(pending).then(()=>{});},
   dispose:()=>cache.forEach(t=>t.dispose()),
@@ -89,14 +97,30 @@ const weatherCode:Record<Weathering,string>={
    surfaceAlbedo*=1.0-uWet*mix(0.4,0.5,puddle);surfaceWeather-=uWet*mix(0.35,0.9,puddle);surfacePuddle=uWet*puddle;
    surfaceMirror=uWet*flat_*mix(${f(WET_FILM)},1.0,puddle);}`,
 };
+// The view ray is walked down through the height map (the normal map's alpha, between the set's two levels) until it is under the
+// surface; the hit lies between the last two steps, in proportion to how far each was over or under.
+const reliefCode=`{vec3 reliefEye=cameraPosition-vSurfacePos;float reliefFar=length(reliefEye),reliefFade=1.0-smoothstep(${RELIEF.near.toFixed(1)},${RELIEF.far.toFixed(1)},reliefFar);
+    if(reliefFade>0.0){
+     vec3 reliefV=reliefEye/reliefFar;float reliefDown=max(dot(reliefV,surfaceN0*(gl_FrontFacing?1.0:-1.0)),${RELIEF.flattest.toFixed(2)});
+     vec2 reliefShift=-vec2(dot(reliefV,surfaceTU),dot(reliefV,surfaceTV))/reliefDown*uSurfaceDepth.x*reliefFade/uSurfaceMetres;
+     float reliefAt=0.0,reliefLast=0.0,reliefHole=reliefHoleAt(surfaceUv),reliefWas=reliefHole;
+     for(int i=0;i<${RELIEF.steps};i++){
+      if(reliefAt>=reliefHole)break;
+      reliefLast=reliefAt;reliefWas=reliefHole;reliefAt+=${(1/RELIEF.steps).toFixed(3)};
+      reliefHole=reliefHoleAt(surfaceUv+reliefShift*reliefAt);
+     }
+     float reliefOver=reliefWas-reliefLast,reliefUnder=reliefAt-reliefHole;
+     surfaceUv+=reliefShift*mix(reliefLast,reliefAt,clamp(reliefOver/max(reliefOver+reliefUnder,1e-4),0.0,1.0));
+    }}`;
 /** World-projected albedo, roughness, relief and cavity for one surface set. */
-function surfaceFeature(material:T.MeshStandardMaterial,surface:Surface,textures:SurfaceTextures,weather?:Weathering){
+function surfaceFeature(material:T.MeshStandardMaterial,surface:Surface,textures:SurfaceTextures,weather?:Weathering,relief=false){
+ const levels=RELIEF.height[surface],depth=relief&&textures.scanned&&levels?RELIEF.depth[surface]:0;
  const set=textures.get(surface),ref=new T.Color(painted[surface]),own=material.color;
  const tint=new T.Color(T.MathUtils.clamp(own.r/ref.r,.15,2),T.MathUtils.clamp(own.g/ref.g,.15,2),T.MathUtils.clamp(own.b/ref.b,.15,2));
- const uniforms={uSurfaceColor:{value:set.color},uSurfaceNormal:{value:set.normal},uSurfaceMetres:{value:set.metres?new T.Vector2(set.metres,set.metres):new T.Vector2(...metres[surface])},uSurfaceTint:{value:tint},uSurfaceBump:{value:bump[surface]},uSurfaceSlope:{value:surface==='roof'?1:0},uLawn:{value:surface==='lawn'?1:0},uWet:wet};
+ const uniforms={uSurfaceColor:{value:set.color},uSurfaceNormal:{value:set.normal},uSurfaceMetres:{value:set.metres?new T.Vector2(set.metres,set.metres):new T.Vector2(...metres[surface])},uSurfaceTint:{value:tint},uSurfaceBump:{value:bump[surface]},uSurfaceSlope:{value:surface==='roof'?1:0},uLawn:{value:surface==='lawn'?1:0},uWet:wet,...(depth&&levels?{uSurfaceDepth:{value:new T.Vector3(depth,levels[0]/255,255/(levels[1]-levels[0]))}}:{})};
  // The texture carries the colour from here on; the bounced-light bake reads the average (sun-bounce.ts).
  material.userData.albedo=ref.clone().multiply(tint);material.color.set('#ffffff');material.userData.surfaceUniforms=uniforms;
- addShaderFeature(material,{key:'surface-v1'+(weather?'-'+weather:''),compile:shader=>{
+ addShaderFeature(material,{key:'surface-v1'+(weather?'-'+weather:'')+(depth?'-relief':''),compile:shader=>{
   Object.assign(shader.uniforms,uniforms);
   shader.vertexShader='varying vec3 vSurfacePos;varying vec3 vSurfaceNormal;\n'+after(shader.vertexShader,'project_vertex',`
    vec4 surfaceWorld=vec4(transformed,1.0);vec3 surfaceN=objectNormal;
@@ -104,7 +128,7 @@ function surfaceFeature(material:T.MeshStandardMaterial,surface:Surface,textures
     surfaceWorld=instanceMatrix*surfaceWorld;surfaceN=mat3(instanceMatrix)*surfaceN;
    #endif
    vSurfacePos=(modelMatrix*surfaceWorld).xyz;vSurfaceNormal=normalize(mat3(modelMatrix)*surfaceN);`);
-  shader.fragmentShader=`uniform sampler2D uSurfaceColor;uniform sampler2D uSurfaceNormal;uniform vec2 uSurfaceMetres;uniform vec3 uSurfaceTint;uniform float uSurfaceBump;uniform float uSurfaceSlope;uniform float uLawn;uniform float uWet;
+  shader.fragmentShader=`uniform sampler2D uSurfaceColor;uniform sampler2D uSurfaceNormal;uniform vec2 uSurfaceMetres;uniform vec3 uSurfaceTint;uniform float uSurfaceBump;uniform float uSurfaceSlope;uniform float uLawn;uniform float uWet;${depth?'uniform vec3 uSurfaceDepth;\n#define reliefHoleAt(uv) (1.0-clamp((textureGrad(uSurfaceNormal,uv,surfaceDx,surfaceDy).a-uSurfaceDepth.y)*uSurfaceDepth.z,0.0,1.0))':''}
 varying vec3 vSurfacePos;varying vec3 vSurfaceNormal;${projection}${weather?weatherNoise:''}\n`+shader.fragmentShader;
   shader.fragmentShader=after(shader.fragmentShader,'map_fragment',`
    vec3 surfaceTU,surfaceTV;vec3 surfaceN0=normalize(vSurfaceNormal);
@@ -112,6 +136,7 @@ varying vec3 vSurfacePos;varying vec3 vSurfaceNormal;${projection}${weather?weat
    // Gradients from world position stay continuous across projection seams at box edges.
    vec2 surfaceDx=vec2(dot(dFdx(vSurfacePos),surfaceTU),dot(dFdx(vSurfacePos),surfaceTV))/uSurfaceMetres;
    vec2 surfaceDy=vec2(dot(dFdy(vSurfacePos),surfaceTU),dot(dFdy(vSurfacePos),surfaceTV))/uSurfaceMetres;
+   ${depth?reliefCode:''}
    vec4 surfaceTexel=textureGrad(uSurfaceColor,surfaceUv,surfaceDx,surfaceDy);
    vec4 surfaceRelief=textureGrad(uSurfaceNormal,surfaceUv,surfaceDx,surfaceDy);
    vec3 surfaceAlbedo=surfaceTexel.rgb*uSurfaceTint;
@@ -186,8 +211,8 @@ float causticNet(vec2 p,float t){
  }});
 }
 /** Detailed materials: textured surfaces, clear glass, reflective water, calmer metals. `weathered`: what stands
- * outdoors shows its years (WEATHER). */
-export function finishSurfaces(root:T.Object3D,textures:SurfaceTextures,waterTime:{value:number},weathered=false){
+ * outdoors shows its years (WEATHER); `relief`: scanned surfaces have depth (RELIEF). */
+export function finishSurfaces(root:T.Object3D,textures:SurfaceTextures,waterTime:{value:number},weathered=false,relief=false){
  const seen=new Set<T.Material>();
  root.traverse(o=>{
   for(const m of materialsOf(o)){
@@ -202,7 +227,7 @@ export function finishSurfaces(root:T.Object3D,textures:SurfaceTextures,waterTim
    if(surface==='foliage'||m.userData.foliage)continue;
    // Pale, matte paints read as lime plaster; everything else keeps its flat colour.
    if(!surface&&!m.map&&m.roughness>=.7&&m.metalness<.2&&m.color.getHSL({h:0,s:0,l:0}).l>.72&&!m.emissive.getHex())surface='plaster';
-   if(surface&&surface in metres)surfaceFeature(m,surface as Surface,textures,weathered?m.userData.weather as Weathering|undefined??(surface==='cladding'?'wall':surface==='roof'?'roof':surface==='deck'?'paving':undefined):undefined);
+   if(surface&&surface in metres)surfaceFeature(m,surface as Surface,textures,weathered?m.userData.weather as Weathering|undefined??(surface==='cladding'?'wall':surface==='roof'?'roof':surface==='deck'?'paving':undefined):undefined,relief);
   }
  });
  // Glass never blocks sunlight; batches may still carry the flag.

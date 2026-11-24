@@ -147,7 +147,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const textures=realistic?loadSurfaceTextures(tier.textureSize,renderer,()=>{renderer.shadowMap.needsUpdate=true;invalidate();},tier.scanned):undefined;
  if(textures){
   options.onMaterials?.('loading');
-  finishSurfaces(model.root,textures,waterTime,tier.weathered);finishSurfaces(stage,textures,waterTime);
+  finishSurfaces(model.root,textures,waterTime,tier.weathered,tier.relief);finishSurfaces(stage,textures,waterTime);
   finishFoliage(model.root,textures.get('leaves'),textures.get('bark'));
   void textures.ready.then(()=>{options.onMaterials?.('ready');invalidate();});
  }
