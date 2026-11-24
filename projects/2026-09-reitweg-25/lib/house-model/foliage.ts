@@ -234,9 +234,43 @@ function standTree(kind:StandKind|'mugo',far:boolean,seed:number){
  const fit=new T.Matrix4().makeScale(1,H/box.max.y,1);for(const g of [leaves,core,bark]){g.applyMatrix4(fit);g.computeBoundingBox();g.computeBoundingSphere();}
  return {leaves,bark,core,solid:undefined};
 }
+/** A modelled leaf's blade: stalk, left corner, the raised rib, tip, right corner (x across, y up, z along), and its
+ * four triangles. */
+const BLADE=[[0,0,0],[-.34,.05,.42],[0,.1,.5],[0,0,1],[.34,.05,.42]],BLADE_TRIS=[0,1,2,1,3,2,0,2,4,2,3,4];
+/** Modelled leaves seen close (Extreme): a rib and side veins `vein` paler than the blade, each leaf lit `face` of the
+ * way by its own two faces instead of by its crown's round shading, and a sheen (roughness `sheen`). The blade is cut to a
+ * leaf's outline by coverage: its side corners rounded to `shoulder` of its half width (less `round` times the squared
+ * distance along from them) and its margin toothed, `teeth` to a leaf and `tooth` deep. All of it fades out
+ * as a pixel grows from `fades[0]` to `fades[1]` of a leaf's length, so a far crown is as it was. Where a fragment lies
+ * on its blade is read from its vertex's number: nothing is stored per leaf. */
+export const LEAF_DETAIL={vein:.32,face:.55,sheen:.62,fades:[.12,.45] as const,shoulder:.8,round:2.2,tooth:.07,teeth:11};
+const glslNumber=(n:number)=>Number.isInteger(n)?n.toFixed(1):String(n);
+export const leafDetailGlsl={
+ vertex:`const vec2 LEAF_AT[12]=vec2[12](${BLADE_TRIS.map(k=>`vec2(${glslNumber(BLADE[k][0]/.34)},${glslNumber(BLADE[k][2])})`).join(',')});vLeaf=LEAF_AT[gl_VertexID%12];`,
+ near:`float leafPx=max(length(dFdx(vLeaf)),length(dFdy(vLeaf))),leafNear=1.0-smoothstep(${LEAF_DETAIL.fades[0].toFixed(2)},${LEAF_DETAIL.fades[1].toFixed(2)},leafPx);`,
+ // Side veins leave the rib six to a leaf and run toward the tip as they near the margin, fading there.
+ colour:`float leafAcross=abs(vLeaf.x),leafRib=1.0-smoothstep(0.03,0.07+leafPx,leafAcross),leafSide=abs(fract((vLeaf.y-leafAcross*0.3)*6.0)-0.5)*2.0;
+  float leafVeins=(1.0-smoothstep(0.0,0.14+leafPx*6.0,leafSide))*(1.0-leafAcross)*0.6;
+  float leafBlade=vLeaf.y<0.42?vLeaf.y/0.42:(1.0-vLeaf.y)/0.58,leafWidth=min(leafBlade,${LEAF_DETAIL.shoulder.toFixed(2)}-${LEAF_DETAIL.round.toFixed(1)}*(vLeaf.y-0.44)*(vLeaf.y-0.44))-${LEAF_DETAIL.tooth.toFixed(2)}*abs(fract(vLeaf.y*${LEAF_DETAIL.teeth.toFixed(1)})-0.5)*2.0;
+  diffuseColor.a*=mix(1.0,smoothstep(-leafPx,leafPx,leafWidth-leafAcross),leafNear);
+  diffuseColor.rgb*=1.0+leafNear*(${LEAF_DETAIL.vein.toFixed(2)}*max(leafRib,leafVeins)*vec3(1.0,1.0,0.6)-0.12*leafAcross);`,
+ normal:`vec3 leafFace=normalize(cross(dFdx(vViewPosition),dFdy(vViewPosition)));
+  if(dot(leafFace,normal)<0.0)leafFace=-leafFace;
+  normal=normalize(mix(normal,leafFace,${LEAF_DETAIL.face.toFixed(2)}*leafNear));`,
+};
+/** Gives the modelled leaves their close detail (LEAF_DETAIL). */
+export function detailLeaves(materials:FoliageMaterials){
+ materials.solid.alphaToCoverage=true;
+ addShaderFeature(materials.solid,{key:'leaf-detail',compile:shader=>{
+  shader.vertexShader='varying vec2 vLeaf;\n'+after(shader.vertexShader,'begin_vertex',leafDetailGlsl.vertex);
+  let f='varying vec2 vLeaf;\n'+after(shader.fragmentShader,'color_fragment',leafDetailGlsl.near+leafDetailGlsl.colour);
+  f=after(f,'roughnessmap_fragment',`roughnessFactor=mix(roughnessFactor,${LEAF_DETAIL.sheen.toFixed(2)},leafNear);`);
+  shader.fragmentShader=after(f,'normal_fragment_maps',leafDetailGlsl.normal);
+ }});
+}
 /** Modelled leaves: a folded four-triangle blade repeated around branch-tip clusters, one geometry per archetype. */
 function modelledLeaves(kind:TreeKind,context:boolean,r:()=>number,clusters:T.Vector3[],crown:T.Vector3,flat:number){
- const R=REF_R,blade=[[0,0,0],[-.34,.05,.42],[0,.1,.5],[0,0,1],[.34,.05,.42]],tris=[0,1,2,1,3,2,0,2,4,2,3,4];
+ const R=REF_R,blade=BLADE,tris=BLADE_TRIS;
  const count=context?(kind==='pine'?11000:10000):(kind==='pine'?16000:14000),scale=context?1.45:1;
  const pos=new Float32Array(count*36),nor=new Float32Array(count*36),col=new Float32Array(count*36);
  const green=new T.Color(kind==='pine'?'#435a3d':kind==='maple'?'#7a8742':'#718144');
