@@ -227,7 +227,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
 
  // Extreme: trees the house hides are counted right after the scene is drawn, and left out of the next frames.
  const occlusion=realistic&&tier.treeOcclusion?createTreeOcclusion(renderer.getContext() as WebGL2RenderingContext,scene):undefined;
- const post=realistic?createPost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,mist:tier.weathered,wetMirror:tier.wetMirror,afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
+ const post=realistic?createPost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,mist:tier.weathered,wetMirror:tier.wetMirror,temporal:tier.temporal&&new URLSearchParams(location.search).get('taa')!=='off',afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
  if(post){mistFor=r=>{if(scene.fog)post.setMist(study.enabled&&level==='exterior'&&!snowing&&!raining?mistAmount(r.apparentElevation,study.minutes,study.day):0,scene.fog.color);};if(lighting?.reading)mistFor(lighting.reading);}
  // Extreme: the pool mirrors the scene (pool-reflection.ts).
  const mirror=tier.poolMirror&&camera instanceof T.PerspectiveCamera?createPoolReflection(renderer,scene,camera,batches.meshes.filter(b=>materialsOf(b).some(m=>hasShaderFeature(m,'pool-water')))):undefined;
@@ -251,6 +251,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  let interfaceOpen=false,presented=0;
  // When this rest's first cleaned traced image was shown (0: not yet), and whether a carried one stood in before it.
  let fadeFrom=0,carried=false;
+ // Moving frames drawn in a row, for their jitter.
+ let moved=0;
  // Another app in front: tracing and the background bakes wait, so the rest of the computer keeps the processor and
  // graphics card. Returning carries on where they left off.
  let elsewhere=false;const away=()=>{elsewhere=true;},back=()=>{elsewhere=false;};
@@ -460,8 +462,10 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    const low=(tier.motionScale<1||!!steer)&&!still&&!captures?.recording&&!film;
    if(low)steer?.start(now);else steer?.rest();
    if(low!==drawnLow||scaleFor(low)!==drawnScale)sizePost(low);
-   const jitter=still&&post.accumulated>0;
-   if(jitter){const i=post.accumulated,size=renderer.getDrawingBufferSize(buffer);camera.setViewOffset(size.x,size.y,halton(i,2)-.5,halton(i,3)-.5,size.x,size.y);}
+   // Still frames are jittered by a part of a pixel and averaged; so are moving ones where they are blended into the
+   // kept image (temporal.ts), which is how frames drawn smaller add up to full resolution.
+   const jitter=still?post.accumulated>0:post.temporal;if(!still)moved=moved%16+1;
+   if(jitter){const i=still?post.accumulated:moved,size=renderer.getDrawingBufferSize(buffer);const k=still?1:1/drawnScale;camera.setViewOffset(size.x,size.y,(halton(i,2)-.5)*k,(halton(i,3)-.5)*k,size.x,size.y);}
    if(motion&&captures?.breezing&&tier.photographic)renderer.shadowMap.needsUpdate=true;
    probes?.setCamera(rig.camera);
    cullTrees(low);

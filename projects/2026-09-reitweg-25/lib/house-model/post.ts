@@ -14,6 +14,7 @@ import {ContactShadows} from './contact-shadows';
 import {MistPass,MIST,mistGlsl} from './mist';
 import {MotionBlur} from './motion-blur';
 import {WetReflections} from './wet-reflections';
+import {TemporalPass} from './temporal';
 
 /** Ambient occlusion at half resolution, with normals reconstructed from the main pass's
  * depth; no second scene render. */
@@ -184,7 +185,7 @@ function passMaterials(pass:Pass){
  * grain. */
 /** `afterScene`: runs right after the scene is drawn, its target still bound. */
 /** `lamps`: how far the evening lamps are on (0–1), for the white balance indoors (look.ts). */
-export type PostOptions={lamps?:()=>number;samples:number;ao:boolean;bloom:boolean;lens?:{sun:T.DirectionalLight};/** Short shadows where things touch (contact-shadows.ts); needs `lens`. */contact?:boolean;/** Ground mist at daybreak (mist.ts); needs `lens`. */mist?:boolean;/** Wet ground mirrors the scene (wet-reflections.ts); needs `lens`. */wetMirror?:boolean;afterScene?:(renderer:T.WebGLRenderer,camera:T.Camera)=>void};
+export type PostOptions={lamps?:()=>number;samples:number;ao:boolean;bloom:boolean;lens?:{sun:T.DirectionalLight};/** Short shadows where things touch (contact-shadows.ts); needs `lens`. */contact?:boolean;/** Ground mist at daybreak (mist.ts); needs `lens`. */mist?:boolean;/** Wet ground mirrors the scene (wet-reflections.ts); needs `lens`. */wetMirror?:boolean;/** Moving frames build on the image the view has gathered (temporal.ts); needs `lens`. */temporal?:boolean;afterScene?:(renderer:T.WebGLRenderer,camera:T.Camera)=>void};
 export type PostView={eyeLevel:boolean};
 export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions){
  const target=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,samples:options.samples,depthTexture:new T.DepthTexture(1,1)});
@@ -217,10 +218,15 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
  if(shafts)composer.addPass(shafts);
  const meter=lensCamera&&depth?new Meter(depth.target.texture,()=>lensCamera.aspect):undefined;
  if(meter)composer.addPass(meter);
- const accumulate=new AccumulatePass();composer.addPass(accumulate);
+ const temporal=depth&&lensCamera&&options.temporal?new TemporalPass(lensCamera,depth.target.texture):undefined;
+ const accumulate=temporal??new AccumulatePass();composer.addPass(accumulate);
  const focusPass=depth?new FocusPass(new DepthOfField(depth.target.texture)):undefined;
  if(focusPass)composer.addPass(focusPass);
  const output=new FinishedOutput();composer.addPass(output);if(options.lamps)output.lamps=options.lamps;
+ // With the kept image (temporal.ts) the chain ends there: that image is at full resolution whatever size the moving
+ // frame was drawn at, and goes to the canvas through the focus and the finish from there (finishToScreen).
+ let focusing=false;
+ if(temporal){output.enabled=false;if(focusPass)focusPass.enabled=false;}
  if(meter)output.uniforms.uGrain.value=LENS.grain;
  let traced:TracedBlend|undefined,focused:T.WebGLRenderTarget|undefined,scale=1,focus=NaN,last=0,seed=0;
  // The last denoised traced image, with its view and depth (keep, carry).
@@ -239,7 +245,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
    const f=focalLength(lensCamera.fov),at=Number.isFinite(focus)?Math.max(focus,.3):5;
    focusPass.focus=at;focusPass.scale=f*f/(LENS.fNumber*Math.max(at-f,1e-3))/LENS.sensor*depth.target.height;
    // At eye level only: from the air a point 30 m off focus blurs less than a pixel.
-   focusPass.enabled=view.eyeLevel;
+   focusing=view.eyeLevel;if(!temporal)focusPass.enabled=focusing;
   }
   output.uniforms.uSeed.value=seed=(seed+1)%64;
   renderer.toneMappingExposure=exposure*scale;
@@ -248,7 +254,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
  const finishToScreen=(image:T.WebGLRenderTarget)=>{
   output.uniforms.uSeed.value=seed=(seed+1)%64;
   let finished=image;
-  if(focusPass?.enabled){
+  if(focusPass&&focusing){
    focused??=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false});
    if(focused.width!==image.width||focused.height!==image.height)focused.setSize(image.width,image.height);
    focusPass.dof.render(renderer,image.texture,focused,focusPass.focus,focusPass.scale);finished=focused;
@@ -316,19 +322,23 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
    * of a rest, then holds, so a settling image never changes brightness. */
   render:(refining:boolean,exposure:number,indoor=0,view:PostView={eyeLevel:false})=>{
    const f=output.set(indoor);output.uniforms.uP3.value=renderer.outputColorSpace===DisplayP3ColorSpace?1:0;
-   if(ao){ao.enabled=refining;ao.blendIntensity=f.occlusion;}
-   if(!refining){accumulate.frames=0;shafts?.reset();}
+   // Corner shading is drawn in motion too where the kept image smooths its grain.
+   if(ao){ao.enabled=refining||!!temporal;ao.blendIntensity=f.occlusion;}
+   if(!refining){if(!temporal)accumulate.frames=0;shafts?.reset();}
    if(mirror)mirror.enabled=mirror.wet;
    blur?.frame(!refining);
-   accumulate.enabled=refining;
+   if(temporal)temporal.refining=refining;else accumulate.enabled=refining;
    if(shafts)shafts.indoor=indoor;
    if(meter)meter.enabled=!refining||accumulate.frames<6;
    adapt(exposure,view);
    // Bloom threshold in display terms: only highlights two and a half times brighter than white bloom.
    if(bloom)bloom.threshold=2.5/Math.max(renderer.toneMappingExposure,1e-4);
    composer.render();
+   if(temporal)finishToScreen(temporal.settled);
   },
   get accumulated(){return accumulate.frames;},
+  /** Moving frames are jittered too, and blended into the kept image (temporal.ts). */
+  temporal:!!temporal,
   /** The settled image to the canvas again, as its last refined frame showed it and without drawing the scene: under
    * what moves over a resting view (snowfall.ts). Only while frames are accumulated. */
   replay:()=>finishToScreen(accumulate.settled),
@@ -364,7 +374,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
   /** Shows the kept image moved into the current view; the live image where the move uncovered something. */
   carry:(exposure:number,indoor=0)=>{if(kept)present(kept.light.texture,1,0,exposure,indoor,kept.demodulated,true);},
 
-  reset:()=>{accumulate.frames=0;traced?.colours?.dispose();if(traced)traced.colours=undefined;},
+  reset:()=>{if(temporal)temporal.reset();else accumulate.frames=0;traced?.colours?.dispose();if(traced)traced.colours=undefined;},
   dispose:()=>{traced?.dispose();focused?.dispose();kept?.light.dispose();kept?.depth.dispose();copy.dispose();copying.dispose();for(const p of composer.passes)(p as Pass&{dispose?:()=>void}).dispose?.();composer.dispose();target.dispose();},
  };
 }
