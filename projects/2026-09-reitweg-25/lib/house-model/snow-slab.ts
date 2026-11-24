@@ -156,13 +156,21 @@ export function snowSlabs(root:T.Object3D,sky:()=>Record<string,T.IUniform>|unde
  });
  for(const {mesh,roof} of meshes)roof.add(mesh);
  let built=false;
+ const warmBoxes=()=>{root.updateMatrixWorld(true);return warm.map(o=>new T.Box3().setFromObject(o));};
  return {
   material,meshes:meshes.map(m=>m.mesh),
   /** Shown while any snow lies; the first time, the layers are cut. Call it again when the renovations change. */
   show:(on:boolean)=>{
-   if(on&&!built){built=true;root.updateMatrixWorld(true);const boxes=warm.map(o=>new T.Box3().setFromObject(o));
-    for(const {mesh,roof} of meshes){const geometry=slabGeometry(roof,boxes);if(geometry)mesh.geometry=geometry;}}
+   if(on&&!built){built=true;const boxes=warmBoxes();
+    for(const {mesh,roof} of meshes)if(mesh.geometry===empty){const geometry=slabGeometry(roof,boxes);if(geometry)mesh.geometry=geometry;}}
    for(const {mesh,roof} of meshes)mesh.visible=on&&mesh.geometry!==empty&&!(panels?.visible&&SLAB.panelled.test(roof.name));
+  },
+  /** Cuts the layers ahead of the first snow, a roof at a time with a `breath` between, so that the day the snow
+   * first lies does not hold the page for them. */
+  prepare:async(breath:()=>Promise<unknown>)=>{
+   const boxes=warmBoxes();
+   for(const {mesh,roof} of meshes){if(built)return;if(mesh.geometry===empty){const geometry=slabGeometry(roof,boxes);if(geometry)mesh.geometry=geometry;}await breath();}
+   built=true;
   },
   dispose:()=>{for(const {mesh} of meshes){if(mesh.geometry!==empty)mesh.geometry.dispose();mesh.removeFromParent();}material.dispose();depth.dispose();},
  };

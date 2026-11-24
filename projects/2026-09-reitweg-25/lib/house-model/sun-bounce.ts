@@ -116,7 +116,7 @@ export function bakeSunBounce(occluders:T.Mesh[],receivers:T.Object3D[],sun:T.Di
   },
   /** Keeps the sun's strength live and starts waiting bakes; true when a finished result was swapped in. */
   update:()=>{
-   uniforms.uBounceSun.value.copy(sun.color).multiplyScalar(sun.visible?sun.intensity*bounceGain(bounces):0);
+   uniforms.uBounceSun.value.copy(sun.color).multiplyScalar(sun.intensity*bounceGain(bounces));
    if(pending&&!busy)send();
    if(!fresh)return false;fresh=false;return true;
   },

@@ -127,11 +127,13 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
  scene.add(sun,sun.target);
  scene.fog=new T.Fog('#dce4e2',140,460);
  // Interior lamps: recessed ceiling lights and lamp discs, on as daylight fades.
+ // One set of lights at every hour: the lamps and the sun stay in the scene and are dimmed to nothing, by day and after
+ // sunset. A light switched off changes every lit material's shader, and the first dusk and the first night each
+ // held the page for seconds while some forty were made ready.
  const lamps=new T.Group();lamps.name='evening-interior-light';root.add(lamps);
  for(const [x,y,z] of [[-2.2,2.66,5],[2.3,2.66,5],[-2.2,2.66,8.3],[2.3,2.66,8.3],[3,2.45,1.7],[-4,2.45,-5.4],[-14,2.35,4.4],[-22,2.4,15]]){
   const light=new T.SpotLight('#ffd9a8',0,11,Math.PI*.42,.75,2);light.position.set(x,y,z);light.target.position.set(x,0,z);lamps.add(light,light.target);
  }
- lamps.visible=false;
  const spills:T.Material[]=[],lampMaterials:T.MeshStandardMaterial[]=[],lines:{material:T.LineBasicMaterial;base:T.Color}[]=[],backdrops:T.MeshBasicMaterial[]=[];
  root.traverse(o=>{
   const mats=(o as T.Mesh).material?(Array.isArray((o as T.Mesh).material)?(o as T.Mesh).material as T.Material[]:[(o as T.Mesh).material as T.Material]):[];
@@ -168,19 +170,17 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
   sun.color.setRGB(transmittance.r/peak,transmittance.g/peak,transmittance.b/peak);
   sun.intensity=strength*T.MathUtils.smoothstep(r.apparentElevation,-.833,1.5)*T.MathUtils.lerp(1,WINTER.sun,snow)*T.MathUtils.lerp(1,OVERCAST.sun,overcast);
   sun.position.copy(sun.target.position).addScaledVector(sunVector,160);
-  sun.visible=sun.intensity>0;
   const irradiance=luminance(skyIrradiance(sunVector)),key=irradiance+sun.intensity*Math.max(0,sunVector.y);
   // Lawn, paving and planting average to a mid-dark, green-leaning albedo; lying snow returns most of the light.
   ground.value.setRGB(.15,.145,.13).lerp(winterGround,snow).multiplyScalar(key/Math.PI);saturation.value=T.MathUtils.lerp(T.MathUtils.lerp(.55,WINTER.saturation,snow),OVERCAST.saturation,overcast);
   // Partial adaptation: dusk reads as dusk, night stays legible.
   const exposure=clamp(NOON_EXPOSURE*Math.pow(NOON_KEY/Math.max(key,1e-6),.72),.02,30)*T.MathUtils.lerp(1,WINTER.exposure,snow)*T.MathUtils.lerp(1,OVERCAST.exposure,overcast);
   const daylight=T.MathUtils.smoothstep(r.elevation,-8,10),dusk=1-T.MathUtils.smoothstep(r.elevation,-3,7);
-  lamps.visible=dusk>.02;
   // Interior lamps light a floor to roughly 0.2% of the noon key, like 200 lux against 100 klx: at the evening's exposure
   // a pale sofa under one keeps its shape instead of burning out.
   for(const o of lamps.children)if(o instanceof T.SpotLight)o.intensity=dusk*1;
   for(const m of lampMaterials){m.emissiveIntensity=dusk*3;}
-  for(const m of spills){m.opacity=dusk;m.visible=lamps.visible;}
+  for(const m of spills){m.opacity=dusk;m.visible=dusk>.02;}
   for(const {material,base} of lines)material.color.copy(base).multiplyScalar(clamp(Math.pow(key/NOON_KEY,.3),.03,1)*NOON_EXPOSURE/exposure);
   reading={...r,exposure,dusk,daylight,key};
   clouds?.setSun(sunVector,sun.color.clone().multiplyScalar(sun.intensity),skyIrradiance(sunVector));cloudsAll=true;

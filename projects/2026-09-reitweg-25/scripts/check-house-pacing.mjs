@@ -33,7 +33,7 @@ assert(/setSun:[^\n]*clearTimeout\(sunSettle\);sunSettle=setTimeout\(\(\)=>\{bou
 assert(/const SUN_SETTLE=150/.test(viewer),'150 ms');
 
 // 9. Shaders for every floor, renovation, eye level and dusk compile in the background after the first frame.
-assert(/const precompile=async\(\)=>/.test(viewer)&&/for\(const \[floor,lamps\] of \[\['upper',false\],\['upper',true\],\['exterior',true\]\]/.test(viewer),'upper floor and dusk variants');
+assert(/const precompile=async\(\)=>/.test(viewer)&&/for\(const floor of \['upper','exterior'\] as const\)/.test(viewer),'upper floor and whole house');
 assert(/canvas\.dataset\.programs=/.test(viewer),'tests can read how many programs exist');
 // The first view's own shaders compile the same way before its first frame, once the sky light they are built for is set.
 assert(/const begin=\(\)=>\{if\(!disposed\)frame=requestAnimationFrame\(render\);\};\n if\(lighting\)\{\n(  \/\/.*\n)*  const passes=\[post\?\.compilePasses\(\),bake\?\.compileAsync\(\)\];\n  lighting\.update\(camera,performance\.now\(\)\);cullTrees\(false\);\n  Promise\.all\(\[post\?post\.compileAsync\(scene\):renderer\.compileAsync\(scene,camera\),\.\.\.passes\]\)\.then\(begin,begin\);\n \}/.test(viewer),'the first view, the image chain and the sky bake compile before the first frame');
