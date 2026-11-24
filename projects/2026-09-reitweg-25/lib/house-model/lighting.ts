@@ -89,6 +89,15 @@ const NOON_KEY=noonSky*5;
 /** Exposure that places an 18% grey card at 0.25 linear under the June noon key. */
 const NOON_EXPOSURE=.25/(.18/Math.PI*NOON_KEY);
 
+/** Moonlight: once the sun is `dark` degrees below the horizon (from sunset to the end of civil twilight it fades in), the
+ * sun's own light stands where the moon does and shines with its light, so the garden has moon shadows, and the same
+ * shadow map and bounced light serve both. A full moon high in the sky lights the ground `full` times as brightly as
+ * the night sky does, far less than in nature's ratio and enough for shadows to read; the light follows the lit share
+ * of the disc and fades as the moon nears the horizon (`rise`, degrees). The eye adapts to it almost wholly (`adapt`,
+ * against the day's partial adaptation), so a moonlit night reads a little brighter than a moonless one, and darker
+ * than sunset. */
+export const MOONLIGHT={full:.9,dark:[-6,-.833] as const,rise:[0,10] as const,adapt:.85,color:[.62,.76,1] as const};
+const moonless=luminance(skyIrradiance(new T.Vector3(0,-1,0)));
 /** Rooms are exposed up to about two and a half stops brighter than outdoors, as a photographer would, by how little sky
  * the camera sees (walk.ts): 5.5× in a closed room, so white walls read white, easing to 1× once a fifth of the sky is
  * open, so a terrace or the eaves are exposed as outdoors. */
@@ -144,7 +153,7 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
    if(o.userData.scenicBackdrop&&m instanceof T.MeshBasicMaterial&&!backdrops.includes(m))backdrops.push(m);
   }
  });
- const sunVector=new T.Vector3(),horizon=new T.Color(),view=new T.Vector3(),probe=new T.Vector3(),winterGround=new T.Color(...WINTER.ground);
+ const sunVector=new T.Vector3(),lightVector=new T.Vector3(),horizon=new T.Color(),view=new T.Vector3(),probe=new T.Vector3(),winterGround=new T.Color(...WINTER.ground);
  let reading:LightReading|undefined,room=1,viewAzimuth=NaN,cloudsAll=false;
  const updateFog=(azimuth:number)=>{
   if(!scene.fog)return;viewAzimuth=azimuth;
@@ -169,12 +178,19 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
   const peak=Math.max(transmittance.r,transmittance.g,transmittance.b,1e-6);
   sun.color.setRGB(transmittance.r/peak,transmittance.g/peak,transmittance.b/peak);
   sun.intensity=strength*T.MathUtils.smoothstep(r.apparentElevation,-.833,1.5)*T.MathUtils.lerp(1,WINTER.sun,snow)*T.MathUtils.lerp(1,OVERCAST.sun,overcast);
-  sun.position.copy(sun.target.position).addScaledVector(sunVector,160);
-  const irradiance=luminance(skyIrradiance(sunVector)),key=irradiance+sun.intensity*Math.max(0,sunVector.y);
+  // After dark the same light is the moon's (MOONLIGHT).
+  const moonlit=(1-T.MathUtils.smoothstep(r.apparentElevation,...MOONLIGHT.dark))*T.MathUtils.smoothstep(r.moon.elevation,...MOONLIGHT.rise)*r.moon.lit;
+  lightVector.copy(sunVector);let moonKey=0;
+  if(!(sun.intensity>0)&&moonlit>0){
+   lightVector.set(...sunDirection(r.moon.azimuth,r.moon.elevation)).normalize();sun.color.setRGB(...MOONLIGHT.color);
+   sun.intensity=MOONLIGHT.full*moonless*moonlit*T.MathUtils.lerp(1,OVERCAST.sun,overcast);moonKey=sun.intensity*Math.max(0,lightVector.y);
+  }
+  sun.position.copy(sun.target.position).addScaledVector(lightVector,160);
+  const irradiance=luminance(skyIrradiance(sunVector)),key=irradiance+sun.intensity*Math.max(0,lightVector.y);
   // Lawn, paving and planting average to a mid-dark, green-leaning albedo; lying snow returns most of the light.
   ground.value.setRGB(.15,.145,.13).lerp(winterGround,snow).multiplyScalar(key/Math.PI);saturation.value=T.MathUtils.lerp(T.MathUtils.lerp(.55,WINTER.saturation,snow),OVERCAST.saturation,overcast);
   // Partial adaptation: dusk reads as dusk, night stays legible.
-  const exposure=clamp(NOON_EXPOSURE*Math.pow(NOON_KEY/Math.max(key,1e-6),.72),.02,30)*T.MathUtils.lerp(1,WINTER.exposure,snow)*T.MathUtils.lerp(1,OVERCAST.exposure,overcast);
+  const exposure=clamp(NOON_EXPOSURE*Math.pow(NOON_KEY/Math.max(key-moonKey,1e-6),.72),.02,30)*Math.pow((key-moonKey)/Math.max(key,1e-6),MOONLIGHT.adapt)*T.MathUtils.lerp(1,WINTER.exposure,snow)*T.MathUtils.lerp(1,OVERCAST.exposure,overcast);
   const daylight=T.MathUtils.smoothstep(r.elevation,-8,10),dusk=1-T.MathUtils.smoothstep(r.elevation,-3,7);
   // Interior lamps light a floor to roughly 0.2% of the noon key, like 200 lux against 100 klx: at the evening's exposure
   // a pale sofa under one keeps its shape instead of burning out.
@@ -183,7 +199,7 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
   for(const m of spills){m.opacity=dusk;m.visible=dusk>.02;}
   for(const {material,base} of lines)material.color.copy(base).multiplyScalar(clamp(Math.pow(key/NOON_KEY,.3),.03,1)*NOON_EXPOSURE/exposure);
   reading={...r,exposure,dusk,daylight,key};
-  clouds?.setSun(sunVector,sun.color.clone().multiplyScalar(sun.intensity),skyIrradiance(sunVector));cloudsAll=true;
+  clouds?.setSun(lightVector,sun.color.clone().multiplyScalar(sun.intensity),skyIrradiance(sunVector));cloudsAll=true;
   envDirty=true;renderer.shadowMap.needsUpdate=true;
   updateFog(Number.isFinite(viewAzimuth)?viewAzimuth:0);
   return reading;
@@ -195,7 +211,7 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
  };
  const fitShadow=(center:T.Vector3,radius:number)=>{
   const cam=sun.shadow.camera;sun.target.position.copy(center);sun.target.updateMatrixWorld();
-  sun.position.copy(center).addScaledVector(sunVector,radius*2.4+60);
+  sun.position.copy(center).addScaledVector(lightVector,radius*2.4+60);
   Object.assign(cam,{left:-radius,right:radius,top:radius,bottom:-radius,near:1,far:radius*4.8+120});cam.updateProjectionMatrix();
   const texel=radius*2/sun.shadow.mapSize.x;sun.shadow.normalBias=texel*1.6;sun.shadow.bias=-texel*.02;
   renderer.shadowMap.needsUpdate=true;

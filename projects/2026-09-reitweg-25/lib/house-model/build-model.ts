@@ -7,6 +7,7 @@ import type {CarModels} from './car-models';
 import {guestStair} from './guest-stair';
 import {buildGarden} from './garden';
 import {buildEntranceGarden} from './entrance-garden';
+import {buildGardenLights} from './garden-lights';
 import {buildPool,poolHole} from './pool';
 import {boundaryHedge} from './landscape-context';
 import {buildTrees,foliageMaterials,type TreeSpec,type TreeKind} from './foliage';
@@ -97,7 +98,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // The cobbled vehicle apron is built with the entrance walk below.
  traceSite([[606,595],[784,595],[784,662],[638,662],[621,827],[582,823]],-.03,m.paving,'courtyard');
  // Narrow cobbled walk, shallow threshold step and planted borders from owner photos.
- site.add(buildEntranceGarden(realistic),buildNorthGarden());
+ site.add(buildEntranceGarden(realistic),buildNorthGarden());if(realistic)site.add(buildGardenLights());
  traceSite([[746,398],[782,398],[782,548],[746,548]],.055,m.paving,'kitchen');
  // Cobbled strip along the guest wing's west wall, from the entrance toward the well.
  traceSite([[455,719],[478,719],[478,803],[455,803]],.045,m.paving);
