@@ -70,7 +70,7 @@ body:has(.house-model-page) .topbar{display:none!important}
 .model-stage{position:absolute;inset:0;overflow:hidden}
 .model-canvas{position:absolute;inset:0}
 .model-canvas canvas{display:block;width:100%;height:100%;outline:none;touch-action:none}
-.model-canvas canvas:focus-visible{box-shadow:inset 0 0 0 3px #a34b31}
+.model-canvas canvas:focus-visible,.model-canvas canvas:focus-visible+canvas{box-shadow:inset 0 0 0 3px #a34b31}
 .model-top{position:absolute;z-index:3;top:16px;left:16px;right:16px;display:flex;align-items:flex-start;gap:12px;pointer-events:none}
 .model-top>*{pointer-events:auto}
 .model-round,.model-compass{flex-shrink:0;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--model-card);border:1px solid #ffffffb0;box-shadow:var(--model-shadow);color:var(--model-accent)}

@@ -46,6 +46,7 @@ import {neighborHouses} from './neighbors';
 import {renovationState,type RenovationState} from './renovation-data';
 import type {createRoutines,loadSims} from './sims';
 import {endStaleTouches} from './touches';
+import {HDR,createHdrScreen,hdrWanted,type HdrScreen} from './hdr';
 import {viewpoints,type Level,type Region,type Viewpoint} from './site-data';
 
 export type ViewerOptions={
@@ -76,7 +77,9 @@ const SITE_CENTER=new T.Vector3(-5,0,8),SITE_RADIUS=70;
 
 export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const tier=tierFor(options.quality,undefined,options.extremeOnPhone),realistic=tier.quality!=='model';
- const renderer=new T.WebGLRenderer({antialias:!realistic,alpha:false,stencil:false,powerPreference:'high-performance'});
+ // A canvas that may be given floating point for a screen brighter than white (hdr.ts) has to be made with alpha.
+ const bright=tier.hdr&&hdrWanted();
+ const renderer=new T.WebGLRenderer({antialias:!realistic,alpha:bright,stencil:false,powerPreference:'high-performance'});
  // Floor views cut roofs at the wall height with per-material clipping.
  renderer.localClippingEnabled=true;
  renderer.setPixelRatio(Math.min(window.devicePixelRatio,tier.pixelRatio));
@@ -227,7 +230,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
 
  // Extreme: trees the house hides are counted right after the scene is drawn, and left out of the next frames.
  const occlusion=realistic&&tier.treeOcclusion?createTreeOcclusion(renderer.getContext() as WebGL2RenderingContext,scene):undefined;
- const post=realistic?createPost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,mist:tier.weathered,wetMirror:tier.wetMirror,temporal:tier.temporal&&new URLSearchParams(location.search).get('taa')!=='off',afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
+ const post=realistic?createPost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,mist:tier.weathered,wetMirror:tier.wetMirror,temporal:tier.temporal&&new URLSearchParams(location.search).get('taa')!=='off',hdr:()=>screen&&renderer.outputColorSpace===DisplayP3ColorSpace?HDR.peak:0,afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
  if(post){mistFor=r=>{if(scene.fog)post.setMist(study.enabled&&level==='exterior'&&!snowing&&!raining?mistAmount(r.apparentElevation,study.minutes,study.day):0,scene.fog.color);};if(lighting?.reading)mistFor(lighting.reading);}
  // Extreme: the pool mirrors the scene (pool-reflection.ts).
  const mirror=tier.poolMirror&&camera instanceof T.PerspectiveCamera?createPoolReflection(renderer,scene,camera,batches.meshes.filter(b=>materialsOf(b).some(m=>hasShaderFeature(m,'pool-water')))):undefined;
@@ -251,6 +254,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  let interfaceOpen=false,presented=0;
  // When this rest's first cleaned traced image was shown (0: not yet), and whether a carried one stood in before it.
  let fadeFrom=0,carried=false;
+ // The screen brighter than white, once the graphics card grants it, and the last frame it was shown.
+ let screen:HdrScreen|undefined,shown=-1;
  // Moving frames drawn in a row, for their jitter.
  let moved=0;
  // Another app in front: tracing and the background bakes wait, so the rest of the computer keeps the processor and
@@ -353,8 +358,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  };
  const render=(now:number)=>{
   if(disposed)return;frame=requestAnimationFrame(render);
-  if(!perf){draw(now);return;}
-  perf.begin();try{draw(now);}finally{perf.end(drawnLow);}
+  if(!perf)draw(now);else{perf.begin();try{draw(now);}finally{perf.end(drawnLow);}}
+  if(screen&&renderer.info.render.frame!==shown){shown=renderer.info.render.frame;screen.present();}
  };
  const draw=(now:number)=>{
   if(!visible||document.hidden){previous=now;return;}
@@ -576,6 +581,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   canvas.dataset.cars='shown';
  };
  if(options.cars&&tier.cars!=='none'){canvas.dataset.cars='loading';void addCars(options.cars).catch(error=>console.warn('Garage cars',error));}
+ if(bright)void createHdrScreen(canvas,renderer.getContext() as WebGL2RenderingContext,()=>{screen=undefined;changed();}).then(made=>{if(disposed)made?.dispose();else if(made){screen=made;canvas.dataset.hdr='true';changed();}});
  const begin=()=>{if(!disposed)frame=requestAnimationFrame(render);};
  if(lighting){
   // The image chain's own shaders and the sky bake's go first: they need nothing from the scene, and compile while the
@@ -661,7 +667,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   snapshot:rig.snapshot,
   restore:(s:Parameters<typeof rig.restore>[0])=>{rig.restore(s);changed();},
   dispose:()=>{
-   disposed=true;snowfall?.dispose();rainfall?.dispose();smoke?.dispose();vapour?.dispose();wet.value=0;slabs?.dispose();drifts?.dispose();festive?.dispose();cancelAnimationFrame(frame);touches();perf?.dispose();occlusion?.dispose();steer?.dispose();probes?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);clearTimeout(cloudSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
+   disposed=true;screen?.dispose();snowfall?.dispose();rainfall?.dispose();smoke?.dispose();vapour?.dispose();wet.value=0;slabs?.dispose();drifts?.dispose();festive?.dispose();cancelAnimationFrame(frame);touches();perf?.dispose();occlusion?.dispose();steer?.dispose();probes?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);clearTimeout(cloudSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
    canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('wheel',wheel);canvas.removeEventListener('keydown',key);
    bake?.dispose();bounce?.dispose();clouds?.dispose();grass?.dispose();post?.dispose();lighting?.dispose();textures?.dispose();environment?.dispose();
    const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();

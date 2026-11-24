@@ -15,6 +15,7 @@ import {MistPass,MIST,mistGlsl} from './mist';
 import {MotionBlur} from './motion-blur';
 import {WetReflections} from './wet-reflections';
 import {TemporalPass} from './temporal';
+import {HDR} from './hdr';
 
 /** Ambient occlusion at half resolution, with normals reconstructed from the main pass's
  * depth; no second scene render. */
@@ -134,19 +135,21 @@ class TracedBlend{
 class FinishedOutput extends OutputPass{
  constructor(){
   super();
-  Object.assign(this.uniforms,{uBalance:{value:new T.Vector3(1,1,1)},uLook:{value:new T.Vector3(1,1,0)},uGrain:{value:0},uSeed:{value:0},uP3:{value:0}});
+  Object.assign(this.uniforms,{uBalance:{value:new T.Vector3(1,1,1)},uLook:{value:new T.Vector3(1,1,0)},uGrain:{value:0},uSeed:{value:0},uP3:{value:0},uHdr:{value:0}});
   const patch=(shader:string,anchor:string,code:string)=>{if(!shader.includes(anchor))throw new Error(`output shader has no ${anchor}`);return shader.replace(anchor,code);};
   let shader=this.material.fragmentShader;
   // Linear sRGB to linear Display P3 (three's XYZ matrices), column by column.
-  shader=patch(shader,'uniform sampler2D tDiffuse;','uniform sampler2D tDiffuse;uniform vec3 uBalance;uniform vec3 uLook;uniform float uGrain;uniform float uSeed;uniform float uP3;const mat3 P3_FROM_SRGB=mat3(0.8225927,0.0331996,0.0170853,0.1775340,0.9667835,0.0723957,0.0000000,0.0000000,0.9103014);');
+  shader=patch(shader,'uniform sampler2D tDiffuse;','uniform sampler2D tDiffuse;uniform vec3 uBalance;uniform vec3 uLook;uniform float uGrain;uniform float uSeed;uniform float uP3;uniform float uHdr;const mat3 P3_FROM_SRGB=mat3(0.8225927,0.0331996,0.0170853,0.1775340,0.9667835,0.0723957,0.0000000,0.0000000,0.9103014);');
   // Leaf edges are anti-aliased by alpha-to-coverage (foliage.ts), which leaves their pixels' alpha below one; kept to the
   // canvas, the page behind shows through them as grey specks, plain at dusk. The finished image is opaque.
-  shader=patch(shader,'gl_FragColor = texture2D( tDiffuse, vUv );','gl_FragColor = texture2D( tDiffuse, vUv );gl_FragColor.a=1.0;gl_FragColor.rgb*=uBalance;');
+  shader=patch(shader,'gl_FragColor = texture2D( tDiffuse, vUv );','gl_FragColor = texture2D( tDiffuse, vUv );gl_FragColor.a=1.0;gl_FragColor.rgb*=uBalance;float sceneLight=dot(gl_FragColor.rgb,vec3(0.2126,0.7152,0.0722))*toneMappingExposure;');
   shader=patch(shader,'#ifdef SRGB_TRANSFER',`{vec3 e=pow(clamp(gl_FragColor.rgb,0.0,1.0),vec3(1.0/2.2));
    // Shadow lift (look.ts, shadowLift), on luminance so that colours keep their hue.
    float m=dot(e,vec3(0.2126,0.7152,0.0722)),f=1.0-m;e=min(e*(1.0+uLook.z*f*f*f*f),vec3(1.0));
    vec3 p=pow(e,vec3(uLook.x)),q=pow(1.0-e,vec3(uLook.x));
-   vec3 c=pow(p/max(p+q,vec3(1e-5)),vec3(2.2));float l=dot(c,vec3(0.2126,0.7152,0.0722));vec3 g=l+uLook.y*(c-l);if(uP3>0.5)g=P3_FROM_SRGB*g;gl_FragColor.rgb=max(vec3(0.0),g);}
+   vec3 c=pow(p/max(p+q,vec3(1e-5)),vec3(2.2));float l=dot(c,vec3(0.2126,0.7152,0.0722));vec3 g=l+uLook.y*(c-l);if(uP3>0.5)g=P3_FROM_SRGB*g;gl_FragColor.rgb=max(vec3(0.0),g);
+   // A screen that shows above white (hdr.ts): light the scene holds above white is shown brighter, up to uHdr times.
+   if(uHdr>1.0)gl_FragColor.rgb*=clamp(pow(sceneLight/${HDR.knee.toFixed(2)},${HDR.curve.toFixed(2)}),1.0,uHdr);}
   if(uGrain>0.0){
    // Two hashes summed: triangular noise in −1…1 (float only; the output pass compiles as GLSL ES 1.0).
    vec3 h=fract(vec3(gl_FragCoord.xyx+uSeed*vec3(17.0,59.0,23.0))*0.1031);h+=dot(h,h.yzx+33.33);
@@ -185,7 +188,7 @@ function passMaterials(pass:Pass){
  * grain. */
 /** `afterScene`: runs right after the scene is drawn, its target still bound. */
 /** `lamps`: how far the evening lamps are on (0–1), for the white balance indoors (look.ts). */
-export type PostOptions={lamps?:()=>number;samples:number;ao:boolean;bloom:boolean;lens?:{sun:T.DirectionalLight};/** Short shadows where things touch (contact-shadows.ts); needs `lens`. */contact?:boolean;/** Ground mist at daybreak (mist.ts); needs `lens`. */mist?:boolean;/** Wet ground mirrors the scene (wet-reflections.ts); needs `lens`. */wetMirror?:boolean;/** Moving frames build on the image the view has gathered (temporal.ts); needs `lens`. */temporal?:boolean;afterScene?:(renderer:T.WebGLRenderer,camera:T.Camera)=>void};
+export type PostOptions={lamps?:()=>number;samples:number;ao:boolean;bloom:boolean;lens?:{sun:T.DirectionalLight};/** Short shadows where things touch (contact-shadows.ts); needs `lens`. */contact?:boolean;/** Ground mist at daybreak (mist.ts); needs `lens`. */mist?:boolean;/** Wet ground mirrors the scene (wet-reflections.ts); needs `lens`. */wetMirror?:boolean;/** Moving frames build on the image the view has gathered (temporal.ts); needs `lens`. */temporal?:boolean;/** How many times white the screen is given now (hdr.ts); 0: white at most. */hdr?:()=>number;afterScene?:(renderer:T.WebGLRenderer,camera:T.Camera)=>void};
 export type PostView={eyeLevel:boolean};
 export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions){
  const target=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,samples:options.samples,depthTexture:new T.DepthTexture(1,1)});
@@ -263,7 +266,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
  };
  /** Draws `image` over the settled live image through the finish (TracedBlend); `reproject`: it is the kept image. */
  const present=(image:T.Texture,amount:number,radius:number,exposure:number,indoor:number,demodulated:boolean,reproject:boolean)=>{
-   output.set(indoor);output.uniforms.uP3.value=renderer.outputColorSpace===DisplayP3ColorSpace?1:0;
+   output.set(indoor);output.uniforms.uP3.value=renderer.outputColorSpace===DisplayP3ColorSpace?1:0;output.uniforms.uHdr.value=options.hdr?.()??0;
    traced??=new TracedBlend();
    const size=renderer.getDrawingBufferSize(new T.Vector2()),u=traced.material.uniforms,source=image.image as {width:number;height:number};
    if(traced.target.width!==size.x||traced.target.height!==size.y)traced.target.setSize(size.x,size.y);
@@ -321,7 +324,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
    * interior finish (look.ts). With the lens, exposure follows the meter while the view moves and for the first frames
    * of a rest, then holds, so a settling image never changes brightness. */
   render:(refining:boolean,exposure:number,indoor=0,view:PostView={eyeLevel:false})=>{
-   const f=output.set(indoor);output.uniforms.uP3.value=renderer.outputColorSpace===DisplayP3ColorSpace?1:0;
+   const f=output.set(indoor);output.uniforms.uP3.value=renderer.outputColorSpace===DisplayP3ColorSpace?1:0;output.uniforms.uHdr.value=options.hdr?.()??0;
    // Corner shading is drawn in motion too where the kept image smooths its grain.
    if(ao){ao.enabled=refining||!!temporal;ao.blendIntensity=f.occlusion;}
    if(!refining){if(!temporal)accumulate.frames=0;shafts?.reset();}
