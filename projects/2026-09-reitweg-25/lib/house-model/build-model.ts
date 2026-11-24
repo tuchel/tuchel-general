@@ -16,6 +16,7 @@ import {buildFrontGarden,buildRoseGarden,FRUIT_TREES,SHRUBS,GARAGE_CLEARS,CHERRI
 import {buildEastGarden,EAST_GARDEN_TREES} from './east-garden';
 import {buildNorthGarden} from './north-garden';
 import {furnishHouse} from './interiors';
+import {dressHouse} from './lived-in';
 import {roofSkylights,guestSkylightsAdded} from './solar-layout';
 import {buildRenovations,winterGardenOutline} from './renovations';
 import {renovationState,type RenovationId,type RenovationState} from './renovation-data';
@@ -326,6 +327,8 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  guestBasement.forEach((a,i)=>{const b=guestBasement[(i+1)%4];wall(basement,a[0],a[1],b[0],b[1],BASEMENT_WALL,-2.3);});
  {q=at(262,1074);const column=add(cylinderGeo,m.plaster,basement);column.scale.set(.15,BASEMENT_WALL,.15);column.position.set(q[0],-2.3+BASEMENT_WALL/2,q[1]);column.userData.base=-2.3;column.userData.height=BASEMENT_WALL;cutWalls.push(column);}
  furnishHouse(ground,upper,basement,material);
+ // What a lived-in house has lying about (lived-in.ts), in the photographic settings.
+ if(realistic)dressHouse(root,material);
  // Upper-floor furniture that a renovation adds or replaces stands in a group of its own beside the upper floor's: its
  // batches hang from its own groups (static-batch.ts), which the upper floor's group, hidden in the whole-house view,
  // would hide with it.
