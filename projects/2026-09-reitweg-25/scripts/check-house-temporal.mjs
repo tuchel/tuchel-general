@@ -16,8 +16,9 @@ assert(/if\(temporal\)\{output\.enabled=false;if\(focusPass\)focusPass\.enabled=
 // frame's colours around it, and only where the last frame saw the same point may it stand a little past them.
 assert(/clip=lastViewProj\*world/.test(pass)&&/texture2D\(lastDepth,at\)\.r-expected/.test(pass),'looked up by depth');
 assert(/kept=clamp\(keptAt\(at\),lo-slack,hi\+slack\)/.test(pass)&&/slack=\(hi-lo\)\*\$\{TEMPORAL\.slack\.toFixed\(2\)\}\*seen\+0\.002\*seen/.test(pass),'held to the new frame');
-// A changed light or scene under a still camera shows at once; only the camera's own move carries the image.
-assert(/carried=this\.valid&&moved/.test(pass)&&/reset\(\)\{this\.frames=0;this\.fresh=true;\}/.test(pass)&&/if\(temporal\)temporal\.reset\(\)/.test(post),'only a camera move carries');
+// A changed light or scene under a still camera shows at once; the camera's own move carries the image, and so do
+// frames that follow one another without such a change.
+assert(/carried=this\.valid&&\(moved\|\|!this\.fresh\)/.test(pass)&&/reset\(\)\{this\.frames=0;this\.fresh=true;\}/.test(pass)&&/if\(temporal\)temporal\.reset\(\)/.test(post),'only a camera move carries');
 // Moving frames are jittered by a part of their own (larger) pixels, and the pass undoes the shift it reads from the lens.
 assert(/const jitter=still\?post\.accumulated>0:post\.temporal;/.test(viewer)&&/k=still\?1:1\/drawnScale/.test(viewer),'moving frames are jittered');
 assert(/q=vUv-jitter/.test(pass)&&/camera\.projectionMatrix\.elements\[8\]-lens\.elements\[8\]/.test(pass),'the jitter is undone');
