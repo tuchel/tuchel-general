@@ -86,6 +86,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  renderer.localClippingEnabled=true;
  renderer.setPixelRatio(Math.min(window.devicePixelRatio,tier.pixelRatio));
  // `?soft=off`: three's filtered shadows, for comparison.
+ // A traced view's light stays while the camera moves (carry.ts, LIGHT_CARRY): asked for until judged on a real graphics card.
+ const carrying=tier.lightCarry&&new URLSearchParams(location.search).get('carry')==='on';
  const softened=tier.softShadows&&new URLSearchParams(location.search).get('soft')!=='off';
  if(softened)installSoftShadows();
  renderer.shadowMap.enabled=true;renderer.shadowMap.type=softened?T.BasicShadowMap:T.PCFShadowMap;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
@@ -442,7 +444,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    // finishes. Until this view has one, the last view's is carried in after a small move (carry.ts).
    const cleaned=!!traced?.denoised&&traced.demodulated,fading=fadeFrom>0&&now-fadeFrom<LIVE_TRACE.fade;
    if(now-presented>=LIVE_TRACE.present||!live.wanted||fading||(cleaned&&!fadeFrom)){
-    if(cleaned&&traced){if(!fadeFrom)fadeFrom=carried?now-LIVE_TRACE.fade:now;presented=now;timed('trace blend',()=>post.present(traced.texture,traceFade(now-fadeFrom),0,lighting!.exposure,indoorOf(room),traced.demodulated));post.keep(traced.texture,traced.demodulated,live.generation);}
+    if(cleaned&&traced){if(!fadeFrom)fadeFrom=carried||post.lightCarried>.5?now-LIVE_TRACE.fade:now;presented=now;timed('trace blend',()=>post.present(traced.texture,traceFade(now-fadeFrom),0,lighting!.exposure,indoorOf(room),traced.demodulated));post.keep(traced.texture,traced.demodulated,live.generation);}
     else if(post.carries(rig.camera,live.generation)){presented=now;carried=true;timed('trace blend',()=>post.carry(lighting!.exposure,indoorOf(room)));}
    }
    // What the view shows, for tests: 'preparing', the traced sample count, or 'live'; and the samples behind the denoised
@@ -486,7 +488,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    if(motion&&captures?.breezeOn&&tier.photographic)renderer.shadowMap.needsUpdate=true;
    probes?.setCamera(rig.camera);
    cullTrees(low);
-   if(mirror)timed('mirror',()=>mirror.render());post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel});
+   if(mirror)timed('mirror',()=>mirror.render());post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel,carry:carrying&&live&&level!=='upper'&&!snow.amount&&!raining&&!wet.value?live.generation:undefined});
    if(low)steer?.finish(performance.now());
    if(jitter)camera.clearViewOffset();
    fall();
