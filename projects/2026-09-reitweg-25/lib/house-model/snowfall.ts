@@ -6,22 +6,25 @@ import {SNOW,snowRoofs} from './snow';
  * (`wind`, m/s east and south), each swaying `sway` metres about its line, `size` metres across. Nearer than `focus`
  * metres a flake goes out of focus: `blur` is the lens's aperture in metres. `ease`: the seconds the ground takes to
  * whiten when it starts on bare ground, and to clear again. */
-export const SNOWFALL={count:24000,box:[32,18,32],fall:[.7,1.3],wind:[.32,.12],sway:.2,size:[.02,.045],focus:2,blur:.012,opacity:.92,ease:6};
+export const SNOWFALL={lamps:40,glow:[1,.74,.46] as const,count:24000,box:[32,18,32],fall:[.7,1.3],wind:[.32,.12],sway:.2,size:[.02,.045],focus:2,blur:.012,opacity:.92,ease:6};
 const f=(v:number)=>v.toFixed(4);
 
 /** The flakes: one draw of points, placed by the vertex shader from the time alone. Each has a fixed track through the
  * world, wrapped into the box around the camera, so walking through them shows real parallax. None falls under a roof:
  * the height over each point is read from the sky light's links (sky-links.ts, COVER) and the roofs it does not know
  * (snow.ts, snowCovers), so rooms and porches stay clear while it falls outside their windows. They are drawn over the
- * finished image, behind whatever the scene's depth says is nearer: each flake whole, by its own distance. `sky`: the sky light's uniforms, where there is one. */
-export function createSnowfall(sky?:Record<string,T.IUniform>){
+ * finished image, behind whatever the scene's depth says is nearer: each flake whole, by its own distance. `sky`: the sky light's uniforms, where there is one.
+ * `lamps`: where lamplight reaches the air outdoors (the glazing with lit rooms behind it, the garden's path lights; up
+ * to SNOWFALL.lamps): flakes falling past them catch it in the evening, warm against the blue. */
+export function createSnowfall(sky?:Record<string,T.IUniform>,lamps:T.Vector3[]=[]){
  const seeds=new Float32Array(SNOWFALL.count*3),chance=new Float32Array(SNOWFALL.count);
  let state=20260123;const random=()=>{state=(state*1664525+1013904223)>>>0;return state/4294967296;};
  for(let i=0;i<SNOWFALL.count;i++){seeds.set([random(),random(),random()],i*3);chance[i]=random();}
  const geometry=new T.BufferGeometry().setAttribute('position',new T.BufferAttribute(seeds,3)).setAttribute('chance',new T.BufferAttribute(chance,1));
- const uniforms={uTime:{value:0},uBox:{value:new T.Vector3(...SNOWFALL.box)},uMiddle:{value:new T.Vector3()},uView:{value:new T.Vector2(1,1)},uDepth:{value:null as T.Texture|null},uLight:{value:new T.Color()},...snowRoofs,...sky};
+ const uniforms={uTime:{value:0},uBox:{value:new T.Vector3(...SNOWFALL.box)},uMiddle:{value:new T.Vector3()},uView:{value:new T.Vector2(1,1)},uDepth:{value:null as T.Texture|null},uLight:{value:new T.Color()},uLamp:{value:new T.Vector4(...SNOWFALL.glow,0)},
+  uLamps:{value:Array.from({length:SNOWFALL.lamps},(_,i)=>lamps[i]?.clone()??new T.Vector3(0,-1e4,0))},...snowRoofs,...sky};
  const material=new T.ShaderMaterial({uniforms,transparent:true,depthTest:false,depthWrite:false,toneMapped:false,defines:sky?{ROOFED:1}:{},
-  vertexShader:`attribute float chance;uniform float uTime;uniform vec3 uBox;uniform vec3 uMiddle;uniform vec2 uView;uniform vec4 uSnowCoverA[${SNOW.covers}];uniform vec4 uSnowCoverB[${SNOW.covers}];
+  vertexShader:`attribute float chance;uniform vec3 uLamps[${SNOWFALL.lamps}];varying float vGlow;uniform float uTime;uniform vec3 uBox;uniform vec3 uMiddle;uniform vec2 uView;uniform vec4 uSnowCoverA[${SNOW.covers}];uniform vec4 uSnowCoverB[${SNOW.covers}];
    #ifdef ROOFED
    uniform highp sampler3D uSkyReach;uniform vec3 uSkyMin;uniform vec3 uSkyGrid;uniform float uSkyCell;uniform float uSkyLinked;
    #endif
@@ -44,6 +47,8 @@ export function createSnowfall(sky?:Record<string,T.IUniform>){
      if(p.y<uSkyMin.y+((c.y&1)==0?t.r:t.g)*uSkyGrid.y*uSkyCell-0.1)alpha=0.0;
     }
     #endif
+    vGlow=0.0;for(int k=0;k<${SNOWFALL.lamps};k++){vec3 l=p-uLamps[k];vGlow+=1.0/(1.0+dot(l,l)*0.8);}
+    vGlow=min(vGlow,1.6);
     vec4 mv=viewMatrix*vec4(p,1.0);float d=max(-mv.z,0.05),scale=uView.y*projectionMatrix[1][1]*0.5;
     float size=mix(${f(SNOWFALL.size[0])},${f(SNOWFALL.size[1])},q)*scale/d,blur=${f(SNOWFALL.blur)}*scale*max(0.0,1.0/d-${f(1/SNOWFALL.focus)}),wide=size+blur;
     // Out of focus a flake spreads and thins; smaller than a pixel it dims instead of flickering.
@@ -51,20 +56,20 @@ export function createSnowfall(sky?:Record<string,T.IUniform>){
     vAlpha=alpha*small*mix(1.0,size/wide,0.8);vSoft=blur/wide;vAway=d;
     gl_PointSize=min(max(wide,1.5),64.0);gl_Position=vAlpha<0.004||-mv.z<0.12?vec4(2.0,2.0,2.0,1.0):projectionMatrix*mv;
    }`,
-  fragmentShader:`uniform sampler2D uDepth;uniform vec2 uView;uniform vec3 uLight;varying float vAlpha;varying float vSoft;varying float vAway;
+  fragmentShader:`uniform sampler2D uDepth;uniform vec2 uView;uniform vec3 uLight;uniform vec4 uLamp;varying float vGlow;varying float vAlpha;varying float vSoft;varying float vAway;
    void main(){
     if(vAway>texture2D(uDepth,gl_FragCoord.xy/uView).r)discard;
-    gl_FragColor=vec4(uLight,vAlpha*(1.0-smoothstep(mix(0.45,0.0,vSoft),1.0,length(gl_PointCoord-0.5)*2.0)));
+    gl_FragColor=vec4(mix(uLight,uLamp.rgb,min(vGlow,1.0)*uLamp.a),vAlpha*(1.0-smoothstep(mix(0.45,0.0,vSoft),1.0,length(gl_PointCoord-0.5)*2.0)));
    }`});
  const points=new T.Points(geometry,material);points.frustumCulled=false;
  const day=new T.Color(.97,.98,1),night=new T.Color(.5,.56,.7),eye=new T.Vector3();
  return {
   points,
   /** Draws the flakes over the frame on the canvas, `seconds` into the fall. `depth`: the scene's, as last drawn, in metres from the camera (post.ts, keepDepth).
-   * `daylight` (0–1): white by day, pale blue at night. */
-  draw:(renderer:T.WebGLRenderer,camera:T.Camera,depth:T.Texture,seconds:number,daylight:number)=>{
+   * `daylight` (0–1): white by day, pale blue at night. `dusk` (0–1): how far the lamps are on. */
+  draw:(renderer:T.WebGLRenderer,camera:T.Camera,depth:T.Texture,seconds:number,daylight:number,dusk=0)=>{
    camera.getWorldDirection(uniforms.uMiddle.value).multiply(uniforms.uBox.value).multiplyScalar(.4).add(camera.getWorldPosition(eye));
-   uniforms.uTime.value=seconds;uniforms.uDepth.value=depth;uniforms.uLight.value.copy(night).lerp(day,daylight);renderer.getDrawingBufferSize(uniforms.uView.value);
+   uniforms.uTime.value=seconds;uniforms.uDepth.value=depth;uniforms.uLight.value.copy(night).lerp(day,daylight);uniforms.uLamp.value.w=dusk;renderer.getDrawingBufferSize(uniforms.uView.value);
    const clear=renderer.autoClear;renderer.autoClear=false;renderer.setRenderTarget(null);renderer.render(points,camera);renderer.autoClear=clear;
   },
   dispose:()=>{geometry.dispose();material.dispose();},

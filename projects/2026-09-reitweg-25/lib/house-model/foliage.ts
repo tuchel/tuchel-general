@@ -38,11 +38,20 @@ export function foliageMaterials(style:TreeStyle='leaves'){
  const depth=shadow();
  // Trees that shed (seasonTrees) wear leaf cards of their own: `shed` of each card's leaves is gone, in soft patches,
  // and from its shadow.
- const shed={value:0},leafFall={key:'leaf-fall',compile:(shader:T.WebGLProgramParametersWithUniforms)=>{
-  shader.uniforms.uShed=shed;
-  shader.fragmentShader='uniform float uShed;\nfloat leafHash(vec2 c){vec3 p=fract(vec3(c.xyx)*.1031);p+=dot(p,p.yzx+33.33);return fract((p.x+p.y)*p.z);}\n'+
+ // Bare of its last leaves (`twig`), a card is drawn as the fine twigs at a limb's end: sprays of thin shoots in the
+ // bark's colour. From far off, where a shoot is finer than a pixel, the sprays drop out one by one and leave the limbs alone,
+ // so that a crown never closes into a blob.
+ const shed={value:0},twig={value:0},leafFall={key:'leaf-fall',compile:(shader:T.WebGLProgramParametersWithUniforms)=>{
+  shader.uniforms.uShed=shed;shader.uniforms.uTwig=twig;
+  shader.fragmentShader='uniform float uShed;uniform float uTwig;\nfloat twigSeg(vec2 p,vec2 a,vec2 b){vec2 pa=p-a,ba=b-a;return length(pa-ba*clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0));}\nfloat leafHash(vec2 c){vec3 p=fract(vec3(c.xyx)*.1031);p+=dot(p,p.yzx+33.33);return fract((p.x+p.y)*p.z);}\n'+
    after(shader.fragmentShader,'map_fragment',`#ifdef USE_MAP
-if(uShed>0.0){vec2 g=vMapUv*${SHED.patches.toFixed(1)},i=floor(g),f=g-i;f=f*f*(3.0-2.0*f);
+if(uTwig>0.5){vec2 tq=vMapUv*4.0,tc=floor(tq),q=tq-tc,dq=fwidth(vMapUv)*4.0;float d=1.0,th=leafHash(tc+7.0);if(th>0.5)q.x=1.0-q.x;
+ #define TWIG(ax,ay,bx,by) d=min(d,twigSeg(q,vec2(ax,ay),vec2(bx,by)));
+ TWIG(.5,.02,.47,.42) TWIG(.47,.42,.36,.8) TWIG(.36,.8,.3,.98) TWIG(.47,.42,.66,.78) TWIG(.66,.78,.74,.97) TWIG(.66,.78,.56,.95) TWIG(.36,.8,.44,.96)
+ TWIG(.49,.22,.22,.5) TWIG(.22,.5,.06,.72) TWIG(.22,.5,.2,.82) TWIG(.48,.3,.8,.52) TWIG(.8,.52,.96,.66) TWIG(.8,.52,.84,.84) TWIG(.12,.62,.02,.9) TWIG(.88,.58,.98,.9)
+ float px=max(dq.x,dq.y),w=max(mix(.02,.008,q.y),px*.5);
+ diffuseColor=vec4(${TWIGS.join(',')},(1.0-smoothstep(w,w+px,d))*step(.22+.78*smoothstep(.02,.07,px),fract(th*7.31)+.001));}
+else if(uShed>0.0){vec2 g=vMapUv*${SHED.patches.toFixed(1)},i=floor(g),f=g-i;f=f*f*(3.0-2.0*f);
  float n=mix(mix(leafHash(i),leafHash(i+vec2(1.0,0.0)),f.x),mix(leafHash(i+vec2(0.0,1.0)),leafHash(i+vec2(1.0,1.0)),f.x),f.y);
  diffuseColor.a*=smoothstep(-.06,.06,n-uShed*${SHED.bare.toFixed(2)});}
 #endif`);
@@ -55,7 +64,7 @@ if(uShed>0.0){vec2 g=vMapUv*${SHED.patches.toFixed(1)},i=floor(g),f=g-i;f=f*f*(3
  // Solid crown core (hybrid) and modelled leaves: colour lives in the vertices.
  const core=new T.MeshStandardMaterial({color:'#ffffff',roughness:.95,vertexColors:true});core.userData.photo='foliage';
  const solid=new T.MeshStandardMaterial({color:'#ffffff',roughness:.78,envMapIntensity:.8,side:T.DoubleSide,vertexColors:true});solid.userData.photo='foliage';addShaderFeature(solid,translucency);
- return {leaves,depth,fall:{leaves:fallLeaves,depth:fallDepth,shed},bark,birchBark,core,solid,style};
+ return {leaves,depth,fall:{leaves:fallLeaves,depth:fallDepth,shed,twig},bark,birchBark,core,solid,style};
 }
 export type FoliageMaterials=ReturnType<typeof foliageMaterials>;
 
@@ -328,6 +337,8 @@ const EVERGREEN:TreeKind[]=['pine','mugo','spruce'];
  * `spread` days early or late. `patches`: how finely a leaf card thins (cells across the leaf atlas); `bare`: the share
  * of a card that is gone once the leaves are down, the rest the few that hang on. Those go too over `late` (December),
  * leaving the limbs alone, and bud over `bud` (March) to what the flush opens from. */
+/** The colour of a bare tree's twigs (linear), before each tree's own shade. */
+const TWIGS=['0.19','0.155','0.13'];
 export const SHED={flush:[91,135],turn:[258,300],fall:[300,330],late:[335,360],bud:[60,91],spread:16,patches:14,bare:.72};
 const TWIG=[1.3,.55,.9],FRESH=[1.22,1.2,.7],RUSSET=[1.7,.8,.45],YELLOW=[2.3,1.55,.5],ORANGE=[2.6,1.1,.4],RED=[2.6,.62,.5];
 const ramp=(v:number,[a,b]:number[])=>T.MathUtils.smoothstep(v,a,b),blend=(a:number[],b:number[],t:number)=>a.map((v,i)=>v+(b[i]-v)*t);
@@ -344,14 +355,16 @@ export function leafTint(kind:TreeKind,day:number,vary:number){
  * solid crown and modelled leaves are put away; the path tracer then sees the limbs alone. Evergreens, hedges and shrubs keep their leaf. */
 export function seasonTrees(root:T.Object3D,materials:FoliageMaterials,day:number){
  const shed=shedOn(day),bare=shed>.5,gone=shed*(1+.5*(day<SHED.bud[1]?1-ramp(day,SHED.bud):ramp(day,SHED.late)));materials.fall.shed.value=gone;
+ // Once the last leaves are down the cards are the limbs' twigs (foliageMaterials, uTwig), each tree a little lighter or darker.
+ const twigs=gone*SHED.bare>=1.06;materials.fall.twig.value=twigs?1:0;
  root.traverse(o=>{
   ((o.userData.treeSets??[]) as TreeSet[]).forEach((set,k)=>{
    if(EVERGREEN.includes(set.kind))return;
-   set.summer.forEach((c,i)=>{const [r,g,b]=leafTint(set.kind,day,(i*.618+k*.237+set.kind.length*.11)%1);set.colors[i].setRGB(c.r*r,c.g*g,c.b*b);});
+   set.summer.forEach((c,i)=>{const phase=(i*.618+k*.237+set.kind.length*.11)%1;if(twigs){set.colors[i].setScalar(.8+.5*phase);return;}const [r,g,b]=leafTint(set.kind,day,phase);set.colors[i].setRGB(c.r*r,c.g*g,c.b*b);});
    set.order.clear();set.bare=bare;
    for(const mesh of [...set.crowns,...set.lod??[]]){
     const card=mesh.material===materials.fall.leaves,lod=!!set.lod?.includes(mesh);
-    if(!card)mesh.visible=!bare;else{mesh.visible=gone*SHED.bare<1.06;mesh.userData.skipPhotographic=bare||lod;if(lod)mesh.castShadow=bare;}
+    if(!card)mesh.visible=!bare;else{mesh.visible=true;mesh.userData.skipPhotographic=bare||lod;if(lod)mesh.castShadow=bare;}
     mesh.userData.season=day;
    }
   });

@@ -85,11 +85,11 @@ function worldPosition(shader:T.WebGLProgramParametersWithUniforms){
  * loses under it, y how far a flower shrinks to nothing, z how far what still shows pales to straw, w the slope's weight (little for setts, whose joints fill). Fountain grass (`reed`) stands through the
  * winter with its plumes, as straw. */
 const HOW={surface:new T.Vector4(0,0,0,SNOW.slope),leaf:new T.Vector4(0,0,0,1.6),blade:new T.Vector4(.75,0,1,SNOW.slope),reed:new T.Vector4(0,0,1,SNOW.slope),bloom:new T.Vector4(0,1,0,SNOW.slope),sett:new T.Vector4(0,0,0,.25)};
-/** x: the most of a surface it hides: all of a roof or a lawn, most of a leaf, a fifth of a standing grass, and half of what a bare tree keeps of its
+/** x: the most of a surface it hides: all of a roof or a lawn, most of a leaf, a fifth of a standing grass, and a third of what a bare tree keeps of its
  * leaf cards, which stand for twigs (foliage.ts) and so read as rimed, not as white leaves. y: how far the leaf or lawn
  * that still shows darkens to its winter green. z: how fine it clumps: a leaf card carries it in tufts, not as a white
  * leaf. */
-const MOST={surface:{value:new T.Vector3(1,0,1)},lawn:{value:new T.Vector3(1,.7,1)},leaf:{value:new T.Vector3(.85,1,4)},twig:{value:new T.Vector3(.5,0,1)},reed:{value:new T.Vector3(.2,0,1)}};
+const MOST={surface:{value:new T.Vector3(1,0,1)},lawn:{value:new T.Vector3(1,.7,1)},leaf:{value:new T.Vector3(.85,1,4)},twig:{value:new T.Vector3(.3,0,1)},reed:{value:new T.Vector3(.2,0,1)}};
 /** The snow as a shader feature, for a material that builds on it (snow-slab.ts). */
 export const snowFeature=(kind:SnowKind)=>feature(kind);
 const feature=(kind:SnowKind,how=HOW.surface,most=MOST.surface)=>({key:'snow-'+kind,last:true,compile:(shader:T.WebGLProgramParametersWithUniforms)=>{
