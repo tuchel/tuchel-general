@@ -4,10 +4,10 @@ const viewer=fs.readFileSync('lib/house-model/viewer.ts','utf8'),page=fs.readFil
 const lib=fs.readdirSync('lib/house-model').filter(f=>f.endsWith('.ts')).map(f=>fs.readFileSync(`lib/house-model/${f}`,'utf8')).join('\n');
 const features=fs.readFileSync('lib/house-model/shader-features.ts','utf8'),lighting=fs.readFileSync('lib/house-model/lighting.ts','utf8'),surfaces=fs.readFileSync('lib/house-model/surface-materials.ts','utf8');
 // `?renderer=webgpu` loads three's WebGPU renderer only when asked, and only for the presets it can draw: Model whole,
-// Balanced without bounced sun and the image passes.
+// Balanced without bounced sun and corner shading.
 assert(/export const drawnWithWebGPU=\(quality:Quality\)=>quality==='model'\|\|quality==='balanced';/.test(viewer));
 assert(/drawnWithWebGPU\(quality\)&&new URLSearchParams\(window\.location\.search\)\.get\('renderer'\)==='webgpu'\?await Promise\.all\(\[import\('three\/webgpu'\),import\('three\/tsl'\),import\('three\/addons\/objects\/SkyMesh\.js'\)\]\)/.test(page));
-assert(/const tier=gpu\?\{\.\.\.asked,sunBounce:0,ao:false,refineFrames:0\}:asked;/.test(viewer)&&/const post=realistic&&!gpu\?createPost\(/.test(viewer));
+assert(/const tier=gpu\?\{\.\.\.asked,sunBounce:0,ao:false\}:asked;/.test(viewer));
 // It has no device until `init` resolves: sky light and the first frame wait for it, and the canvas says which backend
 // it runs on.
 assert(/const device=gpu\?\(renderer as unknown as \{init\(\):Promise<unknown>\}\)\.init\(\)\.then\(\(\)=>\{canvas\.dataset\.renderer=/.test(viewer));
@@ -36,6 +36,12 @@ assert(/const skyAtWgsl=`fn skyAt\(p:vec3<f32>,n:vec3<f32>,low:vec3<f32>,grid:ve
 assert(/material\.vertexNode=vec4\(cell\.x,cell\.y\.negate\(\),0,1\);/.test(sky)&&/float\(\.5\)\.sub\(l\.y\.div\(l\.w\)\.mul\(\.5\)\),l\.z\.div\(l\.w\),1\)/.test(sky));
 assert(/slots\.indirect\.push\(context=>\{[\s\S]*?context\.irradiance\.mulAssign\(visible\);context\.radiance\.mulAssign\(mix\(1,visible,\.85\)\);/.test(sky));
 assert(/if\(gpu\)links\.needsUpdate=true;/.test(sky)&&/for\(const v of volumes\)r\.initRenderTarget\(v\);/.test(sky)&&/bake\?\.prepare\(\);lighting\.update\(/.test(viewer));
+// The image chain there (post-gpu.ts): the scene into a floating-point target, still frames averaged, and the WebGL
+// chain's finish, which tone-maps and encodes itself, so the renderer is asked for neither while it is drawn.
+const chain=fs.readFileSync('lib/house-model/post-gpu.ts','utf8');
+assert(/createPostGPU\(\.\.\.a,\{tsl:gpu\.tsl,NodeMaterial:gpu\.NodeMaterial,QuadMesh:gpu\.QuadMesh\}\):createPost\(\.\.\.a\)/.test(viewer));
+assert(/weight\.value=1\/\(frames\+1\);/.test(chain)&&/const mapped=agxToneMapping\(shown\.rgb\.mul\(balance\),exposure\);/.test(chain)&&/quadOf\(vec4\(sRGBTransferOETF\(graded\),1\)\)/.test(chain));
+assert(/renderer\.toneMapping=T\.NoToneMapping;renderer\.outputColorSpace=T\.LinearSRGBColorSpace;[\s\S]*?renderer\.toneMapping=mapping;renderer\.outputColorSpace=space;/.test(chain));
 // It draws no line loops.
 assert(!/T\.LineLoop/.test(lib),'no line loop in the model');
-console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky, sun, textured surfaces and indoor sky light there.');
+console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky, sun, textured surfaces, indoor sky light, averaged still frames and colour finish there.');

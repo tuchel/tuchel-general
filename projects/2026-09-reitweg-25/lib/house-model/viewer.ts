@@ -10,6 +10,7 @@ import {buildHouseModel} from './build-model';
 import {batchStatic} from './static-batch';
 import {createLighting,roomExposure,indoorOf,type LightReading} from './lighting';
 import {createPost} from './post';
+import {createPostGPU,type PostGPU} from './post-gpu';
 import type {LightingGPU} from './lighting';
 import {createCameraRig,type Framing} from './camera-rig';
 import {createCaptures} from './experience';
@@ -74,7 +75,7 @@ export type ViewerOptions={
 };
 /** What the viewer needs from `three/webgpu`. */
 export type WebGPUKit=Partial<LightingGPU>&{
- PhysicalLightingModel?:unknown;NodeMaterial?:new()=>T.Material;
+ PhysicalLightingModel?:unknown;NodeMaterial?:new()=>T.Material;QuadMesh?:PostGPU['QuadMesh'];
  WebGPURenderer:new(options:{antialias:boolean;powerPreference:'high-performance'})=>unknown;
  PMREMGenerator:new(renderer:never)=>{fromScene(scene:T.Scene,sigma:number):{texture:T.Texture;dispose():void};dispose():void};
 };
@@ -92,9 +93,9 @@ const SITE_CENTER=new T.Vector3(-5,0,8),SITE_RADIUS=70;
 export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const asked=tierFor(options.quality,undefined,options.extremeOnPhone),realistic=asked.quality!=='model';
  const gpu=drawnWithWebGPU(asked.quality)?options.webgpu:undefined;
- // What the WebGPU renderer cannot draw yet is left out there: bounced sunlight and the image passes.
+ // What the WebGPU renderer cannot draw yet is left out there: bounced sunlight, and of the image passes all but the averaging of still frames and the finish (post-gpu.ts).
  drawWithNodes(gpu?.tsl&&{...gpu.tsl,PhysicalLightingModel:gpu.PhysicalLightingModel});
- const tier=gpu?{...asked,sunBounce:0,ao:false,refineFrames:0}:asked;
+ const tier=gpu?{...asked,sunBounce:0,ao:false}:asked;
  // Whether to try for a screen brighter than white (hdr.ts).
  const bright=tier.hdr&&hdrWanted();
  // The WebGPU renderer is used through the calls the two share; where they differ, `gpu` decides.
@@ -259,7 +260,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
 
  // Extreme: trees the house hides are counted right after the scene is drawn, and left out of the next frames.
  const occlusion=realistic&&tier.treeOcclusion?createTreeOcclusion(renderer.getContext() as WebGL2RenderingContext,scene):undefined;
- const post=realistic&&!gpu?createPost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,mist:tier.weathered,wetMirror:tier.wetMirror,glowLamps:tier.lampGlow?lampsOutdoors():undefined,temporal:tier.temporal&&new URLSearchParams(location.search).get('taa')!=='off',hdr:()=>screen&&renderer.outputColorSpace===DisplayP3ColorSpace?HDR.peak:0,afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
+ const makePost=(...a:Parameters<typeof createPost>)=>gpu?.tsl&&gpu.NodeMaterial&&gpu.QuadMesh?createPostGPU(...a,{tsl:gpu.tsl,NodeMaterial:gpu.NodeMaterial,QuadMesh:gpu.QuadMesh}):createPost(...a);
+ const post=realistic?makePost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,mist:tier.weathered,wetMirror:tier.wetMirror,glowLamps:tier.lampGlow?lampsOutdoors():undefined,temporal:tier.temporal&&new URLSearchParams(location.search).get('taa')!=='off',hdr:()=>screen&&renderer.outputColorSpace===DisplayP3ColorSpace?HDR.peak:0,afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
  if(post){mistFor=r=>{if(scene.fog){
   const outdoors=study.enabled&&level==='exterior',lies=outdoors&&!snowing&&!raining?mistAmount(r.apparentElevation,study.minutes,study.day):0;
   // The lamps' glow hangs in mist, rain and falling snow, and faintly in any night's air (mist.ts).
