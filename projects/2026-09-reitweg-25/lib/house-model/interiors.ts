@@ -68,7 +68,7 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  // with the fireclay sink's rim just proud of it (owner photographs of the kitchen).
  let g=place(ground,870,337);g.name='kitchen-island';cabinets(group(g,0,0,0,Math.PI/2),3.1,.86,m.white,false);box(g,0,.86,0,1.07,.045,3.15,worktop).name='kitchen-island-top';sink(g,0,.8,.86);
  // Range run from the north wall to the pier, cooker opposite the island; chrome trim (IMG_1448).
- g=place(ground,947,297,Math.PI/2);cabinets(g,5.1,.88,m.sage);const cooker=group(g,-1.1,0,-.03);box(cooker,0,0,-.04,1.13,.91,.64,m.charcoal);for(const x of [-.28,.28]){box(cooker,x,.15,-.366,.5,.49,.025,m.charcoal);box(cooker,x,.58,-.4,.35,.028,.045,nickel);}box(cooker,0,.91,-.04,1.16,.035,.67,m.charcoal);for(const x of [-.33,.33])for(const z of [-.22,.15])round(cooker,x,.946,z,.115,.018,m.charcoal);for(let i=0;i<5;i++)round(group(cooker,-.43+i*.215,.77,-.37,0),0,0,0,.035,.04,nickel).rotation.x=Math.PI/2;
+ g=place(ground,947,297,Math.PI/2);g.name='kitchen-range-run';cabinets(g,5.1,.88,m.sage);const cooker=group(g,-1.1,0,-.03);box(cooker,0,0,-.04,1.13,.91,.64,m.charcoal);for(const x of [-.28,.28]){box(cooker,x,.15,-.366,.5,.49,.025,m.charcoal);box(cooker,x,.58,-.4,.35,.028,.045,nickel);}box(cooker,0,.91,-.04,1.16,.035,.67,m.charcoal);for(const x of [-.33,.33])for(const z of [-.22,.15])round(cooker,x,.946,z,.115,.018,m.charcoal);for(let i=0;i<5;i++)round(group(cooker,-.43+i*.215,.77,-.37,0),0,0,0,.035,.04,nickel).rotation.x=Math.PI/2;
  // The hood: a broad sage box about 2.1 m wide and 0.7 m deep on a black band 2 m up, its front sloping back to the
  // ceiling, over open sage shelf units either side of the cooker (ground plan; owner photograph of the range).
  {const hood=group(g,0,0,0);hood.name='kitchen-hood';const side=new T.Shape([[-.3,1.96],[.42,1.96],[.12,2.63],[-.3,2.63]].map(([x,y])=>new T.Vector2(x,y)));
@@ -79,7 +79,7 @@ export function furnishHouse(ground:T.Group,upper:T.Group,basement:T.Group,mater
  box(g,-1.1,.94,.29,1.13,.9,.02,zellige);box(g,.75,1.48,.17,1.4,.04,.26,m.oak);
  // Tall units either side of the pantry door, which stays clear.
  cabinets(place(ground,917,450),1.8,2.2,m.sage,false);cabinets(place(ground,841,450),.55,2.2,m.sage,false);
- g=place(ground,872,238);table(g,1.6,.87);bench(g,0,-.81,2.05,Math.PI);bench(g,-1.04,-.28,1.5,-Math.PI/2);chair(g,.35,.8);chair(g,1.12,0,Math.PI/2);
+ g=place(ground,872,238);g.name='kitchen-breakfast-table';table(g,1.6,.87);bench(g,0,-.81,2.05,Math.PI);bench(g,-1.04,-.28,1.5,-Math.PI/2);chair(g,.35,.8);chair(g,1.12,0,Math.PI/2);
  // Long outdoor table on the kitchen terrace, with room to pass the sliding leaf.
  g=place(ground,747,345,Math.PI/2);g.name='kitchen-terrace-table';table(g,2.85,.88,.75,m.outdoorWood);for(const z of [-.78,.78]){box(g,0,.4,z,2.7,.05,.34,m.outdoorWood);for(const x of [-1.15,1.15])box(g,x,0,z,.06,.4,.28,m.outdoorWood);}
  rod(g,[0,0,0],[0,2.3,0],.045,m.white);mesh(g,new T.ConeGeometry(1.4,.38,16),m.cream,0,2.2,0);
