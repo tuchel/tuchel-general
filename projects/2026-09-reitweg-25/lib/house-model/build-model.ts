@@ -95,7 +95,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const rectFloor=(parent:T.Group,x1:number,z1:number,x2:number,z2:number,y:number,mat=m.floor)=>planBox(parent,x1,z1,x2,z2,.15,y-.03,mat);
  // Lot is registered against the main-house footprint on the grounds overview.
  poly(plotOutline,.48,-.5,m.soil,site,'grounds');poly(plotOutline,.025,-.02,m.lawn,site,'grounds');
- const border=new T.LineLoop(new T.BufferGeometry().setFromPoints(plotOutline.map(([x,z])=>new T.Vector3(x,.02,z))),new T.LineBasicMaterial({color:'#8d9b80'}));site.add(border);
+ const border=new T.Line(new T.BufferGeometry().setFromPoints([...plotOutline,plotOutline[0]].map(([x,z])=>new T.Vector3(x,.02,z))),new T.LineBasicMaterial({color:'#8d9b80'}));site.add(border);
  const traceSite=(points:number[][],y:number,mat:T.Material,region?:Region)=>poly(points.map(([x,z])=>s(x,z)),.045,y,mat,site,region);
  // The cobbled vehicle apron is built with the entrance walk below.
  traceSite([[606,595],[784,595],[784,662],[638,662],[621,827],[582,823]],-.03,m.paving,'courtyard');
