@@ -16,6 +16,10 @@ export const SHADOW_RANGE={perRadius:4.8,fixed:119};
 /** The number the sun's shadow carries to the lookup. */
 export const packShadow=(turn:number,radius:number)=>turn%SOFT_SHADOW.turns+Math.min(radius,1023)/1024;
 
+/** Leaves and grass blades are drawn many deep, and a shadow's edge on one is lost among the rest: for them three
+ * places close by suffice. */
+export const plainShadow=<M extends T.Material>(material:M)=>{(material.defines??={}).SOFT_SHADOW_PLAIN='';return material;};
+
 const signature='float getShadow( sampler2D shadowMap,',lookup=/float depth = texture2D\( shadowMap, shadowCoord\.xy \)\.r;[\s\S]*?shadow = step\( shadowCoord\.z, depth \);\s*#endif/;
 const glsl=`
 		float softIgn(vec2 p){return fract(52.9829189*fract(dot(p,vec2(0.06711056,0.00583715))));}
@@ -23,6 +27,9 @@ const glsl=`
 		float softShadow(sampler2D map,vec2 size,float carried,vec3 at){
 			float radius=fract(carried)*1024.0,perMetre=0.5/radius,range=radius*${SHADOW_RANGE.perRadius.toFixed(2)}+${SHADOW_RANGE.fixed.toFixed(1)};
 			float phi=(softIgn(gl_FragCoord.xy)+floor(carried)*0.618034)*6.2831853;
+			#ifdef SOFT_SHADOW_PLAIN
+			float plain=0.0;for(int i=0;i<3;i++)plain+=step(at.z,texture2D(map,at.xy+softDisc(i,3.0,phi)*1.5/size.x).r);return plain/3.0;
+			#else
 			// How the lit surface's own depth runs across the map: a wide disc on a slope must not shadow itself.
 			vec3 dx=dFdx(at),dy=dFdy(at);float det=dx.x*dy.y-dx.y*dy.x;
 			vec2 slope=abs(det)>1e-14?vec2(dy.y*dx.z-dx.y*dy.z,dx.x*dy.z-dy.x*dx.z)/det:vec2(0.0);
@@ -38,6 +45,7 @@ const glsl=`
 			float width=clamp((at.z-sum/count)*range*${SOFT_SHADOW.spread.toFixed(3)}*perMetre,${SOFT_SHADOW.sharpest.toFixed(1)}/size.x,search),lit=0.0;
 			for(int i=0;i<${SOFT_SHADOW.taps};i++){vec2 o=softDisc(i,${SOFT_SHADOW.taps}.0,phi+1.3)*width;lit+=step(at.z+dot(slope,o),texture2D(map,at.xy+o).r);}
 			return lit/${SOFT_SHADOW.taps}.0;
+			#endif
 		}
 `;
 /** Three's unfiltered shadow lookup becomes the softened one, once for the page. Only a renderer whose shadow map type

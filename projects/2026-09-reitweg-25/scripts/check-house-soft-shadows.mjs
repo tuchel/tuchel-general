@@ -9,7 +9,9 @@ const read=f=>fs.readFileSync(`lib/house-model/${f}`,'utf8'),viewer=read('viewer
 // Extreme on a computer only; the other presets keep three's filtered shadows.
 for(const q of ['detailed','balanced','model'])assert.equal(tiers[q].softShadows,false,`${q} keeps its shadows`);
 assert.equal(tiers.extreme.softShadows,true);assert.equal(tierFor('extreme',true,true).softShadows,false,'not on a phone');
-assert(/renderer\.shadowMap\.type=tier\.softShadows\?T\.BasicShadowMap:T\.PCFShadowMap/.test(viewer)&&/if\(tier\.softShadows\)installSoftShadows\(\);/.test(viewer));
+assert(/const softened=tier\.softShadows&&new URLSearchParams\(location\.search\)\.get\('soft'\)!=='off';/.test(viewer)&&/renderer\.shadowMap\.type=softened\?T\.BasicShadowMap:T\.PCFShadowMap/.test(viewer)&&/if\(softened\)installSoftShadows\(\);/.test(viewer));
+// Leaves and grass, drawn many deep, look in three places only.
+assert(/#ifdef SOFT_SHADOW_PLAIN/.test(T.ShaderChunk.shadowmap_pars_fragment)===false);for(const f of ['foliage.ts','grass.ts'])assert(/plainShadow\(/.test(read(f)),f);
 // Three's unfiltered lookup, and only that one, becomes the softened one; installing twice changes nothing more.
 const before=T.ShaderChunk.shadowmap_pars_fragment;installSoftShadows();const after=T.ShaderChunk.shadowmap_pars_fragment;installSoftShadows();
 assert.equal(T.ShaderChunk.shadowmap_pars_fragment,after);

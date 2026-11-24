@@ -1,6 +1,7 @@
 import * as T from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {addShaderFeature,after} from './shader-features';
+import {plainShadow} from './soft-shadows';
 
 /** Trees as instanced archetypes: a bark skeleton plus a crown. Computers draw modelled
  * leaves; phones draw a solid shaded core under a shell of leaf cards cut from the
@@ -25,7 +26,7 @@ function random(seed:number){let s=seed>>>0;return()=>{s=(s*1664525+1013904223)>
 /** Materials start untextured so model code stays loadable in Node; textures arrive in finishFoliage. */
 export function foliageMaterials(style:TreeStyle='leaves'){
  // Leaves are darker and less glossy than the lawn beneath them; the tint deepens the atlas greens.
- const cards=()=>{const m=new T.MeshStandardMaterial({color:'#c9d8b6',roughness:.82,envMapIntensity:.75,side:T.DoubleSide,alphaTest:.42,alphaToCoverage:true,vertexColors:true});m.userData.foliage='leaves';return m;};
+ const cards=()=>{const m=new T.MeshStandardMaterial({color:'#c9d8b6',roughness:.82,envMapIntensity:.75,side:T.DoubleSide,alphaTest:.42,alphaToCoverage:true,vertexColors:true});m.userData.foliage='leaves';return plainShadow(m);};
  const leaves=cards();
  // Backlit leaves glow: sunlight passing through toward the viewer adds a warm green transmission.
  const translucency={key:'leaf-translucency',compile:(shader:T.WebGLProgramParametersWithUniforms)=>{
@@ -63,7 +64,7 @@ else if(uShed>0.0){vec2 g=vMapUv*${SHED.patches.toFixed(1)},i=floor(g),f=g-i;f=f
  const birchBark=bark.clone();birchBark.color.setRGB(2.3,2.3,2.2);
  // Solid crown core (hybrid) and modelled leaves: colour lives in the vertices.
  const core=new T.MeshStandardMaterial({color:'#ffffff',roughness:.95,vertexColors:true});core.userData.photo='foliage';
- const solid=new T.MeshStandardMaterial({color:'#ffffff',roughness:.78,envMapIntensity:.8,side:T.DoubleSide,vertexColors:true});solid.userData.photo='foliage';addShaderFeature(solid,translucency);
+ const solid=new T.MeshStandardMaterial({color:'#ffffff',roughness:.78,envMapIntensity:.8,side:T.DoubleSide,vertexColors:true});solid.userData.photo='foliage';addShaderFeature(solid,translucency);plainShadow(solid);
  return {leaves,depth,fall:{leaves:fallLeaves,depth:fallDepth,shed,twig},bark,birchBark,core,solid,style};
 }
 export type FoliageMaterials=ReturnType<typeof foliageMaterials>;

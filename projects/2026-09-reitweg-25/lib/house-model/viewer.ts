@@ -84,8 +84,10 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // Floor views cut roofs at the wall height with per-material clipping.
  renderer.localClippingEnabled=true;
  renderer.setPixelRatio(Math.min(window.devicePixelRatio,tier.pixelRatio));
- if(tier.softShadows)installSoftShadows();
- renderer.shadowMap.enabled=true;renderer.shadowMap.type=tier.softShadows?T.BasicShadowMap:T.PCFShadowMap;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
+ // `?soft=off`: three's filtered shadows, for comparison.
+ const softened=tier.softShadows&&new URLSearchParams(location.search).get('soft')!=='off';
+ if(softened)installSoftShadows();
+ renderer.shadowMap.enabled=true;renderer.shadowMap.type=softened?T.BasicShadowMap:T.PCFShadowMap;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
  renderer.toneMapping=realistic?T.AgXToneMapping:T.ACESFilmicToneMapping;renderer.toneMappingExposure=.9;
  // Extreme on a wide-gamut screen draws in Display P3: colours the photographic grade saturates past sRGB stay saturated
  // instead of clipping (post.ts).
@@ -129,7 +131,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  let invalidate=()=>{};
  // Extreme: ray-marched cumulus and their shadows (clouds.ts).
  const clouds=realistic&&tier.clouds?createClouds(renderer):undefined;
- const lighting=realistic?createLighting(renderer,scene,model.root,{shadowSize:tier.shadowSize,clouds,soft:tier.softShadows}):undefined;
+ const lighting=realistic?createLighting(renderer,scene,model.root,{shadowSize:tier.shadowSize,clouds,soft:softened}):undefined;
  let sun:T.DirectionalLight,environment:T.WebGLRenderTarget|undefined;
  if(lighting){sun=lighting.sun;if(festive)lighting.lamps.add(festive.glow);lighting.apply(initialSunStudy);lighting.fitShadow(SITE_CENTER,SITE_RADIUS);}
  else{
