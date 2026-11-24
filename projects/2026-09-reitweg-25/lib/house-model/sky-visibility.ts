@@ -24,21 +24,67 @@ export const PROBE_GRID={box:BOX,cell:CELL};
 // scaled by how much of the sky its room sees through windows (a closed basement stays dim). The share is .7 alone,
 // and .55 where bounced sunlight is traced as well (sun-bounce.ts).
 
-/** `panes`: the glass, which the sky light passes but snow does not (sky-links.ts, COVER). */
-export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],receivers:T.Object3D[],bounce=.7,panes:T.Mesh[]=[]){
+/** The same function for the WebGPU renderer, in its own shading language. */
+const skyAtWgsl=`fn skyAt(p:vec3<f32>,n:vec3<f32>,low:vec3<f32>,grid:vec3<f32>,cell:f32,linked:f32,volume:texture_3d<f32>,volumeSampler:sampler,reach:texture_3d<f32>)->vec4<f32>{
+ let g=(p+n*0.35-low)/cell-0.5;let g0=floor(g);let f=g-g0;
+ var v:array<vec4<f32>,8>;var w:array<f32,8>;
+ for(var k:i32=0;k<8;k++){
+  let o=vec3<f32>(f32(k&1),f32((k>>1u)&1),f32((k>>2u)&1));let c=clamp(g0+o,vec3<f32>(0.0),grid-1.0);let t=mix(1.0-f,f,o);
+  v[k]=textureLoad(volume,vec3<i32>(c.xzy),0);
+  w[k]=t.x*t.y*t.z*clamp(dot(low+(c+0.5)*cell-p,n)/0.15,0.0,1.0);
+ }
+ var group:i32=255;
+ if(linked>0.5){
+  let at=vec3<i32>(g0)+1;
+  let lower=vec4<i32>(textureLoad(reach,vec3<i32>(at.x*2,at.z,at.y),0)*255.0+0.5);
+  group=lower.x;
+  if(group!=255){
+   let upper=vec4<i32>(textureLoad(reach,vec3<i32>(at.x*2+1,at.z,at.y),0)*255.0+0.5);
+   var most=-1.0;
+   for(var a:i32=0;a<8;a++){
+    var joined:i32=upper[max(a-4,0)];if(a<4){joined=lower[a];}
+    var m=0.0;
+    for(var k:i32=0;k<8;k++){if((joined&(1i<<u32(k)))!=0){m+=w[k];}}
+    if(m>most){most=m;group=joined;}
+   }
+  }
+ }
+ var s=vec4<f32>(0.0);var total=0.0;
+ for(var k:i32=0;k<8;k++){if((group&(1i<<u32(k)))!=0){s+=w[k]*v[k];total+=w[k];}}
+ if(total>1e-3){return s/total;}
+ return textureSampleLevel(volume,volumeSampler,((g+0.5)/grid).xzy,0.0);
+}`;
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/** `panes`: the glass, which the sky light passes but snow does not (sky-links.ts, COVER). `gpu`: baked and read by the
+ * WebGPU renderer, with three's `tsl` and `NodeMaterial`. */
+export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],receivers:T.Object3D[],bounce=.7,panes:T.Mesh[]=[],gpu?:{tsl:any;NodeMaterial:new()=>T.Material}){
  const size=BOX.getSize(new T.Vector3()),nx=Math.round(size.x/CELL),ny=Math.round(size.y/CELL),nz=Math.round(size.z/CELL);
  // Texture axes: width = x, height = z, layers = y.
- const volumes=[0,1].map(()=>{const v=new T.WebGL3DRenderTarget(nx,nz,ny,{type:T.HalfFloatType,depthBuffer:false});v.texture.minFilter=v.texture.magFilter=T.LinearFilter;v.texture.wrapS=v.texture.wrapT=v.texture.wrapR=T.ClampToEdgeWrapping;return v;});
+ const volumes=[0,1].map(()=>{const v=gpu?new T.RenderTarget3D(nx,nz,ny,{type:T.HalfFloatType,depthBuffer:false}) as unknown as T.WebGL3DRenderTarget:new T.WebGL3DRenderTarget(nx,nz,ny,{type:T.HalfFloatType,depthBuffer:false});v.texture.minFilter=v.texture.magFilter=T.LinearFilter;v.texture.wrapS=v.texture.wrapT=v.texture.wrapR=T.ClampToEdgeWrapping;return v;});
  const probes=new Float32Array(nx*ny*nz*3),cells=new Float32Array(nx*ny*nz*2);
  for(let j=0,k=0;j<ny;j++)for(let z=0;z<nz;z++)for(let x=0;x<nx;x++,k++){
   probes.set([BOX.min.x+(x+.5)*CELL,BOX.min.y+(j+.5)*CELL,BOX.min.z+(z+.5)*CELL],k*3);cells.set([x,z],k*2);
  }
  const grid=new T.BufferGeometry();grid.setAttribute('position',new T.BufferAttribute(probes,3));grid.setAttribute('cell',new T.BufferAttribute(cells,2));
  // Only depth is read; the colour layer is one byte a texel.
- const depth=new T.WebGLRenderTarget(MAP,MAP,{format:T.RedFormat,depthTexture:new T.DepthTexture(MAP,MAP,T.FloatType)});
+ const depth=gpu?new T.RenderTarget(MAP,MAP,{depthTexture:new T.DepthTexture(MAP,MAP,T.FloatType)}) as unknown as T.WebGLRenderTarget:new T.WebGLRenderTarget(MAP,MAP,{format:T.RedFormat,depthTexture:new T.DepthTexture(MAP,MAP,T.FloatType)});
  const extent=size.length()/2+1,eye=new T.OrthographicCamera(-extent,extent,extent,-extent,1,extent*2+60);eye.layers.set(2);
  const center=BOX.getCenter(new T.Vector3()),blocker=new T.MeshBasicMaterial({colorWrite:false,side:T.DoubleSide});
- const accumulate=new T.ShaderMaterial({
+ const blend={blending:T.CustomBlending,blendEquation:T.AddEquation,blendSrc:T.OneFactor,blendDst:T.OneFactor,blendEquationAlpha:T.AddEquation,blendSrcAlpha:T.OneFactor,blendDstAlpha:T.OneFactor,depthTest:false,depthWrite:false} as const;
+ // The same gathering as nodes. That renderer's rows run top down and its depth from 0 to 1, so a probe's row and its
+ // place in the depth map are turned over and its depth is read as it is.
+ const gather=gpu?(()=>{
+  const {vec2,vec4,float,uniform,attribute,positionGeometry,varying,texture,select}=gpu.tsl;
+  const lightMatrix=uniform(new T.Matrix4()),direction=uniform(new T.Vector3()),material=Object.assign(new gpu.NodeMaterial(),blend) as any;
+  const cell=attribute('cell','vec2').add(.5).div(vec2(nx,nz)).mul(2).sub(1),l=lightMatrix.mul(vec4(positionGeometry,1));
+  const at=varying(vec4(l.x.div(l.w).mul(.5).add(.5),float(.5).sub(l.y.div(l.w).mul(.5)),l.z.div(l.w),1));
+  material.vertexNode=vec4(cell.x,cell.y.negate(),0,1);
+  const inside=at.x.greaterThan(0).and(at.y.greaterThan(0)).and(at.x.lessThan(1)).and(at.y.lessThan(1));
+  const lit=select(inside.not().or(at.z.lessThanEqual(texture(depth.depthTexture,at.xy).r.add(.001))),float(1),float(0));
+  material.fragmentNode=vec4(lit,direction.mul(lit));
+  return {material:material as T.Material,uniforms:{lightMatrix,direction}};
+ })():undefined;
+ const accumulate=gather?gather.material as T.ShaderMaterial:new T.ShaderMaterial({
   uniforms:{depthMap:{value:depth.depthTexture},lightMatrix:{value:new T.Matrix4()},direction:{value:new T.Vector3()},resolution:{value:new T.Vector2(nx,nz)}},
   vertexShader:`attribute vec2 cell;uniform mat4 lightMatrix;uniform vec2 resolution;varying vec3 vLight;
    void main(){vec4 l=lightMatrix*vec4(position,1.0);vLight=l.xyz/l.w*0.5+0.5;gl_Position=vec4((cell+0.5)/resolution*2.0-1.0,0.0,1.0);gl_PointSize=1.0;}`,
@@ -48,8 +94,9 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
     float lit=(!inside||vLight.z<=texture2D(depthMap,vLight.xy).r+0.001)?1.0:0.0;
     gl_FragColor=vec4(lit,lit*direction);
    }`,
-  blending:T.CustomBlending,blendEquation:T.AddEquation,blendSrc:T.OneFactor,blendDst:T.OneFactor,blendEquationAlpha:T.AddEquation,blendSrcAlpha:T.OneFactor,blendDstAlpha:T.OneFactor,depthTest:false,depthWrite:false,
+  ...blend,
  });
+ const gathering=gather?gather.uniforms:accumulate.uniforms;
  const cloud=new T.Points(grid,accumulate);cloud.frustumCulled=false;
  const pointScene=new T.Scene();pointScene.add(cloud);const pointCamera=new T.OrthographicCamera(-1,1,1,-1,0,1);
  const directions=Array.from({length:DIRECTIONS},(_,i)=>{const y=1-2*(i+.5)/DIRECTIONS,r=Math.sqrt(1-y*y),a=i*2.399963;return new T.Vector3(Math.cos(a)*r,y,Math.sin(a)*r);});
@@ -57,7 +104,12 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
  // for each shown state: two texels a cell, for cells from one below the grid; and a last layer of what stands over the
  // grid (sky-links.ts, COVER), which snow reads (snow.ts).
  const links=new T.Data3DTexture(new Uint8Array((nx+1)*(nz+1)*(ny+2)*8),(nx+1)*2,nz+1,ny+2);links.format=T.RGBAFormat;links.minFilter=links.magFilter=T.NearestFilter;
- const uniforms={uSkyVolume:{value:volumes[0].texture as T.Texture},uSkyReach:{value:links},uSkyMin:{value:BOX.min.clone()},uSkyGrid:{value:new T.Vector3(nx,ny,nz)},uSkyCell:{value:CELL},uSkyReady:{value:0},uSkyLinked:{value:0},uSkyBounce:{value:bounce}};
+ // The WebGPU renderer stands a flat texture in for one never marked for upload, which a material cannot read as a volume.
+ if(gpu)links.needsUpdate=true;
+ // Under the WebGPU renderer the same values are nodes, which hold a `value` as well.
+ const held=<V,>(value:V):{value:V}=>gpu?gpu.tsl.uniform(value):{value};
+ const uniforms={uSkyVolume:(gpu?gpu.tsl.texture3D(volumes[0].texture):{value:volumes[0].texture}) as {value:T.Texture},uSkyReach:{value:links},uSkyMin:held(BOX.min.clone()),uSkyGrid:held(new T.Vector3(nx,ny,nz)),uSkyCell:held(CELL),uSkyReady:held(0),uSkyLinked:held(0),uSkyBounce:held(bounce)};
+ const skyAtNode=gpu?gpu.tsl.wgslFn(skyAtWgsl):undefined;
  const patched=new Set<T.Material>();
  const receive=(root:T.Object3D)=>root.traverse(o=>{for(const m of materialsOf(o)){
   if(patched.has(m)||!(m instanceof T.MeshStandardMaterial)||m.transparent)continue;patched.add(m);
@@ -126,6 +178,21 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
      clearcoatRadiance*=mix(1.0,skyVisible,0.85);
      #endif
     }`);
+  },nodes:slots=>{
+   // The same as nodes: the light from all round is scaled before three uses it. Not yet there: the bounce's own tint
+   // (sun-bounce.ts) and the clear coat.
+   const {vec3,float,clamp,mix,dot,select,positionWorld,normalWorld,texture3D,sampler,pmremTexture,materialEnvIntensity}=slots.tsl;
+   slots.indirect.push(context=>{
+    const p=positionWorld,n=normalWorld,g=p.add(n.mul(.35)).sub(uniforms.uSkyMin).div(uniforms.uSkyCell),grid=uniforms.uSkyGrid as any;
+    const inside=(uniforms.uSkyReady as any).greaterThan(.5).and(g.x.greaterThan(0)).and(g.y.greaterThan(0)).and(g.z.greaterThan(0)).and(g.x.lessThan(grid.x)).and(g.y.lessThan(grid.y)).and(g.z.lessThan(grid.z));
+    const s=skyAtNode({p,n,low:uniforms.uSkyMin,grid,cell:uniforms.uSkyCell,linked:uniforms.uSkyLinked,volume:uniforms.uSkyVolume,volumeSampler:sampler(uniforms.uSkyVolume),reach:texture3D(links)}).div(DIRECTIONS).toVar();
+    const open=select(inside,clamp(s.x.add(dot(s.yzw,n).mul(2)),0,1),float(1)).toVar(),lift=select(inside,mix(.15,1,clamp(s.x.mul(5),0,1)),float(1)).mul(uniforms.uSkyBounce).toVar();
+    const environment=world instanceof T.Scene?world.environment:null;
+    const overhead=environment?pmremTexture(environment,vec3(0,1,0),float(1)).mul(Math.PI).mul(materialEnvIntensity):context.iblIrradiance;
+    const visible=mix(lift,1,open);
+    context.iblIrradiance.assign(context.iblIrradiance.mul(open).add(overhead.mul(lift).mul(vec3(1.08,.97,.84)).mul(open.oneMinus())));
+    context.irradiance.mulAssign(visible);context.radiance.mulAssign(mix(1,visible,.85));
+   });
   }});
  }});
  for(const root of receivers)receive(root);
@@ -144,7 +211,7 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
    world.overrideMaterial=blocker;world.background=null;world.fog=null;
    renderer.setRenderTarget(depth);renderer.autoClear=true;renderer.render(world,eye);
    world.overrideMaterial=override;world.background=background;world.fog=fog;
-   accumulate.uniforms.lightMatrix.value.multiplyMatrices(eye.projectionMatrix,eye.matrixWorldInverse);accumulate.uniforms.direction.value.copy(d);
+   gathering.lightMatrix.value.multiplyMatrices(eye.projectionMatrix,eye.matrixWorldInverse);gathering.direction.value.copy(d);
    renderer.autoClear=false;
    for(let j=0;j<ny;j++){grid.setDrawRange(j*nx*nz,nx*nz);renderer.setRenderTarget(volumes[write],j);renderer.render(pointScene,pointCamera);}
   }
@@ -179,6 +246,9 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
   /** The uniforms that read the height standing over a point from the links' last layer (sky-links.ts, COVER). */
   cover:{uSkyReach:uniforms.uSkyReach,uSkyMin:uniforms.uSkyMin,uSkyGrid:uniforms.uSkyGrid,uSkyCell:uniforms.uSkyCell,uSkyLinked:uniforms.uSkyLinked},
   request:()=>{step=0;relink();},
+  /** The WebGPU renderer, once it has its device, makes the volumes before a material reads them: an unmade
+   * 3D texture is stood in for by a flat one there, which no material can read as a volume. */
+  prepare:()=>{const r=renderer as unknown as {initRenderTarget(t:object):void};for(const v of volumes)r.initRenderTarget(v);},
   /** Meshes that arrive after the house (the garage's cars): lit by the sky light and in its way from the next bake,
    * which the caller requests. The links worker starts again with them. */
   add:(meshes:T.Mesh[])=>{
@@ -188,7 +258,7 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
   /** Compiles the bake's two shaders in the background, as a bake draws them: the blocker in place of every material in
    * the world, without fog, and the points that gather. Drawn cold, they would compile inside the first frame. */
   compileAsync:()=>{
-   if(!(world instanceof T.Scene))return Promise.resolve();
+   if(gpu||!(world instanceof T.Scene))return Promise.resolve();
    const target=renderer.getRenderTarget(),fog=world.fog,stand=new T.Mesh(new T.BufferGeometry().setAttribute('position',new T.Float32BufferAttribute(9,3)).setAttribute('normal',new T.Float32BufferAttribute(9,3)),blocker);
    renderer.setRenderTarget(depth);world.fog=null;
    const blocked=renderer.compileAsync(stand,eye,world);world.fog=fog;
