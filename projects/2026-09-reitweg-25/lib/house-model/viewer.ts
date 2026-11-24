@@ -74,6 +74,7 @@ export type ViewerOptions={
 };
 /** What the viewer needs from `three/webgpu`. */
 export type WebGPUKit=Partial<LightingGPU>&{
+ PhysicalLightingModel?:unknown;
  WebGPURenderer:new(options:{antialias:boolean;powerPreference:'high-performance'})=>unknown;
  PMREMGenerator:new(renderer:never)=>{fromScene(scene:T.Scene,sigma:number):{texture:T.Texture;dispose():void};dispose():void};
 };
@@ -92,7 +93,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const asked=tierFor(options.quality,undefined,options.extremeOnPhone),realistic=asked.quality!=='model';
  const gpu=drawnWithWebGPU(asked.quality)?options.webgpu:undefined;
  // What the WebGPU renderer cannot draw yet is left out there: baked sky and bounced light, and the image passes.
- drawWithNodes(gpu?.tsl);
+ drawWithNodes(gpu?.tsl&&{...gpu.tsl,PhysicalLightingModel:gpu.PhysicalLightingModel});
  const tier=gpu?{...asked,skyBake:false,sunBounce:0,ao:false,refineFrames:0}:asked;
  // Whether to try for a screen brighter than white (hdr.ts).
  const bright=tier.hdr&&hdrWanted();

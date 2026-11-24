@@ -187,6 +187,9 @@ export function fresnelGlass(material:T.MeshPhysicalMaterial,base=.12){
  Object.assign(material,{blending:T.CustomBlending,blendSrc:T.OneFactor,blendDst:T.OneMinusSrcAlphaFactor});
  addShaderFeature(material,{key:'fresnel-glass',compile:shader=>{
   shader.fragmentShader=before(shader.fragmentShader,'opaque_fragment','diffuseColor.a=mix(diffuseColor.a,1.0,0.88*pow(1.0-abs(dot(normal,normalize(vViewPosition))),5.0));');
+ },nodes:slots=>{
+  const {mix,materialOpacity,normalView,positionViewDirection}=slots.tsl;
+  slots.opacity=mix(slots.opacity??materialOpacity,1,normalView.dot(positionViewDirection).abs().oneMinus().pow(5).mul(.88));
  }});
 }
 /** Pool water: tinted, reflective at glancing angles, gently rippled. */
@@ -203,6 +206,12 @@ export function poolWater(material:T.MeshStandardMaterial,normal:T.Texture,time:
    vec2 w2=texture(uWaterNormal,vWaterPos.zx/3.7-vec2(uWaterTime*0.009,-uWaterTime*0.011)).rg*2.0-1.0;
    normal=normalize(mat3(viewMatrix)*normalize(vec3((w1.x+w2.y)*0.18,1.0,(w1.y+w2.x)*0.18)));`);
   shader.fragmentShader=before(shader.fragmentShader,'opaque_fragment','diffuseColor.a=mix(diffuseColor.a,1.0,0.92*pow(1.0-abs(dot(normal,normalize(vViewPosition))),4.0));');
+ },nodes:slots=>{
+  const {vec2,vec3,mix,normalize,texture,uniform,positionWorld,materialOpacity,transformNormalToView,positionViewDirection}=slots.tsl;
+  const t=uniform(0).onRenderUpdate(()=>time.value),p=positionWorld;
+  const w1=texture(normal,p.xz.div(2.3).add(vec2(t.mul(.013),t.mul(.007)))).rg.mul(2).sub(1),w2=texture(normal,p.zx.div(3.7).sub(vec2(t.mul(.009),t.mul(-.011)))).rg.mul(2).sub(1);
+  slots.normal=normalize(vec3(w1.x.add(w2.y).mul(.18),1,w1.y.add(w2.x).mul(.18)));
+  slots.opacity=mix(slots.opacity??materialOpacity,1,transformNormalToView(slots.normal).dot(positionViewDirection).abs().oneMinus().pow(4).mul(.92));
  }});
 }
 

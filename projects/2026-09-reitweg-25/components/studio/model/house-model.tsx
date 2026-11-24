@@ -93,7 +93,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
   import('@/lib/house-model/viewer').then(async({createHouseViewer,drawnWithWebGPU})=>{
    type WebGPUKit=NonNullable<Parameters<typeof createHouseViewer>[1]['webgpu']>;
    // `?renderer=webgpu`: three's WebGPU renderer, for the presets it can draw (viewer.ts, drawnWithWebGPU).
-   const webgpu=drawnWithWebGPU(quality)&&new URLSearchParams(window.location.search).get('renderer')==='webgpu'?await Promise.all([import('three/webgpu'),import('three/tsl'),import('three/addons/objects/SkyMesh.js')]).then(([gpu,tsl,{SkyMesh}])=>({WebGPURenderer:gpu.WebGPURenderer,PMREMGenerator:gpu.PMREMGenerator,CubeRenderTarget:gpu.CubeRenderTarget,SkyMesh,tsl}) as unknown as WebGPUKit).catch(()=>undefined):undefined;
+   const webgpu=drawnWithWebGPU(quality)&&new URLSearchParams(window.location.search).get('renderer')==='webgpu'?await Promise.all([import('three/webgpu'),import('three/tsl'),import('three/addons/objects/SkyMesh.js')]).then(([gpu,tsl,{SkyMesh}])=>({WebGPURenderer:gpu.WebGPURenderer,PMREMGenerator:gpu.PMREMGenerator,CubeRenderTarget:gpu.CubeRenderTarget,PhysicalLightingModel:gpu.PhysicalLightingModel,SkyMesh,tsl}) as unknown as WebGPUKit).catch(()=>undefined):undefined;
    if(cancelled||!host.current)return;
    try{
     api.current=createHouseViewer(host.current,{
