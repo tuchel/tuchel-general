@@ -12,7 +12,7 @@ import {createLighting,roomExposure,indoorOf,type LightReading} from './lighting
 import {createPost} from './post';
 import {createCameraRig,type Framing} from './camera-rig';
 import {createCaptures} from './experience';
-import {createLiveTrace,traceBlend,LIVE_TRACE} from './live-trace';
+import {createLiveTrace,traceFade,LIVE_TRACE} from './live-trace';
 import {addAlbedoOutput} from './albedo-pass';
 import {createPoolReflection} from './pool-reflection';
 import {hasShaderFeature,materialsOf} from './shader-features';
@@ -246,6 +246,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  let lastChange=performance.now(),needsFrame=true,visible=true,disposed=false,frame=0,ready=false,previous=performance.now(),heading=NaN,resting=false;
  // A panel or dialog over the view: path tracing waits until it closes, so the interface keeps the graphics card.
  let interfaceOpen=false,presented=0;
+ // When this rest's first cleaned traced image was shown (0: not yet), and whether a carried one stood in before it.
+ let fadeFrom=0,carried=false;
  // Another app in front: tracing and the background bakes wait, so the rest of the computer keeps the processor and
  // graphics card. Returning carries on where they left off.
  let elsewhere=false;const away=()=>{elsewhere=true;},back=()=>{elsewhere=false;};
@@ -254,7 +256,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // resolution.
  let drawnLow=false,drawnScale=1,sunSettle:ReturnType<typeof setTimeout>|undefined,cloudSettle:ReturnType<typeof setTimeout>|undefined;const scaleFor=(moving:boolean)=>moving?(steer?.scale??tier.motionScale):1;
  const sizePost=(moving:boolean)=>{const {width,height}=host.getBoundingClientRect();if(!width||!height)return;drawnLow=moving;drawnScale=scaleFor(moving);canvas.dataset.scale=String(drawnScale);post?.setSize(width,height,renderer.getPixelRatio()*drawnScale);};
- const changed=()=>{lastChange=performance.now();post?.reset();live?.reset();needsFrame=true;resting=false;};
+ const changed=()=>{lastChange=performance.now();post?.reset();live?.reset();fadeFrom=0;carried=false;needsFrame=true;resting=false;};
  invalidate=changed;
  // A finished bake changes the light, not the view: a resting view stays at rest, so it redraws at full resolution with
  // its shading in place and refines from there, instead of dropping to a moving frame first. Extreme's tracer restarts
@@ -415,13 +417,13 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    if(!resting){resting=true;perf?.rest(now);}
    const traced=live.step();
    perf?.trace(now,traced,{ready:live.ready,finished:!live.wanted});
-   // Drawn a few times a second, and once more when tracing finishes. A denoised image is shown whole, without the grain
-   // filter, and kept; until this view has one, the last view's is carried in after a small move (carry.ts), and
-   // otherwise the grainy samples are shown as they gather.
-   if(now-presented>=LIVE_TRACE.present||!live.wanted){
-    if(traced?.denoised){presented=now;timed('trace blend',()=>post.present(traced.texture,1,0,lighting!.exposure,indoorOf(room),traced.demodulated));post.keep(traced.texture,traced.demodulated,live.generation);}
-    else if(post.carries(rig.camera,live.generation)){presented=now;timed('trace blend',()=>post.carry(lighting!.exposure,indoorOf(room)));}
-    else if(traced){presented=now;const {amount,radius}=traceBlend(traced.samples);timed('trace blend',()=>post.present(traced.texture,amount,radius,lighting!.exposure,indoorOf(room),traced.demodulated));}
+   // Only a cleaned image with its surface colours divided out is shown: the live image holds while samples gather, the
+   // first such image fades in over it, and later ones replace it a few times a second, once more when tracing
+   // finishes. Until this view has one, the last view's is carried in after a small move (carry.ts).
+   const cleaned=!!traced?.denoised&&traced.demodulated,fading=fadeFrom>0&&now-fadeFrom<LIVE_TRACE.fade;
+   if(now-presented>=LIVE_TRACE.present||!live.wanted||fading||(cleaned&&!fadeFrom)){
+    if(cleaned&&traced){if(!fadeFrom)fadeFrom=carried?now-LIVE_TRACE.fade:now;presented=now;timed('trace blend',()=>post.present(traced.texture,traceFade(now-fadeFrom),0,lighting!.exposure,indoorOf(room),traced.demodulated));post.keep(traced.texture,traced.demodulated,live.generation);}
+    else if(post.carries(rig.camera,live.generation)){presented=now;carried=true;timed('trace blend',()=>post.carry(lighting!.exposure,indoorOf(room)));}
    }
    // What the view shows, for tests: 'preparing', the traced sample count, or 'live'; and the samples behind the denoised
    // image on show.
