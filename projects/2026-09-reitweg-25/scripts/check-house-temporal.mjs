@@ -11,7 +11,7 @@ assert.equal(tiers.extreme.temporal,true);assert.equal(tierFor('extreme',true,tr
 // The kept image is as large as the canvas whatever size the moving frame was drawn at, and the chain ends there:
 // the focus and the finish run on it at full size.
 assert(/full=renderer\.getDrawingBufferSize\(this\.size\)/.test(pass)&&/t\.setSize\(full\.x,full\.y\)/.test(pass),'the kept image is the canvas size');
-assert(/if\(temporal\)\{output\.enabled=false;if\(focusPass\)focusPass\.enabled=false;\}/.test(post)&&/if\(temporal\)finishToScreen\(temporal\.settled\);/.test(post),'the finish runs on the kept image');
+assert(/if\(temporal\)\{output\.enabled=false;if\(focusPass\)focusPass\.enabled=false;\}/.test(post)&&/if\(temporal\)finishToScreen\(carryLight\(temporal\.settled,view\)\);/.test(post),'the finish runs on the kept image');
 // In motion each pixel's point is looked up where the last frame saw it, by depth; a kept colour is held to the new
 // frame's colours around it, and only where the last frame saw the same point may it stand a little past them.
 assert(/clip=lastViewProj\*world/.test(pass)&&/texture2D\(lastDepth,at\)\.r-expected/.test(pass),'looked up by depth');

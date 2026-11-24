@@ -9,7 +9,7 @@ import {DisplayP3ColorSpace} from 'three/addons/math/ColorSpaces.js';
 import {finish} from './look';
 import {LENS,DepthCapture,SunShafts,Meter,DepthOfField,focalLength,meterCorrection} from './lens';
 import {renderAlbedo,SHARP} from './albedo-pass';
-import {CARRY,carryApplies} from './carry';
+import {CARRY,carryApplies,LIGHT_CARRY,lightCarried,lightCarryGlsl} from './carry';
 import {ContactShadows} from './contact-shadows';
 import {MistPass,MIST,AIR_GLOW,mistGlsl,glowGlsl} from './mist';
 import {MotionBlur} from './motion-blur';
@@ -86,11 +86,11 @@ class TracedBlend{
  constructor(lamps:T.Vector3[]=[]){this.material=new T.ShaderMaterial({
   uniforms:{raster:{value:null},traced:{value:null},amount:{value:0},radius:{value:0},texel:{value:new T.Vector2()},shafts:{value:null},shafted:{value:0},albedo:{value:null},demodulated:{value:0},
    depth:{value:null},hasDepth:{value:0},far:{value:3000},fogColor:{value:new T.Color()},fogRange:{value:new T.Vector2(1e9,1e9)},
-   mist:{value:new T.Vector4()},glow:{value:new T.Vector3()},glowLamps:{value:lamps.length?lamps:[new T.Vector3()]},located:{value:0},reproject:{value:0},prevViewProj:{value:new T.Matrix4()},prevView:{value:new T.Matrix4()},invProj:{value:new T.Matrix4()},camWorld:{value:new T.Matrix4()},prevDepth:{value:null}},
+   mist:{value:new T.Vector4()},glow:{value:new T.Vector3()},glowLamps:{value:lamps.length?lamps:[new T.Vector3()]},located:{value:0},asRatio:{value:0},reproject:{value:0},prevViewProj:{value:new T.Matrix4()},prevView:{value:new T.Matrix4()},invProj:{value:new T.Matrix4()},camWorld:{value:new T.Matrix4()},prevDepth:{value:null}},
   vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}',
   fragmentShader:`uniform sampler2D raster;uniform sampler2D traced;uniform float amount;uniform float radius;uniform vec2 texel;uniform sampler2D shafts;uniform float shafted;uniform sampler2D albedo;uniform float demodulated;
    uniform sampler2D depth;uniform float hasDepth;uniform float far;uniform vec3 fogColor;uniform vec2 fogRange;varying vec2 vUv;
-   uniform float reproject;uniform mat4 prevViewProj;uniform mat4 prevView;uniform mat4 invProj;uniform mat4 camWorld;uniform sampler2D prevDepth;uniform vec4 mist;uniform float located;${mistGlsl}${glowGlsl(lamps.length)}
+   uniform float reproject;uniform mat4 prevViewProj;uniform mat4 prevView;uniform mat4 invProj;uniform mat4 camWorld;uniform sampler2D prevDepth;uniform vec4 mist;uniform float located;uniform float asRatio;${mistGlsl}${glowGlsl(lamps.length)}
    vec3 guide(vec2 uv){vec3 c=max(texture2D(raster,uv).rgb,vec3(0.0));float s=c.r+c.g+c.b+1e-4;return vec3(log2(s/3.0+1e-4)*2.0,c.r/s*6.0,c.g/s*6.0);}
    void main(){
     vec3 live=texture2D(raster,vUv).rgb,t;vec2 at=vUv;float valid=1.0;
@@ -119,7 +119,8 @@ class TracedBlend{
      if(located>0.5&&d<far*0.999){vec4 ray=invProj*vec4(vUv*2.0-1.0,1.0,1.0);ray.xyz/=ray.w;vec3 eye=(camWorld*vec4(0.0,0.0,0.0,1.0)).xyz,point=(camWorld*vec4(ray.xyz*(d/-ray.z),1.0)).xyz;t=mistOver(t,eye,point,mist)+lampGlow(eye,normalize(point-eye),length(point-eye));}
     }
     t+=shafted*texture2D(shafts,vUv).rgb;
-    gl_FragColor=vec4(mix(live,t,amount*valid),1.0);
+    // What the traced image changed, for moving frames to keep (carry.ts, LIGHT_CARRY).
+    gl_FragColor=asRatio>0.5?vec4(clamp((t+0.004)/(live+0.004),${LIGHT_CARRY.least.toFixed(2)},${LIGHT_CARRY.most.toFixed(1)}),1.0):vec4(mix(live,t,amount*valid),1.0);
    }`,
   depthTest:false,depthWrite:false,
  });this.quad=new FullScreenQuad(this.material);}
@@ -190,7 +191,7 @@ function passMaterials(pass:Pass){
 /** `afterScene`: runs right after the scene is drawn, its target still bound. */
 /** `lamps`: how far the evening lamps are on (0–1), for the white balance indoors (look.ts). */
 export type PostOptions={lamps?:()=>number;samples:number;ao:boolean;bloom:boolean;lens?:{sun:T.DirectionalLight};/** Short shadows where things touch (contact-shadows.ts); needs `lens`. */contact?:boolean;/** Ground mist at daybreak (mist.ts); needs `lens`. */mist?:boolean;/** Where lamplight reaches the outdoor air, for its glow there (mist.ts, AIR_GLOW); needs `mist`. */glowLamps?:T.Vector3[];/** Wet ground mirrors the scene (wet-reflections.ts); needs `lens`. */wetMirror?:boolean;/** Moving frames build on the image the view has gathered (temporal.ts); needs `lens`. */temporal?:boolean;/** How many times white the screen is given now (hdr.ts); 0: white at most. */hdr?:()=>number;afterScene?:(renderer:T.WebGLRenderer,camera:T.Camera)=>void};
-export type PostView={eyeLevel:boolean};
+export type PostView={eyeLevel:boolean;/** The trace generation whose kept light this frame may carry (carry.ts, LIGHT_CARRY). */carry?:number};
 export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions){
  const target=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,samples:options.samples,depthTexture:new T.DepthTexture(1,1)});
  const composer=new EffectComposer(renderer,target);
@@ -235,7 +236,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
  if(meter)output.uniforms.uGrain.value=LENS.grain;
  let traced:TracedBlend|undefined,focused:T.WebGLRenderTarget|undefined,scale=1,focus=NaN,last=0,seed=0;
  // The last denoised traced image, with its view and depth (keep, carry).
- let kept:{light:T.WebGLRenderTarget;depth:T.WebGLRenderTarget;camera:T.PerspectiveCamera;demodulated:boolean;generation:number;version:number}|undefined;
+ let kept:{light:T.WebGLRenderTarget;depth:T.WebGLRenderTarget;ratio:T.WebGLRenderTarget;camera:T.PerspectiveCamera;demodulated:boolean;generation:number;version:number}|undefined;
  const copying=new T.ShaderMaterial({uniforms:{source:{value:null as T.Texture|null}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}',
   fragmentShader:'uniform sampler2D source;varying vec2 vUv;void main(){gl_FragColor=texture2D(source,vUv);}',depthTest:false,depthWrite:false}),copy=new FullScreenQuad(copying);
  /** Eases exposure toward the meter's reading and focus toward the middle of the frame. */
@@ -265,6 +266,19 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
    focusPass.dof.render(renderer,image.texture,focused,focusPass.focus,focusPass.scale);finished=focused;
   }
   output.renderToScreen=true;output.render(renderer,null as unknown as T.WebGLRenderTarget,finished,0,false);
+ };
+ // A moving frame under the light of the last traced view (carry.ts, LIGHT_CARRY).
+ const lighting=new T.ShaderMaterial({uniforms:{frame:{value:null},ratio:{value:null},depth:{value:null},prevDepth:{value:null},amount:{value:0},prevViewProj:{value:new T.Matrix4()},prevView:{value:new T.Matrix4()},invProj:{value:new T.Matrix4()},camWorld:{value:new T.Matrix4()}},
+  vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}',fragmentShader:lightCarryGlsl,depthTest:false,depthWrite:false}),relight=new FullScreenQuad(lighting);
+ let lit:T.WebGLRenderTarget|undefined,carriedLight=0;
+ const carryLight=(image:T.WebGLRenderTarget,view:PostView)=>{
+  carriedLight=kept&&depth&&lensCamera&&view.carry!==undefined&&kept.generation===view.carry&&kept.ratio.width>1?lightCarried(kept.camera,lensCamera):0;
+  if(!kept||!depth||!lensCamera||carriedLight<=0)return image;
+  lit??=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false});if(lit.width!==image.width||lit.height!==image.height)lit.setSize(image.width,image.height);
+  const u=lighting.uniforms;u.frame.value=image.texture;u.ratio.value=kept.ratio.texture;u.depth.value=depth.target.texture;u.prevDepth.value=kept.depth.texture;u.amount.value=carriedLight;
+  u.prevViewProj.value.multiplyMatrices(kept.camera.projectionMatrix,kept.camera.matrixWorldInverse);u.prevView.value.copy(kept.camera.matrixWorldInverse);u.invProj.value.copy(lensCamera.projectionMatrixInverse);u.camWorld.value.copy(lensCamera.matrixWorld);
+  renderer.setRenderTarget(lit);relight.render(renderer);
+  return lit;
  };
  /** Draws `image` over the settled live image through the finish (TracedBlend); `reproject`: it is the kept image. */
  const present=(image:T.Texture,amount:number,radius:number,exposure:number,indoor:number,demodulated:boolean,reproject:boolean)=>{
@@ -339,8 +353,10 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
    // Bloom threshold in display terms: only highlights two and a half times brighter than white bloom.
    if(bloom)bloom.threshold=2.5/Math.max(renderer.toneMappingExposure,1e-4);
    composer.render();
-   if(temporal)finishToScreen(temporal.settled);
+   if(temporal)finishToScreen(carryLight(temporal.settled,view));
   },
+  /** How much of a traced view's light the last frame carried (carry.ts, LIGHT_CARRY). */
+  get lightCarried(){return carriedLight;},
   get accumulated(){return accumulate.frames;},
   /** Moving frames are jittered too, and blended into the kept image (temporal.ts). */
   temporal:!!temporal,
@@ -369,13 +385,15 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
   keep:(image:T.Texture,demodulated:boolean,generation:number)=>{
    if(!depth||!lensCamera)return;
    const source=image.image as {width:number;height:number},size=depth.target;
-   kept??={light:new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false}),depth:new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false}),
+   kept??={light:new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false}),depth:new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false}),ratio:new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter}),
     camera:new T.PerspectiveCamera(),demodulated:false,generation:-1,version:-1};
    if(kept.version===image.version&&kept.generation===generation)return;
    kept.light.setSize(source.width,source.height);kept.depth.setSize(size.width,size.height);
    const previous=renderer.getRenderTarget();
    copying.uniforms.source.value=image;renderer.setRenderTarget(kept.light);copy.render(renderer);
    copying.uniforms.source.value=depth.target.texture;renderer.setRenderTarget(kept.depth);copy.render(renderer);
+   // The blend is still set as it was for showing this image (present).
+   if(traced&&temporal){kept.ratio.setSize(Math.ceil(traced.target.width/2),Math.ceil(traced.target.height/2));traced.material.uniforms.asRatio.value=1;renderer.setRenderTarget(kept.ratio);traced.quad.render(renderer);traced.material.uniforms.asRatio.value=0;}
    renderer.setRenderTarget(previous);
    kept.camera.copy(lensCamera);kept.camera.updateMatrixWorld();kept.demodulated=demodulated;kept.generation=generation;kept.version=image.version;
   },
@@ -385,7 +403,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
   carry:(exposure:number,indoor=0)=>{if(kept)present(kept.light.texture,1,0,exposure,indoor,kept.demodulated,true);},
 
   reset:()=>{if(temporal)temporal.reset();else accumulate.frames=0;traced?.colours?.dispose();if(traced)traced.colours=undefined;},
-  dispose:()=>{traced?.dispose();focused?.dispose();kept?.light.dispose();kept?.depth.dispose();copy.dispose();copying.dispose();for(const p of composer.passes)(p as Pass&{dispose?:()=>void}).dispose?.();composer.dispose();target.dispose();},
+  dispose:()=>{traced?.dispose();focused?.dispose();kept?.light.dispose();kept?.depth.dispose();kept?.ratio.dispose();lit?.dispose();lighting.dispose();relight.dispose();copy.dispose();copying.dispose();for(const p of composer.passes)(p as Pass&{dispose?:()=>void}).dispose?.();composer.dispose();target.dispose();},
  };
 }
 export type Post=ReturnType<typeof createPost>;
