@@ -4,15 +4,13 @@ import type {WebGPUTracer} from './live-trace-webgpu';
 import type {SceneCache} from './photographic-scene';
 
 /** How a resting view hands over to path tracing (Extreme). Tracing, and preparing its scene, starts once the view has
- * rested `rest` ms with no panel open, so passing clicks never set it off. The traced image replaces the live one as it
- * gathers samples: hidden for the first two, fully shown from 48, drawn every `present` ms. Until it settles, an
- * edge-aware filter guided by the live image smooths its grain, about three pixels across at first, gone by 256 samples;
- * a denoised image needs none. How many samples are gathered is the WebGPU tracer's (GPU_TRACE). */
-export const LIVE_TRACE={show:[2,48] as const,filter:{radius:3,until:256},rest:1000,present:100};
-export function traceBlend(samples:number){
- const [a,b]=LIVE_TRACE.show,{radius,until}=LIVE_TRACE.filter;
- return {amount:T.MathUtils.smoothstep(samples,a,b),radius:radius*(1-T.MathUtils.smoothstep(samples,4,until))};
-}
+ * rested `rest` ms with no panel open, so passing clicks never set it off. The live image holds while samples gather:
+ * the grainy image is never shown, nor one still carrying the traced scene's own plain surface colours. The first
+ * cleaned image fades in over `fade` ms; later ones replace it, drawn every `present` ms. How many samples are gathered
+ * is the WebGPU tracer's (GPU_TRACE). */
+export const LIVE_TRACE={fade:400,rest:1000,present:100};
+/** How much of the traced image shows `elapsed` ms after its first cleaned image arrived (0–1). */
+export function traceFade(elapsed:number){return T.MathUtils.smoothstep(elapsed,0,LIVE_TRACE.fade);}
 /** The lot around the house, and how far from it trees are kept. */
 const ORIGIN=new T.Vector3(-5,0,8),REACH=120;
 
