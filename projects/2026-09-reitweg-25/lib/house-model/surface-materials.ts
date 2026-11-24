@@ -33,7 +33,7 @@ export function surfaceSet(name:string,size:number,useScanned:boolean):{color:st
 export type SurfaceTextures={size:number;/** The sets are scans that carry height. */scanned:boolean;get:(name:string)=>{color:T.Texture;normal:T.Texture;metres?:number};water:T.Texture;ready:Promise<void>;dispose:()=>void};
 export function loadSurfaceTextures(size:512|1024,renderer:T.WebGLRenderer,onLoad:()=>void,useScanned=false):SurfaceTextures{
  const loader=new T.TextureLoader(),cache=new Map<string,T.Texture>(),pending:Promise<unknown>[]=[];
- const anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+ const anisotropy=Math.min(8,renderer.capabilities?renderer.capabilities.getMaxAnisotropy():(renderer as unknown as {getMaxAnisotropy():number}).getMaxAnisotropy());
  const load=(url:string,srgb:boolean)=>{
   let tex=cache.get(url);if(tex)return tex;
   tex=new T.Texture();tex.wrapS=tex.wrapT=T.RepeatWrapping;tex.anisotropy=anisotropy;if(srgb)tex.colorSpace=T.SRGBColorSpace;
@@ -158,6 +158,21 @@ varying vec3 vSurfacePos;varying vec3 vSurfaceNormal;${projection}${weather?weat
   // (wet-reflections.ts): 1 for none, down to a half for standing water.
   if(weather==='paving')shader.fragmentShader=after(shader.fragmentShader,'opaque_fragment','gl_FragColor.a=1.0-0.5*surfaceMirror;');
   shader.fragmentShader=after(shader.fragmentShader,'aomap_fragment','reflectedLight.indirectDiffuse*=surfaceCavity;reflectedLight.indirectSpecular*=mix(1.0,surfaceCavity,0.7);');
+ },nodes:slots=>{
+  // The same projection, colour, roughness, bump and cavity as nodes; weathering and relief are not drawn there yet.
+  const {vec2,vec3,abs,sign,cross,dot,normalize,select,texture,positionWorld,normalWorldGeometry,faceDirection,uniform,materialColor,clamp,mix,sin}=slots.tsl;
+  const p=positionWorld,n=normalize(normalWorldGeometry),a=abs(n),size=uniform(uniforms.uSurfaceMetres.value);
+  const top=a.y.greaterThanEqual(a.x).and(a.y.greaterThanEqual(a.z)),side=a.x.greaterThanEqual(a.z);
+  let tu=select(top,vec3(1,0,0),select(side,vec3(0,0,sign(n.x).negate()),vec3(sign(n.z),0,0))),tv=select(top,vec3(0,0,-1),vec3(0,1,0));
+  if(surface==='roof'){const sloped=a.y.lessThan(.97).and(a.y.greaterThan(.08)),su=normalize(cross(vec3(0,1,0),n));tu=select(sloped,su,tu);tv=select(sloped,normalize(cross(n,su)),tv);}
+  tu=tu.toVar();tv=tv.toVar();
+  const uv=vec2(dot(p,tu),dot(p,tv)).div(size),dx=vec2(dot(p.dFdx(),tu),dot(p.dFdx(),tv)).div(size),dy=vec2(dot(p.dFdy(),tu),dot(p.dFdy(),tv)).div(size);
+  const texel=texture(set.color,uv).grad(dx,dy),relief=texture(set.normal,uv).grad(dx,dy);
+  let albedo=texel.rgb.mul(uniform(tint));
+  if(surface==='lawn'){const macro=texture(set.color,p.xz.div(41)).rgb.div(vec3(.11,.25,.034));albedo=albedo.mul(mix(vec3(1),clamp(macro,.7,1.3),.55)).mul(sign(sin(p.x.mul(2.86).add(p.z.mul(.35)))).mul(.045).add(1));}
+  slots.colour=(slots.colour??materialColor).mul(albedo);slots.roughness=clamp(texel.a,.05,1);
+  const slope=relief.rg.mul(2).sub(1).mul(bump[surface]);
+  slots.normal=normalize(n.mul(faceDirection).add(tu.mul(slope.x)).add(tv.mul(slope.y)));slots.cavity=relief.b;
  }});
 }
 /** Thin glass reflects more at glancing angles; no transmission pass, no shadow. Glass has no surface colour of its own:

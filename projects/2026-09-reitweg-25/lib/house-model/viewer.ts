@@ -10,13 +10,14 @@ import {buildHouseModel} from './build-model';
 import {batchStatic} from './static-batch';
 import {createLighting,roomExposure,indoorOf,type LightReading} from './lighting';
 import {createPost} from './post';
+import type {LightingGPU} from './lighting';
 import {createCameraRig,type Framing} from './camera-rig';
 import {createCaptures} from './experience';
 import {STIR} from './atmosphere';
 import {createLiveTrace,traceFade,LIVE_TRACE} from './live-trace';
 import {addAlbedoOutput} from './albedo-pass';
 import {createPoolReflection} from './pool-reflection';
-import {hasShaderFeature,materialsOf} from './shader-features';
+import {hasShaderFeature,materialsOf,drawWithNodes} from './shader-features';
 import {createClouds} from './clouds';
 import {fitPng} from './photo-size';
 import type {CarModels} from './car-models';
@@ -72,12 +73,12 @@ export type ViewerOptions={
  webgpu?:WebGPUKit;
 };
 /** What the viewer needs from `three/webgpu`. */
-export type WebGPUKit={
+export type WebGPUKit=Partial<LightingGPU>&{
  WebGPURenderer:new(options:{antialias:boolean;powerPreference:'high-performance'})=>unknown;
  PMREMGenerator:new(renderer:never)=>{fromScene(scene:T.Scene,sigma:number):{texture:T.Texture;dispose():void};dispose():void};
 };
 /** Whether a preset is drawn with the WebGPU renderer when it is asked for. */
-export const drawnWithWebGPU=(quality:Quality)=>quality==='model';
+export const drawnWithWebGPU=(quality:Quality)=>quality==='model'||quality==='balanced';
 /** A dragged sun re-traces bounced light and the traced scene once it has been still this long (ms). */
 const SUN_SETTLE=150;
 /** A view is at rest once nothing has changed for this long (ms). */
@@ -88,10 +89,13 @@ const halton=(i:number,b:number)=>{let f=1,r=0;while(i>0){f/=b;r+=f*(i%b);i=Math
 const SITE_CENTER=new T.Vector3(-5,0,8),SITE_RADIUS=70;
 
 export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
- const tier=tierFor(options.quality,undefined,options.extremeOnPhone),realistic=tier.quality!=='model';
+ const asked=tierFor(options.quality,undefined,options.extremeOnPhone),realistic=asked.quality!=='model';
+ const gpu=drawnWithWebGPU(asked.quality)?options.webgpu:undefined;
+ // What the WebGPU renderer cannot draw yet is left out there: baked sky and bounced light, and the image passes.
+ drawWithNodes(gpu?.tsl);
+ const tier=gpu?{...asked,skyBake:false,sunBounce:0,ao:false,refineFrames:0}:asked;
  // Whether to try for a screen brighter than white (hdr.ts).
  const bright=tier.hdr&&hdrWanted();
- const gpu=drawnWithWebGPU(tier.quality)?options.webgpu:undefined;
  // The WebGPU renderer is used through the calls the two share; where they differ, `gpu` decides.
  const renderer=(gpu?new gpu.WebGPURenderer({antialias:true,powerPreference:'high-performance'}):new T.WebGLRenderer({antialias:!realistic,alpha:false,stencil:false,powerPreference:'high-performance'})) as T.WebGLRenderer;
  // Floor views cut roofs at the wall height with per-material clipping.
@@ -102,6 +106,9 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const carrying=tier.lightCarry&&new URLSearchParams(location.search).get('carry')!=='off';
  const softened=tier.softShadows&&new URLSearchParams(location.search).get('soft')!=='off';
  if(softened)installSoftShadows();
+ // The WebGPU renderer keeps a shadow's redraw on the light: the viewer's own switch is passed on to the sun's.
+ let sunShadow:T.DirectionalLightShadow|undefined;
+ if(gpu)Object.defineProperty(renderer.shadowMap,'needsUpdate',{set:(on:boolean)=>{if(on&&sunShadow)sunShadow.needsUpdate=true;},get:()=>!!sunShadow?.needsUpdate});
  renderer.shadowMap.enabled=true;renderer.shadowMap.type=softened?T.BasicShadowMap:T.PCFShadowMap;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
  renderer.toneMapping=realistic?T.AgXToneMapping:T.ACESFilmicToneMapping;renderer.toneMappingExposure=.9;
  // Extreme on a wide-gamut screen draws in Display P3: colours the photographic grade saturates past sRGB stay saturated
@@ -146,7 +153,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  let invalidate=()=>{};
  // Extreme: ray-marched cumulus and their shadows (clouds.ts).
  const clouds=realistic&&tier.clouds?createClouds(renderer):undefined;
- const lighting=realistic?createLighting(renderer,scene,model.root,{shadowSize:tier.shadowSize,clouds,soft:softened}):undefined;
+ const lighting=realistic?createLighting(renderer,scene,model.root,{shadowSize:tier.shadowSize,clouds,soft:softened,gpu:gpu?.SkyMesh?gpu as LightingGPU:undefined}):undefined;
  let sun:T.DirectionalLight,environment:{texture:T.Texture;dispose():void}|undefined;
  if(lighting){sun=lighting.sun;if(festive)lighting.lamps.add(festive.glow);lighting.apply(initialSunStudy);lighting.fitShadow(SITE_CENTER,SITE_RADIUS);}
  else{
@@ -251,7 +258,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
 
  // Extreme: trees the house hides are counted right after the scene is drawn, and left out of the next frames.
  const occlusion=realistic&&tier.treeOcclusion?createTreeOcclusion(renderer.getContext() as WebGL2RenderingContext,scene):undefined;
- const post=realistic?createPost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,mist:tier.weathered,wetMirror:tier.wetMirror,glowLamps:tier.lampGlow?lampsOutdoors():undefined,temporal:tier.temporal&&new URLSearchParams(location.search).get('taa')!=='off',hdr:()=>screen&&renderer.outputColorSpace===DisplayP3ColorSpace?HDR.peak:0,afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
+ const post=realistic&&!gpu?createPost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,mist:tier.weathered,wetMirror:tier.wetMirror,glowLamps:tier.lampGlow?lampsOutdoors():undefined,temporal:tier.temporal&&new URLSearchParams(location.search).get('taa')!=='off',hdr:()=>screen&&renderer.outputColorSpace===DisplayP3ColorSpace?HDR.peak:0,afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
  if(post){mistFor=r=>{if(scene.fog){
   const outdoors=study.enabled&&level==='exterior',lies=outdoors&&!snowing&&!raining?mistAmount(r.apparentElevation,study.minutes,study.day):0;
   // The lamps' glow hangs in mist, rain and falling snow, and faintly in any night's air (mist.ts).
@@ -610,22 +617,22 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  if(options.cars&&tier.cars!=='none'){canvas.dataset.cars='loading';void addCars(options.cars).catch(error=>console.warn('Garage cars',error));}
  if(bright)void createHdrScreen(canvas,renderer.getContext() as WebGL2RenderingContext,()=>{screen=undefined;changed();}).then(made=>{if(disposed)made?.dispose();else if(made){screen=made;canvas.dataset.hdr='true';changed();}});
  const begin=()=>{if(!disposed)frame=requestAnimationFrame(render);};
- if(lighting){
+ // The WebGPU renderer has no device until `init` resolves; sky light and the first frame wait for it.
+ const device=gpu?(renderer as unknown as {init():Promise<unknown>}).init().then(()=>{canvas.dataset.renderer=(renderer as unknown as {backend:{isWebGPUBackend?:boolean}}).backend.isWebGPUBackend?'webgpu':'webgpu-on-webgl2';}):undefined;
+ if(gpu){sunShadow=sun.shadow;sunShadow.autoUpdate=false;}
+ if(lighting&&device)void device.then(()=>{if(disposed)return;lighting.update(camera,performance.now());cullTrees(false);renderer.shadowMap.needsUpdate=true;begin();},error=>{console.warn('WebGPU renderer',error);options.onError();});
+ else if(lighting){
   // The image chain's own shaders and the sky bake's go first: they need nothing from the scene, and compile while the
   // sky is being set up.
   const passes=[post?.compilePasses(),bake?.compileAsync()];
   lighting.update(camera,performance.now());cullTrees(false);
   Promise.all([post?post.compileAsync(scene):renderer.compileAsync(scene,camera),...passes]).then(begin,begin);
  }
- else if(gpu){
-  // It keeps a shadow's redraw on the light, and has no device until `init` resolves.
-  sun.shadow.autoUpdate=false;
-  Object.defineProperty(renderer.shadowMap,'needsUpdate',{set:(on:boolean)=>{if(on)sun.shadow.needsUpdate=true;},get:()=>sun.shadow.needsUpdate});
-  void (renderer as unknown as {init():Promise<unknown>;backend:{isWebGPUBackend?:boolean}}).init().then(()=>{
+ else if(gpu&&device){
+  void device.then(()=>{
    if(disposed)return;
-   canvas.dataset.renderer=(renderer as unknown as {backend:{isWebGPUBackend?:boolean}}).backend.isWebGPUBackend?'webgpu':'webgpu-on-webgl2';
    const pmrem=new gpu.PMREMGenerator(renderer as never),room=new RoomEnvironment();environment=pmrem.fromScene(room,.05);room.dispose();pmrem.dispose();
-   scene.environment=environment.texture;sun.shadow.needsUpdate=true;begin();
+   scene.environment=environment.texture;renderer.shadowMap.needsUpdate=true;begin();
   },error=>{console.warn('WebGPU renderer',error);options.onError();});
  }
  else begin();

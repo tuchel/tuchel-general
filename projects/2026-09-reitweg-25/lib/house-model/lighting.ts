@@ -111,27 +111,44 @@ export const HAZE_CAP=2;
 export type LightReading=ReturnType<typeof sunStudyReading>&{exposure:number;dusk:number;daylight:number;key:number};
 /** `clouds` (Extreme) replaces the sky's flat cloud layer with ray-marched cumulus (clouds.ts), in the visible sky and in
  * the sky light. */
-export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Object3D,options:{shadowSize:number;clouds?:Clouds;/** Shadows that soften with distance (soft-shadows.ts). */soft?:boolean}){
- const clouds=options.clouds;
- const sky=new Sky();sky.name='calculated-sun-sky';sky.userData.skipPhotographic=true;sky.scale.setScalar(20000);sky.frustumCulled=false;scene.add(sky);
- const envSky=new Sky();envSky.scale.setScalar(20000);const envScene=new T.Scene();envScene.add(envSky);
+/** What the sky needs from `three/webgpu`, `three/tsl` and three's node sky to be drawn by the WebGPU renderer. */
+export type LightingGPU={
+ SkyMesh:new()=>T.Mesh;tsl:typeof import('three/tsl');
+ CubeRenderTarget:new(size:number,options:object)=>T.WebGLCubeRenderTarget;
+ PMREMGenerator:new(renderer:never)=>Pick<T.PMREMGenerator,'fromCubemap'|'fromScene'|'dispose'>;
+};
+type Uniforms=Record<string,{value:any}>; // eslint-disable-line @typescript-eslint/no-explicit-any
+export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Object3D,options:{shadowSize:number;clouds?:Clouds;/** Shadows that soften with distance (soft-shadows.ts). */soft?:boolean;/** Drawn by the WebGPU renderer. */gpu?:LightingGPU}){
+ const clouds=options.clouds,gpu=options.gpu;
+ // The node sky keeps the same values as the shader sky, on itself.
+ const makeSky=()=>(gpu?new gpu.SkyMesh():new Sky()) as Sky,valuesOf=(s:Sky):Uniforms=>gpu?s as unknown as Uniforms:s.material.uniforms;
+ const sky=makeSky();sky.name='calculated-sun-sky';sky.userData.skipPhotographic=true;sky.scale.setScalar(20000);sky.frustumCulled=false;scene.add(sky);
+ const envSky=makeSky();envSky.scale.setScalar(20000);const envScene=new T.Scene();envScene.add(envSky);
  // Image light: skylight is less saturated than the visible sky, and the ground below the
  // horizon returns neutral bounce light (lawn, paving and floors averaged) instead of Preetham's dark lower sphere.
- const ground={value:new T.Color()},saturation={value:.55};
+ const ground:{value:T.Color}=gpu?gpu.tsl.uniform(new T.Color()):{value:new T.Color()},saturation:{value:number}=gpu?gpu.tsl.uniform(.55):{value:.55};
  // The moon's direction and the radiance of its lit surface; no direction while it is below the horizon.
  const moon={value:new T.Vector4()},moonRadiance=MOON.brightness*luminance(skyRadiance(new T.Vector3(0,1,0),NOON));
  for(const [s,disc] of [[sky,1],[envSky,0]] as const){
   const env=disc===0;
-  s.material.onBeforeCompile=shader=>{
+  if(gpu){
+   // The same additions as nodes: the night's blue, and for the image light its saturation and the ground's return.
+   const {vec3,vec4,float,normalize,smoothstep,mix,dot,positionWorld,cameraPosition}=gpu.tsl,material=s.material as unknown as {colorNode:ReturnType<typeof vec4>};
+   const direction=normalize(positionWorld.sub(cameraPosition)),sunUp=normalize(valuesOf(s).sunPosition as unknown as ReturnType<typeof vec3>).y;
+   let colour=material.colorNode.rgb.add(vec3(...NIGHT).mul(float(1).sub(smoothstep(-.1,.05,sunUp))));
+   if(env){colour=mix(vec3(dot(colour,vec3(.2126,.7152,.0722))),colour,saturation as never);colour=mix(colour,ground as never,smoothstep(0,-.06,direction.y));}
+   material.colorNode=vec4(colour,1);
+  }
+  else s.material.onBeforeCompile=shader=>{
    if(env){shader.uniforms.uGround=ground;shader.uniforms.uEnvSaturation=saturation;shader.fragmentShader='uniform vec3 uGround;uniform float uEnvSaturation;\n'+shader.fragmentShader;}
    else{shader.uniforms.uMoon=moon;shader.fragmentShader='uniform vec4 uMoon;\n'+shader.fragmentShader;}
    if(clouds){shader.uniforms.uClouds={value:clouds.sky};shader.fragmentShader=shader.fragmentShader.replace('void main() {','uniform sampler2D uClouds;\n'+clouds.sample+'\nvoid main() {');}
    shader.fragmentShader=shader.fragmentShader.replace('gl_FragColor = vec4( texColor, 1.0 );',nightSky+(env?'':celestial)+(clouds?'\n{vec4 cloud=cloudsToward(direction);texColor=texColor*cloud.a+cloud.rgb;}':'')+(env?'\ntexColor=mix(vec3(dot(texColor,vec3(0.2126,0.7152,0.0722))),texColor,uEnvSaturation);texColor=mix(texColor,uGround,smoothstep(0.0,-0.06,direction.y));':'')+'\ngl_FragColor = vec4( texColor, 1.0 );');
   };
-  s.material.customProgramCacheKey=()=>(env?'reitweg-env-sky':'reitweg-sky')+(clouds?'-clouds':'');
-  const u=s.material.uniforms;u.turbidity.value=SKY.turbidity;u.rayleigh.value=SKY.rayleigh;u.mieCoefficient.value=SKY.mie;u.mieDirectionalG.value=SKY.g;u.showSunDisc.value=disc;u.cloudCoverage.value=clouds?0:SKY.clouds;u.cloudDensity.value=.35;}
- const cubeTarget=new T.WebGLCubeRenderTarget(128,{type:T.HalfFloatType}),cubeCamera=new T.CubeCamera(.1,40000,cubeTarget);
- const pmrem=new T.PMREMGenerator(renderer);let envTarget:T.WebGLRenderTarget|null=null,envDirty=true,envAt=0;
+  if(!gpu)s.material.customProgramCacheKey=()=>(env?'reitweg-env-sky':'reitweg-sky')+(clouds?'-clouds':'');
+  const u=valuesOf(s);u.turbidity.value=SKY.turbidity;u.rayleigh.value=SKY.rayleigh;u.mieCoefficient.value=SKY.mie;u.mieDirectionalG.value=SKY.g;u.showSunDisc.value=disc;u.cloudCoverage.value=clouds?0:SKY.clouds;u.cloudDensity.value=.35;}
+ const cubeTarget=gpu?new gpu.CubeRenderTarget(128,{type:T.HalfFloatType}):new T.WebGLCubeRenderTarget(128,{type:T.HalfFloatType}),cubeCamera=new T.CubeCamera(.1,40000,cubeTarget);
+ const pmrem=gpu?new gpu.PMREMGenerator(renderer as never):new T.PMREMGenerator(renderer);let envTarget:T.WebGLRenderTarget|null=null,envDirty=true,envAt=0;
  const sun=new T.DirectionalLight('#fff4de',3);sun.name='sun';sun.castShadow=true;
  sun.shadow.mapSize.set(options.shadowSize,options.shadowSize);sun.shadow.radius=2.2;sun.shadow.blurSamples=12;
  scene.add(sun,sun.target);
@@ -172,7 +189,7 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
  const apply=(study:SunStudy,snow=0,overcast=0):LightReading=>{
   const r=sunStudyReading(study);
   sunVector.set(...sunDirection(r.azimuth,r.apparentElevation)).normalize();
-  for(const s of [sky,envSky]){const u=s.material.uniforms;u.sunPosition.value.copy(sunVector);u.turbidity.value=T.MathUtils.lerp(SKY.turbidity,WINTER.turbidity,snow);u.mieCoefficient.value=T.MathUtils.lerp(SKY.mie,WINTER.mie,snow);
+  for(const s of [sky,envSky]){const u=valuesOf(s);u.sunPosition.value.copy(sunVector);u.turbidity.value=T.MathUtils.lerp(SKY.turbidity,WINTER.turbidity,snow);u.mieCoefficient.value=T.MathUtils.lerp(SKY.mie,WINTER.mie,snow);
    u.cloudCoverage.value=T.MathUtils.lerp(clouds?0:SKY.clouds,OVERCAST.coverage,overcast);u.cloudDensity.value=T.MathUtils.lerp(.35,OVERCAST.density,overcast);}
   if(r.moon.elevation>-1){const [x,y,z]=sunDirection(r.moon.azimuth,r.moon.elevation);moon.value.set(x,y,z,moonRadiance);}else moon.value.set(0,0,0,0);
   const transmittance=sunTransmittance(r.apparentElevation),strength=SUN_SCALE*luminance(transmittance);
