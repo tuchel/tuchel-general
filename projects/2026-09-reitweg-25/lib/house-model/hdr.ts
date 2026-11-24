@@ -17,7 +17,7 @@ type Context={configure(to:Record<string,unknown>):void;getConfiguration():{tone
 type FloatCanvas=WebGL2RenderingContext&{drawingBufferStorage?:(format:number,width:number,height:number)=>void};
 
 /** Whether to try: the screen shows above white now, and the browser has what the copy needs. `?hdr=off` and `?hdr=on`
- * decide for the screen. A WebGL canvas is given floating point only if it was made with alpha. */
+ * decide for the screen. (A WebGL canvas is given floating point only if its context has alpha; three's always has.) */
 export function hdrWanted(){
  const asked=new URLSearchParams(location.search).get('hdr');
  return asked!=='off'&&(asked==='on'||window.matchMedia('(dynamic-range: high)').matches)&&'gpu' in navigator&&'drawingBufferStorage' in WebGL2RenderingContext.prototype;
