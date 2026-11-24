@@ -15,7 +15,7 @@ export function buildPool(){
  const g=new T.Group();g.name='flush-in-ground-pool';g.position.set(...[poolCenter[0],0,poolCenter[1]] as [number,number,number]);
  const wood=new T.MeshStandardMaterial({color:'#8c867b',roughness:.87});wood.userData.photo='deck';
  const rim=new T.MeshStandardMaterial({color:'#d3d3cc',roughness:.61});
- const liner=new T.MeshStandardMaterial({color:'#83bdc8',roughness:.48});
+ const liner=new T.MeshStandardMaterial({color:'#83bdc8',roughness:.48});liner.userData.caustics=true;
  const water=new T.MeshStandardMaterial({color:'#76abae',roughness:.14,transparent:true,opacity:.82,depthWrite:false});water.userData.water=true;
  const geo=new T.BoxGeometry(1,1,1);
  function box(name:string,x:number,y:number,z:number,w:number,h:number,d:number,mat:T.Material){

@@ -33,7 +33,7 @@ assert(!/defines|needsUpdate/.test(source),'the amount never recompiles a shader
 const fall=fs.readFileSync('lib/house-model/snowfall.ts','utf8'),viewer=fs.readFileSync('lib/house-model/viewer.ts','utf8');
 assert.equal(fall.match(/new T\.Points\(/g)?.length,1,'the flakes are one draw');assert(!/needsUpdate|setUsage/.test(fall),'no buffer is written while it snows');
 assert(/if\(on&&!snowfall\)\{const made=snowfall=createSnowfall\(/.test(viewer),'the flakes are built when snow mode is first turned on');
-assert(/const flakes=snowing&&flakesReady&&/.test(viewer)&&/if\(post\.accumulated>0\)\{post\.replay\(\);fall\(\);return;\}/.test(viewer),'a resting view is not drawn again under the flakes');
+assert(/flakes=falling&&snowing&&flakesReady\?snowfall:undefined/.test(viewer)&&/if\(post\.accumulated>0\)\{post\.replay\(\);fall\(\);return;\}/.test(viewer),'a resting view is not drawn again under the flakes');
 
 // The Christmas tree (christmas-tree.ts): hidden until the viewer shows it with the whole snow, outside the static batches
 // and the photographs' scene, three draws of modest size, under the family room's ceiling and inside its walls.

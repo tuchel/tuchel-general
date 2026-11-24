@@ -24,7 +24,7 @@ import {foliageMaterials,finishFoliage,drawTrees,seasonTrees} from './foliage';
 import {createTreeOcclusion} from './tree-occlusion';
 import {createMotionResolution,type MotionResolution} from './motion-resolution';
 import {createRoomProbes,ROOM_PROBES} from './room-probes';
-import {loadSurfaceTextures,finishSurfaces} from './surface-materials';
+import {loadSurfaceTextures,finishSurfaces,wet} from './surface-materials';
 import {bakeSkyVisibility,SKY_BAKE} from './sky-visibility';
 import {bakeSunBounce} from './sun-bounce';
 import {eyeLevelGrass} from './grass';
@@ -32,6 +32,9 @@ import {snow,snowOn,snowSurfaces,snowCovers,underCover} from './snow';
 import {insideEntrancePolygon} from './entrance-garden';
 import {winterGardenOutline} from './renovations';
 import {createSnowfall,SNOWFALL,type Snowfall} from './snowfall';
+import {createRainfall,RAINFALL,type Rainfall} from './rainfall';
+import {createSmoke,type Smoke} from './smoke';
+import {mistAmount} from './mist';
 import {gardenLightPoints,GARDEN_LIGHTS} from './garden-lights';
 import {snowDrifts} from './snow-drift';
 import {snowSlabs} from './snow-slab';
@@ -170,6 +173,16 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // Snow mode (snowfall.ts): while it falls the snow lies whatever the date, under a closed sky. Turned on over bare
  // ground, or off, the ground eases to its new state (`settling`); the light changes at once.
  let snowing=false,settling=false,settledAt=0,snowfall:Snowfall|undefined,flakesReady=false,snowSeconds=0;
+ // Rain mode (rainfall.ts): the sky closes as for snow, drops fall over the view, and what stands outdoors wets.
+ let raining=false,rainfall:Rainfall|undefined,dropsReady=false,wetAt=0;
+ // The chimney smokes while snow lies (smoke.ts, Extreme): made, and its shader compiled, the first winter.
+ let smoke:Smoke|undefined,smokeReady=false,smokeSeconds=0;
+ const lightFire=()=>{
+  if(smoke||!tier.weathered||!post)return;
+  const chimney=scene.getObjectByName('chimney');if(!chimney)return;
+  const top=new T.Box3().setFromObject(chimney),made=smoke=createSmoke(new T.Vector3((top.min.x+top.max.x)/2,top.max.y+.1,(top.min.z+top.max.z)/2));
+  void renderer.compileAsync(made.mesh,camera).catch(()=>{}).then(()=>{smokeReady=true;changed();});
+ };
  // Where lamplight reaches the outdoor air, for the flakes that fall through it (snowfall.ts): a little out from each
  // glazed opening with a lit room behind it, and at each garden light.
  const lampsOutdoors=()=>{
@@ -178,10 +191,12 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   for(const [x,z] of gardenLightPoints())at.push(new T.Vector3(x,GARDEN_LIGHTS.height,z));
   return at;
  };
+ // Mist lies at daybreak under an open sky (mist.ts), once there is a post chain to draw it; the horizon's colour is the air's.
+ let mistFor:((r:LightReading)=>void)|undefined;
  const snowNow=()=>study.enabled&&level==='exterior'?snowing?1:snowOn(study.day):0;
  const relight=()=>{
   const lies=lighting?snowNow():0;if(!settling){snow.amount=lies;slabs?.show(lies>0);drifts?.show(snow.amount);}
-  const r=lighting?.apply(study,lies,snowing?1:0);if(r)festive?.show(study.enabled&&(snowing||snowOn(study.day)===1),r.exposure,r.dusk);
+  const r=lighting?.apply(study,lies,snowing||raining?1:0);if(r)mistFor?.(r);if(r)festive?.show(study.enabled&&(snowing||snowOn(study.day)===1),r.exposure,r.dusk);
   return r;
  };
  const applyState=()=>{
@@ -207,7 +222,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
 
  // Extreme: trees the house hides are counted right after the scene is drawn, and left out of the next frames.
  const occlusion=realistic&&tier.treeOcclusion?createTreeOcclusion(renderer.getContext() as WebGL2RenderingContext,scene):undefined;
- const post=realistic?createPost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
+ const post=realistic?createPost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,mist:tier.weathered,afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
+ if(post){mistFor=r=>{if(scene.fog)post.setMist(study.enabled&&level==='exterior'&&!snowing&&!raining?mistAmount(r.apparentElevation,study.minutes,study.day):0,scene.fog.color);};if(lighting?.reading)mistFor(lighting.reading);}
  // Extreme: the pool mirrors the scene (pool-reflection.ts).
  const mirror=tier.poolMirror&&camera instanceof T.PerspectiveCamera?createPoolReflection(renderer,scene,camera,batches.meshes.filter(b=>materialsOf(b).some(m=>hasShaderFeature(m,'pool-water')))):undefined;
  if(post)perf?.watch(post.passes);
@@ -368,6 +384,10 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    if(snow.amount===to){settling=false;renderer.shadowMap.needsUpdate=true;}
    post?.reset();needsFrame=true;
   }
+  if(wet.value!==(raining?1:0)){
+   const to=raining?1:0,step=Math.min(now-wetAt,500)/1000/RAINFALL.ease;wetAt=now;wet.value=Math.abs(to-wet.value)<=step?to:wet.value+Math.sign(to-wet.value)*step;
+   post?.reset();needsFrame=true;
+  }
   if(lighting&&baked('sky',()=>lighting.update(camera,now))){post?.reset();needsFrame=true;}
   const motion=!!(captures?.breezing||captures?.recording||film),calm=!motion&&!moving&&now-lastChange>REST;
   if(!elsewhere){if(bake&&baked('sky bake',()=>bake.update(calm?SKY_BAKE.resting:SKY_BAKE.moving)))relit();if(bounce&&baked('bounce bake',()=>bounce.update()))relit();}
@@ -389,7 +409,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   // planes, which the tracer cannot, so it stays live.
   if(captures?.active)live?.release();
   // Nor does the tracer know snow (photographic-scene.ts): while it lies, the view stays live.
-  if(live&&post&&still&&!refine&&!needsFrame&&level!=='upper'&&!captures?.active&&!snow.amount&&!interfaceOpen&&!elsewhere&&now-lastChange>LIVE_TRACE.rest&&live.wanted){
+  if(live&&post&&still&&!refine&&!needsFrame&&level!=='upper'&&!captures?.active&&!snow.amount&&!raining&&!wet.value&&!interfaceOpen&&!elsewhere&&now-lastChange>LIVE_TRACE.rest&&live.wanted){
    if(!resting){resting=true;perf?.rest(now);}
    const traced=live.step();
    perf?.trace(now,traced,{ready:live.ready,finished:!live.wanted});
@@ -409,10 +429,18 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   }
   // Flakes fall over a resting view without the scene being drawn again: the settled image is shown once more and
   // they are drawn on it.
-  const flakes=snowing&&flakesReady&&post?.depth&&level==='exterior'&&!captures?.active?snowfall:undefined;
-  const fall=()=>{if(flakes&&post?.depth){snowSeconds+=delta;flakes.draw(renderer,rig.camera,post.depth,snowSeconds,lighting?.reading?.daylight??1,lighting?.reading?.dusk??0);}};
+  const falling=!!post?.depth&&level==='exterior'&&!captures?.active,flakes=falling&&snowing&&flakesReady?snowfall:undefined,drops=falling&&raining&&dropsReady?rainfall:undefined;
+  if(snow.amount>0&&!smoke)lightFire();
+  const plume=falling&&smokeReady&&snow.amount>0?smoke:undefined;
+  const fall=()=>{
+   if(!post?.depth||!(flakes||drops||plume))return;
+   snowSeconds+=delta;smokeSeconds+=delta;
+   plume?.draw(renderer,rig.camera,post.depth,smokeSeconds,lighting?.reading?.daylight??1,snow.amount);
+   flakes?.draw(renderer,rig.camera,post.depth,snowSeconds,lighting?.reading?.daylight??1,lighting?.reading?.dusk??0);
+   drops?.draw(renderer,rig.camera,post.depth,snowSeconds,lighting?.reading?.daylight??1);
+  };
   if(!needsFrame&&!refine&&!motion){
-   if(!flakes||!post)return;
+   if(!(flakes||drops||plume)||!post)return;
    if(post.accumulated>0){post.replay();fall();return;}
   }
   if(live&&canvas.dataset.trace!=='live')canvas.dataset.trace='live';
@@ -576,8 +604,15 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    * their shader compiled, in the background, the first time. */
   setSnowing:(on:boolean)=>{
    if(!lighting||on===snowing)return;
-   snowing=on;settling=true;settledAt=performance.now();post?.keepDepth(on);relight();
+   snowing=on;settling=true;settledAt=performance.now();post?.keepDepth(on||raining);relight();
    if(on&&!snowfall){const made=snowfall=createSnowfall(bake?.cover,lampsOutdoors());void renderer.compileAsync(made.points,camera).catch(()=>{}).then(()=>{flakesReady=true;changed();});}
+   clearTimeout(sunSettle);sunSettle=setTimeout(()=>{bounce?.request();probes?.request();live?.relight();changed();},SUN_SETTLE);changed();
+  },
+  /** Rain mode on or off: rain falls, the sky closes and the ground wets (rainfall.ts). */
+  setRaining:(on:boolean)=>{
+   if(!lighting||on===raining)return;
+   raining=on;wetAt=performance.now();post?.keepDepth(on||snowing);relight();
+   if(on&&!rainfall){const made=rainfall=createRainfall(bake?.cover);void renderer.compileAsync(made.points,camera).catch(()=>{}).then(()=>{dropsReady=true;changed();});}
    clearTimeout(sunSettle);sunSettle=setTimeout(()=>{bounce?.request();probes?.request();live?.relight();changed();},SUN_SETTLE);changed();
   },
   /** Clouds and their shadows on or off (Extreme); room reflections and the traced image follow the re-baked sky. */
@@ -612,7 +647,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   snapshot:rig.snapshot,
   restore:(s:Parameters<typeof rig.restore>[0])=>{rig.restore(s);changed();},
   dispose:()=>{
-   disposed=true;snowfall?.dispose();slabs?.dispose();drifts?.dispose();festive?.dispose();cancelAnimationFrame(frame);touches();perf?.dispose();occlusion?.dispose();steer?.dispose();probes?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);clearTimeout(cloudSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
+   disposed=true;snowfall?.dispose();rainfall?.dispose();smoke?.dispose();wet.value=0;slabs?.dispose();drifts?.dispose();festive?.dispose();cancelAnimationFrame(frame);touches();perf?.dispose();occlusion?.dispose();steer?.dispose();probes?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);clearTimeout(cloudSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
    canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('wheel',wheel);canvas.removeEventListener('keydown',key);
    bake?.dispose();bounce?.dispose();clouds?.dispose();grass?.dispose();post?.dispose();lighting?.dispose();textures?.dispose();environment?.dispose();
    const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();

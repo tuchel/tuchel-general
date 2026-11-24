@@ -11,6 +11,8 @@ import {LENS,DepthCapture,SunShafts,Meter,DepthOfField,focalLength,meterCorrecti
 import {renderAlbedo,SHARP} from './albedo-pass';
 import {CARRY,carryApplies} from './carry';
 import {ContactShadows} from './contact-shadows';
+import {MistPass,MIST,mistGlsl} from './mist';
+import {MotionBlur} from './motion-blur';
 
 /** Ambient occlusion at half resolution, with normals reconstructed from the main pass's
  * depth; no second scene render. */
@@ -79,11 +81,11 @@ class TracedBlend{
  material=new T.ShaderMaterial({
   uniforms:{raster:{value:null},traced:{value:null},amount:{value:0},radius:{value:0},texel:{value:new T.Vector2()},shafts:{value:null},shafted:{value:0},albedo:{value:null},demodulated:{value:0},
    depth:{value:null},hasDepth:{value:0},far:{value:3000},fogColor:{value:new T.Color()},fogRange:{value:new T.Vector2(1e9,1e9)},
-   reproject:{value:0},prevViewProj:{value:new T.Matrix4()},prevView:{value:new T.Matrix4()},invProj:{value:new T.Matrix4()},camWorld:{value:new T.Matrix4()},prevDepth:{value:null}},
+   mist:{value:new T.Vector4()},located:{value:0},reproject:{value:0},prevViewProj:{value:new T.Matrix4()},prevView:{value:new T.Matrix4()},invProj:{value:new T.Matrix4()},camWorld:{value:new T.Matrix4()},prevDepth:{value:null}},
   vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}',
   fragmentShader:`uniform sampler2D raster;uniform sampler2D traced;uniform float amount;uniform float radius;uniform vec2 texel;uniform sampler2D shafts;uniform float shafted;uniform sampler2D albedo;uniform float demodulated;
    uniform sampler2D depth;uniform float hasDepth;uniform float far;uniform vec3 fogColor;uniform vec2 fogRange;varying vec2 vUv;
-   uniform float reproject;uniform mat4 prevViewProj;uniform mat4 prevView;uniform mat4 invProj;uniform mat4 camWorld;uniform sampler2D prevDepth;
+   uniform float reproject;uniform mat4 prevViewProj;uniform mat4 prevView;uniform mat4 invProj;uniform mat4 camWorld;uniform sampler2D prevDepth;uniform vec4 mist;uniform float located;${mistGlsl}
    vec3 guide(vec2 uv){vec3 c=max(texture2D(raster,uv).rgb,vec3(0.0));float s=c.r+c.g+c.b+1e-4;return vec3(log2(s/3.0+1e-4)*2.0,c.r/s*6.0,c.g/s*6.0);}
    void main(){
     vec3 live=texture2D(raster,vUv).rgb,t;vec2 at=vUv;float valid=1.0;
@@ -108,6 +110,8 @@ class TracedBlend{
     if(hasDepth>0.5){
      float d=texture2D(depth,vUv).r;
      t=d>=far*0.999?live:mix(t,fogColor,smoothstep(fogRange.x,fogRange.y,d));
+     // Nor has it the morning's mist (mist.ts), which the live view was drawn through.
+     if(located>0.5&&d<far*0.999){vec4 ray=invProj*vec4(vUv*2.0-1.0,1.0,1.0);ray.xyz/=ray.w;vec3 eye=(camWorld*vec4(0.0,0.0,0.0,1.0)).xyz;t=mistOver(t,eye,(camWorld*vec4(ray.xyz*(d/-ray.z),1.0)).xyz,mist);}
     }
     t+=shafted*texture2D(shafts,vUv).rgb;
     gl_FragColor=vec4(mix(live,t,amount*valid),1.0);
@@ -179,7 +183,7 @@ function passMaterials(pass:Pass){
  * grain. */
 /** `afterScene`: runs right after the scene is drawn, its target still bound. */
 /** `lamps`: how far the evening lamps are on (0–1), for the white balance indoors (look.ts). */
-export type PostOptions={lamps?:()=>number;samples:number;ao:boolean;bloom:boolean;lens?:{sun:T.DirectionalLight};/** Short shadows where things touch (contact-shadows.ts); needs `lens`. */contact?:boolean;afterScene?:(renderer:T.WebGLRenderer,camera:T.Camera)=>void};
+export type PostOptions={lamps?:()=>number;samples:number;ao:boolean;bloom:boolean;lens?:{sun:T.DirectionalLight};/** Short shadows where things touch (contact-shadows.ts); needs `lens`. */contact?:boolean;/** Ground mist at daybreak (mist.ts); needs `lens`. */mist?:boolean;afterScene?:(renderer:T.WebGLRenderer,camera:T.Camera)=>void};
 export type PostView={eyeLevel:boolean};
 export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions){
  const target=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,samples:options.samples,depthTexture:new T.DepthTexture(1,1)});
@@ -196,6 +200,10 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
  const depth=lensCamera?new DepthCapture(lensCamera):undefined;
  if(depth)composer.insertPass(depth,1);
  if(depth&&lensCamera&&options.lens&&options.contact)composer.addPass(new ContactShadows(lensCamera,options.lens.sun,depth.target.texture));
+ const mist={value:new T.Vector4()},mistPass=depth&&lensCamera&&options.mist?new MistPass(lensCamera,depth.target.texture,mist):undefined;
+ if(mistPass){mistPass.enabled=false;composer.addPass(mistPass);}
+ const blur=depth&&lensCamera&&options.mist?new MotionBlur(lensCamera,depth.target.texture):undefined;
+ if(blur){blur.enabled=false;composer.addPass(blur);}
  // What falls over the finished frame (snowfall.ts) hides behind the scene by this copy of its depth, in metres from the
  // camera, taken as the scene is drawn: the scene's own depth buffer does not outlast every pass after it (the lens's).
  let fallDepth=depth;
@@ -262,6 +270,8 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
    u.albedo.value=traced.colours?.texture??null;u.demodulated.value=demodulated&&traced.colours?1:0;
    u.shafts.value=shafts?.active?shafts.texture:null;u.shafted.value=shafts?.active?1:0;
    u.depth.value=depth?.target.texture??null;u.hasDepth.value=depth?1:0;u.far.value=lensCamera?.far??3000;
+   u.mist.value=mist.value;u.located.value=mistPass?.enabled&&lensCamera?1:0;
+   if(mistPass?.enabled&&lensCamera&&!(reproject&&kept)){u.invProj.value.copy(lensCamera.projectionMatrixInverse);u.camWorld.value.copy(lensCamera.matrixWorld);}
    if(scene.fog instanceof T.Fog){u.fogColor.value.copy(scene.fog.color);u.fogRange.value.set(scene.fog.near,scene.fog.far);}
    renderer.setRenderTarget(traced.target);traced.quad.render(renderer);
    // Exposure and focus hold while the view rests; the grain keeps moving.
@@ -305,6 +315,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
    const f=output.set(indoor);output.uniforms.uP3.value=renderer.outputColorSpace===DisplayP3ColorSpace?1:0;
    if(ao){ao.enabled=refining;ao.blendIntensity=f.occlusion;}
    if(!refining){accumulate.frames=0;shafts?.reset();}
+   blur?.frame(!refining);
    accumulate.enabled=refining;
    if(shafts)shafts.indoor=indoor;
    if(meter)meter.enabled=!refining||accumulate.frames<6;
@@ -317,6 +328,8 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
   /** The settled image to the canvas again, as its last refined frame showed it and without drawing the scene: under
    * what moves over a resting view (snowfall.ts). Only while frames are accumulated. */
   replay:()=>finishToScreen(accumulate.settled),
+  /** How much mist lies (0–1, mist.ts) and its colour. The pass runs only while there is some. */
+  setMist:(amount:number,colour:T.Color)=>{if(!mistPass)return;mist.value.set(colour.r,colour.g,colour.b,amount/MIST.reach);mistPass.enabled=amount>.002;},
   /** Keeps the scene's depth for what falls over the frame, or stops keeping it; the lens keeps it anyway. */
   keepDepth:(on:boolean)=>{
    if(!fallDepth&&on&&camera instanceof T.PerspectiveCamera){fallDepth=new DepthCapture(camera);fallDepth.setSize(composer.readBuffer.width,composer.readBuffer.height);composer.insertPass(fallDepth,1);}

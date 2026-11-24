@@ -57,6 +57,8 @@ vec2 surfaceUV(vec3 p,vec3 n,out vec3 tu,out vec3 tv){
  * streaked where water runs down; a roof carries pale lichen and runs; paving and decks are blotched and stained. Each
  * is slight: a house that has stood a few winters, not a neglected one. */
 export type Weathering='wall'|'roof'|'paving';
+/** How wet the rain has left what stands outdoors (0–1; viewer.ts): darker, and paving shines where water stands. */
+export const wet={value:0};
 export const WEATHER={damp:.45,dampShade:.74,silver:.3,streak:.12,lichen:.05,blotch:.16,stain:.1};
 const weatherNoise=`
 float weatherHash(vec2 c){vec3 p=fract(vec3(c.xyx)*.1031);p+=dot(p,p.yzx+33.33);return fract((p.x+p.y)*p.z);}
@@ -70,21 +72,25 @@ const weatherCode:Record<Weathering,string>={
    float streak=smoothstep(0.5,0.85,weatherNoise(vec2(along*7.0,up*0.28)))*weatherNoise(vec2(along*1.3,up*0.9+4.0));
    surfaceAlbedo*=1.0-${f(WEATHER.streak)}*streak*wall;
    float damp=(1.0-smoothstep(0.04,${f(WEATHER.damp)}*(0.55+0.9*weatherNoise(vec2(along*1.7,2.0))),up))*step(-0.3,up)*wall;
-   surfaceAlbedo*=mix(vec3(1.0),vec3(${f(WEATHER.dampShade)},${f(WEATHER.dampShade*1.03)},${f(WEATHER.dampShade)}),damp);surfaceWeather=-0.12*damp+0.05*silver;}`,
+   surfaceAlbedo*=mix(vec3(1.0),vec3(${f(WEATHER.dampShade)},${f(WEATHER.dampShade*1.03)},${f(WEATHER.dampShade)}),damp);surfaceWeather=-0.12*damp+0.05*silver;
+   surfaceAlbedo*=1.0-0.2*uWet*wall;surfaceWeather-=0.2*uWet*wall;}`,
  roof:`{float lichen=smoothstep(0.6,0.78,weatherFbm(vSurfacePos.xz*4.3+vSurfacePos.y*1.7));
    surfaceAlbedo=mix(surfaceAlbedo,vec3(0.42,0.44,0.36),${f(WEATHER.lichen)}*lichen);
    float run=weatherNoise(vec2(dot(vSurfacePos,surfaceTU)*5.0,dot(vSurfacePos,surfaceTV)*0.3));
-   surfaceAlbedo*=1.0-0.05*smoothstep(0.55,0.9,run);surfaceWeather=0.06*lichen;}`,
+   surfaceAlbedo*=1.0-0.05*smoothstep(0.55,0.9,run);surfaceWeather=0.06*lichen;
+   surfaceAlbedo*=1.0-0.22*uWet;surfaceWeather-=0.45*uWet;}`,
  paving:`{float flat_=smoothstep(0.6,0.9,abs(surfaceN0.y));
    float blotch=weatherFbm(vSurfacePos.xz*0.42);surfaceAlbedo*=mix(1.0,1.0-${f(WEATHER.blotch)}+${f(WEATHER.blotch*2)}*blotch,flat_);
    float stain=smoothstep(0.6,0.88,weatherFbm(vSurfacePos.xz*1.9+11.0));surfaceAlbedo*=1.0-${f(WEATHER.stain)}*stain*flat_;
-   surfaceWeather=(0.08*(blotch-0.5)-0.06*stain)*flat_;}`,
+   surfaceWeather=(0.08*(blotch-0.5)-0.06*stain)*flat_;
+   float puddle=smoothstep(0.42,0.6,weatherFbm(vSurfacePos.xz*0.55+5.0))*flat_;
+   surfaceAlbedo*=1.0-uWet*mix(0.4,0.5,puddle);surfaceWeather-=uWet*mix(0.35,0.9,puddle);surfacePuddle=uWet*puddle;}`,
 };
 /** World-projected albedo, roughness, relief and cavity for one surface set. */
 function surfaceFeature(material:T.MeshStandardMaterial,surface:Surface,textures:SurfaceTextures,weather?:Weathering){
  const set=textures.get(surface),ref=new T.Color(painted[surface]),own=material.color;
  const tint=new T.Color(T.MathUtils.clamp(own.r/ref.r,.15,2),T.MathUtils.clamp(own.g/ref.g,.15,2),T.MathUtils.clamp(own.b/ref.b,.15,2));
- const uniforms={uSurfaceColor:{value:set.color},uSurfaceNormal:{value:set.normal},uSurfaceMetres:{value:set.metres?new T.Vector2(set.metres,set.metres):new T.Vector2(...metres[surface])},uSurfaceTint:{value:tint},uSurfaceBump:{value:bump[surface]},uSurfaceSlope:{value:surface==='roof'?1:0},uLawn:{value:surface==='lawn'?1:0}};
+ const uniforms={uSurfaceColor:{value:set.color},uSurfaceNormal:{value:set.normal},uSurfaceMetres:{value:set.metres?new T.Vector2(set.metres,set.metres):new T.Vector2(...metres[surface])},uSurfaceTint:{value:tint},uSurfaceBump:{value:bump[surface]},uSurfaceSlope:{value:surface==='roof'?1:0},uLawn:{value:surface==='lawn'?1:0},uWet:wet};
  // The texture carries the colour from here on; the bounced-light bake reads the average (sun-bounce.ts).
  material.userData.albedo=ref.clone().multiply(tint);material.color.set('#ffffff');material.userData.surfaceUniforms=uniforms;
  addShaderFeature(material,{key:'surface-v1'+(weather?'-'+weather:''),compile:shader=>{
@@ -95,7 +101,7 @@ function surfaceFeature(material:T.MeshStandardMaterial,surface:Surface,textures
     surfaceWorld=instanceMatrix*surfaceWorld;surfaceN=mat3(instanceMatrix)*surfaceN;
    #endif
    vSurfacePos=(modelMatrix*surfaceWorld).xyz;vSurfaceNormal=normalize(mat3(modelMatrix)*surfaceN);`);
-  shader.fragmentShader=`uniform sampler2D uSurfaceColor;uniform sampler2D uSurfaceNormal;uniform vec2 uSurfaceMetres;uniform vec3 uSurfaceTint;uniform float uSurfaceBump;uniform float uSurfaceSlope;uniform float uLawn;
+  shader.fragmentShader=`uniform sampler2D uSurfaceColor;uniform sampler2D uSurfaceNormal;uniform vec2 uSurfaceMetres;uniform vec3 uSurfaceTint;uniform float uSurfaceBump;uniform float uSurfaceSlope;uniform float uLawn;uniform float uWet;
 varying vec3 vSurfacePos;varying vec3 vSurfaceNormal;${projection}${weather?weatherNoise:''}\n`+shader.fragmentShader;
   shader.fragmentShader=after(shader.fragmentShader,'map_fragment',`
    vec3 surfaceTU,surfaceTV;vec3 surfaceN0=normalize(vSurfaceNormal);
@@ -111,13 +117,13 @@ varying vec3 vSurfacePos;varying vec3 vSurfaceNormal;${projection}${weather?weat
     vec3 macro=texture(uSurfaceColor,vSurfacePos.xz/41.0).rgb/vec3(0.11,0.25,0.034);
     surfaceAlbedo*=mix(vec3(1.0),clamp(macro,0.7,1.3),0.55)*(1.0+0.045*sign(sin(vSurfacePos.x*2.86+vSurfacePos.z*0.35)));
    }
-   float surfaceWeather=0.0;
+   float surfaceWeather=0.0,surfacePuddle=0.0;
    ${weather?weatherCode[weather]:''}
    diffuseColor.rgb*=surfaceAlbedo;
    float surfaceCavity=surfaceRelief.b;`);
   shader.fragmentShader=after(shader.fragmentShader,'roughnessmap_fragment','roughnessFactor=clamp(surfaceTexel.a+surfaceWeather,0.05,1.0);');
   shader.fragmentShader=after(shader.fragmentShader,'normal_fragment_maps',`
-   vec2 surfaceSlopeXY=(surfaceRelief.rg*2.0-1.0)*uSurfaceBump;
+   vec2 surfaceSlopeXY=(surfaceRelief.rg*2.0-1.0)*uSurfaceBump*(1.0-0.9*surfacePuddle);
    vec3 surfaceWorldN=normalize(surfaceN0*faceDirection+surfaceTU*surfaceSlopeXY.x+surfaceTV*surfaceSlopeXY.y);
    normal=normalize(mat3(viewMatrix)*surfaceWorldN);`);
   shader.fragmentShader=after(shader.fragmentShader,'aomap_fragment','reflectedLight.indirectDiffuse*=surfaceCavity;reflectedLight.indirectSpecular*=mix(1.0,surfaceCavity,0.7);');
@@ -154,6 +160,25 @@ export function poolWater(material:T.MeshStandardMaterial,normal:T.Texture,time:
  }});
 }
 
+/** Sunlight gathered by the pool's ripples into a moving net of light on its floor and walls (Extreme): brighter along
+ * the net's lines and a little darker between, `strength` of the liner's own colour, drifting with the water. */
+export const CAUSTICS={strength:.55,scale:2.6};
+export function poolCaustics(material:T.MeshStandardMaterial,time:{value:number}){
+ addShaderFeature(material,{key:'pool-caustics',compile:shader=>{
+  shader.uniforms.uWaterTime=time;
+  shader.vertexShader='varying vec3 vCausticPos;\n'+after(shader.vertexShader,'project_vertex','vCausticPos=(modelMatrix*vec4(transformed,1.0)).xyz;');
+  shader.fragmentShader=`uniform float uWaterTime;varying vec3 vCausticPos;
+float causticNet(vec2 p,float t){
+ // Five passes of a warped lattice; where its lines cross, the light piles up.
+ vec2 i=p;float c=1.0;
+ for(int n=0;n<5;n++){float k=t*(1.0-3.5/float(n+1));i=p+vec2(cos(k-i.x)+sin(k+i.y),sin(k-i.y)+cos(k+i.x));c+=1.0/length(vec2(p.x/(sin(i.x+k)/0.005),p.y/(cos(i.y+k)/0.005)));}
+ c/=5.0;c=1.17-pow(c,1.4);return pow(abs(c),8.0);
+}\n`+shader.fragmentShader;
+  shader.fragmentShader=after(shader.fragmentShader,'map_fragment',`
+   {vec2 cp=mod(vec2(vCausticPos.x+vCausticPos.y*0.4,vCausticPos.z-vCausticPos.y*0.3)*${CAUSTICS.scale.toFixed(1)},6.2831853)-250.0;
+    diffuseColor.rgb*=1.0+${CAUSTICS.strength.toFixed(2)}*(clamp(causticNet(cp,uWaterTime*0.35+1.3)*2.2,0.0,1.6)-0.3);}`);
+ }});
+}
 /** Detailed materials: textured surfaces, clear glass, reflective water, calmer metals. `weathered`: what stands
  * outdoors shows its years (WEATHER). */
 export function finishSurfaces(root:T.Object3D,textures:SurfaceTextures,waterTime:{value:number},weathered=false){
@@ -165,6 +190,7 @@ export function finishSurfaces(root:T.Object3D,textures:SurfaceTextures,waterTim
    if(m instanceof T.MeshPhysicalMaterial&&m.transparent){if(m.roughness<.5)fresnelGlass(m,m.opacity<.3?.1:.16);continue;}
    if(!(m instanceof T.MeshStandardMaterial))continue;
    if(m.userData.water){poolWater(m,textures.water,waterTime);continue;}
+   if(weathered&&m.userData.caustics)poolCaustics(m,waterTime);
    let surface=m.userData.photo as string|undefined;
    // Bark and leaves take their own textures (finishFoliage); white bark would otherwise read as plaster below.
    if(surface==='foliage'||m.userData.foliage)continue;

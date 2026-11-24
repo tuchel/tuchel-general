@@ -21,6 +21,8 @@ const panelTitles:Record<Panel,string>={views:'Views',floor:'Floor',changes:'Ren
 const START={day:initialSunStudy.day,minutes:initialSunStudy.minutes};
 /** Snow mode can be asked for in the address, ?snow=on; out of season it opens on `SNOW_DAY`, the 15th of January. */
 const SNOW_DAY=15,asksForSnow=()=>typeof window!=='undefined'&&new URLSearchParams(window.location.search).get('snow')==='on';
+/** Rain mode likewise, ?rain=on, on whatever date. */
+const asksForRain=()=>typeof window!=='undefined'&&new URLSearchParams(window.location.search).get('rain')==='on'&&!asksForSnow();
 
 /** Within the design studio `onNavigate` leads to its other pages; on its own (the public site) the model is the whole site. */
 export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void}){
@@ -47,6 +49,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
  // Clouds start off, so the sun's light reads alone while the time of day is scanned.
  const [sun,setSun]=useState(()=>asksForSnow()?{...START,day:SNOW_DAY}:START),[clouds,setClouds]=useState(false),[neighbors,setNeighbors]=useState(false),[sims,setSims]=useState(false),[capture,setCapture]=useState<CaptureState>(initialCapture);
  const [snowing,setSnowing]=useState(asksForSnow);
+ const [raining,setRaining]=useState(asksForRain);
  // Snow falls in winter only. Turned on in another season it takes the date to mid-January, and gives the date back when
  // it stops; a date moved out of the winter stops the snow.
  const summer=useRef<number|undefined>(undefined);
@@ -54,8 +57,10 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
   if(on&&snowOn(sun.day)<=.05){summer.current=sun.day;setSun({...sun,day:SNOW_DAY});}
   else if(!on&&summer.current!==undefined&&sun.day===SNOW_DAY)setSun({...sun,day:summer.current});
   if(!on)summer.current=undefined;
-  setSnowing(on);
+  setSnowing(on);if(on)setRaining(false);
  };
+ // Rain or snow, not both: rain turned on stops the snow, and gives back the date the snow took.
+ const letItRain=(on:boolean)=>{if(on&&snowing)letItSnow(false);setRaining(on);};
  const setDate=(day:number,minutes:number)=>{setSun({day,minutes});if(snowing&&snowOn(day)<=.05){summer.current=undefined;setSnowing(false);}};
  // A place's caption is taken down once the walker leaves where it starts (the viewer reports it), until a place is
  // chosen again.
@@ -109,6 +114,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
  useEffect(()=>{if(ready)api.current?.setNeighbors(neighbors);},[ready,neighbors]);
  useEffect(()=>{if(ready)api.current?.setSims(sims);},[ready,sims]);
  useEffect(()=>{if(ready)api.current?.setSnowing(snowing);},[ready,snowing]);
+ useEffect(()=>{if(ready)api.current?.setRaining(raining);},[ready,raining]);
  // Extreme's path tracing waits while a panel or the About dialog is open, so menus stay quick.
  useEffect(()=>{if(ready)api.current?.setInterface(!!panel||about);},[ready,panel,about]);
  useEffect(()=>{
@@ -182,7 +188,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
     {panel==='views'&&<ViewsPanel level={level} view={view} onView={chooseView}/>}
     {panel==='floor'&&<FloorPanel level={level} onLevel={chooseLevel}/>}
     {panel==='changes'&&<div className="model-panel-body"><RenovationControls value={changes} onChange={setChanges} onFocus={focusRenovation} level={level} ready={ready&&!failed}/></div>}
-    {panel==='light'&&<LightPanel day={sun.day} minutes={sun.minutes} onChange={setDate} snowing={quality==='model'?undefined:snowing} onSnowing={letItSnow}/>}
+    {panel==='light'&&<LightPanel day={sun.day} minutes={sun.minutes} onChange={setDate} snowing={quality==='model'?undefined:snowing} onSnowing={letItSnow} raining={quality==='model'?undefined:raining} onRaining={letItRain}/>}
     {panel==='more'&&<MorePanel quality={quality} detected={detected} computer={computer} onQuality={chooseQuality} capture={capture} heavy={tiers[quality].photographic} eyeLevel={!!place} clouds={tiers[quality].clouds?clouds:undefined} onClouds={setClouds} neighbors={neighbors} onNeighbors={setNeighbors} sims={sims} onSims={setSims}
      onSave={limit=>{setPanel(null);void api.current?.saveImage(limit);}} onPhotograph={pano=>{setPanel(null);void api.current?.captures?.photograph(pano);}} onFilm={()=>{setPanel(null);if(place)chooseView('courtyard');api.current?.captures?.film();}}
      onExport={()=>{setPanel(null);void api.current?.captures?.exportModel();}} onBreeze={on=>api.current?.captures?.breeze(on)} onSound={on=>void api.current?.captures?.sound(on)} onAbout={()=>{setPanel(null);setAbout(true);}}/>}
