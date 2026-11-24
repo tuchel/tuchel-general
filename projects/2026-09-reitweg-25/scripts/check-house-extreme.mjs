@@ -2,19 +2,20 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {build} from 'esbuild';
 await build({entryPoints:['lib/house-model/live-trace.ts'],outdir:'tmp/extreme-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external'});
-const {traceBlend,LIVE_TRACE}=await import('../tmp/extreme-check/live-trace.mjs');
+const {traceFade,LIVE_TRACE}=await import('../tmp/extreme-check/live-trace.mjs');
 
-// A resting view hands over to path tracing gradually: the live image until the traced one has a couple of samples,
-// all traced from 48; grain is smoothed at first and not at all once the image has settled.
-assert.equal(traceBlend(0).amount,0);assert.equal(traceBlend(2).amount,0,'hidden for the first samples');
-assert(traceBlend(16).amount>0&&traceBlend(16).amount<1,'blends in');assert.equal(traceBlend(48).amount,1,'all traced from 48 samples');
-for(let n=0;n<512;n+=7){assert(traceBlend(n+7).amount>=traceBlend(n).amount);assert(traceBlend(n+7).radius<=traceBlend(n).radius);}
-assert(traceBlend(1).radius>2,'grainy samples are smoothed');assert.equal(traceBlend(256).radius,0,'a settled image is shown as traced');
+// A resting view hands over to path tracing without showing its work: the live image holds until the first cleaned
+// image is in, which then fades in over a fraction of a second. Grainy samples are never shown.
+assert.equal(traceFade(0),0,'starts from the live image');assert.equal(traceFade(LIVE_TRACE.fade),1,'all traced after the fade');
+assert(traceFade(LIVE_TRACE.fade/2)>0&&traceFade(LIVE_TRACE.fade/2)<1,'fades in');assert(LIVE_TRACE.fade>=200&&LIVE_TRACE.fade<=800,'a short fade');
+for(let t=0;t<LIVE_TRACE.fade;t+=25)assert(traceFade(t+25)>=traceFade(t));
 
-// The viewer: any change of view (camera, size, walking) drops back to the live image; a new floor or renovation
+// The viewer: only a cleaned image with its surface colours divided out is shown (the traced scene alone has none of
+// the live view's texture detail); any change of view (camera, size, walking) drops back to the live image; a new floor or renovation
 // rebuilds the traced scene, a new sun re-lights it; it never runs over the upper-floor section (clipping planes) or a
 // photograph's own tracer.
 const viewer=fs.readFileSync('lib/house-model/viewer.ts','utf8');
+assert(/const cleaned=!!traced\?\.denoised&&traced\.demodulated/.test(viewer)&&!/traceBlend/.test(viewer),'grainy or undivided traced images are never shown');
 assert(/const changed=\(\)=>\{[^}]*live\?\.reset\(\)/.test(viewer),'moving drops back to the live view');
 assert(/const applyState=\(\)=>\{[^]*?live\?\.invalidate\(\)[^]*?\};/.test(viewer),'a new floor or renovation rebuilds');
 assert(/setSun:[^\n]*live\?\.relight\(\)/.test(viewer),'a new sun re-lights');
@@ -30,4 +31,4 @@ assert(/now-presented>=LIVE_TRACE\.present\|\|!live\.wanted/.test(viewer),'the t
 assert(/setInterface\(!!panel\|\|about\)/.test(fs.readFileSync('components/studio/model/house-model.tsx','utf8')),'panels and the About dialog pause tracing');
 // Tests read what the view shows from the canvas: preparing, a sample count, or live.
 assert(/canvas\.dataset\.trace=shown/.test(viewer)&&/canvas\.dataset\.trace='live'/.test(viewer),'the canvas reports what it shows');
-console.log(`Passed: after ${LIVE_TRACE.rest} ms at rest with no panel open, the view blends to path tracing (drawn every ${LIVE_TRACE.present} ms) from ${LIVE_TRACE.show[0]} to ${LIVE_TRACE.show[1]} samples, smoothed until ${LIVE_TRACE.filter.until}; moving returns to the live view.`);
+console.log(`Passed: after ${LIVE_TRACE.rest} ms at rest with no panel open, the live view holds until the first cleaned traced image, which fades in over ${LIVE_TRACE.fade} ms (drawn every ${LIVE_TRACE.present} ms after); moving returns to the live view.`);
