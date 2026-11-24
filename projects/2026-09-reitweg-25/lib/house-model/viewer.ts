@@ -428,16 +428,16 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   occlusion?.poll(rig.camera);
   const reflected=mirror?.prepare();const counts=drawTrees(scene,reflected?[rig.camera,reflected]:[rig.camera],pixel,rig.camera,occlusion?.hidden);perf?.trees(counts);
  };
- // Shaders for the upper floor's section cut, every renovation, eye-level grass and dusk lamps compile in the
+ // Shaders for the upper floor's section cut, every renovation, eye-level grass and the lamps compile in the
  // background after the first frame, so the first visit to each has no stall. Everything is shown for the moment the
  // materials are gathered, then put back exactly as it was. With a post stack they compile as its scene pass draws them,
  // into its own target (post.ts).
  const precompile=async()=>{
   if(!lighting)return;
-  for(const [floor,lamps] of [['upper',false],['upper',true],['exterior',true]] as const){
+  for(const floor of ['upper','exterior'] as const){
    if(disposed)return;
    const shown=new Map<T.Object3D,boolean>();scene.traverse(o=>shown.set(o,o.visible));
-   model.setLevel(floor);scene.traverse(o=>{o.visible=true;});lighting.lamps.visible=lamps;
+   model.setLevel(floor);scene.traverse(o=>{o.visible=true;});
    const done=post?post.compileAsync(scene):renderer.compileAsync(scene,camera);
    model.setLevel(level);for(const [o,v] of shown)o.visible=v;
    await done.catch(()=>{});
@@ -449,7 +449,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // first and the trees in view picked, so that what compiles is what the frame draws.
  // The garage's modelled cars come in after the first frame: their files are 5 MB and their materials two dozen shaders,
  // which the first frame would otherwise wait for. They are finished, batched and lit exactly as if built in with the
- // house. Their shaders compile in the background, for the evening lamps off and on; the graphics card then prepares
+ // house. Their shaders compile in the background; the graphics card then prepares
  // each at its first draw, so every batch is drawn once out of sight, a batch at a time (post.warm). Only then are
  // the cars shown, and the light baked again with them in.
  let drawn=()=>{};const firstFrame=new Promise<void>(resolve=>{drawn=resolve;}),WARM=7;
@@ -468,10 +468,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   const opaque=late.filter(b=>materialsOf(b).every(m=>!m.transparent));
   bake?.add(opaque);bounce?.add(opaque.filter(b=>materialsOf(b).every(m=>!m.alphaTest)),[group]);probes?.add(group);clouds?.shade([group]);snowSurfaces([group]);if(live)addAlbedoOutput(group);
   await firstFrame;if(disposed)return;
-  const lamps=lighting?.lamps,lit=lamps?.visible??false;
-  const compiled=[lit,!lit].map(on=>{if(lamps)lamps.visible=on;return post?post.compileAsync(group):renderer.compileAsync(group,camera,scene);});
-  if(lamps)lamps.visible=lit;
-  await Promise.all(compiled).catch(()=>{});
+  await (post?post.compileAsync(group):renderer.compileAsync(group,camera,scene)).catch(()=>{});
   if(post){
    const lights:T.Object3D[]=[];scene.traverse(o=>{if((o as T.Light).isLight)lights.push(o);});
    for(const batch of late){
@@ -552,12 +549,9 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    simsLoading=true;
    void import('./sims').then(async m=>{
     const {group,figures}=await m.loadSims();if(disposed)return;
-    // Their shaders compile in the background, for the evening lamps off and on, before they appear: compiled on the
+    // Their shaders compile in the background before they appear: compiled on the
     // first draw instead, they stall the page.
-    const lamps=lighting?.lamps,lit=lamps?.visible??false;
-    const compiled=[lit,!lit].map(on=>{if(lamps)lamps.visible=on;return post?post.compileAsync(group):renderer.compileAsync(group,camera,scene);});
-    if(lamps)lamps.visible=lit;
-    await Promise.all(compiled).catch(()=>{});if(disposed)return;
+    await (post?post.compileAsync(group):renderer.compileAsync(group,camera,scene)).catch(()=>{});if(disposed)return;
     sims={group,figures,routines:m.createRoutines(figures,()=>[...batches.meshes,stage])};
     scene.add(group);showSims();changed();
    }).catch(error=>console.warn('Sims Mode',error)).finally(()=>{simsLoading=false;});

@@ -46,20 +46,22 @@ const noon=lighting.apply({enabled:true,day:172,minutes:780}),sun=lighting.sun;
 const direction=sun.position.clone().sub(sun.target.position).normalize(),reading=solarPosition(studyInstant(172,780).date);
 assert(direction.distanceTo(new T.Vector3(...sunDirection(reading.azimuth,reading.apparentElevation)))<1e-10,'sun light follows the calculated sun');
 assert(sun.intensity>0&&sun.visible);
+const lamps=root.getObjectByName('evening-interior-light'),lamp=lamps.children.find(o=>o.isSpotLight);
+assert(lamps.visible&&lamp.intensity===0,'the lamps stay in the scene by day, dark');
 const noonFog=scene.fog.color.clone();assert(noonFog.r>0&&noonFog.b>noonFog.r,'midday haze is a pale blue');
 // A mid-grey wall's exposed brightness: the key light times exposure.
 const grey=r=>r.key*r.exposure;
 const sunset=lighting.apply({enabled:true,day:172,minutes:1277});
 assert(grey(sunset)>.2*grey(noon),'sunset stays legible, not black');
 assert(scene.fog.color.r/scene.fog.color.b>noonFog.r/noonFog.b,'sunset haze is warmer than midday');
-assert(sunset.dusk>.3&&root.getObjectByName('evening-interior-light').visible,'interior lamps come on at dusk');
+assert(sunset.dusk>.3&&lamp.intensity>0,'interior lamps come on at dusk');
 // Golden hour, looking toward the sun: the haze is no brighter than HAZE_CAP white walls in that light.
 {const golden=lighting.apply({enabled:true,day:172,minutes:1232}),toSun=new T.PerspectiveCamera(),d=sun.position.clone().sub(sun.target.position);
  toSun.lookAt(d.x,0,d.z);toSun.updateMatrixWorld();try{lighting.update(toSun,0);}catch{}
  const c=scene.fog.color,haze=.2126*c.r+.7152*c.g+.0722*c.b;
  assert(haze<=HAZE_CAP*golden.key/Math.PI*1.001,`golden hour haze toward the sun is ${(haze*Math.PI/golden.key).toFixed(1)} white walls bright`);assert(c.r>c.b,'and stays warm');}
 const night=lighting.apply({enabled:true,day:355,minutes:0});
-assert.equal(sun.intensity,0);assert(!sun.visible,'no direct sunlight at night');
+assert.equal(sun.intensity,0,'no direct sunlight at night');assert(sun.visible&&lamps.visible,'the same lights at night as by day: no shader changes with the hour');
 assert(grey(night)<grey(sunset),'night is darker than sunset');
 assert(Number.isFinite(night.exposure)&&night.exposure>noon.exposure);
 const zenith=skyRadiance(new T.Vector3(0,1,0),new T.Vector3(...sunDirection(171,65)).normalize());

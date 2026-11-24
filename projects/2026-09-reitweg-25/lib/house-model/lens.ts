@@ -103,7 +103,7 @@ export class SunShafts extends Pass{
  render(renderer:T.WebGLRenderer,write:T.WebGLRenderTarget,read:T.WebGLRenderTarget){
   const sun=this.sun,map=sun.shadow.map?.depthTexture,u=this.march.uniforms;
   // Night: nothing to scatter; the frame passes through.
-  if(!sun.visible||!map){this.frames=0;this.add.uniforms.shafts.value=null;}
+  if(!(sun.intensity>0)||!map){this.frames=0;this.add.uniforms.shafts.value=null;}
   else{
    u.shadow.value=map;u.shadowMatrix.value.copy(sun.shadow.matrix);
    u.projectionInverse.value.copy(this.camera.projectionMatrixInverse);u.cameraWorld.value.copy(this.camera.matrixWorld);
