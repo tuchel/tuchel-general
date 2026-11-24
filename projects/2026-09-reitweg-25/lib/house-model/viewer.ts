@@ -74,7 +74,7 @@ export type ViewerOptions={
 };
 /** What the viewer needs from `three/webgpu`. */
 export type WebGPUKit=Partial<LightingGPU>&{
- PhysicalLightingModel?:unknown;
+ PhysicalLightingModel?:unknown;NodeMaterial?:new()=>T.Material;
  WebGPURenderer:new(options:{antialias:boolean;powerPreference:'high-performance'})=>unknown;
  PMREMGenerator:new(renderer:never)=>{fromScene(scene:T.Scene,sigma:number):{texture:T.Texture;dispose():void};dispose():void};
 };
@@ -92,9 +92,9 @@ const SITE_CENTER=new T.Vector3(-5,0,8),SITE_RADIUS=70;
 export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const asked=tierFor(options.quality,undefined,options.extremeOnPhone),realistic=asked.quality!=='model';
  const gpu=drawnWithWebGPU(asked.quality)?options.webgpu:undefined;
- // What the WebGPU renderer cannot draw yet is left out there: baked sky and bounced light, and the image passes.
+ // What the WebGPU renderer cannot draw yet is left out there: bounced sunlight and the image passes.
  drawWithNodes(gpu?.tsl&&{...gpu.tsl,PhysicalLightingModel:gpu.PhysicalLightingModel});
- const tier=gpu?{...asked,skyBake:false,sunBounce:0,ao:false,refineFrames:0}:asked;
+ const tier=gpu?{...asked,sunBounce:0,ao:false,refineFrames:0}:asked;
  // Whether to try for a screen brighter than white (hdr.ts).
  const bright=tier.hdr&&hdrWanted();
  // The WebGPU renderer is used through the calls the two share; where they differ, `gpu` decides.
@@ -186,7 +186,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const pickables:T.Object3D[]=[...batches.meshes.filter(b=>b.userData.region)];
  model.root.traverse(o=>{if(o instanceof T.InstancedMesh&&o.userData.region)pickables.push(o);});
  let level:Level='exterior',renovations=renovationState(),place:Place|undefined;
- const bake=realistic&&tier.skyBake?bakeSkyVisibility(renderer,batches.meshes.filter(b=>[b.material].flat().every(m=>!m.transparent&&m.userData.photo!=='lawn')),[model.root,stage],tier.sunBounce?.55:.7,batches.meshes.filter(b=>materialsOf(b).every(m=>m.transparent&&!m.userData.water))):undefined;
+ const bake=realistic&&tier.skyBake?bakeSkyVisibility(renderer,batches.meshes.filter(b=>[b.material].flat().every(m=>!m.transparent&&m.userData.photo!=='lawn')),[model.root,stage],tier.sunBounce?.55:.7,batches.meshes.filter(b=>materialsOf(b).every(m=>m.transparent&&!m.userData.water)),gpu?.tsl&&gpu.NodeMaterial?{tsl:gpu.tsl,NodeMaterial:gpu.NodeMaterial}:undefined):undefined;
  // Sunlight bounced indoors: the house itself, without trees and planting.
  // Renovations' batches, and those of the originals they replace, sit under their own groups (model.toggled): the guest
  // wing's west roof slope among them.
@@ -621,7 +621,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // The WebGPU renderer has no device until `init` resolves; sky light and the first frame wait for it.
  const device=gpu?(renderer as unknown as {init():Promise<unknown>}).init().then(()=>{canvas.dataset.renderer=(renderer as unknown as {backend:{isWebGPUBackend?:boolean}}).backend.isWebGPUBackend?'webgpu':'webgpu-on-webgl2';}):undefined;
  if(gpu){sunShadow=sun.shadow;sunShadow.autoUpdate=false;}
- if(lighting&&device)void device.then(()=>{if(disposed)return;lighting.update(camera,performance.now());cullTrees(false);renderer.shadowMap.needsUpdate=true;begin();},error=>{console.warn('WebGPU renderer',error);options.onError();});
+ if(lighting&&device)void device.then(()=>{if(disposed)return;bake?.prepare();lighting.update(camera,performance.now());cullTrees(false);renderer.shadowMap.needsUpdate=true;begin();},error=>{console.warn('WebGPU renderer',error);options.onError();});
  else if(lighting){
   // The image chain's own shaders and the sky bake's go first: they need nothing from the scene, and compile while the
   // sky is being set up.

@@ -4,14 +4,14 @@ const viewer=fs.readFileSync('lib/house-model/viewer.ts','utf8'),page=fs.readFil
 const lib=fs.readdirSync('lib/house-model').filter(f=>f.endsWith('.ts')).map(f=>fs.readFileSync(`lib/house-model/${f}`,'utf8')).join('\n');
 const features=fs.readFileSync('lib/house-model/shader-features.ts','utf8'),lighting=fs.readFileSync('lib/house-model/lighting.ts','utf8'),surfaces=fs.readFileSync('lib/house-model/surface-materials.ts','utf8');
 // `?renderer=webgpu` loads three's WebGPU renderer only when asked, and only for the presets it can draw: Model whole,
-// Balanced without baked sky light, bounced sun and the image passes.
+// Balanced without bounced sun and the image passes.
 assert(/export const drawnWithWebGPU=\(quality:Quality\)=>quality==='model'\|\|quality==='balanced';/.test(viewer));
 assert(/drawnWithWebGPU\(quality\)&&new URLSearchParams\(window\.location\.search\)\.get\('renderer'\)==='webgpu'\?await Promise\.all\(\[import\('three\/webgpu'\),import\('three\/tsl'\),import\('three\/addons\/objects\/SkyMesh\.js'\)\]\)/.test(page));
-assert(/const tier=gpu\?\{\.\.\.asked,skyBake:false,sunBounce:0,ao:false,refineFrames:0\}:asked;/.test(viewer)&&/const post=realistic&&!gpu\?createPost\(/.test(viewer));
+assert(/const tier=gpu\?\{\.\.\.asked,sunBounce:0,ao:false,refineFrames:0\}:asked;/.test(viewer)&&/const post=realistic&&!gpu\?createPost\(/.test(viewer));
 // It has no device until `init` resolves: sky light and the first frame wait for it, and the canvas says which backend
 // it runs on.
 assert(/const device=gpu\?\(renderer as unknown as \{init\(\):Promise<unknown>\}\)\.init\(\)\.then\(\(\)=>\{canvas\.dataset\.renderer=/.test(viewer));
-assert(/if\(lighting&&device\)void device\.then\(\(\)=>\{if\(disposed\)return;lighting\.update\(camera,performance\.now\(\)\);/.test(viewer));
+assert(/if\(lighting&&device\)void device\.then\(\(\)=>\{if\(disposed\)return;bake\?\.prepare\(\);lighting\.update\(camera,performance\.now\(\)\);/.test(viewer));
 // A shadow's redraw is kept on the light there, so the viewer's own switch is passed on to the sun's.
 assert(/if\(gpu\)Object\.defineProperty\(renderer\.shadowMap,'needsUpdate',\{set:\(on:boolean\)=>\{if\(on&&sunShadow\)sunShadow\.needsUpdate=true;\}/.test(viewer)&&/sunShadow=sun\.shadow;sunShadow\.autoUpdate=false;/.test(viewer));
 // The sky is three's node sky with the same values and additions; sky light is filtered by that renderer's own filter.
@@ -28,6 +28,14 @@ const foliage=fs.readFileSync('lib/house-model/foliage.ts','utf8');
 assert(/slots\.direct\.push\(\(\{lightDirection,lightColor,reflectedLight\}\)=>reflectedLight\.directDiffuse\.addAssign\(/.test(foliage));
 assert(/slots\.opacity=mix\(slots\.opacity\?\?materialOpacity,1,normalView\.dot\(positionViewDirection\)\.abs\(\)\.oneMinus\(\)\.pow\(5\)\.mul\(\.88\)\);/.test(surfaces),'glass');
 assert(/const t=uniform\(0\)\.onRenderUpdate\(\(\)=>time\.value\)/.test(surfaces)&&/\.oneMinus\(\)\.pow\(4\)\.mul\(\.92\)\);/.test(surfaces),'pool water');
+// The indoor sky light is baked and read there too: the same gathering as nodes, with a probe's row and its place in
+// the depth map turned over for that renderer; the same blend of eight probes in its shading language; and the light
+// from all round scaled before three uses it. Its 3D textures are made before a material reads them.
+const sky=fs.readFileSync('lib/house-model/sky-visibility.ts','utf8');
+assert(/const skyAtWgsl=`fn skyAt\(p:vec3<f32>,n:vec3<f32>,low:vec3<f32>,grid:vec3<f32>,cell:f32,linked:f32,volume:texture_3d<f32>,volumeSampler:sampler,reach:texture_3d<f32>\)->vec4<f32>\{/.test(sky));
+assert(/material\.vertexNode=vec4\(cell\.x,cell\.y\.negate\(\),0,1\);/.test(sky)&&/float\(\.5\)\.sub\(l\.y\.div\(l\.w\)\.mul\(\.5\)\),l\.z\.div\(l\.w\),1\)/.test(sky));
+assert(/slots\.indirect\.push\(context=>\{[\s\S]*?context\.irradiance\.mulAssign\(visible\);context\.radiance\.mulAssign\(mix\(1,visible,\.85\)\);/.test(sky));
+assert(/if\(gpu\)links\.needsUpdate=true;/.test(sky)&&/for\(const v of volumes\)r\.initRenderTarget\(v\);/.test(sky)&&/bake\?\.prepare\(\);lighting\.update\(/.test(viewer));
 // It draws no line loops.
 assert(!/T\.LineLoop/.test(lib),'no line loop in the model');
-console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky, sun and textured surfaces there.');
+console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky, sun, textured surfaces and indoor sky light there.');
