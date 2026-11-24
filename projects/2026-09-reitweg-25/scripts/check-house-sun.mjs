@@ -61,7 +61,15 @@ assert(sunset.dusk>.3&&lamp.intensity>0,'interior lamps come on at dusk');
  const c=scene.fog.color,haze=.2126*c.r+.7152*c.g+.0722*c.b;
  assert(haze<=HAZE_CAP*golden.key/Math.PI*1.001,`golden hour haze toward the sun is ${(haze*Math.PI/golden.key).toFixed(1)} white walls bright`);assert(c.r>c.b,'and stays warm');}
 const night=lighting.apply({enabled:true,day:355,minutes:0});
-assert.equal(sun.intensity,0,'no direct sunlight at night');assert(sun.visible&&lamps.visible,'the same lights at night as by day: no shader changes with the hour');
+// Moonlight: the same light stands where the moon does, cool and far below sunlight; none with the moon down.
+{const found={};
+ for(let day=1;day<=365&&!(found.up&&found.down);day+=3){const r=lighting.apply({enabled:true,day,minutes:0}),d=sun.position.clone().sub(sun.target.position).normalize();
+  if(r.moon.elevation>25&&r.moon.lit>.8&&!found.up){found.up=true;
+   assert(sun.intensity>0&&sun.intensity<noon.key*.01,'moonlight is a faint light, under a hundredth of the noon key');assert(sun.color.b>sun.color.r,'and a cool one');
+   assert(d.distanceTo(new T.Vector3(...sunDirection(r.moon.azimuth,r.moon.elevation)).normalize())<1e-9,'from where the moon stands');}
+  if(r.moon.elevation<-5&&!found.down){found.down=true;assert.equal(sun.intensity,0,'no light from a moon below the horizon');}}
+ assert(found.up&&found.down,'a moonlit and a moonless midnight in the year');}
+lighting.apply({enabled:true,day:355,minutes:0});assert(sun.visible&&lamps.visible,'the same lights at night as by day: no shader changes with the hour');
 assert(grey(night)<grey(sunset),'night is darker than sunset');
 assert(Number.isFinite(night.exposure)&&night.exposure>noon.exposure);
 const zenith=skyRadiance(new T.Vector3(0,1,0),new T.Vector3(...sunDirection(171,65)).normalize());
