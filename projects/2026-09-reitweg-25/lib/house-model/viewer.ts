@@ -20,7 +20,7 @@ import {createClouds} from './clouds';
 import {fitPng} from './photo-size';
 import type {CarModels} from './car-models';
 import {places,type Place,type CaptureState} from './experience-data';
-import {foliageMaterials,finishFoliage,drawTrees,seasonTrees} from './foliage';
+import {foliageMaterials,finishFoliage,detailLeaves,drawTrees,seasonTrees} from './foliage';
 import {createTreeOcclusion} from './tree-occlusion';
 import {createMotionResolution,type MotionResolution} from './motion-resolution';
 import {createRoomProbes,ROOM_PROBES} from './room-probes';
@@ -149,6 +149,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   options.onMaterials?.('loading');
   finishSurfaces(model.root,textures,waterTime,tier.weathered,tier.relief);finishSurfaces(stage,textures,waterTime);
   finishFoliage(model.root,textures.get('leaves'),textures.get('bark'));
+  if(tier.leafDetail&&foliage)detailLeaves(foliage);
   void textures.ready.then(()=>{options.onMaterials?.('ready');invalidate();});
  }
 
