@@ -10,6 +10,7 @@ import {finish} from './look';
 import {LENS,DepthCapture,SunShafts,Meter,DepthOfField,focalLength,meterCorrection} from './lens';
 import {renderAlbedo,SHARP} from './albedo-pass';
 import {CARRY,carryApplies} from './carry';
+import {ContactShadows} from './contact-shadows';
 
 /** Ambient occlusion at half resolution, with normals reconstructed from the main pass's
  * depth; no second scene render. */
@@ -178,7 +179,7 @@ function passMaterials(pass:Pass){
  * grain. */
 /** `afterScene`: runs right after the scene is drawn, its target still bound. */
 /** `lamps`: how far the evening lamps are on (0–1), for the white balance indoors (look.ts). */
-export type PostOptions={lamps?:()=>number;samples:number;ao:boolean;bloom:boolean;lens?:{sun:T.DirectionalLight};afterScene?:(renderer:T.WebGLRenderer,camera:T.Camera)=>void};
+export type PostOptions={lamps?:()=>number;samples:number;ao:boolean;bloom:boolean;lens?:{sun:T.DirectionalLight};/** Short shadows where things touch (contact-shadows.ts); needs `lens`. */contact?:boolean;afterScene?:(renderer:T.WebGLRenderer,camera:T.Camera)=>void};
 export type PostView={eyeLevel:boolean};
 export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions){
  const target=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,samples:options.samples,depthTexture:new T.DepthTexture(1,1)});
@@ -194,6 +195,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
  const lensCamera=options.lens&&camera instanceof T.PerspectiveCamera?camera:undefined;
  const depth=lensCamera?new DepthCapture(lensCamera):undefined;
  if(depth)composer.insertPass(depth,1);
+ if(depth&&lensCamera&&options.lens&&options.contact)composer.addPass(new ContactShadows(lensCamera,options.lens.sun,depth.target.texture));
  // What falls over the finished frame (snowfall.ts) hides behind the scene by this copy of its depth, in metres from the
  // camera, taken as the scene is drawn: the scene's own depth buffer does not outlast every pass after it (the lens's).
  let fallDepth=depth;

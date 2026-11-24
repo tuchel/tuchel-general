@@ -55,6 +55,7 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // Spruce takes the honey-orange of the upstairs rafters in the owner's photos (IMG_1502).
  m.spruce.userData.finish='spruce';
  for(const [key,surface] of Object.entries({garage:'cladding',wall:'cladding',roof:'roof',floor:'oak',stone:'stone',paving:'stone',lawn:'lawn',leaf:'foliage',wood:'oak',tile:'stone',fabric:'linen',blind:'linen'}))m[key as keyof typeof m].userData.photo=surface;
+ m.paving.userData.weather='paving';
  // Lamplight through the glazing onto the ground outside, added to what is there: lighting.ts fades it in with the lamps.
  const spill=new T.MeshBasicMaterial({color:new T.Color('#ffd9a8').multiplyScalar(SPILL.radiance),vertexColors:true,transparent:true,opacity:0,blending:T.AdditiveBlending,depthWrite:false,fog:false,side:T.DoubleSide});spill.userData.lampSpill=true;
  const glass=new T.MeshPhysicalMaterial({color:'#bdcfcd',transparent:true,opacity:.38,roughness:.14,metalness:.12,depthWrite:false,side:T.DoubleSide});
