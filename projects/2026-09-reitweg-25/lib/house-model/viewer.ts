@@ -358,6 +358,13 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   // While the sky light is baking, a resting view draws once and waits: frames refined before it lands would be thrown
   // away, and the bake finishes sooner without them.
   const still=!motion&&!moving&&now-lastChange>REST,waiting=!!bake?.baking&&!elsewhere,refine=!!post&&still&&post.accumulated<(waiting?1:tier.refineFrames);
+  // A room's reflection bakes a face a frame in the whole-house view, until all are in. They show only while the camera
+  // is in one of the rooms: there the view is drawn again as they land; seen from outside, a new sun's bake changes
+  // nothing on screen, and the view rests, refines and hands over to tracing while it runs.
+  // After sunset the sun lights nothing, and nothing else casts a shadow: its shadow map is left as it is until the
+  // sun's next move (lighting.ts, apply) asks for it again.
+  if(lighting&&!(lighting.sun.intensity>0))renderer.shadowMap.needsUpdate=false;
+  if(probes&&post&&level==='exterior'&&!captures?.active&&probes.baking){const landed=probes.step(rig.camera);if(probes.active||(landed&&rig.eyeLevel)){if(landed)post.reset();needsFrame=true;}}
   if(panorama&&still&&!captures?.active){
    const p=rig.camera.position;
    if(Math.abs(p.y-panorama.userData.anchorHeight())>.5||Math.hypot(p.x-panoramaAt.x,p.z-panoramaAt.z)>4){panorama.userData.anchor(p.y);panoramaAt.copy(p);live?.invalidate();}
@@ -402,9 +409,6 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    const jitter=still&&post.accumulated>0;
    if(jitter){const i=post.accumulated,size=renderer.getDrawingBufferSize(buffer);camera.setViewOffset(size.x,size.y,halton(i,2)-.5,halton(i,3)-.5,size.x,size.y);}
    if(motion&&captures?.breezing&&tier.photographic)renderer.shadowMap.needsUpdate=true;
-   // A room's reflection bakes a face a frame in the whole-house view, until all are in; they show while the camera is
-   // in one of the rooms.
-   if(probes&&level==='exterior'&&!captures?.active){if(probes.step(rig.camera))post.reset();if(probes.baking)needsFrame=true;}
    probes?.setCamera(rig.camera);
    cullTrees(low);
    if(mirror)timed('mirror',()=>mirror.render());post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel});
@@ -441,6 +445,32 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    const done=post?post.compileAsync(scene):renderer.compileAsync(scene,camera);
    model.setLevel(level);for(const [o,v] of shown)o.visible=v;
    await done.catch(()=>{});
+  }
+  await winter();
+ };
+ // What only winter shows (the roofs' packed snow, the Christmas tree) is made ready once the view is up: the snow
+ // layers are cut a roof at a time, then each mesh's shaders compile in the background and are drawn once out of sight
+ // (post.warm), a mesh at a time. Left to the day the snow first lies, all of it held the page for half a second.
+ const winter=async()=>{
+  if(!post||!slabs)return;
+  const breath=()=>new Promise(resolve=>setTimeout(resolve,30));
+  await slabs.prepare(breath);if(disposed)return;
+  const meshes:T.Mesh[]=[...slabs.meshes];festive?.group.traverse(o=>{if(o instanceof T.Mesh)meshes.push(o);});
+  const lights:T.Object3D[]=[];scene.traverse(o=>{if((o as T.Light).isLight)lights.push(o);});
+  for(const mesh of meshes){
+   if(disposed)return;
+   // Shown for the moment its shaders are gathered and for its one draw, with whatever hides it, then put back.
+   const hidden:T.Object3D[]=[];for(let a:T.Object3D|null=mesh;a;a=a.parent)if(!a.visible)hidden.push(a);
+   const show=(on:boolean)=>{for(const o of hidden)o.visible=on;};
+   show(true);const compiled=post.compileAsync(mesh);show(false);
+   await compiled.catch(()=>{});if(disposed)return;
+   const lens=rig.camera.clone(),layers=mesh.layers.mask,culled=mesh.frustumCulled;lens.layers.set(WARM);
+   for(const o of lights)o.layers.enable(WARM);
+   show(true);mesh.frustumCulled=false;mesh.layers.set(WARM);
+   post.warm(lens);
+   show(false);mesh.frustumCulled=culled;mesh.layers.mask=layers;
+   for(const o of lights)o.layers.disable(WARM);
+   await breath();
   }
  };
  size();view('courtyard',true);

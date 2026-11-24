@@ -140,6 +140,8 @@ export function createRoomProbes(renderer:T.WebGLRenderer,scene:T.Scene,receiver
    uniforms.uRoomActive.value=boxes?.some(({box},i)=>uniforms.uRoomReady.value[i]>.5&&box.containsPoint(from))?1:0;
   },
   get boxes(){return boxes;},
+  /** True while the camera stands in a baked room, where the reflections show (as of the last `setCamera`). */
+  get active(){return uniforms.uRoomActive.value>.5;},
   /** Rooms still to bake. */
   get baking(){return dirty||done.size<count;},
   dispose:()=>{maps.dispose();cube.dispose();convert.dispose();(convert.material as T.Material).dispose();},
