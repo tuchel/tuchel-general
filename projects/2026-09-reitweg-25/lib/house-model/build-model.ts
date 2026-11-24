@@ -605,13 +605,16 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  // in groups of their own.
  const gardenTrees:readonly (readonly [number,number,number,number?,TreeKind?,(readonly [number,number,number])?,(readonly [number,number])?])[]=[...treePositions,...FRUIT_TREES,...SHRUBS,...MEADOW_TREES,...EAST_GARDEN_TREES];
  const cleared=(x:number,z:number)=>GARAGE_CLEARS.some(([a,b])=>a===x&&b===z);
- const specs:TreeSpec[]=[...gardenTrees.map((t,i)=>{const [px,pz,r,height,kind,tint,lean]=t,[x,z]=s(px,pz),seed=171+i*927;return {x,z,r,height:height??r*1.35+1.7,seed,tint,lean,part:cleared(px,pz)?'garden-trees-cleared':undefined,kind:kind??([171,1098,2025,4806,5733].includes(seed)?'pine':i%5===3&&i<treePositions.length?'maple':'broadleaf')} as TreeSpec;}),
+ // A tree whose trunk would stand in the Winter Garden, at the ground or where it leans through the glass roof, is
+ // felled for it: it goes when that renovation is on.
+ const inWinterGarden=(x:number,z:number,height:number,[lx,lz]:readonly [number,number]=[0,0])=>[0,2.8].some(y=>[[0,0],[.35,0],[-.35,0],[0,.35],[0,-.35]].some(([dx,dz])=>within(x+lx*y/height+dx,z+lz*y/height+dz,winterGardenOutline)));
+ const specs:TreeSpec[]=[...gardenTrees.map((t,i)=>{const [px,pz,r,height,kind,tint,lean]=t,[x,z]=s(px,pz),seed=171+i*927;const tall=height??r*1.35+1.7;return {x,z,r,height:tall,seed,tint,lean,part:cleared(px,pz)?'garden-trees-cleared':inWinterGarden(x,z,tall,lean)?'garden-trees-winter-garden':undefined,kind:kind??([171,1098,2025,4806,5733].includes(seed)?'pine':i%5===3&&i<treePositions.length?'maple':'broadleaf')} as TreeSpec;}),
   ...CHERRIES.map(([px,pz,r,height,kind],i)=>{const [x,z]=s(px,pz);return {x,z,r,height,kind,seed:7001+i*389,part:'garden-trees-cherries'} as TreeSpec;})];
- const treeParts={cleared:new T.Group(),cherries:new T.Group()};
- if(foliage){const built=buildTrees(specs,foliage,'garden-trees');trees.add(built);treeParts.cleared=built.getObjectByName('garden-trees-cleared') as T.Group;treeParts.cherries=built.getObjectByName('garden-trees-cherries') as T.Group;}
- else{treeParts.cleared.name='garden-trees-cleared';treeParts.cherries.name='garden-trees-cherries';trees.add(treeParts.cleared,treeParts.cherries);}
- (originals.garage??=[]).push(treeParts.cleared);(additions.garage??=[]).push(treeParts.cherries);treeParts.cherries.visible=false;
- specs.forEach((t,i)=>{if(realistic)return;const {x,z,r,height,kind,lean:[lx,lz]=[0,0]}=t,parent=t.part==='garden-trees-cleared'?treeParts.cleared:t.part?treeParts.cherries:trees,lean=(y:number)=>[lx*y/height,lz*y/height];const trunk=add(cylinderGeo,m.trunk,parent);trunk.scale.set(.1,height*.68,.1);trunk.position.set(x,height*.34,z);
+ const treeParts={cleared:new T.Group(),cherries:new T.Group(),glazed:new T.Group()};
+ if(foliage){const built=buildTrees(specs,foliage,'garden-trees');trees.add(built);treeParts.cleared=built.getObjectByName('garden-trees-cleared') as T.Group;treeParts.cherries=built.getObjectByName('garden-trees-cherries') as T.Group;treeParts.glazed=(built.getObjectByName('garden-trees-winter-garden')??treeParts.glazed) as T.Group;}
+ else{treeParts.cleared.name='garden-trees-cleared';treeParts.cherries.name='garden-trees-cherries';treeParts.glazed.name='garden-trees-winter-garden';trees.add(treeParts.cleared,treeParts.cherries,treeParts.glazed);}
+ (originals.garage??=[]).push(treeParts.cleared);(additions.garage??=[]).push(treeParts.cherries);treeParts.cherries.visible=false;(originals.kitchen??=[]).push(treeParts.glazed);
+ specs.forEach((t,i)=>{if(realistic)return;const {x,z,r,height,kind,lean:[lx,lz]=[0,0]}=t,parent=t.part==='garden-trees-cleared'?treeParts.cleared:t.part==='garden-trees-winter-garden'?treeParts.glazed:t.part?treeParts.cherries:trees,lean=(y:number)=>[lx*y/height,lz*y/height];const trunk=add(cylinderGeo,m.trunk,parent);trunk.scale.set(.1,height*.68,.1);trunk.position.set(x,height*.34,z);
   for(let k=0;k<5;k++){const angle=k*2.4+i,dx=Math.cos(angle)*r*.52+lean(height-r*.2)[0],dz=Math.sin(angle)*r*.52+lean(height-r*.2)[1];segment(parent,[x,height*.43,z],[x+dx,height-r*.2,z+dz],.06,m.trunk);}
   // Seeded, overlapping lobes give each crown an irregular, airy silhouette; a cherry's are its blossom.
   let seed=t.seed;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
