@@ -6,12 +6,12 @@ import {Pass,FullScreenQuad} from 'three/addons/postprocessing/Pass.js';
  * frame's depth, is looked up where the last frame saw it, so what the view had gathered (clean edges, corner shading,
  * full resolution) travels with the camera, and each moving frame, drawn smaller and jittered, adds `blend` of itself.
  * Nothing in the scene moves but the camera, so the look-up is exact; where the last frame's depth disagrees (a point
- * the move uncovered, a walking figure) the kept colour is held to what the new frame shows around that pixel.
+ * the move uncovered, a walking figure) the new frame shows as it is.
  * `blend`: the share a moving frame adds where its pixel's centre lies, falling by `falloff` with the squared distance
  * from it (in its pixels); `carry`: the frames a view that comes to rest counts its moving image as, so the first still frame refines it rather
  * than replacing it; `tolerance`: how far (a share of the distance, plus 5 cm) the kept depth may differ; `slack`: how
  * far past the new frame's neighbouring colours a kept colour may stand, as a share of their range. */
-export const TEMPORAL={blend:.14,falloff:3,carry:2,tolerance:.03,slack:.5};
+export const TEMPORAL={blend:.14,falloff:3,carry:2,tolerance:.03,slack:.2};
 
 const vertex='varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}';
 export class TemporalPass extends Pass{
@@ -60,9 +60,10 @@ export class TemporalPass extends Pass{
      for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){if(x==0&&y==0)continue;vec3 n=texture2D(current,near+vec2(float(x),float(y))/drawn).rgb;lo=min(lo,n);hi=max(hi,n);}
      vec3 slack=(hi-lo)*${TEMPORAL.slack.toFixed(2)}*seen+0.002*seen;
      vec3 kept=clamp(keptAt(at),lo-slack,hi+slack);
+     // A point the move uncovered has no kept colour: it shows the new frame, or what passed in front would trail.
      // A frame drawn smaller says most about the full-size pixels its own pixels' centres fall on: there it counts
      // in full, between them less, which is how jittered small frames add up to a full-size image.
-     gl_FragColor=vec4(seen>0.5?mix(kept,mine,weight*exp(-${TEMPORAL.falloff.toFixed(1)}*dot(off,off))):mix(kept,c,weight),1.0);
+     gl_FragColor=vec4(seen>0.5?mix(kept,mine,weight*exp(-${TEMPORAL.falloff.toFixed(1)}*dot(off,off))):c,1.0);
     }`,depthTest:false,depthWrite:false});
   this.copying=new T.ShaderMaterial({uniforms:{source:{value:null as T.Texture|null}},vertexShader:vertex,fragmentShader:'uniform sampler2D source;varying vec2 vUv;void main(){gl_FragColor=texture2D(source,vUv);}',depthTest:false,depthWrite:false});
   this.quad=new FullScreenQuad(this.material);this.copy=new FullScreenQuad(this.copying);
