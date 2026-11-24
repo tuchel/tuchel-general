@@ -37,11 +37,12 @@ seasonTrees(root,materials,75);assert(materials.fall.shed.value>1&&materials.fal
 seasonTrees(root,materials,SHED.flush[0]);assert.equal(materials.fall.shed.value,1,'the flush opens from what it always did');
 seasonTrees(root,materials,JAN);
 assert(materials.fall.shed.value*SHED.bare>1.06,'no leaf is left on a card in January');
+assert.equal(materials.fall.twig.value,1,'the cards are drawn as twigs in January');
 for(const set of sets){
  if(!sheds(set)){assert(meshes(set).every(m=>m.visible)&&!set.bare,`${set.kind} keeps its crown in January`);continue;}
  assert(set.bare,`${set.kind} is bare in January`);
  for(const m of meshes(set)){const card=m.material===materials.fall.leaves;
-  assert(!m.visible,`${m.name}: nothing but limbs is left on a bare tree`);
+  assert.equal(m.visible,card,`${m.name}: limbs and their twigs are left on a bare tree`);
   if(card)assert(m.userData.skipPhotographic,'the path tracer sees a bare tree as limbs alone');}
  for(const m of set.lod??[])if(m.material===materials.fall.leaves)assert(m.castShadow,'a bare modelled tree casts its thinned crown');
  assert(set.bark.visible,'limbs stay');

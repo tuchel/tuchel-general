@@ -692,6 +692,6 @@ export function buildHouseModel(realistic=false,setting?:T.Object3D,foliageIn?:R
  const applyState=(index:number)=>{setLevel(levels[Math.floor(index/combinations)]);setRenovations({...renovationState(),...Object.fromEntries(stateIds.map((id,i)=>[id,!!(index&(1<<i))]))});for(const o of toggled)o.visible=true;};
  // Upper-floor rooms stay visible behind the roofs in the whole-house view.
  const rendered=(mesh:T.Object3D)=>{for(let o:T.Object3D|null=mesh;o;o=o.parent){if(o.visible||o===basement)continue;if(o===upper&&currentLevel==='exterior'&&mesh.userData.alsoExterior)continue;return false;}return true;};
- return {root,site,trees,upper,basement,ceilings,pickables,detail,setRenovations,setLevel,dispose,stateCount:levels.length*combinations,stateOf,applyState,rendered,toggled,addCars};
+ return {root,site,trees,upper,basement,ceilings,pickables,detail,setRenovations,setLevel,dispose,/** The house's parts in plan (main house, guest wing, link), and whether a point is inside one. */footprints:{outlines:[mainFootprint,guestOutline,linkOutline],indoors},stateCount:levels.length*combinations,stateOf,applyState,rendered,toggled,addCars};
 }
 export const levels:Level[]=['exterior','ground','upper','basement'];
