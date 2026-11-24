@@ -26,16 +26,17 @@ export function reproject(uv:T.Vector2,depth:number,camera:T.Camera,kept:KeptVie
 
 /** Traced light that stays while the camera moves (Extreme; post.ts). When a traced image is shown, what it changed is
  * kept as well: the traced image over the live one, point by point (held between `least` and `most`), which is light
- * and not surface. Moving frames are multiplied by it where the traced view saw the same point, so the traced view's
+ * and not surface, read `fine` levels down so that only broad light is carried. Moving frames are multiplied by it where the traced view saw the same point, so the traced view's
  * bounced light and soft shadows stay on the walls while the live frame supplies surfaces, reflections and what moves.
  * In full within `full` of `move` m and of `turn` (radians) from the traced view, then fading to none at those limits;
  * a point the traced view did not see, or saw within `edge` of its frame's border, takes the light of that part of the
  * frame as a whole (the kept image `coarse` levels down). */
-export const LIGHT_CARRY={move:4,turn:T.MathUtils.degToRad(60),full:.6,edge:.08,least:.25,most:4,coarse:6};
-/** How much (0–1) of the kept view's light `camera`'s view carries. */
-export function lightCarried(kept:T.Camera,camera:T.Camera){
+export const LIGHT_CARRY={move:4,turn:T.MathUtils.degToRad(60),full:.6,edge:.08,least:.25,most:4,coarse:6,fine:2,share:.3};
+/** How much (0–1) of the kept view's light `camera`'s view carries; `looked`: how far (m) the kept view was from what it
+ * looked at: from further off the range in metres grows to `share` of that distance. */
+export function lightCarried(kept:T.Camera,camera:T.Camera,looked=0){
  const a=kept.getWorldPosition(new T.Vector3()),b=camera.getWorldPosition(new T.Vector3());
- const gone=Math.max(a.distanceTo(b)/LIGHT_CARRY.move,kept.getWorldDirection(new T.Vector3()).angleTo(camera.getWorldDirection(new T.Vector3()))/LIGHT_CARRY.turn);
+ const gone=Math.max(a.distanceTo(b)/Math.max(LIGHT_CARRY.move,looked*LIGHT_CARRY.share),kept.getWorldDirection(new T.Vector3()).angleTo(camera.getWorldDirection(new T.Vector3()))/LIGHT_CARRY.turn);
  return 1-T.MathUtils.smoothstep(gone,LIGHT_CARRY.full,1);
 }
 export const lightCarryGlsl=`uniform sampler2D frame;uniform sampler2D ratio;uniform sampler2D depth;uniform sampler2D prevDepth;uniform float amount;uniform mat4 prevViewProj;uniform mat4 prevView;uniform mat4 invProj;uniform mat4 camWorld;varying vec2 vUv;
@@ -46,5 +47,5 @@ export const lightCarryGlsl=`uniform sampler2D frame;uniform sampler2D ratio;uni
   float valid=clip.w>0.0&&abs(texture2D(prevDepth,at).r-expected)<${CARRY.tolerance}*expected+0.05?smoothstep(0.0,${LIGHT_CARRY.edge.toFixed(2)},min(min(at.x,at.y),min(1.0-at.x,1.0-at.y))):0.0;
   // A point the traced view did not see takes the light of that part of the frame as a whole, so no patch of live
   // light opens beside what passes in front.
-  gl_FragColor=vec4(c.rgb*mix(vec3(1.0),mix(texture2D(ratio,clamp(at,0.0,1.0),${LIGHT_CARRY.coarse.toFixed(1)}).rgb,texture2D(ratio,at).rgb,valid),amount),c.a);
+  gl_FragColor=vec4(c.rgb*mix(vec3(1.0),mix(texture2D(ratio,clamp(at,0.0,1.0),${LIGHT_CARRY.coarse.toFixed(1)}).rgb,texture2D(ratio,at,${LIGHT_CARRY.fine.toFixed(1)}).rgb,valid),amount),c.a);
  }`;
