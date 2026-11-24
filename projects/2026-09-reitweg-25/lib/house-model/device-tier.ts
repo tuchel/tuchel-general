@@ -30,6 +30,8 @@ export type TierSettings={
  /** Outdoor surfaces show weather (surface-materials.ts), and things cast short shadows where they touch
   * (contact-shadows.ts). */
  weathered:boolean;
+ /** Wet ground mirrors the scene while it rains (wet-reflections.ts). */
+ wetMirror:boolean;
  /** Resolution of moving frames relative to still ones (1: the same). */
  motionScale:number;
  /** The garage's cars: modelled (car-models.ts) or none. A modelled car whose file fails keeps its traced stand-in
@@ -37,15 +39,15 @@ export type TierSettings={
  cars:'modelled'|'none';
 };
 export const tiers:Record<Quality,TierSettings>={
- extreme:{quality:'extreme',bounces:4,treeOcclusion:true,steerMotion:true,roomProbes:true,pixelRatio:3,samples:4,shadowSize:4096,ao:true,bloom:true,refineFrames:32,textureSize:1024,farWoodland:1,grass:true,skyBake:true,photographic:true,sunBounce:32,trees:'leaves',liveTrace:true,lens:true,clouds:true,poolMirror:true,scanned:true,weathered:true,motionScale:.7,cars:'modelled'},
- detailed:{quality:'detailed',bounces:4,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:2,samples:4,shadowSize:4096,ao:true,bloom:true,refineFrames:24,textureSize:1024,farWoodland:1,grass:true,skyBake:true,photographic:true,sunBounce:32,trees:'leaves',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,weathered:false,motionScale:.7,cars:'modelled'},
- balanced:{quality:'balanced',bounces:4,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:1.5,samples:2,shadowSize:2048,ao:true,bloom:false,refineFrames:8,textureSize:512,farWoodland:.45,grass:false,skyBake:true,photographic:false,sunBounce:24,trees:'hybrid',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,weathered:false,motionScale:1,cars:'none'},
- model:{quality:'model',bounces:1,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:1.75,samples:4,shadowSize:2048,ao:false,bloom:false,refineFrames:0,textureSize:512,farWoodland:0,grass:false,skyBake:false,photographic:false,sunBounce:0,trees:'hybrid',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,weathered:false,motionScale:1,cars:'none'},
+ extreme:{quality:'extreme',bounces:4,treeOcclusion:true,steerMotion:true,roomProbes:true,pixelRatio:3,samples:4,shadowSize:4096,ao:true,bloom:true,refineFrames:32,textureSize:1024,farWoodland:1,grass:true,skyBake:true,photographic:true,sunBounce:32,trees:'leaves',liveTrace:true,lens:true,clouds:true,poolMirror:true,scanned:true,weathered:true,wetMirror:true,motionScale:.7,cars:'modelled'},
+ detailed:{quality:'detailed',bounces:4,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:2,samples:4,shadowSize:4096,ao:true,bloom:true,refineFrames:24,textureSize:1024,farWoodland:1,grass:true,skyBake:true,photographic:true,sunBounce:32,trees:'leaves',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,weathered:false,wetMirror:false,motionScale:.7,cars:'modelled'},
+ balanced:{quality:'balanced',bounces:4,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:1.5,samples:2,shadowSize:2048,ao:true,bloom:false,refineFrames:8,textureSize:512,farWoodland:.45,grass:false,skyBake:true,photographic:false,sunBounce:24,trees:'hybrid',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,weathered:false,wetMirror:false,motionScale:1,cars:'none'},
+ model:{quality:'model',bounces:1,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:1.75,samples:4,shadowSize:2048,ao:false,bloom:false,refineFrames:0,textureSize:512,farWoodland:0,grass:false,skyBake:false,photographic:false,sunBounce:0,trees:'hybrid',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,weathered:false,wetMirror:false,motionScale:1,cars:'none'},
 };
 /** Extreme on a phone, for someone who asked for it past the menu's warning: Extreme's scene, lens, weather and
- * surfaces, at what a phone's graphics memory holds. No path tracing or room reflections, twice the screen's points at
+ * surfaces, at what a phone's graphics memory holds. No path tracing, room reflections or mirroring wet ground, twice the screen's points at
  * most, Detailed-on-a-phone's shadow map and multisampling, and half the refining frames. */
-export const PHONE_EXTREME={pixelRatio:2,shadowSize:2048,samples:2,refineFrames:16,liveTrace:false,roomProbes:false,motionScale:.6} as const;
+export const PHONE_EXTREME={pixelRatio:2,shadowSize:2048,samples:2,refineFrames:16,liveTrace:false,roomProbes:false,wetMirror:false,motionScale:.6} as const;
 /** The settings a viewer runs with. Detailed on a phone keeps the scene, materials and light, but fits a phone
  * browser's graphics memory: a 2048 shadow map and 2× multisampling need about 160 MB less at phone size. Extreme is
  * for a computer's graphics card; a phone given it runs Detailed, unless its user chose it past the warning

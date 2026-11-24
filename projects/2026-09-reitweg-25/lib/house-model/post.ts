@@ -13,6 +13,7 @@ import {CARRY,carryApplies} from './carry';
 import {ContactShadows} from './contact-shadows';
 import {MistPass,MIST,mistGlsl} from './mist';
 import {MotionBlur} from './motion-blur';
+import {WetReflections} from './wet-reflections';
 
 /** Ambient occlusion at half resolution, with normals reconstructed from the main pass's
  * depth; no second scene render. */
@@ -183,7 +184,7 @@ function passMaterials(pass:Pass){
  * grain. */
 /** `afterScene`: runs right after the scene is drawn, its target still bound. */
 /** `lamps`: how far the evening lamps are on (0–1), for the white balance indoors (look.ts). */
-export type PostOptions={lamps?:()=>number;samples:number;ao:boolean;bloom:boolean;lens?:{sun:T.DirectionalLight};/** Short shadows where things touch (contact-shadows.ts); needs `lens`. */contact?:boolean;/** Ground mist at daybreak (mist.ts); needs `lens`. */mist?:boolean;afterScene?:(renderer:T.WebGLRenderer,camera:T.Camera)=>void};
+export type PostOptions={lamps?:()=>number;samples:number;ao:boolean;bloom:boolean;lens?:{sun:T.DirectionalLight};/** Short shadows where things touch (contact-shadows.ts); needs `lens`. */contact?:boolean;/** Ground mist at daybreak (mist.ts); needs `lens`. */mist?:boolean;/** Wet ground mirrors the scene (wet-reflections.ts); needs `lens`. */wetMirror?:boolean;afterScene?:(renderer:T.WebGLRenderer,camera:T.Camera)=>void};
 export type PostView={eyeLevel:boolean};
 export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions){
  const target=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,samples:options.samples,depthTexture:new T.DepthTexture(1,1)});
@@ -200,6 +201,8 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
  const depth=lensCamera?new DepthCapture(lensCamera):undefined;
  if(depth)composer.insertPass(depth,1);
  if(depth&&lensCamera&&options.lens&&options.contact)composer.addPass(new ContactShadows(lensCamera,options.lens.sun,depth.target.texture));
+ const mirror=depth&&lensCamera&&options.wetMirror?new WetReflections(lensCamera,depth.target.texture):undefined;
+ if(mirror){mirror.enabled=false;composer.addPass(mirror);}
  const mist={value:new T.Vector4()},mistPass=depth&&lensCamera&&options.mist?new MistPass(lensCamera,depth.target.texture,mist):undefined;
  if(mistPass){mistPass.enabled=false;composer.addPass(mistPass);}
  const blur=depth&&lensCamera&&options.mist?new MotionBlur(lensCamera,depth.target.texture):undefined;
@@ -281,7 +284,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
  return {
   composer,
   /** The chain's passes by name, for the performance readout (perf-readout.ts). */
-  passes:([['scene',scenePass],['depth',depth],['ao',ao],['bloom',bloom],['shafts',shafts],['meter',meter],['accumulate',accumulate],['focus',focusPass],['output',output]] as [string,Pass|undefined][]).filter((p):p is [string,Pass]=>!!p[1]),
+  passes:([['scene',scenePass],['depth',depth],['ao',ao],['wet mirror',mirror],['bloom',bloom],['shafts',shafts],['meter',meter],['accumulate',accumulate],['focus',focusPass],['output',output]] as [string,Pass|undefined][]).filter((p):p is [string,Pass]=>!!p[1]),
   setSize:(width:number,height:number,ratio:number)=>{composer.setPixelRatio(ratio);composer.setSize(width,height);},
   /** Compiles `object`'s shaders in the background (renderer.compileAsync) as the scene pass draws it: into the chain's
    * own target, so without tone mapping or output encoding, which belong to the last pass. */
@@ -315,6 +318,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
    const f=output.set(indoor);output.uniforms.uP3.value=renderer.outputColorSpace===DisplayP3ColorSpace?1:0;
    if(ao){ao.enabled=refining;ao.blendIntensity=f.occlusion;}
    if(!refining){accumulate.frames=0;shafts?.reset();}
+   if(mirror)mirror.enabled=mirror.wet;
    blur?.frame(!refining);
    accumulate.enabled=refining;
    if(shafts)shafts.indoor=indoor;
