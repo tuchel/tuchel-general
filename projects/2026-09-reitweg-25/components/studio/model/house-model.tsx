@@ -90,11 +90,13 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
   // Detailed and Extreme show modelled cars, loaded beside the viewer's code; the viewer starts without waiting for them
   // and adds them once its first frame is drawn.
   const cars=tiers[quality].cars==='modelled'?import('@/lib/house-model/car-models').then(m=>m.loadCarModels()).catch(error=>{console.warn('Car models',error);return undefined;}):undefined;
-  import('@/lib/house-model/viewer').then(({createHouseViewer})=>{
+  import('@/lib/house-model/viewer').then(async({createHouseViewer,drawnWithWebGPU})=>{
+   // `?renderer=webgpu`: three's WebGPU renderer, for the presets it can draw (viewer.ts, drawnWithWebGPU).
+   const webgpu=drawnWithWebGPU(quality)&&new URLSearchParams(window.location.search).get('renderer')==='webgpu'?await import('three/webgpu').catch(()=>undefined):undefined;
    if(cancelled||!host.current)return;
    try{
     api.current=createHouseViewer(host.current,{
-     quality,extremeOnPhone:quality==='extreme'&&!computer,cars,onSelect:r=>{setRegion(r);setPanel(null);},onReady:()=>setReady(true),onError:fail,onCapture:setCapture,onMaterials:setMaterials,
+     quality,extremeOnPhone:quality==='extreme'&&!computer,cars,webgpu,onSelect:r=>{setRegion(r);setPanel(null);},onReady:()=>setReady(true),onError:fail,onCapture:setCapture,onMaterials:setMaterials,
      onWander:setWandered,onHeading:deg=>{if(compass.current)compass.current.style.transform=`rotate(${deg}deg)`;},
      onRequest:()=>{const next=levelRef.current==='exterior'?'courtyard':'top';setView(next);setRegion(null);api.current?.view(next);},
     });

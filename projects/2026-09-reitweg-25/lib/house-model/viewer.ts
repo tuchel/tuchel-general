@@ -67,7 +67,17 @@ export type ViewerOptions={
   * stand in for any missing. */
  cars?:Promise<CarModels|undefined>;
  onMaterials?:(status:'loading'|'ready')=>void;
+ /** `?renderer=webgpu`: three's WebGPU renderer and its environment filter, loaded by the caller. Drawn with it are the
+  * presets whose every shader it can build; so far that is Model. */
+ webgpu?:WebGPUKit;
 };
+/** What the viewer needs from `three/webgpu`. */
+export type WebGPUKit={
+ WebGPURenderer:new(options:{antialias:boolean;powerPreference:'high-performance'})=>unknown;
+ PMREMGenerator:new(renderer:never)=>{fromScene(scene:T.Scene,sigma:number):{texture:T.Texture;dispose():void};dispose():void};
+};
+/** Whether a preset is drawn with the WebGPU renderer when it is asked for. */
+export const drawnWithWebGPU=(quality:Quality)=>quality==='model';
 /** A dragged sun re-traces bounced light and the traced scene once it has been still this long (ms). */
 const SUN_SETTLE=150;
 /** A view is at rest once nothing has changed for this long (ms). */
@@ -81,7 +91,9 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const tier=tierFor(options.quality,undefined,options.extremeOnPhone),realistic=tier.quality!=='model';
  // Whether to try for a screen brighter than white (hdr.ts).
  const bright=tier.hdr&&hdrWanted();
- const renderer=new T.WebGLRenderer({antialias:!realistic,alpha:false,stencil:false,powerPreference:'high-performance'});
+ const gpu=drawnWithWebGPU(tier.quality)?options.webgpu:undefined;
+ // The WebGPU renderer is used through the calls the two share; where they differ, `gpu` decides.
+ const renderer=(gpu?new gpu.WebGPURenderer({antialias:true,powerPreference:'high-performance'}):new T.WebGLRenderer({antialias:!realistic,alpha:false,stencil:false,powerPreference:'high-performance'})) as T.WebGLRenderer;
  // Floor views cut roofs at the wall height with per-material clipping.
  renderer.localClippingEnabled=true;
  renderer.setPixelRatio(Math.min(window.devicePixelRatio,tier.pixelRatio));
@@ -135,11 +147,12 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // Extreme: ray-marched cumulus and their shadows (clouds.ts).
  const clouds=realistic&&tier.clouds?createClouds(renderer):undefined;
  const lighting=realistic?createLighting(renderer,scene,model.root,{shadowSize:tier.shadowSize,clouds,soft:softened}):undefined;
- let sun:T.DirectionalLight,environment:T.WebGLRenderTarget|undefined;
+ let sun:T.DirectionalLight,environment:{texture:T.Texture;dispose():void}|undefined;
  if(lighting){sun=lighting.sun;if(festive)lighting.lamps.add(festive.glow);lighting.apply(initialSunStudy);lighting.fitShadow(SITE_CENTER,SITE_RADIUS);}
  else{
-  const pmrem=new T.PMREMGenerator(renderer),room=new RoomEnvironment();environment=pmrem.fromScene(room,.05);room.dispose();pmrem.dispose();
-  scene.environment=environment.texture;scene.environmentIntensity=.3;scene.add(new T.HemisphereLight('#fffdf1','#b7bba7',1.5));
+  // The WebGPU renderer filters its environment once its device is ready (below).
+  if(!gpu){const pmrem=new T.PMREMGenerator(renderer),room=new RoomEnvironment();environment=pmrem.fromScene(room,.05);room.dispose();pmrem.dispose();scene.environment=environment.texture;}
+  scene.environmentIntensity=.3;scene.add(new T.HemisphereLight('#fffdf1','#b7bba7',1.5));
   sun=new T.DirectionalLight('#fff4de',2.4);sun.position.set(-25,55,25);sun.castShadow=true;sun.shadow.mapSize.set(tier.shadowSize,tier.shadowSize);
   Object.assign(sun.shadow.camera,{left:-60,right:65,top:65,bottom:-60,near:1,far:180});sun.shadow.bias=-.00015;sun.shadow.normalBias=.06;sun.shadow.radius=3;scene.add(sun);
  }
@@ -603,6 +616,17 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   const passes=[post?.compilePasses(),bake?.compileAsync()];
   lighting.update(camera,performance.now());cullTrees(false);
   Promise.all([post?post.compileAsync(scene):renderer.compileAsync(scene,camera),...passes]).then(begin,begin);
+ }
+ else if(gpu){
+  // It keeps a shadow's redraw on the light, and has no device until `init` resolves.
+  sun.shadow.autoUpdate=false;
+  Object.defineProperty(renderer.shadowMap,'needsUpdate',{set:(on:boolean)=>{if(on)sun.shadow.needsUpdate=true;},get:()=>sun.shadow.needsUpdate});
+  void (renderer as unknown as {init():Promise<unknown>;backend:{isWebGPUBackend?:boolean}}).init().then(()=>{
+   if(disposed)return;
+   canvas.dataset.renderer=(renderer as unknown as {backend:{isWebGPUBackend?:boolean}}).backend.isWebGPUBackend?'webgpu':'webgpu-on-webgl2';
+   const pmrem=new gpu.PMREMGenerator(renderer as never),room=new RoomEnvironment();environment=pmrem.fromScene(room,.05);room.dispose();pmrem.dispose();
+   scene.environment=environment.texture;sun.shadow.needsUpdate=true;begin();
+  },error=>{console.warn('WebGPU renderer',error);options.onError();});
  }
  else begin();
 
