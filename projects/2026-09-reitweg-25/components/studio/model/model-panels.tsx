@@ -1,6 +1,6 @@
 'use client';
 import {useMemo,useState,type CSSProperties} from 'react';
-import {Sun,Sunrise,Sunset,Moon,Snowflake} from 'lucide-react';
+import {Sun,Sunrise,Sunset,Moon,Snowflake,CloudRain} from 'lucide-react';
 import {Slider} from '@/components/ui/slider';
 import {viewpoints,type Level,type Viewpoint} from '@/lib/house-model/site-data';
 import type {Place,CaptureState} from '@/lib/house-model/experience-data';
@@ -60,8 +60,9 @@ const presets=(events:ReturnType<typeof sunDayEvents>)=>[
  {label:'Golden hour',icon:Sunset,minutes:Math.round(events.sunset.minutes-45)},
  {label:'Dusk',icon:Moon,minutes:Math.round(events.sunset.minutes+25)},
 ];
-/** `snowing`: snow mode, where the detail setting has it; it falls in winter only, so turning it on moves the date there. */
-export function LightPanel({day,minutes,onChange,snowing,onSnowing}:{day:number;minutes:number;onChange:(day:number,minutes:number)=>void;snowing?:boolean;onSnowing:(on:boolean)=>void}){
+/** `snowing`: snow mode, where the detail setting has it; it falls in winter only, so turning it on moves the date there.
+ * `raining`: rain mode, on any date. */
+export function LightPanel({day,minutes,onChange,snowing,onSnowing,raining,onRaining}:{day:number;minutes:number;onChange:(day:number,minutes:number)=>void;snowing?:boolean;onSnowing:(on:boolean)=>void;raining?:boolean;onRaining?:(on:boolean)=>void}){
  const events=useMemo(()=>sunDayEvents(day),[day]),reading=sunStudyReading({enabled:true,day,minutes});
  const date=studyDate(day).toLocaleDateString('en-GB',{timeZone:'UTC',day:'numeric',month:'long'});
  const direction=['north','northeast','east','southeast','south','southwest','west','northwest'][Math.round(reading.azimuth/45)%8];
@@ -75,8 +76,9 @@ export function LightPanel({day,minutes,onChange,snowing,onSnowing}:{day:number;
  // The presets sit on the time band where the thumb's centre lands for their time (the thumb is 8 px wide).
  const at=(m:number)=>`calc(${m/1435*100}% + ${(.5-m/1435)*8}px)`;
  return <div className="model-panel-body model-light">
-  <div className="model-light-heading"><span>{date}{(snowing||snowOn(day)>.05)&&' · snow'}</span><span>{sun}</span>
+  <div className="model-light-heading"><span>{date}{(snowing||snowOn(day)>.05)&&' · snow'}{raining&&' · rain'}</span><span>{sun}</span>
    {snowing!==undefined&&<button className="model-snow" aria-pressed={snowing} aria-label={snowing?'Stop the snow':'Let it snow'} title={snowing?'Stop the snow':'Let it snow'} onClick={()=>onSnowing(!snowing)}><Snowflake size={15} aria-hidden/></button>}
+   {raining!==undefined&&onRaining&&<button className="model-snow model-rain" aria-pressed={raining} aria-label={raining?'Stop the rain':'Let it rain'} title={raining?'Stop the rain':'Let it rain'} onClick={()=>onRaining(!raining)}><CloudRain size={15} aria-hidden/></button>}
    <button className="model-link" onClick={now}>Now</button></div>
   <div className="model-light-time" style={{'--sunrise':`${events.sunrise.minutes/1435*100}%`,'--sunset':`${events.sunset.minutes/1435*100}%`} as React.CSSProperties}>
    <Slider aria-label="Time of day" min={0} max={1435} step={5} value={[minutes]} onValueChange={v=>onChange(day,v[0])}/>

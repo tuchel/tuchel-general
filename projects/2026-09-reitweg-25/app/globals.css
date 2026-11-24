@@ -161,6 +161,7 @@ body:has(.house-model-page) .topbar{display:none!important}
 .model-light-heading .model-link{margin:0}.model-light-heading>button:first-of-type{margin-left:auto}
 .model-snow{align-self:center;display:grid;place-items:center;width:28px;height:28px;margin:-6px 0;padding:0;border-radius:50%;border:1px solid var(--model-line);background:#ffffffb0;color:var(--model-accent);cursor:pointer;transition:background .2s,color .2s,border-color .2s}
 .model-snow:hover svg{transform:rotate(30deg)}.model-snow svg{transition:transform .3s}
+.model-rain:hover svg{transform:translateY(1px)}.model-snow.model-rain[aria-pressed="true"] svg{animation:none}
 .model-snow[aria-pressed="true"]{background:var(--model-accent);border-color:var(--model-accent);color:#fff}
 .model-snow[aria-pressed="true"] svg{animation:model-snow-turn 12s linear infinite}
 @keyframes model-snow-turn{to{transform:rotate(360deg)}}
