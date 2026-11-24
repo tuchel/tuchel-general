@@ -87,7 +87,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  renderer.setPixelRatio(Math.min(window.devicePixelRatio,tier.pixelRatio));
  // `?soft=off`: three's filtered shadows, for comparison.
  // A traced view's light stays while the camera moves (carry.ts, LIGHT_CARRY): asked for until judged on a real graphics card.
- const carrying=tier.lightCarry&&new URLSearchParams(location.search).get('carry')==='on';
+ const carrying=tier.lightCarry&&new URLSearchParams(location.search).get('carry')!=='off';
  const softened=tier.softShadows&&new URLSearchParams(location.search).get('soft')!=='off';
  if(softened)installSoftShadows();
  renderer.shadowMap.enabled=true;renderer.shadowMap.type=softened?T.BasicShadowMap:T.PCFShadowMap;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
