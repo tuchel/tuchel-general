@@ -30,8 +30,8 @@ assert(lightCarryGlsl.includes('abs(texture2D(prevDepth,at).r-expected)<')&&ligh
 assert(lightCarryGlsl.includes(`gl_FragColor=vec4(c.rgb*mix(vec3(1.0),mix(texture2D(ratio,clamp(at,0.0,1.0),${LIGHT_CARRY.coarse.toFixed(1)}).rgb,texture2D(ratio,at,${LIGHT_CARRY.fine.toFixed(1)}).rgb,valid),amount),c.a);`),'an unseen point takes the light of its part of the frame');
 assert(/ratio:new T\.WebGLRenderTarget\(1,1,\{type:T\.HalfFloatType,depthBuffer:false,generateMipmaps:true,minFilter:T\.LinearMipmapLinearFilter\}\)/.test(post));
 // Only under the scene, sun and weather the image was traced for.
-// Until it has been judged on a real graphics card it is asked for with `?carry=on`.
-assert(/const carrying=tier\.lightCarry&&new URLSearchParams\(location\.search\)\.get\('carry'\)==='on';/.test(viewer));
+// `?carry=off` is the comparison.
+assert(/const carrying=tier\.lightCarry&&new URLSearchParams\(location\.search\)\.get\('carry'\)!=='off';/.test(viewer));
 assert(/carry:carrying&&live&&level!=='upper'&&!snow\.amount&&!raining&&!wet\.value\?live\.generation:undefined/.test(viewer));
 assert(/kept\.generation===view\.carry/.test(post));
-console.log(`Passed: in Extreme on a computer with ?carry=on, a path-traced view's light stays on the surfaces it lit while the camera moves up to ${LIGHT_CARRY.move} m or turns ${Math.round(LIGHT_CARRY.turn*180/Math.PI)}°, fading out toward that limit.`);
+console.log(`Passed: in Extreme on a computer, a path-traced view's light stays on the surfaces it lit while the camera moves up to ${LIGHT_CARRY.move} m or turns ${Math.round(LIGHT_CARRY.turn*180/Math.PI)}°, fading out toward that limit.`);
