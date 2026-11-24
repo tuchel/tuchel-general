@@ -50,6 +50,8 @@ import {viewpoints,type Level,type Region,type Viewpoint} from './site-data';
 
 export type ViewerOptions={
  quality:Quality;
+ /** On a phone, Extreme was chosen past the menu's warning (device-tier.ts, PHONE_EXTREME). */
+ extremeOnPhone?:boolean;
  onSelect:(region:Region)=>void;onReady:()=>void;onError:()=>void;
  onCapture?:(state:CaptureState)=>void;
  /** The viewer asks to leave an eye-level view (Escape) or reset (Home). */
@@ -73,7 +75,7 @@ const halton=(i:number,b:number)=>{let f=1,r=0;while(i>0){f/=b;r+=f*(i%b);i=Math
 const SITE_CENTER=new T.Vector3(-5,0,8),SITE_RADIUS=70;
 
 export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
- const tier=tierFor(options.quality),realistic=tier.quality!=='model';
+ const tier=tierFor(options.quality,undefined,options.extremeOnPhone),realistic=tier.quality!=='model';
  const renderer=new T.WebGLRenderer({antialias:!realistic,alpha:false,stencil:false,powerPreference:'high-performance'});
  // Floor views cut roofs at the wall height with per-material clipping.
  renderer.localClippingEnabled=true;

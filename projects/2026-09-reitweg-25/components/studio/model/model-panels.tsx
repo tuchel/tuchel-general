@@ -92,7 +92,7 @@ export function LightPanel({day,minutes,onChange,snowing,onSnowing,raining,onRai
 
 export type MoreActions={
  quality:Quality;detected:Quality;onQuality:(q:Quality)=>void;
- /** Extreme is offered on computers only. */
+ /** On a computer Extreme is chosen like any setting; on a phone, past a warning. */
  computer:boolean;
  capture:CaptureState;heavy:boolean;eyeLevel:boolean;
  /** `limit`: the largest PNG within that many bytes. */
@@ -106,6 +106,7 @@ export type MoreActions={
 };
 export function MorePanel(p:MoreActions){
  const realistic=p.quality!=='model',busy=p.capture.busy||p.capture.recording;
+ const [warning,setWarning]=useState(false),labels={extreme:'Extreme',detailed:'Detailed',balanced:'Balanced',model:'Model'} as const;
  return <div className="model-panel-body model-more">
   <button className="model-row" onClick={()=>p.onSave()}>Save image<small>{p.heavy?'3840 px PNG':'twice the screen'}</small></button>
   <button className="model-row" title="The largest size that fits in 1 MB" onClick={()=>p.onSave(PHOTO_LIMIT)}>Save image<small>1 MB PNG</small></button>
@@ -121,8 +122,12 @@ export function MorePanel(p:MoreActions){
    <button aria-pressed={p.sims} title="Two figures in Bavarian dress wander the house and garden" onClick={()=>p.onSims(!p.sims)}>Sims Mode</button>
   </div>
   <div className="model-segments" role="radiogroup" aria-label="Detail">
-   {([...(p.computer?[['extreme','Extreme']] as const:[]),['detailed','Detailed'],['balanced','Balanced'],['model','Model']] as const).map(([id,label])=><button key={id} role="radio" aria-checked={p.quality===id} title={id==='extreme'?'Path-traced when the camera rests, where the browser has WebGPU; asks a lot of the graphics card':p.detected===id?'Suits this device':undefined} onClick={()=>p.onQuality(id)}>{label}{p.detected===id&&<small aria-label="suits this device"/>}</button>)}
+   {(['extreme','detailed','balanced','model'] as const).map(id=>[id,labels[id]] as const).map(([id,label])=><button key={id} role="radio" aria-checked={p.quality===id} title={id==='extreme'?'Path-traced when the camera rests, where the browser has WebGPU; asks a lot of the graphics card':p.detected===id?'Suits this device':undefined} onClick={()=>{if(id==='extreme'&&!p.computer&&p.quality!=='extreme')setWarning(true);else{setWarning(false);p.onQuality(id);}}}>{label}{p.detected===id&&<small aria-label="suits this device"/>}</button>)}
   </div>
+  {warning&&<div className="model-warning" role="alertdialog" aria-label="Extreme on a phone">
+   <p>Extreme is made for a computer’s graphics card. On a phone it can be slow, warm the phone and drain its battery, or make the browser reload the page.</p>
+   <div><button onClick={()=>{setWarning(false);p.onQuality('extreme');}}>Use Extreme</button><button onClick={()=>setWarning(false)}>Keep {labels[p.quality]}</button></div>
+  </div>}
   <button className="model-link" onClick={p.onAbout}>About this model</button>
  </div>;
 }

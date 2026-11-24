@@ -29,7 +29,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
  const host=useRef<HTMLDivElement>(null),compass=useRef<HTMLSpanElement>(null),api=useRef<HouseViewer|null>(null),saved=useRef<ReturnType<HouseViewer['snapshot']>|null>(null);
  // The model page renders only in the browser, so presets and URL choices are read at mount.
  const [detected]=useState<Quality>(()=>typeof window==='undefined'?'model':detectQuality());
- // Extreme is for computers; a phone given it runs Detailed.
+ // Extreme is for computers; a phone given it in the address runs Detailed, and can choose it in the menu past a warning.
  const [computer]=useState(()=>typeof window!=='undefined'&&!isPhone());
  const [quality,setQuality]=useState<Quality>(()=>{
   if(typeof window==='undefined')return 'model';
@@ -94,7 +94,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
    if(cancelled||!host.current)return;
    try{
     api.current=createHouseViewer(host.current,{
-     quality,cars,onSelect:r=>{setRegion(r);setPanel(null);},onReady:()=>setReady(true),onError:fail,onCapture:setCapture,onMaterials:setMaterials,
+     quality,extremeOnPhone:quality==='extreme'&&!computer,cars,onSelect:r=>{setRegion(r);setPanel(null);},onReady:()=>setReady(true),onError:fail,onCapture:setCapture,onMaterials:setMaterials,
      onWander:setWandered,onHeading:deg=>{if(compass.current)compass.current.style.transform=`rotate(${deg}deg)`;},
      onRequest:()=>{const next=levelRef.current==='exterior'?'courtyard':'top';setView(next);setRegion(null);api.current?.view(next);},
     });
@@ -143,7 +143,8 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
  };
  const chooseQuality=(q:Quality)=>{
   if(q===quality)return;saved.current=api.current?.snapshot()??null;setCapture(initialCapture);setReady(false);setFailed(false);setFellBack(false);setQuality(q);
-  const url=new URL(window.location.href);if(q===detected)url.searchParams.delete('quality');else url.searchParams.set('quality',q);window.history.replaceState(null,'',url);
+  // A phone's Extreme is not kept in the address: opened again, or reloaded by a browser short of memory, the page starts in the phone's own setting.
+  const url=new URL(window.location.href);if(q===detected||(q==='extreme'&&!computer))url.searchParams.delete('quality');else url.searchParams.set('quality',q);window.history.replaceState(null,'',url);
  };
  // A lost 3D view can refuse to restart inside the same page, so a reload loads the page afresh, keeping the renovations.
  const reloadPage=()=>{
