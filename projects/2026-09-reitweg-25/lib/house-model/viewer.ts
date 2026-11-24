@@ -34,7 +34,7 @@ import {winterGardenOutline} from './renovations';
 import {createSnowfall,SNOWFALL,type Snowfall} from './snowfall';
 import {createRainfall,RAINFALL,type Rainfall} from './rainfall';
 import {createSmoke,FLUE_VAPOUR,type Smoke} from './smoke';
-import {mistAmount} from './mist';
+import {mistAmount,AIR_GLOW} from './mist';
 import {gardenLightPoints,GARDEN_LIGHTS} from './garden-lights';
 import {snowDrifts} from './snow-drift';
 import {snowSlabs} from './snow-slab';
@@ -234,8 +234,11 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
 
  // Extreme: trees the house hides are counted right after the scene is drawn, and left out of the next frames.
  const occlusion=realistic&&tier.treeOcclusion?createTreeOcclusion(renderer.getContext() as WebGL2RenderingContext,scene):undefined;
- const post=realistic?createPost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,mist:tier.weathered,wetMirror:tier.wetMirror,temporal:tier.temporal&&new URLSearchParams(location.search).get('taa')!=='off',hdr:()=>screen&&renderer.outputColorSpace===DisplayP3ColorSpace?HDR.peak:0,afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
- if(post){mistFor=r=>{if(scene.fog)post.setMist(study.enabled&&level==='exterior'&&!snowing&&!raining?mistAmount(r.apparentElevation,study.minutes,study.day):0,scene.fog.color);};if(lighting?.reading)mistFor(lighting.reading);}
+ const post=realistic?createPost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,mist:tier.weathered,wetMirror:tier.wetMirror,glowLamps:tier.lampGlow?lampsOutdoors():undefined,temporal:tier.temporal&&new URLSearchParams(location.search).get('taa')!=='off',hdr:()=>screen&&renderer.outputColorSpace===DisplayP3ColorSpace?HDR.peak:0,afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
+ if(post){mistFor=r=>{if(scene.fog){
+  const outdoors=study.enabled&&level==='exterior',lies=outdoors&&!snowing&&!raining?mistAmount(r.apparentElevation,study.minutes,study.day):0;
+  // The lamps' glow hangs in mist, rain and falling snow, and faintly in any night's air (mist.ts).
+  post.setMist(lies,scene.fog.color,outdoors?r.dusk*Math.max(lies,snowing||raining?1:0,AIR_GLOW.clear):0);}};if(lighting?.reading)mistFor(lighting.reading);}
  // Extreme: the pool mirrors the scene (pool-reflection.ts).
  const mirror=tier.poolMirror&&camera instanceof T.PerspectiveCamera?createPoolReflection(renderer,scene,camera,batches.meshes.filter(b=>materialsOf(b).some(m=>hasShaderFeature(m,'pool-water')))):undefined;
  if(post)perf?.watch(post.passes);
