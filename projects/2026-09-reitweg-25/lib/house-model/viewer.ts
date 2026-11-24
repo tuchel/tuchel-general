@@ -12,6 +12,7 @@ import {createLighting,roomExposure,indoorOf,type LightReading} from './lighting
 import {createPost} from './post';
 import {createCameraRig,type Framing} from './camera-rig';
 import {createCaptures} from './experience';
+import {STIR} from './atmosphere';
 import {createLiveTrace,traceFade,LIVE_TRACE} from './live-trace';
 import {addAlbedoOutput} from './albedo-pass';
 import {createPoolReflection} from './pool-reflection';
@@ -257,7 +258,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  let film:{position:T.Vector3;target:T.Vector3}|undefined;
 
  // Frame scheduling: moving frames are fast; still frames refine, then rendering stops.
- let lastChange=performance.now(),needsFrame=true,visible=true,disposed=false,frame=0,ready=false,previous=performance.now(),heading=NaN,resting=false;
+ let stir=0,lastChange=performance.now(),needsFrame=true,visible=true,disposed=false,frame=0,ready=false,previous=performance.now(),heading=NaN,resting=false;
  // A panel or dialog over the view: path tracing waits until it closes, so the interface keeps the graphics card.
  let interfaceOpen=false,presented=0;
  // When this rest's first cleaned traced image was shown (0: not yet), and whether a carried one stood in before it.
@@ -375,7 +376,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   // Photographs and recordings leave the canvas as files and video, in sRGB; the live view uses the wide gamut.
   const space=wide&&!captures?.active&&!captures?.recording?DisplayP3ColorSpace:T.SRGBColorSpace;if(renderer.outputColorSpace!==space){renderer.outputColorSpace=space;needsFrame=true;}
   if(captures?.tick(now))return;
-  if(captures?.breezing){waterTime.value=captures.waterSeconds;lighting?.drift(captures.waterSeconds);}
+  if(captures?.breezing){waterTime.value=captures.waterSeconds;if(captures?.breezeOn)lighting?.drift(captures.waterSeconds);}
   // A finished or cancelled film hands the camera back.
   if(film&&!captures?.recording){film=undefined;controls.enabled=!rig.eyeLevel;}
   let moving=rig.update(now);
@@ -393,6 +394,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   }
   if(controls.enabled&&controls.update(delta))moving=true;
   if(moving)changed();
+  if(tier.living&&!reduced&&captures){const to=moving?1:0;if(stir!==to){stir=to>stir?Math.min(1,stir+delta/STIR.rise):Math.max(0,stir-delta/STIR.fall);captures.stir(stir);if(stir>0)needsFrame=true;else changed();}}
   // The figures walk on every frame; the view redraws whole each time, at full resolution, without path tracing.
   if(sims?.group.visible&&!captures?.active){
    sims.routines.step(delta);
@@ -481,7 +483,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    // The shadows' sampling pattern turns with the frames that are gathered (soft-shadows.ts).
    lighting?.turnShadow(jitter?still?post.accumulated:moved:0);
    if(jitter){const i=still?post.accumulated:moved,size=renderer.getDrawingBufferSize(buffer);const k=still?1:1/drawnScale;camera.setViewOffset(size.x,size.y,(halton(i,2)-.5)*k,(halton(i,3)-.5)*k,size.x,size.y);}
-   if(motion&&captures?.breezing&&tier.photographic)renderer.shadowMap.needsUpdate=true;
+   if(motion&&captures?.breezeOn&&tier.photographic)renderer.shadowMap.needsUpdate=true;
    probes?.setCamera(rig.camera);
    cullTrees(low);
    if(mirror)timed('mirror',()=>mirror.render());post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel});

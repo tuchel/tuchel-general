@@ -82,8 +82,9 @@ export class TemporalPass extends Pass{
    u.reproject.value=0;u.weight.value=1/(this.frames+1);
    this.frames++;
   }else{
-   // Only the camera's own move carries the image along: a new light or scene under a still camera shows at once.
-   const carried=this.valid&&moved;
+   // The camera's own move carries the image along, and so does a scene that stirs under a still camera (atmosphere.ts);
+   // a new light or scene (reset) shows at once.
+   const carried=this.valid&&(moved||!this.fresh);
    this.frames=0;u.reproject.value=carried?1:0;u.weight.value=carried?TEMPORAL.blend:1;
    (u.invProj.value as T.Matrix4).copy(lens).invert();(u.camWorld.value as T.Matrix4).copy(camera.matrixWorld);
   }

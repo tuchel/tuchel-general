@@ -5,8 +5,11 @@ import {springMorning} from './garden-sound';
 /** Optional motion and sound. Leaves and grass sway in the vertex shader; the same
  * displacement drives their shadow depth so shadows move with them. */
 const legacy:Record<string,'leaf'|'grass'>={'meadow-grass':'grass','meadow-flowers':'grass','entrance-arching-ornamental-grasses':'grass'};
+/** In Extreme the air stirs while the camera moves (viewer.ts): up to full over `rise` s, and down to rest over `fall` s
+ * once it stops, after which the view sharpens and is path-traced as it always was. */
+export const STIR={rise:1.5,fall:.8};
 export function atmosphere(root:T.Object3D){
- const clock={value:0},strength={value:0};
+ const clock={value:0},strength={value:0};let on=false,stirred=0;
  // One breeze per material: a material shared by leaves and grass would otherwise declare it twice.
  const feature=(sway:'leaf'|'grass')=>({key:'breeze',compile:(shader:T.WebGLProgramParametersWithUniforms)=>{
   shader.uniforms.uBreezeTime=clock;shader.uniforms.uBreezeStrength=strength;
@@ -32,7 +35,9 @@ export function atmosphere(root:T.Object3D){
  let audio:AudioContext|undefined,garden:ReturnType<typeof springMorning>|undefined;
  return {
   tick:(seconds:number)=>{clock.value=seconds;},
-  breeze:(on:boolean)=>{strength.value=on?1:0;},
+  breeze:(to:boolean)=>{on=to;strength.value=Math.max(on?1:0,stirred);},
+  /** `level` (0–1): how much the air moves without the Breeze switch. */
+  stir:(level:number)=>{stirred=level;strength.value=Math.max(on?1:0,stirred);},
   get breezing(){return strength.value>0;},
   sound:async(on:boolean)=>{
    if(!on){if(audio?.state==='running')await audio.suspend();return;}

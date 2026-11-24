@@ -142,6 +142,9 @@ export function createCaptures(options:{
   get tracing(){return !!tracer;},
   get active(){return !!tracer||state.busy;},
   get breezing(){return air.breezing;},
+  /** The Breeze switch, as distinct from air a camera move stirs (atmosphere.ts, STIR). */
+  get breezeOn(){return state.breeze;},
+  stir:(level:number)=>air.stir(level),
   /** Advances wind, film orbit and path tracing. Returns true when the tracer owns the canvas. */
   tick:(now:number)=>{
    if(air.breezing&&!tracer){motionSeconds+=Math.min(.1,(now-(lastMotion||now))/1000);air.tick(motionSeconds);}
