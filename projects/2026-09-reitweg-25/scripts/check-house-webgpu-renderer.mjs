@@ -74,4 +74,11 @@ assert(/nodes:slots=>\{[\s\S]*?material\.fog=false;[\s\S]*?slots\.output=colour=
 assert(/let casting=false;[\s\S]{0,120}mesh\.onBeforeRender=\(\)=>\{mesh\.count=casting\?total:mesh\.userData\.drawn as number;\};[\s\S]{0,160}mesh\.onAfterShadow=\(\)=>\{casting=false;\};/.test(foliage));
 // A cutout's shadow is cut by its colour node's alpha once, not by the texture's alpha as well.
 assert(/r\._getShadowNodes=m=>\{const map=m\.map;if\(!m\.colorNode\|\|!map\)return nodes\(m\);m\.map=null;try\{return nodes\(m\);\}finally\{m\.map=map;\}\};/.test(viewer));
-console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, averaged still frames and colour finish there.');
+// Lying snow: the same cover as nodes, laid over the vertices' and instances' tints, with the pool frozen.
+const snowCode=fs.readFileSync('lib/house-model/snow.ts','utf8'),skyCode=fs.readFileSync('lib/house-model/sky-visibility.ts','utf8');
+assert(/fn snowOn\(p:vec3<f32>,w:f32,up:f32,open:f32,slope:f32,grain:f32,amount:f32\)->vec2<f32>/.test(snowCode)&&/fn snowOpen\([^)]*reach:texture_3d<f32>\)->f32/.test(snowCode));
+assert(/slots\.sky=\{low:uniforms\.uSkyMin,grid:uniforms\.uSkyGrid,cell:uniforms\.uSkyCell,linked:uniforms\.uSkyLinked,reach:texture3D\(links\)\};/.test(skyCode)&&/slots\.sky\?s\.liesUnderSky\(\{\.\.\.given,\.\.\.slots\.sky\}\):s\.lies\(given\)/.test(snowCode));
+assert(/tinted\?:\(rgb:any\)=>any/.test(features)&&/setupVariants=function\(this:any,builder:any\)\{tsl\.diffuseColor\.rgb\.assign\(tinted\(tsl\.diffuseColor\.rgb\)\);return Object\.getPrototypeOf\(this\)\.setupVariants\.call\(this,builder\);\};/.test(features));
+assert(/slots\.tinted=rgb=>\{const shown=before\?before\(rgb\):rgb;/.test(snowCode)&&/if\(kind==='water'\)\{\s*const ice=smoothstep\(\.15,\.7,s\.amount\)/.test(snowCode)&&/metalnessNode:slots\.metalness\?\?null/.test(features));
+assert(/\.mul\(slots\.covered\?slots\.covered\.oneMinus\(\):1\)/.test(foliage));
+console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, lying snow, averaged still frames and colour finish there.');

@@ -35,7 +35,8 @@ export function foliageMaterials(style:TreeStyle='leaves'){
   shader.fragmentShader='#ifndef LEAF_GLOW\n#define LEAF_GLOW 1.0\n#endif\n'+shader.fragmentShader.replace('#include <lights_fragment_begin>',lights);
  },nodes:(slots:NodeSlots)=>{
   const {vec3,diffuseColor,positionViewDirection,normalView}=slots.tsl;
-  slots.direct.push(({lightDirection,lightColor,reflectedLight})=>reflectedLight.directDiffuse.addAssign(lightColor.mul(diffuseColor.rgb).mul(vec3(.75,.95,.45)).mul(positionViewDirection.negate().dot(lightDirection).saturate().pow(2).mul(.42).add(normalView.dot(lightDirection).negate().saturate().mul(.12)))));
+  // None of it through lying snow (snow.ts).
+  slots.direct.push(({lightDirection,lightColor,reflectedLight})=>reflectedLight.directDiffuse.addAssign(lightColor.mul(diffuseColor.rgb).mul(vec3(.75,.95,.45)).mul(positionViewDirection.negate().dot(lightDirection).saturate().pow(2).mul(.42).add(normalView.dot(lightDirection).negate().saturate().mul(.12))).mul(slots.covered?slots.covered.oneMinus():1)));
  }};
  addShaderFeature(leaves,translucency);
  const shadow=()=>new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking,alphaTest:.42,side:T.DoubleSide});
