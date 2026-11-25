@@ -21,7 +21,7 @@ assert(/const makeSky=\(\)=>\(gpu\?new gpu\.SkyMesh\(\):new Sky\(\)\) as Sky/.te
 // roughness, normal and cavity, and no two materials share a program, since nodes hold a material's own textures.
 assert(/nodes\?:\(slots:NodeSlots\)=>void/.test(features)&&/if\(tsl\)composeNodes\(material,list\);/.test(features));
 assert(/drawWithNodes\(gpu\?\.tsl&&\{\.\.\.gpu\.tsl,PhysicalLightingModel:gpu\.PhysicalLightingModel\}\);/.test(viewer));
-assert(/\},nodes:slots=>\{[\s\S]*?slots\.colour=\(slots\.colour\?\?materialColor\)\.mul\(albedo\);slots\.roughness=clamp\(texel\.a,\.05,1\);[\s\S]*?slots\.cavity=relief\.b;/.test(surfaces),'scanned and painted surfaces are drawn as nodes');
+assert(/\},nodes:slots=>\{[\s\S]*?slots\.colour=\(slots\.colour\?\?materialColor\)\.mul\(albedo\);slots\.roughness=clamp\(aged\?texel\.a\.add\(aged\.rough\):texel\.a,\.05,1\);[\s\S]*?slots\.cavity=relief\.b;/.test(surfaces),'scanned and painted surfaces are drawn as nodes');
 // Light is changed in a lighting model of the material's own: three's, with what the features add for each light and
 // change in the light from all round. Leaves glow against the light, glass and water turn opaque at a glancing angle.
 assert(/class Lighting extends tsl\.PhysicalLightingModel\{[\s\S]*?direct\(light:any,builder:any\)\{super\.direct\(light,builder\);for\(const add of slots\.direct\)add\(light\);\}[\s\S]*?indirect\(builder:any\)\{for\(const change of slots\.indirect\)change\(builder\.context\);super\.indirect\(builder\);\}/.test(features));
@@ -106,6 +106,10 @@ assert(/const level=options\.samples>=4\?new T\.RenderTarget\(/.test(chain)&&/de
 assert(/const glow=options\.bloom&&gpu\.bloom\?gpu\.bloom\(current,\.06,\.1,1\):undefined/.test(chain)&&/if\(glow\)glow\.threshold\.value=2\.5\/Math\.max\(exposed,1e-4\);/.test(chain)&&/import\('three\/addons\/tsl\/display\/BloomNode\.js'\)/.test(page));
 // The sky's clouds stand where the WebGL sky has them.
 assert(/if\(gpu\)u\.cloudSpeed\.value=0;/.test(lighting));
+// Extreme's weathering is drawn there too: the same noise in WGSL, the same marks on walls, roofs and paving.
+assert(/const WEATHER_WGSL=`fn weatherHash\(c:vec2<f32>\)->f32/.test(surfaces)&&/const aged=weather&&weatherNodes\(slots\.tsl,weather,\{p,n,tu,tv,albedo\}\)/.test(surfaces)&&/const rain=uniform\(0\)\.onRenderUpdate\(\(\)=>wet\.value\)/.test(surfaces));
+// ... and its relief: the texture coordinate is walked along the view ray through the height in the normal map's alpha.
+assert(/const RELIEF_WGSL=`fn reliefUv\(/.test(surfaces)&&/uv=wgslFn\(RELIEF_WGSL\)\(\{uv,shift:/.test(surfaces));
 // A photograph there is traced by the WebGPU tracer on the same renderer, lit by the sky read back from it, on a device
 // that was asked for the card's own buffer limits.
 const captures=fs.readFileSync('lib/house-model/experience.ts','utf8');

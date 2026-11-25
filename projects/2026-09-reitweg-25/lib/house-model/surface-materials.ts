@@ -97,6 +97,40 @@ const weatherCode:Record<Weathering,string>={
    surfaceAlbedo*=1.0-uWet*mix(0.4,0.5,puddle);surfaceWeather-=uWet*mix(0.35,0.9,puddle);surfacePuddle=uWet*puddle;
    surfaceMirror=uWet*flat_*mix(${f(WET_FILM)},1.0,puddle);}`,
 };
+/** The same noise for the WebGPU renderer's nodes. */
+const WEATHER_WGSL=`fn weatherHash(c:vec2<f32>)->f32{var p=fract(vec3<f32>(c.x,c.y,c.x)*0.1031);p+=dot(p,p.yzx+33.33);return fract((p.x+p.y)*p.z);}
+fn weatherNoise(g:vec2<f32>)->f32{let i=floor(g);var f=g-i;f=f*f*(3.0-2.0*f);return mix(mix(weatherHash(i),weatherHash(i+vec2<f32>(1.0,0.0)),f.x),mix(weatherHash(i+vec2<f32>(0.0,1.0)),weatherHash(i+vec2<f32>(1.0,1.0)),f.x),f.y);}
+fn weatherFbm(g:vec2<f32>)->f32{return weatherNoise(g)*0.55+weatherNoise(g*2.13+7.1)*0.3+weatherNoise(g*4.7+3.3)*0.15;}`;
+/** `weatherCode` as nodes: the weathered colour, what it adds to roughness, and how much of a puddle stands there. */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function weatherNodes(tsl:any,weather:Weathering,at:{p:any;n:any;tu:any;tv:any;albedo:any}){
+ const {vec2,vec3,float,abs,dot,mix,smoothstep,step,uniform,wgsl,wgslFn}=tsl,code=wgsl(WEATHER_WGSL),{p,n,tu,tv}=at;
+ const noiseAt=wgslFn('fn weatherNoiseAt(g:vec2<f32>)->f32{return weatherNoise(g);}',[code]),fbmAt=wgslFn('fn weatherFbmAt(g:vec2<f32>)->f32{return weatherFbm(g);}',[code]),noise=(g:any)=>noiseAt({g}),fbm=(g:any)=>fbmAt({g});
+ const rain=uniform(0).onRenderUpdate(()=>wet.value);let albedo=at.albedo,rough,puddle=float(0);
+ if(weather==='wall'){
+  const along=dot(p,tu).toVar(),up=p.y,wall=float(1).sub(smoothstep(.3,.6,abs(n.y))).toVar();
+  const silver=smoothstep(.35,.75,fbm(vec2(along.mul(.31),up.mul(.42)))).mul(WEATHER.silver).mul(wall).toVar();
+  albedo=mix(albedo,vec3(dot(albedo,vec3(.3,.55,.15))).mul(vec3(1.08,1.06,1.04)),silver);
+  const streak=smoothstep(.5,.85,noise(vec2(along.mul(7),up.mul(.28)))).mul(noise(vec2(along.mul(1.3),up.mul(.9).add(4))));
+  albedo=albedo.mul(float(1).sub(streak.mul(WEATHER.streak).mul(wall)));
+  const damp=float(1).sub(smoothstep(.04,noise(vec2(along.mul(1.7),2)).mul(.9).add(.55).mul(WEATHER.damp),up)).mul(step(-.3,up)).mul(wall).toVar();
+  albedo=albedo.mul(mix(vec3(1),vec3(WEATHER.dampShade,WEATHER.dampShade*1.03,WEATHER.dampShade),damp)).mul(float(1).sub(rain.mul(.2).mul(wall)));
+  rough=damp.mul(-.12).add(silver.mul(.05)).sub(rain.mul(.2).mul(wall));
+ }else if(weather==='roof'){
+  const lichen=smoothstep(.6,.78,fbm(p.xz.mul(4.3).add(p.y.mul(1.7)))).toVar();
+  albedo=mix(albedo,vec3(.42,.44,.36),lichen.mul(WEATHER.lichen));
+  const run=noise(vec2(dot(p,tu).mul(5),dot(p,tv).mul(.3)));
+  albedo=albedo.mul(float(1).sub(smoothstep(.55,.9,run).mul(.05))).mul(float(1).sub(rain.mul(.22)));
+  rough=lichen.mul(.06).sub(rain.mul(.45));
+ }else{
+  const flat=smoothstep(.6,.9,abs(n.y)).toVar(),blotch=fbm(p.xz.mul(.42)).toVar(),stain=smoothstep(.6,.88,fbm(p.xz.mul(1.9).add(11))).toVar();
+  const pool=smoothstep(.42,.6,fbm(p.xz.mul(.55).add(5))).mul(flat).toVar();
+  albedo=albedo.mul(mix(1,blotch.mul(WEATHER.blotch*2).add(1-WEATHER.blotch),flat)).mul(float(1).sub(stain.mul(WEATHER.stain).mul(flat))).mul(float(1).sub(rain.mul(mix(.4,.5,pool))));
+  rough=blotch.sub(.5).mul(.08).sub(stain.mul(.06)).mul(flat).sub(rain.mul(mix(.35,.9,pool)));puddle=rain.mul(pool);
+ }
+ return {albedo,rough,puddle};
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
 // The view ray is walked down through the height map (the normal map's alpha, between the set's two levels) until it is under the
 // surface; the hit lies between the last two steps, in proportion to how far each was over or under.
 const reliefCode=`{vec3 reliefEye=cameraPosition-vSurfacePos;float reliefFar=length(reliefEye),reliefFade=1.0-smoothstep(${RELIEF.near.toFixed(1)},${RELIEF.far.toFixed(1)},reliefFar);
@@ -112,6 +146,19 @@ const reliefCode=`{vec3 reliefEye=cameraPosition-vSurfacePos;float reliefFar=len
      float reliefOver=reliefWas-reliefLast,reliefUnder=reliefAt-reliefHole;
      surfaceUv+=reliefShift*mix(reliefLast,reliefAt,clamp(reliefOver/max(reliefOver+reliefUnder,1e-4),0.0,1.0));
     }}`;
+/** `reliefCode`'s walk for the WebGPU renderer's nodes: where the view ray, shifted across the surface by `shift` over
+ * its depth, goes under the height map. */
+const RELIEF_WGSL=`fn reliefUv(uv:vec2<f32>,shift:vec2<f32>,dx:vec2<f32>,dy:vec2<f32>,depth:vec3<f32>,heights:texture_2d<f32>,heightsSampler:sampler)->vec2<f32>{
+ var at=0.0;var last=0.0;var hole=1.0-clamp((textureSampleGrad(heights,heightsSampler,uv,dx,dy).a-depth.y)*depth.z,0.0,1.0);var was=hole;
+ if(dot(shift,shift)==0.0){return uv;}
+ for(var i=0;i<${RELIEF.steps};i++){
+  if(at>=hole){break;}
+  last=at;was=hole;at+=${(1/RELIEF.steps).toFixed(3)};
+  hole=1.0-clamp((textureSampleGrad(heights,heightsSampler,uv+shift*at,dx,dy).a-depth.y)*depth.z,0.0,1.0);
+ }
+ let over=was-last;let under=at-hole;
+ return uv+shift*mix(last,at,clamp(over/max(over+under,1e-4),0.0,1.0));
+}`;
 /** World-projected albedo, roughness, relief and cavity for one surface set. */
 function surfaceFeature(material:T.MeshStandardMaterial,surface:Surface,textures:SurfaceTextures,weather?:Weathering,relief=false){
  const levels=RELIEF.height[surface],depth=relief&&textures.scanned&&levels?RELIEF.depth[surface]:0;
@@ -159,19 +206,24 @@ varying vec3 vSurfacePos;varying vec3 vSurfaceNormal;${projection}${weather?weat
   if(weather==='paving')shader.fragmentShader=after(shader.fragmentShader,'opaque_fragment','gl_FragColor.a=1.0-0.5*surfaceMirror;');
   shader.fragmentShader=after(shader.fragmentShader,'aomap_fragment','reflectedLight.indirectDiffuse*=surfaceCavity;reflectedLight.indirectSpecular*=mix(1.0,surfaceCavity,0.7);');
  },nodes:slots=>{
-  // The same projection, colour, roughness, bump and cavity as nodes; weathering and relief are not drawn there yet.
-  const {vec2,vec3,abs,sign,cross,dot,normalize,select,texture,positionWorld,normalWorldGeometry,faceDirection,uniform,materialColor,clamp,mix,sin}=slots.tsl;
+  // The same projection, relief, colour, roughness, bump, cavity and weathering as nodes.
+  const {vec2,vec3,float,abs,sign,cross,dot,normalize,select,texture,positionWorld,normalWorldGeometry,faceDirection,uniform,materialColor,clamp,mix,sin,length,max,smoothstep,cameraPosition,sampler,wgslFn}=slots.tsl;
   const p=positionWorld,n=normalize(normalWorldGeometry),a=abs(n),size=uniform(uniforms.uSurfaceMetres.value);
   const top=a.y.greaterThanEqual(a.x).and(a.y.greaterThanEqual(a.z)),side=a.x.greaterThanEqual(a.z);
   let tu=select(top,vec3(1,0,0),select(side,vec3(0,0,sign(n.x).negate()),vec3(sign(n.z),0,0))),tv=select(top,vec3(0,0,-1),vec3(0,1,0));
   if(surface==='roof'){const sloped=a.y.lessThan(.97).and(a.y.greaterThan(.08)),su=normalize(cross(vec3(0,1,0),n));tu=select(sloped,su,tu);tv=select(sloped,normalize(cross(n,su)),tv);}
   tu=tu.toVar();tv=tv.toVar();
-  const uv=vec2(dot(p,tu),dot(p,tv)).div(size),dx=vec2(dot(p.dFdx(),tu),dot(p.dFdx(),tv)).div(size),dy=vec2(dot(p.dFdy(),tu),dot(p.dFdy(),tv)).div(size);
+  let uv=vec2(dot(p,tu),dot(p,tv)).div(size);const dx=vec2(dot(p.dFdx(),tu),dot(p.dFdx(),tv)).div(size),dy=vec2(dot(p.dFdy(),tu),dot(p.dFdy(),tv)).div(size);
+  if(depth&&levels){
+   const eye=cameraPosition.sub(p),far=length(eye).toVar(),fade=float(1).sub(smoothstep(RELIEF.near,RELIEF.far,far)),v=eye.div(far).toVar(),down=max(dot(v,n.mul(faceDirection)),RELIEF.flattest),heights=texture(set.normal);
+   uv=wgslFn(RELIEF_WGSL)({uv,shift:vec2(dot(v,tu),dot(v,tv)).negate().div(down).mul(depth).mul(fade).div(size),dx,dy,depth:vec3(depth,levels[0]/255,255/(levels[1]-levels[0])),heights,heightsSampler:sampler(heights)}).toVar();
+  }
   const texel=texture(set.color,uv).grad(dx,dy),relief=texture(set.normal,uv).grad(dx,dy);
   let albedo=texel.rgb.mul(uniform(tint));
   if(surface==='lawn'){const macro=texture(set.color,p.xz.div(41)).rgb.div(vec3(.11,.25,.034));albedo=albedo.mul(mix(vec3(1),clamp(macro,.7,1.3),.55)).mul(sign(sin(p.x.mul(2.86).add(p.z.mul(.35)))).mul(.045).add(1));}
-  slots.colour=(slots.colour??materialColor).mul(albedo);slots.roughness=clamp(texel.a,.05,1);
-  const slope=relief.rg.mul(2).sub(1).mul(bump[surface]);
+  const aged=weather&&weatherNodes(slots.tsl,weather,{p,n,tu,tv,albedo});if(aged)albedo=aged.albedo;
+  slots.colour=(slots.colour??materialColor).mul(albedo);slots.roughness=clamp(aged?texel.a.add(aged.rough):texel.a,.05,1);
+  let slope=relief.rg.mul(2).sub(1).mul(bump[surface]);if(aged&&weather==='paving')slope=slope.mul(aged.puddle.mul(-.9).add(1));
   slots.normal=normalize(n.mul(faceDirection).add(tu.mul(slope.x)).add(tv.mul(slope.y)));slots.cavity=relief.b;
  }});
 }
