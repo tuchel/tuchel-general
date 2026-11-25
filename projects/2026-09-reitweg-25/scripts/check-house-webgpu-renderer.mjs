@@ -41,7 +41,7 @@ assert(/if\(gpu\)links\.needsUpdate=true;/.test(sky)&&/for\(const v of volumes\)
 // chain's finish, which tone-maps and encodes itself, so the renderer is asked for neither while it is drawn.
 const chain=fs.readFileSync('lib/house-model/post-gpu.ts','utf8');
 assert(/createPostGPU\(\.\.\.a,\{tsl:gpu\.tsl,ao:gpu\.ao,bloom:gpu\.bloom,NodeMaterial:gpu\.NodeMaterial,QuadMesh:gpu\.QuadMesh\}\):createPost\(\.\.\.a\)/.test(viewer));
-assert(/weight\.value=1\/\(frames\+1\);/.test(chain)&&/const mapped=agxToneMapping\(shown\.rgb\.mul\(balance\),exposure\);/.test(chain)&&/quadOf\(vec4\(sRGBTransferOETF\(graded\),1\)\)/.test(chain));
+assert(/weight\.value=1\/\(frames\+1\);/.test(chain)&&/const mapped=agxToneMapping\(shown\.rgb\.mul\(balance\),exposure\);/.test(chain)&&/quadOf\(vec4\(sRGBTransferOETF\(grained\),1\)\)/.test(chain));
 assert(/renderer\.toneMapping=T\.NoToneMapping;renderer\.outputColorSpace=T\.LinearSRGBColorSpace;[\s\S]*?renderer\.toneMapping=mapping;renderer\.outputColorSpace=space;/.test(chain));
 // The kept moving image (temporal.ts) with the WebGL pass's settings: looked up where the last frame saw the point,
 // held to the new frame's neighbouring colours, at full size whatever size the moving frames are drawn at.
