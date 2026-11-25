@@ -1,7 +1,7 @@
 import * as T from 'three';
 import {COVER} from './sky-links';
-import {SNOW,SNOW_GLSL,snowUniforms,snowFeature} from './snow';
-import {addShaderFeature,after} from './shader-features';
+import {SNOW,SNOW_GLSL,snowUniforms,snowFeature,snowNodes} from './snow';
+import {addShaderFeature,after,type NodeSlots} from './shader-features';
 
 /** The packed layer on the roofs: `depth` metres at full snow on a roof up to `full` degrees steep, thinning in a line
  * to nothing at `none` (the roof shape coefficient of the snow load code, EN 1991-1-3: 0.8 to 30°, 0 at 60°), so about
@@ -144,7 +144,30 @@ export function snowSlabs(root:T.Object3D,sky:()=>Record<string,T.IUniform>|unde
   shader.fragmentShader='varying vec2 vSlab;\n'+after(shader.fragmentShader,'clipping_planes_fragment',VANISH);
  };
  const base=snowFeature('surface');
- addShaderFeature(material,{key:'snow-slab',last:true,compile:shader=>{base.compile(shader);compile(shader,true);}});
+ addShaderFeature(material,{key:'snow-slab',last:true,compile:shader=>{base.compile(shader);compile(shader,true);},nodes:(slots:NodeSlots)=>{
+  // SHAPE as nodes, worked out for each corner; the sun's shadow of it takes the same position and the same mask.
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  base.nodes(slots);
+  const {attribute,vec2,vec3,vec4,float,mix,min,max,clamp,smoothstep,sqrt,acos,degrees,normalize,varying,positionGeometry,normalGeometry,positionLocal,modelWorldMatrix,modelWorldMatrixInverse,texture3D}=slots.tsl,s=snowNodes(slots.tsl),reach=sky() as Record<string,any>|undefined;
+  const slab=attribute('slab','vec4'),p=modelWorldMatrix.mul(vec4(positionGeometry,1)).xyz.toVar(),lay=normalize(modelWorldMatrix.mul(vec4(normalGeometry,0)).xyz).toVar(),out=modelWorldMatrix.mul(vec4(attribute('slabOut','vec3'),0)).xyz.toVar();
+  let open=s.cover(p).under.oneMinus();
+  if(reach)open=open.mul(s.open({p,low:reach.uSkyMin,grid:reach.uSkyGrid,cell:reach.uSkyCell,linked:reach.uSkyLinked,reach:texture3D(reach.uSkyReach.value)}));
+  const a=s.amount,lumpsAt=(q:any)=>s.noise({p:q.mul(.45).add(3)}).mul(.65).add(s.noise({p:q.mul(1.3).add(11)}).mul(.35));
+  const broad=s.noise({p:p.xz.mul(.31).add(p.y.mul(.17))}),mid=s.noise({p:p.zx.mul(.83).add(p.y.mul(.4)).add(41)});
+  const lies=smoothstep(.02,.4,a.mul(1.25).sub(.25).add(broad.mul(.45).add(mid.mul(.33)).sub(.39).mul(mix(1.1,.3,a))).sub(lay.y.oneMinus().mul(SNOW.slope)).sub(open.oneMinus().mul(1.3))).mul(smoothstep(0,.12,a)).toVar();
+  const most=clamp(float(SLAB.none).sub(degrees(acos(clamp(lay.y,0,1)))).div(SLAB.none-SLAB.full),0,1).mul(SLAB.depth).mul(mix(.45,1,a)).toVar();
+  const lumps=lumpsAt(p.xz).toVar(),deep=most.mul(lies).mul(lumps.mul(.44).add(.78)).toVar();
+  const round=mix(SLAB.hollow,SLAB.round,slab.y),w=clamp(slab.x.div(round),0,1).toVar(),rim=mix(slab.y.mul(SLAB.face),1,sqrt(max(0,w.oneMinus().mul(w.oneMinus()).oneMinus()))).toVar();
+  const cap=smoothstep(0,.32,slab.z).oneMinus(),hang=slab.y.mul(w.oneMinus()).mul(w.oneMinus()).mul(lies),tall=deep.mul(rim).toVar();
+  const move=mix(lay,vec3(0,1.08,0),cap).mul(tall).add(out.mul(hang).mul(SLAB.lip)).sub(vec3(0,hang.mul(SLAB.sag),0));
+  const lean=vec2(lumpsAt(p.xz.add(vec2(.25,0))),lumpsAt(p.xz.add(vec2(0,.25)))).sub(lumps);
+  const n=normalize(mix(lay.add(out.mul(min(deep.mul(w.oneMinus()).div(round.mul(max(rim,.12))),3))).sub(vec3(lean.x,0,lean.y).mul(most).mul(1.76)),vec3(0,1,0),cap.mul(.55)));
+  // Back into the mesh's own space, which may be stretched (the garage's roofs are boxes drawn out).
+  slots.position=(slots.position??positionLocal).add(modelWorldMatrixInverse.mul(vec4(move,0)).xyz);slots.normal=normalize(varying(n));
+  // Gone where it is thinner than 4 mm, and inside a melted margin.
+  const seen=varying(vec2(tall,slab.x.add(slab.y)));slots.mask=seen.x.greaterThanEqual(.004).and(seen.y.greaterThanEqual(0));
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+ }});
  // The sun's shadow of it is drawn with the same shape.
  const depth=new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking});depth.onBeforeCompile=shader=>compile(shader,false);depth.customProgramCacheKey=()=>'snow-slab-depth';
  const meshes:{mesh:T.Mesh;roof:T.Mesh}[]=[],warm:T.Object3D[]=[],empty=new T.BufferGeometry(),panels=root.getObjectByName(SLAB.panels);
