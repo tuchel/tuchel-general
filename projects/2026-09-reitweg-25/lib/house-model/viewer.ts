@@ -262,7 +262,10 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
 
  // Extreme: trees the house hides are counted right after the scene is drawn, and left out of the next frames.
  const occlusion=realistic&&tier.treeOcclusion?createTreeOcclusion(renderer.getContext() as WebGL2RenderingContext,scene):undefined;
- const makePost=(...a:Parameters<typeof createPost>)=>gpu?.tsl&&gpu.NodeMaterial&&gpu.QuadMesh?createPostGPU(...a,{tsl:gpu.tsl,ao:gpu.ao,NodeMaterial:gpu.NodeMaterial,QuadMesh:gpu.QuadMesh}):createPost(...a);
+ // Rain and snow fall as nodes there too (falling.ts).
+ let shows:ReturnType<typeof createPostGPU>|undefined;
+ const falls=gpu?.tsl&&gpu.NodeMaterial?{tsl:gpu.tsl,NodeMaterial:gpu.NodeMaterial,over:(o:T.Object3D,c:T.Camera)=>shows?.over(o,c)}:undefined;
+ const makePost=(...a:Parameters<typeof createPost>)=>gpu?.tsl&&gpu.NodeMaterial&&gpu.QuadMesh?shows=createPostGPU(...a,{tsl:gpu.tsl,ao:gpu.ao,NodeMaterial:gpu.NodeMaterial,QuadMesh:gpu.QuadMesh}):createPost(...a);
  const post=realistic?makePost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,mist:tier.weathered,wetMirror:tier.wetMirror,glowLamps:tier.lampGlow?lampsOutdoors():undefined,temporal:tier.temporal&&new URLSearchParams(location.search).get('taa')!=='off',hdr:()=>screen&&renderer.outputColorSpace===DisplayP3ColorSpace?HDR.peak:0,afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
  if(post){mistFor=r=>{if(scene.fog){
   const outdoors=study.enabled&&level==='exterior',lies=outdoors&&!snowing&&!raining?mistAmount(r.apparentElevation,study.minutes,study.day):0;
@@ -675,14 +678,14 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   setSnowing:(on:boolean)=>{
    if(!lighting||on===snowing)return;
    snowing=on;settling=true;settledAt=performance.now();post?.keepDepth(on||raining);relight();
-   if(on&&!snowfall){const made=snowfall=createSnowfall(bake?.cover,lampsOutdoors());void renderer.compileAsync(made.points,camera).catch(()=>{}).then(()=>{flakesReady=true;changed();});}
+   if(on&&!snowfall){const made=snowfall=createSnowfall(bake?.cover,lampsOutdoors(),falls);void renderer.compileAsync(made.points,camera).catch(()=>{}).then(()=>{flakesReady=true;changed();});}
    clearTimeout(sunSettle);sunSettle=setTimeout(()=>{bounce?.request();probes?.request();live?.relight();changed();},SUN_SETTLE);changed();
   },
   /** Rain mode on or off: rain falls, the sky closes and the ground wets (rainfall.ts). */
   setRaining:(on:boolean)=>{
    if(!lighting||on===raining)return;
    raining=on;wetAt=performance.now();post?.keepDepth(on||snowing);relight();
-   if(on&&!rainfall){const made=rainfall=createRainfall(bake?.cover);void renderer.compileAsync(made.points,camera).catch(()=>{}).then(()=>{dropsReady=true;changed();});}
+   if(on&&!rainfall){const made=rainfall=createRainfall(bake?.cover,falls);void renderer.compileAsync(made.points,camera).catch(()=>{}).then(()=>{dropsReady=true;changed();});}
    clearTimeout(sunSettle);sunSettle=setTimeout(()=>{bounce?.request();probes?.request();live?.relight();changed();},SUN_SETTLE);changed();
   },
   /** Clouds and their shadows on or off (Extreme); room reflections and the traced image follow the re-baked sky. */
