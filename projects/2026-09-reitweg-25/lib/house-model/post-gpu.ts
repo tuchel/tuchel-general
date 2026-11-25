@@ -1,8 +1,8 @@
 import * as T from 'three';
 import {finish} from './look';
 import {TEMPORAL} from './temporal';
-import {LENS,meterCorrection} from './lens';
-import type {Post,PostOptions} from './post';
+import {LENS,meterCorrection,focalLength} from './lens';
+import type {Post,PostOptions,PostView} from './post';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** What the image chain needs from `three/webgpu` and `three/tsl`. */
@@ -184,6 +184,35 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    dispose(){small.dispose();quad.material.dispose();},
   };
  })():undefined;
+ // The lens's focus (lens.ts, DepthOfField): at eye level the kept image is blurred by how far each point is from what
+ // the meter found in the middle of the frame, over a spiral of look-ups; a sharp edge does not spill over what is nearer.
+ const focus=meter&&camera instanceof T.PerspectiveCamera?(()=>{
+  const {Fn,uv,vec2,abs,smoothstep,select}=gpu.tsl,eye=camera,sharp=half(),from=texture(settled[0].texture);
+  const range=uniform(new T.Vector2(0,1)),reach=uniform(5),scale=uniform(0),texel=uniform(new T.Vector2());
+  const far=(p:any)=>range.y.div(texture(depthOf).sample(p).r.add(range.x)),size=(d:any)=>min(LENS.maxBlur,scale.mul(abs(d.sub(reach))).div(max(d,1e-3)));
+  const quad=quadOf(Fn(()=>{
+   const p=uv(),centre=far(p).toVar(),centreSize=size(centre).toVar(),sum=from.sample(p).rgb.toVar();let total=1;
+   for(let i=0,radius=.6;i<160&&radius<LENS.maxBlur;i++,radius+=.6/radius){
+    const a=i*2.39996323,q=p.add(texel.mul(vec2(Math.cos(a)*radius,Math.sin(a)*radius))),d=far(q).toVar(),s=size(d);
+    sum.addAssign(mix(sum.div(total),from.sample(q).rgb,smoothstep(radius-.5,radius+.5,select(d.greaterThan(centre),min(s,centreSize.mul(2)),s))));total++;
+   }
+   return vec4(sum.div(total),1);
+  })());
+  let distance=NaN,last=0;
+  return {
+   /** `image` as the lens sees it, focus eased toward the middle of the frame. */
+   render(image:T.WebGLRenderTarget){
+    const now=performance.now(),dt=Math.min(.1,(now-(last||now))/1000);last=now;
+    if(Number.isFinite(meter.focus))distance=Number.isFinite(distance)?distance+(meter.focus-distance)*Math.min(1,dt/.2):meter.focus;
+    const f=focalLength(eye.fov),d=Number.isFinite(distance)?Math.max(distance,.3):5,e=eye.projectionMatrix.elements;
+    if(sharp.width!==image.width||sharp.height!==image.height)sharp.setSize(image.width,image.height);
+    range.value.set(e[10],e[14]);reach.value=d;scale.value=f*f/(LENS.fNumber*Math.max(d-f,1e-3))/LENS.sensor*image.height;texel.value.set(1/image.width,1/image.height);
+    from.value=image.texture;renderer.setRenderTarget(sharp);quad.render(renderer);return sharp;
+   },
+   dispose(){sharp.dispose();quad.material.dispose();},
+  };
+ })():undefined;
+ let showing=settled[0];
  const lamps=options.lamps??(()=>0);
  // The finish fills the screen whatever camera it is drawn with, so that what falls over the frame can be drawn in the
  // same pass (`over`): a second pass to the canvas does not keep what the first left there.
@@ -193,7 +222,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   // The finish tone-maps and encodes itself, so the renderer is asked for neither while it is drawn.
   const mapping=renderer.toneMapping,space=renderer.outputColorSpace;
   renderer.toneMapping=T.NoToneMapping;renderer.outputColorSpace=T.LinearSRGBColorSpace;
-  shown.value=settled[0].texture;renderer.setRenderTarget(null);renderer.render(stage,through);
+  shown.value=showing.texture;renderer.setRenderTarget(null);renderer.render(stage,through);
   renderer.toneMapping=mapping;renderer.outputColorSpace=space;
  };
  const toScreen=()=>{for(const o of stage.children.slice())if(o!==finished)stage.remove(o);draw(camera);};
@@ -214,7 +243,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   },
   compilePasses:()=>Promise.resolve(),
   warm:()=>{},
-  render:(refining:boolean,exposed:number,indoor=0)=>{
+  render:(refining:boolean,exposed:number,indoor=0,view?:PostView)=>{
    const g=finish(indoor,lamps());balance.value.set(g.balance[0],g.balance[1],g.balance[2]);look.value.set(g.contrast,g.saturation,g.lift);exposure.value=exposed*(meter?.adapt(exposed)??1);seed.value=(seed.value+1)%64;occlusion.value=g.occlusion;
    // Only highlights two and a half times brighter than white bloom.
    if(glow)glow.threshold.value=2.5/Math.max(exposed,1e-4);
@@ -229,6 +258,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    else{renderer.setRenderTarget(next);(refining&&shaded?shaded:blend).render(renderer);}
    settled=[next,was];if(rest||!kept)frames++;
    kept?.remember();
+   showing=view?.eyeLevel&&focus?focus.render(settled[0]):settled[0];
    toScreen();
   },
   get lightCarried(){return 0;},
@@ -243,7 +273,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   get depth(){return depthOf;},
   present:()=>{},keep:()=>{},carries:()=>false,carry:()=>{},
   reset:()=>{frames=0;kept?.reset();shafts?.reset();},
-  dispose:()=>{kept?.dispose();meter?.dispose();shafts?.dispose();target.dispose();level?.dispose();levelled?.material.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();glow?.dispose();output.material.dispose();},
+  dispose:()=>{kept?.dispose();meter?.dispose();focus?.dispose();shafts?.dispose();target.dispose();level?.dispose();levelled?.material.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();glow?.dispose();output.material.dispose();},
  };
  return api as unknown as Post&{over:typeof api.over};
 }
