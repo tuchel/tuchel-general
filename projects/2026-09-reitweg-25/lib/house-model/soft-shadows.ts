@@ -64,7 +64,7 @@ export function installSoftShadows(){
  * three close places, as in the GLSL. */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export function softShadowFilter(tsl:any){
- const {Fn,wgsl,wgslFn,vec2,ivec2,float,reference,renderGroup,screenCoordinate,texture}=tsl;
+ const {Fn,If,wgsl,wgslFn,vec2,ivec2,float,reference,renderGroup,screenCoordinate,texture}=tsl;
  const code=wgsl(`
 fn softIgn(p:vec2<f32>)->f32{return fract(52.9829189*fract(dot(p,vec2<f32>(0.06711056,0.00583715))));}
 fn softDisc(i:f32,count:f32,phi:f32)->vec2<f32>{let r=sqrt((i+0.5)/count);let t=i*2.399963+phi;return vec2<f32>(cos(t),sin(t))*r;}`);
@@ -92,11 +92,16 @@ fn softDisc(i:f32,count:f32,phi:f32)->vec2<f32>{let r=sqrt((i+0.5)/count);let t=
    const blocks=d.lessThan(at.z.add(slope.dot(o)).sub(float(.03).div(range)));
    sum=sum.add(d.mul(blocks.select(1,0)));count=count.add(blocks.select(1,0));
   }
-  const width=at.z.sub(sum.div(count.max(1))).mul(range).mul(SOFT_SHADOW.spread).mul(perMetre).clamp(float(SOFT_SHADOW.sharpest).div(size.x),search).toVar();
-  let lit=float(0);
-  for(let i=0;i<SOFT_SHADOW.taps;i++){const o=disc({i:float(i),count:float(SOFT_SHADOW.taps),phi:phi.add(1.3)}).mul(width);lit=lit.add(compare(o,at.z.add(slope.dot(o))));}
-  // Nothing in the way, or everything: no edge here.
-  return count.lessThan(.5).select(float(1),count.greaterThan(SOFT_SHADOW.search-.5).select(float(0),lit.div(SOFT_SHADOW.taps)));
+  const total=sum.toVar(),hits=count.toVar();
+  // Nothing in the way, or everything: no edge here, and no taps are taken.
+  const result=float(1).toVar();
+  If(hits.greaterThan(SOFT_SHADOW.search-.5),()=>{result.assign(0);}).ElseIf(hits.greaterThan(.5),()=>{
+   const width=at.z.sub(total.div(hits)).mul(range).mul(SOFT_SHADOW.spread).mul(perMetre).clamp(float(SOFT_SHADOW.sharpest).div(size.x),search).toVar();
+   let lit=float(0);
+   for(let i=0;i<SOFT_SHADOW.taps;i++){const o=disc({i:float(i),count:float(SOFT_SHADOW.taps),phi:phi.add(1.3)}).mul(width);lit=lit.add(compare(o,at.z.add(slope.dot(o))));}
+   result.assign(lit.div(SOFT_SHADOW.taps));
+  });
+  return result;
  });
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
