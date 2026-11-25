@@ -101,4 +101,6 @@ assert(/\(list\.every\(f=>f\.variant!==undefined\)\?list\.map\(f=>f\.variant\)\.
 assert(/const level=options\.samples>=4\?new T\.RenderTarget\(/.test(chain)&&/depthNode:texture\(target\.depthTexture!\)\.load\(ivec2\(screenCoordinate\)\)\.r/.test(chain)&&/gpu\.ao\(texture\(depthOf\),null,camera\)/.test(chain)&&/get depth\(\)\{return depthOf;\}/.test(chain));
 // Detailed's bloom there: three's, at the WebGL chain's strength, radius and threshold.
 assert(/const glow=options\.bloom&&gpu\.bloom\?gpu\.bloom\(current,\.06,\.1,1\):undefined/.test(chain)&&/if\(glow\)glow\.threshold\.value=2\.5\/Math\.max\(exposed,1e-4\);/.test(chain)&&/import\('three\/addons\/tsl\/display\/BloomNode\.js'\)/.test(page));
+// The sky's clouds stand where the WebGL sky has them.
+assert(/if\(gpu\)u\.cloudSpeed\.value=0;/.test(lighting));
 console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, lying snow with its packed layer on the roofs, falling snow and rain, averaged still frames and colour finish there.');
