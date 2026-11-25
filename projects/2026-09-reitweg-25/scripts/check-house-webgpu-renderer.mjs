@@ -46,6 +46,8 @@ assert(/renderer\.toneMapping=T\.NoToneMapping;renderer\.outputColorSpace=T\.Lin
 // The kept moving image (temporal.ts) with the WebGL pass's settings: looked up where the last frame saw the point,
 // held to the new frame's neighbouring colours, at full size whatever size the moving frames are drawn at.
 assert(/import \{TEMPORAL\} from '\.\/temporal';/.test(chain)&&/share\.value=is\?TEMPORAL\.blend:1;/.test(chain)&&/expected\.mul\(TEMPORAL\.tolerance\)\.add\(\.05\)/.test(chain)&&/hi\.sub\(lo\)\.mul\(TEMPORAL\.slack\)/.test(chain)&&/frames=TEMPORAL\.carry;/.test(chain),'the kept image in motion');
+// The shutter in motion (motion-blur.ts): the moving frame smeared along each point's path since the last frame.
+assert(/import \{MOTION_BLUR\} from '\.\/motion-blur';/.test(chain)&&/MOTION_BLUR\.shutter/.test(chain)&&/MOTION_BLUR\.longest/.test(chain)&&/MOTION_BLUR\.taps/.test(chain)&&/kept\.blend\(next,moved,moved&&!refining&&flowing\)/.test(chain),'the shutter in motion')
 assert(/if\(kept\)\{if\(kept\.resize\(w,h\)\)frames=0;\}/.test(chain)&&/temporal:!!kept,/.test(chain),'kept at full size; moving frames jittered');
 // The lens there, so far: the meter eases exposure by the WebGL chain's rule, and the finish carries its grain.
 assert(/import \{LENS,meterCorrection[^}]*\} from '\.\/lens';/.test(chain)&&/exposure\.value=exposed\*\(meter\?\.adapt\(exposed\)\?\?1\);/.test(chain)&&/meterCorrection\(logAverage,exposure\)\/scale,Math\.min\(1,dt\/LENS\.meter\.seconds\)/.test(chain)&&/n\.mul\(LENS\.grain\)/.test(chain),'the meter and the grain');
