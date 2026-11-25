@@ -181,6 +181,7 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
   },nodes:slots=>{
    // The same as nodes: the light from all round is scaled before three uses it. Not yet there: the clear coat.
    const {vec3,float,clamp,mix,dot,select,positionWorld,normalWorld,texture3D,sampler,pmremTexture,materialEnvIntensity}=slots.tsl;
+   slots.sky={low:uniforms.uSkyMin,grid:uniforms.uSkyGrid,cell:uniforms.uSkyCell,linked:uniforms.uSkyLinked,reach:texture3D(links)};
    slots.indirect.push(context=>{
     const p=positionWorld,n=normalWorld,g=p.add(n.mul(.35)).sub(uniforms.uSkyMin).div(uniforms.uSkyCell),grid=uniforms.uSkyGrid as any;
     const inside=(uniforms.uSkyReady as any).greaterThan(.5).and(g.x.greaterThan(0)).and(g.y.greaterThan(0)).and(g.z.greaterThan(0)).and(g.x.lessThan(grid.x)).and(g.y.lessThan(grid.y)).and(g.z.lessThan(grid.z));

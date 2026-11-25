@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {addShaderFeature,after,before,hasShaderFeature,materialsOf} from './shader-features';
+import {addShaderFeature,after,before,hasShaderFeature,materialsOf,type NodeSlots} from './shader-features';
 import {COVER} from './sky-links';
 import {GARAGE,BIN_ROOM,garagePoint} from './front-garage';
 import {winterGardenOutline,WG_GLASS_EDGE} from './renovations';
@@ -92,6 +92,43 @@ const HOW={surface:new T.Vector4(0,0,0,SNOW.slope),leaf:new T.Vector4(0,0,0,1.6)
 const MOST={surface:{value:new T.Vector3(1,0,1)},lawn:{value:new T.Vector3(1,.7,1)},leaf:{value:new T.Vector3(.85,1,4)},twig:{value:new T.Vector3(.3,0,1)},reed:{value:new T.Vector3(.2,0,1)}};
 /** The snow as a shader feature, for a material that builds on it (snow-slab.ts). */
 export const snowFeature=(kind:SnowKind)=>feature(kind);
+/** The same for the WebGPU renderer, in its own shading language: how much lies (x) and its tone (y). */
+const SNOW_WGSL=`
+fn snowHash(c:vec2<f32>)->f32{var p=fract(vec3<f32>(c.x,c.y,c.x)*0.1031);p+=dot(p,p.yzx+33.33);return fract((p.x+p.y)*p.z);}
+fn snowNoise(p:vec2<f32>)->f32{let i=floor(p);var f=p-i;f=f*f*(3.0-2.0*f);
+ return mix(mix(snowHash(i),snowHash(i+vec2<f32>(1.0,0.0)),f.x),mix(snowHash(i+vec2<f32>(0.0,1.0)),snowHash(i+vec2<f32>(1.0,1.0)),f.x),f.y);}
+fn snowOn(p:vec3<f32>,w:f32,up:f32,open:f32,slope:f32,grain:f32,amount:f32)->vec2<f32>{
+ let broad=mix(0.5,snowNoise(p.xz*0.31+p.y*0.17),1.0-smoothstep(0.6,2.4,w));
+ let fine=mix(0.5,snowNoise((p.xz*2.3+p.y*1.1)*grain+17.0),1.0-smoothstep(0.08,0.35,w*grain));
+ let mid=mix(0.5,snowNoise(p.zx*0.83+p.y*0.4+41.0),1.0-smoothstep(0.25,0.9,w));
+ let depth=amount*1.25-0.25+(broad*0.45+mid*0.33+fine*0.22-0.5)*mix(1.1,0.3,amount)-(1.0-up)*slope-(1.0-open)*1.3-(grain-1.0)*0.13*(1.0-fine);
+ return vec2<f32>(smoothstep(0.0,0.2,depth)*smoothstep(0.0,0.12,amount),0.955+0.07*broad+0.02*fine);}
+fn snowOpen(p:vec3<f32>,low:vec3<f32>,grid:vec3<f32>,cell:f32,linked:f32,reach:texture_3d<f32>)->f32{
+ let q=(p.xz-low.xz)/${COVER.cell.toFixed(2)};
+ if(p.y>=low.y+grid.y*cell||any(q<=vec2<f32>(0.0))||any(q>=grid.xz*cell/${COVER.cell.toFixed(2)})){return 1.0;}
+ let g=q-0.5;let g0=floor(g);let f=g-g0;var h:array<f32,4>;
+ for(var k:i32=0;k<4;k++){let c=vec2<i32>(max(g0+vec2<f32>(f32(k&1),f32(k>>1u)),vec2<f32>(0.0)));let t=textureLoad(reach,vec3<i32>(c.x,c.y>>1u,i32(grid.y)+1),0);h[k]=select(t.g,t.r,(c.y&1)==0);}
+ return linked*smoothstep(-0.7,-0.4,p.y-(low.y+mix(mix(h[0],h[1],f.x),mix(h[2],h[3],f.x),f.y)*grid.y*cell));}
+`;
+/* eslint-disable @typescript-eslint/no-explicit-any */
+let shared:{amount:any;cover:(p:any)=>{own:any;under:any};lies:any;liesUnderSky:any;drifts:any}|undefined;
+/** The snow's values and functions as nodes, made once: the amount, the roofs (snowCover) and how much lies. */
+function snowNodes(tsl:any){
+ if(shared)return shared;
+ const {uniform,float,max,abs,dot,smoothstep,step,wgsl,wgslFn}=tsl,code=wgsl(SNOW_WGSL);
+ const a=coverA.value.map(v=>uniform(v)),b=coverB.value.map(v=>uniform(v));
+ return shared={
+  amount:uniform(0).onRenderUpdate(()=>amount.value),
+  cover:p=>{let own=float(0),under=float(0);
+   for(let k=0;k<SNOW.covers;k++){const d=p.xz.sub(a[k].xy),e=smoothstep(.94,1,max(abs(dot(d,a[k].zw)),abs(dot(d,b[k].xy)))).oneMinus();
+    under=max(under,e.mul(step(p.y,b[k].z)));own=max(own,e.mul(step(.5,b[k].w)).mul(step(b[k].z,p.y)));}
+   return {own,under};},
+  lies:wgslFn('fn snowLies(p:vec3<f32>,w:f32,up:f32,under:f32,slope:f32,grain:f32,amount:f32)->vec2<f32>{if(amount<=0.0){return vec2<f32>(0.0,1.0);}return snowOn(p,w,up,1.0-under,slope,grain,amount);}',[code]),
+  drifts:wgslFn('fn snowDrifts(p:vec3<f32>,w:f32,amount:f32)->f32{if(amount<=0.0){return 0.0;}return snowOn(p,w,1.0,1.0,0.0,1.0,amount).x*smoothstep(0.5,0.72,snowNoise(p.xz*0.55+5.0)*0.7+snowNoise(p.xz*2.1)*0.3);}',[code]),
+  liesUnderSky:wgslFn('fn snowLiesUnderSky(p:vec3<f32>,w:f32,up:f32,under:f32,slope:f32,grain:f32,amount:f32,low:vec3<f32>,grid:vec3<f32>,cell:f32,linked:f32,reach:texture_3d<f32>)->vec2<f32>{if(amount<=0.0){return vec2<f32>(0.0,1.0);}return snowOn(p,w,up,snowOpen(p,low,grid,cell,linked,reach)*(1.0-under),slope,grain,amount);}',[code]),
+ };
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
 const feature=(kind:SnowKind,how=HOW.surface,most=MOST.surface)=>({key:'snow-'+kind,last:true,compile:(shader:T.WebGLProgramParametersWithUniforms)=>{
  Object.assign(shader.uniforms,uniforms);
  if(kind==='far'){
@@ -155,6 +192,28 @@ const feature=(kind:SnowKind,how=HOW.surface,most=MOST.surface)=>({key:'snow-'+k
  }`);
  // Snow in shade is lit by the sky alone, and reads blue.
  shader.fragmentShader=before(shader.fragmentShader,'aomap_fragment',`reflectedLight.indirectDiffuse*=mix(vec3(1.0),vec3(${SNOW.shade.join(',')}),snowLie);`);
+},nodes:(slots:NodeSlots)=>{
+ // The same as nodes. Not yet there: the dusting on a glass roof.
+ const {vec3,vec4,float,mix,max,fwidth,varying,smoothstep,normalize,materialOpacity,positionWorld,positionLocal,positionGeometry,normalWorldGeometry,materialColor,materialRoughness,materialMetalness,materialReference}=slots.tsl;
+ const s=snowNodes(slots.tsl);
+ if(kind==='far'){const c=vec4(slots.colour??materialColor);slots.colour=vec4(mix(c.rgb,materialReference('color','color').mul(vec3(.83,.88,.93)),s.amount.mul(.8)),c.a);return;}
+ const p=positionWorld,w=max(fwidth(p.x),fwidth(p.z)),before=slots.tinted;
+ if(kind==='water'){
+  const ice=smoothstep(.15,.7,s.amount),drift=s.drifts({p,w,amount:s.amount}).toVar();
+  slots.tinted=rgb=>mix(mix(before?before(rgb):rgb,vec3(.62,.74,.78),ice),vec3(...SNOW.albedo),drift);
+  slots.roughness=mix(slots.roughness??materialRoughness,mix(.25,.88,drift),ice);slots.normal=normalize(mix(slots.normal??normalWorldGeometry,vec3(0,1,0),ice));
+  slots.covered=max(ice.mul(.6),drift.mul(.92));slots.opacity=mix(slots.opacity??materialOpacity,1,slots.covered);return;
+ }
+ if(kind!=='surface')return;
+ const {under}=s.cover(p),given={p,w,up:normalWorldGeometry.y,under,slope:how.w,grain:most.value.z,amount:s.amount};
+ const r=(slots.sky?s.liesUnderSky({...given,...slots.sky}):s.lies(given)).toVar();
+ const lie=max(r.x.mul(most.value.x),how.z?s.amount.mul(how.z*.8*most.value.x).mul(varying(positionGeometry.y.mul(5).clamp(0,1))):float(0)).toVar();
+ // Over the vertices' and instances' tints, or the snow would take them on.
+ slots.tinted=rgb=>{const shown=before?before(rgb):rgb;return mix(mix(shown,vec3(.5,.44,.3),s.amount.mul(how.z*.6)).mul(mix(vec3(1),vec3(.6,.62,.56),s.amount.mul(most.value.y))),vec3(...SNOW.albedo).mul(r.y),lie);};
+ slots.roughness=mix(slots.roughness??materialRoughness,.86,lie);slots.metalness=(slots.metalness??materialMetalness).mul(lie.oneMinus());slots.covered=lie;
+ slots.indirect.push(context=>{const shade=mix(vec3(1),vec3(...SNOW.shade),lie);context.irradiance.mulAssign(shade);context.iblIrradiance.mulAssign(shade);});
+ // Grass and flowers shrink where they stood, before any breeze moves them.
+ if(how.x||how.y){const keep=s.amount.mul(how.y).oneMinus();slots.position=(slots.position??positionLocal).add(positionLocal.mul(vec3(keep,keep.mul(s.amount.mul(how.x).oneMinus()),keep).sub(1)));}
 }});
 
 const BLADES=/grass/,REEDS=/^fountain-grass/,BLOOMS=/flowers|blooms|perennials/,SETTS=/cobble/;

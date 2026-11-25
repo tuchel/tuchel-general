@@ -10,7 +10,13 @@ export type ShaderFeature={key:string;last?:boolean;compile:(shader:T.WebGLProgr
 /** What a material's features hand on to one another and, at the end, to the material, as nodes of `tsl` (three/tsl):
  * its colour (alpha included), local position, roughness, world normal, how much indirect light its hollows keep, and
  * its opacity. */
-export type NodeSlots={tsl:any;colour?:any;position?:any;roughness?:any;normal?:any;cavity?:any;opacity?:any;
+export type NodeSlots={tsl:any;colour?:any;position?:any;roughness?:any;metalness?:any;normal?:any;cavity?:any;opacity?:any;
+ /** The sky light's grid and what stands over each point of it, for a feature that reads them (snow.ts). */
+ sky?:{low:any;grid:any;cell:any;linked:any;reach:any};
+ /** How much of the surface lying snow hides, 0–1 (snow.ts). */
+ covered?:any;
+ /** The colour once three has multiplied the vertices' and instances' tints into it, which it does after `colour`. */
+ tinted?:(rgb:any)=>any;
  /** The colour light takes on going round the room at this point, at the brightness of `fallback` (sun-bounce.ts). */
  tint?:(fallback:any)=>any;
  /** The finished colour, changed last of all (a haze of the material's own). */
@@ -34,9 +40,13 @@ function composeNodes(material:T.Material,list:ShaderFeature[]){
  }
  if(lit)(material as any).setupLightingModel=()=>m.isMeshPhysicalMaterial?new Lighting(m.clearcoat>0,m.sheen>0,m.iridescence>0,m.anisotropy>0,m.transmission>0,m.dispersion>0):new Lighting();
  else delete (material as any).setupLightingModel;
+ // What must follow the vertex and instance tints is done as three turns to the material's variants, straight after.
+ const tinted=slots.tinted;
+ if(tinted)(material as any).setupVariants=function(this:any,builder:any){tsl.diffuseColor.rgb.assign(tinted(tsl.diffuseColor.rgb));return Object.getPrototypeOf(this).setupVariants.call(this,builder);};
+ else delete (material as any).setupVariants;
  // three refreshes an object's values each frame only when its material holds a node: one whose light alone is changed
  // gets its plain colour as a node, or the hooks would never see their values change.
- Object.assign(material as any,{colorNode:slots.colour??(lit?tsl.materialColor:null),positionNode:slots.position??null,outputNode:slots.output?slots.output(tsl.output):null,roughnessNode:slots.roughness??null,normalNode:slots.normal?tsl.transformNormalToView(slots.normal):null,aoNode:slots.cavity??null,opacityNode:slots.opacity??null});
+ Object.assign(material as any,{colorNode:slots.colour??(lit?tsl.materialColor:null),positionNode:slots.position??null,outputNode:slots.output?slots.output(tsl.output):null,roughnessNode:slots.roughness??null,metalnessNode:slots.metalness??null,normalNode:slots.normal?tsl.transformNormalToView(slots.normal):null,aoNode:slots.cavity??null,opacityNode:slots.opacity??null});
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 export function addShaderFeature(material:T.Material,feature:ShaderFeature){
