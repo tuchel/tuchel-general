@@ -31,9 +31,10 @@ assert.equal(modelled+crowns+counts.farDrawn,counts.drawn,'each drawn tree has o
 for(const m of meshes.filter(m=>m.name==='tree-lod-core')){const p=new T.Vector3(),q=new T.Matrix4();for(let i=0;i<m.count;i++){m.getMatrixAt(i,q);p.setFromMatrixPosition(q);const leaf=.15*q.getMaxScaleOnAxis()/(p.distanceTo(camera.position)*pixel);assert(leaf<LEAF_PIXELS,`a crown where a leaf covers ${leaf.toFixed(2)} px`);}}
 for(const m of meshes.filter(m=>m.name==='tree-leaves')){const p=new T.Vector3(),q=new T.Matrix4();for(let i=0;i<m.count;i++){m.getMatrixAt(i,q);p.setFromMatrixPosition(q);const leaf=.15*q.getMaxScaleOnAxis()/(p.distanceTo(camera.position)*pixel);assert(leaf>=LEAF_PIXELS,`modelled leaves where a leaf covers ${leaf.toFixed(2)} px`);}}
 assert(crowns>0&&modelled>0,'both kinds drawn in this deep view');
-// Shadows: every tree casts at full detail; crowns cast none.
+// Shadows: every tree casts at full detail; crowns cast none, nor do the leaves kept for trees seen close (the plain
+// leaves of the same trees cast for them).
 for(const m of meshes){
- if(m.name==='tree-lod-core'||m.name==='tree-lod-cards'){assert.equal(m.castShadow,false,'crowns cast no shadow');assert(m.userData.skipPhotographic,'the tracer skips crowns');continue;}
+ if(m.name==='tree-lod-core'||m.name==='tree-lod-cards'||m.name==='tree-leaves-close'){assert.equal(m.castShadow,false,'crowns cast no shadow');assert(m.userData.skipPhotographic,'the tracer skips crowns');continue;}
  m.onBeforeShadow();assert.equal(m.count,m.userData.instances,`${m.name} casts shadows from every tree`);m.onBeforeRender();
 }
 // The mirror's camera adds what it sees: a camera looking back west draws trees the first did not.
