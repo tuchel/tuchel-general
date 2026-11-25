@@ -156,7 +156,10 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
    shader.fragmentShader=shader.fragmentShader.replace('gl_FragColor = vec4( texColor, 1.0 );',nightSky+(env?'':celestial)+(clouds?'\n{vec4 cloud=cloudsToward(direction);texColor=texColor*cloud.a+cloud.rgb;}':'')+(env?'\ntexColor=mix(vec3(dot(texColor,vec3(0.2126,0.7152,0.0722))),texColor,uEnvSaturation);texColor=mix(texColor,uGround,smoothstep(0.0,-0.06,direction.y));':'')+'\ngl_FragColor = vec4( texColor, 1.0 );');
   };
   if(!gpu)s.material.customProgramCacheKey=()=>(env?'reitweg-env-sky':'reitweg-sky')+(clouds?'-clouds':'');
-  const u=valuesOf(s);u.turbidity.value=SKY.turbidity;u.rayleigh.value=SKY.rayleigh;u.mieCoefficient.value=SKY.mie;u.mieDirectionalG.value=SKY.g;u.showSunDisc.value=disc;u.cloudCoverage.value=clouds?0:SKY.clouds;u.cloudDensity.value=.35;}
+  const u=valuesOf(s);u.turbidity.value=SKY.turbidity;u.rayleigh.value=SKY.rayleigh;u.mieCoefficient.value=SKY.mie;u.mieDirectionalG.value=SKY.g;u.showSunDisc.value=disc;u.cloudCoverage.value=clouds?0:SKY.clouds;
+  // The clouds stand still: three's sky for the WebGPU renderer would drift them with its own clock, and a still frame's
+  // average would smear them.
+  if(gpu)u.cloudSpeed.value=0;u.cloudDensity.value=.35;}
  const cubeTarget=gpu?new gpu.CubeRenderTarget(128,{type:T.HalfFloatType}):new T.WebGLCubeRenderTarget(128,{type:T.HalfFloatType}),cubeCamera=new T.CubeCamera(.1,40000,cubeTarget);
  const pmrem=gpu?new gpu.PMREMGenerator(renderer as never):new T.PMREMGenerator(renderer);let envTarget:T.WebGLRenderTarget|null=null,envDirty=true,envAt=0;
  const sun=new T.DirectionalLight('#fff4de',3);sun.name='sun';sun.castShadow=true;
