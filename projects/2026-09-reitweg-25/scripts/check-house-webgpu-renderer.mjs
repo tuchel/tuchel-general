@@ -4,8 +4,11 @@ const viewer=fs.readFileSync('lib/house-model/viewer.ts','utf8'),page=fs.readFil
 const lib=fs.readdirSync('lib/house-model').filter(f=>f.endsWith('.ts')).map(f=>fs.readFileSync(`lib/house-model/${f}`,'utf8')).join('\n');
 const features=fs.readFileSync('lib/house-model/shader-features.ts','utf8'),lighting=fs.readFileSync('lib/house-model/lighting.ts','utf8'),surfaces=fs.readFileSync('lib/house-model/surface-materials.ts','utf8');
 // `?renderer=webgpu` loads three's WebGPU renderer only when asked, and only for the presets it can draw.
-assert(/export const drawnWithWebGPU=\(quality:Quality\)=>quality==='model'\|\|quality==='balanced'\|\|quality==='detailed';/.test(viewer));
-assert(/drawnWithWebGPU\(quality\)&&new URLSearchParams\(window\.location\.search\)\.get\('renderer'\)==='webgpu'\?await Promise\.all\(\[import\('three\/webgpu'\),import\('three\/tsl'\),import\('three\/addons\/objects\/SkyMesh\.js'\),/.test(page));
+// Every preset is drawn there; Extreme leaves off the parts not ported yet, and `&try=` turns named ones on to test them.
+const tierCode=fs.readFileSync('lib/house-model/device-tier.ts','utf8');
+assert(/export const WEBGPU_PENDING=\[[^\]]*'temporal'[^\]]*\] as const;/.test(tierCode)&&/WEBGPU_PENDING\.filter\(k=>!tried\.includes\(k\)\)\.map\(k=>\[k,false\]\)/.test(tierCode));
+assert(/const tier=gpu\?forWebGPU\(chosen,new URLSearchParams\(window\.location\.search\)\.get\('try'\)\?\.split\(','\)\):chosen/.test(viewer)&&/const wide=!gpu&&tier\.quality==='extreme'/.test(viewer));
+assert(/const webgpu=new URLSearchParams\(window\.location\.search\)\.get\('renderer'\)==='webgpu'\?await Promise\.all\(\[import\('three\/webgpu'\),import\('three\/tsl'\),import\('three\/addons\/objects\/SkyMesh\.js'\),/.test(page));
 // It has no device until `init` resolves: sky light and the first frame wait for it, and the canvas says which backend
 // it runs on.
 assert(/const device=gpu\?\(renderer as unknown as \{init\(\):Promise<unknown>\}\)\.init\(\)\.then\(\(\)=>\{canvas\.dataset\.renderer=/.test(viewer));

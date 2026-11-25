@@ -68,6 +68,11 @@ export const PHONE_EXTREME={pixelRatio:2,shadowSize:2048,samples:2,refineFrames:
  * browser's graphics memory: a 2048 shadow map and 2× multisampling need about 160 MB less at phone size. Extreme is
  * for a computer's graphics card; a phone given it runs Detailed, unless its user chose it past the warning
  * (`extremeOnPhone`, PHONE_EXTREME). */
+/** Extreme's parts that the WebGPU renderer does not draw yet. With `?renderer=webgpu` they are left off, so Extreme is
+ * Detailed at Extreme's resolution plus what has been ported; `&try=lens,clouds` turns named parts on there, to test
+ * one on a real graphics card before it comes off this list. */
+export const WEBGPU_PENDING=['treeOcclusion','steerMotion','roomProbes','liveTrace','lens','clouds','poolMirror','scanned','weathered','wetMirror','temporal','lampGlow','relief','leafDetail','living','lightCarry','softShadows','hdr'] as const;
+export const forWebGPU=(tier:TierSettings,tried:string[]=[]):TierSettings=>({...tier,...Object.fromEntries(WEBGPU_PENDING.filter(k=>!tried.includes(k)).map(k=>[k,false]))});
 export function tierFor(quality:Quality,phone=isPhone(),extremeOnPhone=false):TierSettings{
  if(phone&&quality==='extreme'&&extremeOnPhone)return {...tiers.extreme,...PHONE_EXTREME};
  if(phone&&(quality==='detailed'||quality==='extreme'))return {...tiers.detailed,shadowSize:2048,samples:2};

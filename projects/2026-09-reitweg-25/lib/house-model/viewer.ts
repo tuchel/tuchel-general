@@ -43,7 +43,7 @@ import {snowDrifts} from './snow-drift';
 import {snowSlabs} from './snow-slab';
 import {christmasTree} from './christmas-tree';
 import {createWalker,type WalkInput} from './walk';
-import {tierFor,type Quality} from './device-tier';
+import {forWebGPU,tierFor,type Quality} from './device-tier';
 import {createPerfReadout} from './perf-readout';
 import {neighborHouses} from './neighbors';
 import {renovationState,type RenovationState} from './renovation-data';
@@ -81,8 +81,6 @@ export type WebGPUKit=Partial<LightingGPU>&{
  limits?:Record<string,number>;
  PMREMGenerator:new(renderer:never)=>{fromScene(scene:T.Scene,sigma:number):{texture:T.Texture;dispose():void};dispose():void};
 };
-/** Whether a preset is drawn with the WebGPU renderer when it is asked for. */
-export const drawnWithWebGPU=(quality:Quality)=>quality==='model'||quality==='balanced'||quality==='detailed';
 /** A dragged sun re-traces bounced light and the traced scene once it has been still this long (ms). */
 const SUN_SETTLE=150;
 /** A view is at rest once nothing has changed for this long (ms). */
@@ -93,8 +91,8 @@ const halton=(i:number,b:number)=>{let f=1,r=0;while(i>0){f/=b;r+=f*(i%b);i=Math
 const SITE_CENTER=new T.Vector3(-5,0,8),SITE_RADIUS=70;
 
 export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
- const tier=tierFor(options.quality,undefined,options.extremeOnPhone),realistic=tier.quality!=='model';
- const gpu=drawnWithWebGPU(tier.quality)?options.webgpu:undefined;
+ const chosen=tierFor(options.quality,undefined,options.extremeOnPhone),gpu=options.webgpu;
+ const tier=gpu?forWebGPU(chosen,new URLSearchParams(window.location.search).get('try')?.split(',')):chosen,realistic=tier.quality!=='model';
  // What the WebGPU renderer cannot draw yet is left out there: of the image passes all but corner shading, the averaging of still frames and the finish (post-gpu.ts).
  drawWithNodes(gpu?.tsl&&{...gpu.tsl,PhysicalLightingModel:gpu.PhysicalLightingModel});
  // Whether to try for a screen brighter than white (hdr.ts).
@@ -122,7 +120,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  renderer.toneMapping=realistic?T.AgXToneMapping:T.ACESFilmicToneMapping;renderer.toneMappingExposure=.9;
  // Extreme on a wide-gamut screen draws in Display P3: colours the photographic grade saturates past sRGB stay saturated
  // instead of clipping (post.ts).
- const wide=tier.quality==='extreme'&&window.matchMedia('(color-gamut: p3)').matches;
+ const wide=!gpu&&tier.quality==='extreme'&&window.matchMedia('(color-gamut: p3)').matches;
  if(wide)T.ColorManagement.define({[DisplayP3ColorSpace]:DisplayP3ColorSpaceImpl});
  renderer.outputColorSpace=wide?DisplayP3ColorSpace:T.SRGBColorSpace;
  const canvas=renderer.domElement;
