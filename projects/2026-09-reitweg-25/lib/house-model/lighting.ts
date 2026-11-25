@@ -116,6 +116,7 @@ export type LightingGPU={
  SkyMesh:new()=>T.Mesh;tsl:typeof import('three/tsl');
  CubeRenderTarget:new(size:number,options:object)=>T.WebGLCubeRenderTarget;
  PMREMGenerator:new(renderer:never)=>Pick<T.PMREMGenerator,'fromCubemap'|'fromScene'|'dispose'>;
+ NodeMaterial?:new()=>T.Material;QuadMesh?:new(material:T.Material)=>{render(renderer:unknown):void};
 };
 type Uniforms=Record<string,{value:any}>; // eslint-disable-line @typescript-eslint/no-explicit-any
 export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Object3D,options:{shadowSize:number;clouds?:Clouds;/** Shadows that soften with distance (soft-shadows.ts). */soft?:boolean;/** Drawn by the WebGPU renderer. */gpu?:LightingGPU}){
@@ -284,6 +285,23 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
    const data=new Float32Array(width*height*4);renderer.readRenderTargetPixels(target,0,0,width,height,data);
    target.dispose();material.dispose();quad.dispose();
    const texture=new T.DataTexture(data,width,height,T.RGBAFormat,T.FloatType);texture.mapping=T.EquirectangularReflectionMapping;texture.minFilter=texture.magFilter=T.LinearFilter;texture.needsUpdate=true;
+   return texture;
+  },
+  /** The same image from the WebGPU renderer, which reads its targets back a moment later. Each pixel's direction comes
+   * from its place on the target, whose rows that renderer reads top down: row 0 looks straight down, as above. */
+  equirectGPU:async(width=1024)=>{
+   const {tsl,NodeMaterial,QuadMesh}=gpu!,{cubeTexture,screenCoordinate,vec3,vec4,cos,sin}=tsl;
+   cubeCamera.update(renderer,envScene);
+   const height=width/2,target=new T.RenderTarget(width,height,{type:T.FloatType,depthBuffer:false}) as unknown as T.WebGLRenderTarget;
+   const phi=screenCoordinate.x.div(width).sub(.5).mul(Math.PI*2),theta=screenCoordinate.y.div(height).sub(.5).mul(Math.PI);
+   const material=new NodeMaterial!();Object.assign(material,{fragmentNode:vec4(cubeTexture(cubeTarget.texture,vec3(cos(phi).mul(cos(theta)),sin(theta),sin(phi).mul(cos(theta)))).rgb,1),depthTest:false,depthWrite:false});
+   const previous=renderer.getRenderTarget(),mapping=renderer.toneMapping,space=renderer.outputColorSpace;
+   renderer.toneMapping=T.NoToneMapping;renderer.outputColorSpace=T.LinearSRGBColorSpace;
+   renderer.setRenderTarget(target);new QuadMesh!(material).render(renderer);renderer.setRenderTarget(previous);
+   renderer.toneMapping=mapping;renderer.outputColorSpace=space;
+   const read=await (renderer as unknown as {readRenderTargetPixelsAsync(t:unknown,x:number,y:number,w:number,h:number):Promise<Float32Array>}).readRenderTargetPixelsAsync(target,0,0,width,height);
+   target.dispose();material.dispose();
+   const texture=new T.DataTexture(new Float32Array(read.buffer,read.byteOffset,width*height*4),width,height,T.RGBAFormat,T.FloatType);texture.mapping=T.EquirectangularReflectionMapping;texture.minFilter=texture.magFilter=T.LinearFilter;texture.needsUpdate=true;
    return texture;
   },
   dispose:()=>{sky.geometry.dispose();sky.material.dispose();envSky.geometry.dispose();envSky.material.dispose();sky.removeFromParent();cubeTarget.dispose();envTarget?.dispose();pmrem.dispose();lamps.removeFromParent();scene.remove(sun,sun.target);},
