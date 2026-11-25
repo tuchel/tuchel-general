@@ -285,6 +285,21 @@ export function detailLeaves(materials:FoliageMaterials){
   let f='varying vec2 vLeaf;\n'+after(shader.fragmentShader,'color_fragment',leafDetailGlsl.near+leafDetailGlsl.colour);
   f=after(f,'roughnessmap_fragment',`roughnessFactor=mix(roughnessFactor,${LEAF_DETAIL.sheen.toFixed(2)},leafNear);`);
   shader.fragmentShader=after(f,'normal_fragment_maps',leafDetailGlsl.normal);
+ },nodes:(slots:NodeSlots)=>{
+  // The same as nodes: where on its blade from the vertex's number, the outline in the opacity (kept by coverage).
+  const {uniformArray,vertexIndex,varying,vec3,vec4,float,abs,fract,min,max,mix,length,dot,cross,dFdx,dFdy,normalize,smoothstep,select,positionWorld,normalWorld,materialColor,materialOpacity,materialRoughness}=slots.tsl;
+  const D=LEAF_DETAIL,at=varying(uniformArray(BLADE_TRIS.map(k=>new T.Vector2(BLADE[k][0]/.34,BLADE[k][2]))).element(vertexIndex.toFloat().mod(12).toInt()));
+  const px=max(length(dFdx(at)),length(dFdy(at))),near=float(1).sub(smoothstep(D.fades[0],D.fades[1],px)),across=abs(at.x),along=at.y;
+  const rib=float(1).sub(smoothstep(.03,px.add(.07),across)),side=abs(fract(along.sub(across.mul(.3)).mul(6)).sub(.5)).mul(2);
+  const veins=float(1).sub(smoothstep(0,px.mul(6).add(.14),side)).mul(across.oneMinus()).mul(.6);
+  const blade=select(along.lessThan(.42),along.div(.42),along.oneMinus().div(.58)),off=along.sub(.44);
+  const width=min(blade,off.mul(off).mul(-D.round).add(D.shoulder)).sub(abs(fract(along.mul(D.teeth)).sub(.5)).mul(2*D.tooth));
+  const base=vec4(slots.colour??materialColor);
+  slots.colour=vec4(base.rgb.mul(near.mul(max(rib,veins).mul(D.vein).mul(vec3(1,1,.6)).sub(across.mul(.12))).add(1)),base.a);
+  slots.opacity=(slots.opacity??materialOpacity).mul(mix(1,smoothstep(px.negate(),px,width.sub(across)),near));
+  slots.roughness=mix(slots.roughness??materialRoughness,D.sheen,near);
+  const round=slots.normal??normalWorld,flat=normalize(cross(dFdx(positionWorld),dFdy(positionWorld)));
+  slots.normal=normalize(mix(round,select(dot(flat,round).lessThan(0),flat.negate(),flat),near.mul(D.face)));
  }});
 }
 /** Modelled leaves: a folded four-triangle blade repeated around branch-tip clusters, one geometry per archetype. */
