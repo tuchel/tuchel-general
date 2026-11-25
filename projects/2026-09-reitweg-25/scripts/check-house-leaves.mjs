@@ -40,5 +40,5 @@ assert(Math.abs(LEAF_CLOSE-1/LEAF_DETAIL.fades[1])<1e-9,'from where the detail s
 const [e0,e1]=LEAF_DETAIL.edges;assert(e0<e1&&e1<=LEAF_DETAIL.fades[0],'the outline comes in after the veins are full');
 assert(LEAF_EDGE>LEAF_CLOSE&&LEAF_EDGE<1/e1,'a tree takes the outline a little before it starts to show');
 assert(leafDetailGlsl.outline.includes(`1.0-smoothstep(${e0.toFixed(2)},${e1.toFixed(2)},leafPx)`));
-assert(/fine=!!set\.close&&!!\(set\.close\.material as T\.Material\)\.userData\.detailed/.test(source)&&/else if\(fine&&size>=LEAF_EDGE\)edged\.push\(i\);else if\(fine&&size>=LEAF_CLOSE\)close\.push\(i\);/.test(source)&&/close\.name='tree-leaves-close'/.test(source)&&/edged\.name='tree-leaves-edged'/.test(source));
+assert(/fine=!!set\.close&&!!\(set\.close\.material as T\.Material\)\.userData\.detailed/.test(source)&&/else if\(fine&&set\.leaf\[i\]\/\(Math\.max\(\.5,set\.centres\[i\]\.distanceTo\(from\)-set\.radii\[i\]\)\*pixel\)>=LEAF_EDGE\)edged\.push\(i\);else if\(fine&&size>=LEAF_CLOSE\)close\.push\(i\);/.test(source)&&/close\.name='tree-leaves-close'/.test(source)&&/edged\.name='tree-leaves-edged'/.test(source));
 console.log('Passed: in Extreme on a computer, a modelled leaf seen close has a leaf\'s outline, a pale rib and veins, catches the light on its own two faces and has a sheen; far crowns are unchanged.');
