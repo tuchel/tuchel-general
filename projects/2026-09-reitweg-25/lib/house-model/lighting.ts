@@ -137,7 +137,6 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
    const {vec2,vec3,vec4,float,normalize,smoothstep,mix,dot,cross,floor,fract,length,sin,sqrt,max,select,uniform,positionWorld,cameraPosition}=gpu.tsl,material=s.material as unknown as {colorNode:ReturnType<typeof vec4>};
    const direction=normalize(positionWorld.sub(cameraPosition)),toSun=normalize(valuesOf(s).sunPosition as unknown as ReturnType<typeof vec3>),sunUp=toSun.y;
    let colour=material.colorNode.rgb.add(vec3(...NIGHT).mul(float(1).sub(smoothstep(-.1,.05,sunUp))));
-   if(env){colour=mix(vec3(dot(colour,vec3(.2126,.7152,.0722))),colour,saturation as never);colour=mix(colour,ground as never,smoothstep(0,-.06,direction.y));}
    // Stars and the moon, as `celestial` draws them.
    if(!env){
     const cell=direction.mul(230),h=fract(floor(cell).mul(.1031)),h3=h.add(dot(h,h.zyx.add(31.32))),sparkle=fract(h3.x.add(h3.y).mul(h3.z)),mag=fract(sparkle.mul(917));
@@ -148,6 +147,8 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
     const disc=m.w.mul(seas).mul(smoothstep(-.04,.12,dot(facing,toSun)).add(.012)).mul(float(1).sub(smoothstep(.86,1,r2))).mul(smoothstep(-.01,.06,direction.y));
     colour=colour.add(select(dot(direction,m.xyz).greaterThan(.999).and(r2.lessThan(1)),disc,float(0)));
    }
+   if(clouds){const cloud=clouds.toward(gpu.tsl,direction);colour=colour.mul(cloud.a).add(cloud.rgb);}
+   if(env){colour=mix(vec3(dot(colour,vec3(.2126,.7152,.0722))),colour,saturation as never);colour=mix(colour,ground as never,smoothstep(0,-.06,direction.y));}
    material.colorNode=vec4(colour,1);
   }
   else s.material.onBeforeCompile=shader=>{

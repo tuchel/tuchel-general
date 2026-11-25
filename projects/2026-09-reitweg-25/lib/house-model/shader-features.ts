@@ -26,6 +26,8 @@ export type NodeSlots={tsl:any;colour?:any;position?:any;roughness?:any;metalnes
  tint?:(fallback:any)=>any;
  /** The finished colour, changed last of all (a haze of the material's own). */
  output?:(colour:any)=>any;
+ /** The share of the sun's light that arrives (clouds.ts); lamps are not changed by it. */
+ sunlight?:any;
  /** Light added for each lamp or sun after three's own (`light` holds lightDirection, lightColor and reflectedLight). */
  direct:((light:any)=>void)[];
  /** Changes to the light arriving from all round, before three uses it (`context` holds irradiance, iblIrradiance and radiance). */
@@ -37,10 +39,10 @@ export const drawWithNodes=(kit?:unknown)=>{tsl=kit;};
 function composeNodes(material:T.Material,list:ShaderFeature[]){
  const slots:NodeSlots={tsl,direct:[],indirect:[]};for(const f of list)f.nodes?.(slots);
  // Light is changed in a lighting model of the material's own, three's with the features' additions.
- const m=material as T.MeshPhysicalMaterial,lit=slots.direct.length+slots.indirect.length>0;
+ const m=material as T.MeshPhysicalMaterial,lit=slots.direct.length+slots.indirect.length>0||!!slots.sunlight;
  class Lighting extends tsl.PhysicalLightingModel{
   constructor(...layers:boolean[]){super(...layers);}
-  direct(light:any,builder:any){super.direct(light,builder);for(const add of slots.direct)add(light);}
+  direct(light:any,builder:any){if(slots.sunlight&&light.lightNode?.light?.isDirectionalLight)light={...light,lightColor:light.lightColor.mul(slots.sunlight)};super.direct(light,builder);for(const add of slots.direct)add(light);}
   indirect(builder:any){for(const change of slots.indirect)change(builder.context);super.indirect(builder);}
  }
  if(lit)(material as any).setupLightingModel=()=>m.isMeshPhysicalMaterial?new Lighting(m.clearcoat>0,m.sheen>0,m.iridescence>0,m.anisotropy>0,m.transmission>0,m.dispersion>0):new Lighting();
