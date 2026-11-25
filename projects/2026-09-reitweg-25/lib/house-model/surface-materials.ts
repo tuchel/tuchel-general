@@ -106,7 +106,7 @@ fn weatherFbm(g:vec2<f32>)->f32{return weatherNoise(g)*0.55+weatherNoise(g*2.13+
 function weatherNodes(tsl:any,weather:Weathering,at:{p:any;n:any;tu:any;tv:any;albedo:any}){
  const {vec2,vec3,float,abs,dot,mix,smoothstep,step,uniform,wgsl,wgslFn}=tsl,code=wgsl(WEATHER_WGSL),{p,n,tu,tv}=at;
  const noiseAt=wgslFn('fn weatherNoiseAt(g:vec2<f32>)->f32{return weatherNoise(g);}',[code]),fbmAt=wgslFn('fn weatherFbmAt(g:vec2<f32>)->f32{return weatherFbm(g);}',[code]),noise=(g:any)=>noiseAt({g}),fbm=(g:any)=>fbmAt({g});
- const rain=uniform(0).onRenderUpdate(()=>wet.value);let albedo=at.albedo,rough,puddle=float(0);
+ const rain=uniform(0).onRenderUpdate(()=>wet.value);let albedo=at.albedo,rough,puddle=float(0),mirror=float(0);
  if(weather==='wall'){
   const along=dot(p,tu).toVar(),up=p.y,wall=float(1).sub(smoothstep(.3,.6,abs(n.y))).toVar();
   const silver=smoothstep(.35,.75,fbm(vec2(along.mul(.31),up.mul(.42)))).mul(WEATHER.silver).mul(wall).toVar();
@@ -126,9 +126,9 @@ function weatherNodes(tsl:any,weather:Weathering,at:{p:any;n:any;tu:any;tv:any;a
   const flat=smoothstep(.6,.9,abs(n.y)).toVar(),blotch=fbm(p.xz.mul(.42)).toVar(),stain=smoothstep(.6,.88,fbm(p.xz.mul(1.9).add(11))).toVar();
   const pool=smoothstep(.42,.6,fbm(p.xz.mul(.55).add(5))).mul(flat).toVar();
   albedo=albedo.mul(mix(1,blotch.mul(WEATHER.blotch*2).add(1-WEATHER.blotch),flat)).mul(float(1).sub(stain.mul(WEATHER.stain).mul(flat))).mul(float(1).sub(rain.mul(mix(.4,.5,pool))));
-  rough=blotch.sub(.5).mul(.08).sub(stain.mul(.06)).mul(flat).sub(rain.mul(mix(.35,.9,pool)));puddle=rain.mul(pool);
+  rough=blotch.sub(.5).mul(.08).sub(stain.mul(.06)).mul(flat).sub(rain.mul(mix(.35,.9,pool)));puddle=rain.mul(pool);mirror=rain.mul(flat).mul(mix(WET_FILM,1,pool));
  }
- return {albedo,rough,puddle};
+ return {albedo,rough,puddle,mirror};
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 // The view ray is walked down through the height map (the normal map's alpha, between the set's two levels) until it is under the
@@ -207,7 +207,7 @@ varying vec3 vSurfacePos;varying vec3 vSurfaceNormal;${projection}${weather?weat
   shader.fragmentShader=after(shader.fragmentShader,'aomap_fragment','reflectedLight.indirectDiffuse*=surfaceCavity;reflectedLight.indirectSpecular*=mix(1.0,surfaceCavity,0.7);');
  },nodes:slots=>{
   // The same projection, relief, colour, roughness, bump, cavity and weathering as nodes.
-  const {vec2,vec3,float,abs,sign,cross,dot,normalize,select,texture,positionWorld,normalWorldGeometry,faceDirection,uniform,materialColor,clamp,mix,sin,length,max,smoothstep,cameraPosition,sampler,wgslFn}=slots.tsl;
+  const {vec2,vec3,vec4,float,abs,sign,cross,dot,normalize,select,texture,positionWorld,normalWorldGeometry,faceDirection,uniform,materialColor,clamp,mix,sin,length,max,smoothstep,cameraPosition,sampler,wgslFn}=slots.tsl;
   const p=positionWorld,n=normalize(normalWorldGeometry),a=abs(n),size=uniform(uniforms.uSurfaceMetres.value);
   const top=a.y.greaterThanEqual(a.x).and(a.y.greaterThanEqual(a.z)),side=a.x.greaterThanEqual(a.z);
   let tu=select(top,vec3(1,0,0),select(side,vec3(0,0,sign(n.x).negate()),vec3(sign(n.z),0,0))),tv=select(top,vec3(0,0,-1),vec3(0,1,0));
@@ -225,6 +225,8 @@ varying vec3 vSurfacePos;varying vec3 vSurfaceNormal;${projection}${weather?weat
   slots.colour=(slots.colour??materialColor).mul(albedo);slots.roughness=clamp(aged?texel.a.add(aged.rough):texel.a,.05,1);
   let slope=relief.rg.mul(2).sub(1).mul(bump[surface]);if(aged&&weather==='paving')slope=slope.mul(aged.puddle.mul(-.9).add(1));
   slots.normal=normalize(n.mul(faceDirection).add(tu.mul(slope.x)).add(tv.mul(slope.y)));slots.cavity=relief.b;
+  // How far wet paving mirrors the scene, kept in the frame's alpha as above.
+  if(aged&&weather==='paving'){const before=slots.output;slots.output=colour=>{const c=before?before(colour):colour;return vec4(c.rgb,aged.mirror.mul(-.5).add(1));};}
  }});
 }
 /** Thin glass reflects more at glancing angles; no transmission pass, no shadow. Glass has no surface colour of its own:

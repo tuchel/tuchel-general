@@ -5,6 +5,8 @@ import {MOTION_BLUR} from './motion-blur';
 import {LENS,meterCorrection,focalLength} from './lens';
 import {CONTACT} from './contact-shadows';
 import {MIST,AIR_GLOW} from './mist';
+import {WET_MIRROR} from './wet-reflections';
+import {wet} from './surface-materials';
 import type {Post,PostOptions,PostView} from './post';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -13,8 +15,8 @@ export type PostGPU={tsl:any;/** three's corner shading pass (GTAONode.js). */ao
 /** The image chain for the WebGPU renderer (post.ts is the WebGL renderer's). So far: the scene into a floating-point
  * target, corner shading on still frames, still frames averaged into a clean image, and the same finish to the screen: white balance, tone mapping,
  * the S-curve with its shadow lift, saturation, and the screen's transfer; moving frames blended into the kept image,
- * with the shutter's smear, and the lens (meter, grain, sun shafts, focus), mist and contact shadows. Not yet there: the wet
- * mirror and showing a path-traced image;
+ * with the shutter's smear, and the lens (meter, grain, sun shafts, focus), mist and contact shadows. The wet mirror waits behind `try=wetMirror`. Not yet
+ * there: showing a path-traced image;
  * those calls do nothing. */
 export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions,gpu:PostGPU):Post&{over(object:T.Object3D,camera:T.Camera):void}{
  const {positionGeometry,screenCoordinate,ivec2,texture,uniform,vec3,vec4,float,mix,max,min,pow,dot,clamp,agxToneMapping,sRGBTransferOETF}=gpu.tsl;
@@ -95,8 +97,52 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    return vec4(colour,frame.a);
   })();
  };
+ // Wet paving's mirror (wet-reflections.ts): where the paving left in the frame's alpha that it mirrors, the mirrored
+ // view ray is followed through the frame's depth and what it meets is shown. The same steps as the WebGL pass, as one
+ // function: its look-ups name their level, so they may sit inside its loop.
+ const wetness=uniform(0);
+ const mirrored=(frame:any)=>{
+  if(!options.wetMirror||!(camera instanceof T.PerspectiveCamera))return frame;
+  const {Fn,uv,vec2,normalize,cross,dFdx,dFdy,fract,sampler,wgsl,wgslFn}=gpu.tsl,S=WET_MIRROR.steps;
+  const march=wgslFn(`fn wetMirror(frame:texture_2d<f32>,frameSampler:sampler,depth:texture_depth_2d,colour:vec4<f32>,p:vec3<f32>,level:f32,ground:vec2<f32>,x:vec3<f32>,y:vec3<f32>,z:vec3<f32>,optics:vec4<f32>,far:f32,jitter:f32,amount:f32)->vec4<f32>{
+   let mirror=clamp((1.0-colour.a)*2.0,0.0,1.0);
+   // Leaf edges, anti-aliased by coverage, also leave alpha below one, down to nothing: only the paving's half counts.
+   if(amount<=0.0||-p.z>=far*0.999||mirror<0.02||colour.a<0.49||level<0.9){return colour;}
+   let pool=smoothstep(0.5,1.0,mirror);
+   // The film between puddles follows the paving's grain; standing water lies flat.
+   let g=ground*9.0;let rough=vec3<f32>(wetNoise(g+vec2<f32>(0.03,0.0))-wetNoise(g-vec2<f32>(0.03,0.0)),0.0,wetNoise(g+vec2<f32>(0.0,0.03))-wetNoise(g-vec2<f32>(0.0,0.03)))*(1.0-pool)*0.25;
+   let up=normalize(vec3<f32>(0.0,1.0,0.0)+rough);let nv=normalize(vec3<f32>(dot(x,up),dot(y,up),dot(z,up)));let v=normalize(p);let r=reflect(v,nv);
+   let fresnel=0.03+0.97*pow(1.0-max(dot(-v,nv),0.0),5.0);
+   var last=0.0;var t=0.0;var hit=vec3<f32>(0.0);var found=0.0;
+   for(var i=0;i<${S};i++){
+    let k=(f32(i)+jitter)/${S}.0;t=${WET_MIRROR.reach.toFixed(1)}*k*k+0.05;
+    let q=p+r*t;if(q.z>-0.1){break;}
+    var to=wetTo(q,optics);if(any(to<vec2<f32>(0.0))||any(to>vec2<f32>(1.0))){break;}
+    let s=wetFar(depth,to,optics);let gap=-q.z-s;
+    if(s>=far*0.999){if(i==${S-1}||-q.z>400.0){hit=textureSampleLevel(frame,frameSampler,to,0.0).rgb;found=1.0;break;}}
+    else if(gap>0.0&&gap<max(0.6,(t-last)*1.5)){
+     var a=last;var b=t;
+     for(var j=0;j<5;j++){let mid=(a+b)*0.5;let h=p+r*mid;if(-h.z-wetFar(depth,wetTo(h,optics),optics)>0.0){b=mid;}else{a=mid;}}
+     to=wetTo(p+r*b,optics);hit=textureSampleLevel(frame,frameSampler,to,0.0).rgb;
+     let edge=smoothstep(vec2<f32>(0.0),vec2<f32>(0.06),to)*(1.0-smoothstep(vec2<f32>(0.94),vec2<f32>(1.0),to));found=edge.x*edge.y;break;
+    }
+    last=t;
+   }
+   let w=mirror*found*clamp(fresnel*2.4+0.12,0.0,0.94);
+   return vec4<f32>(colour.rgb*(1.0-w)+hit*w,colour.a);
+  }`,[wgsl(`fn wetHash(c:vec2<f32>)->f32{var q=fract(vec3<f32>(c.x,c.y,c.x)*0.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}
+  fn wetNoise(g:vec2<f32>)->f32{let i=floor(g);var f=g-i;f=f*f*(3.0-2.0*f);return mix(mix(wetHash(i),wetHash(i+vec2<f32>(1.0,0.0)),f.x),mix(wetHash(i+vec2<f32>(0.0,1.0)),wetHash(i+vec2<f32>(1.0,1.0)),f.x),f.y);}
+  fn wetTo(q:vec3<f32>,optics:vec4<f32>)->vec2<f32>{return vec2<f32>(q.x*optics.x/(-q.z)*0.5+0.5,0.5-q.y*optics.y/(-q.z)*0.5);}
+  fn wetFar(depth:texture_depth_2d,to:vec2<f32>,optics:vec4<f32>)->f32{return optics.w/(textureLoad(depth,vec2<i32>(clamp(to,vec2<f32>(0.0),vec2<f32>(0.9999))*vec2<f32>(textureDimensions(depth))),0)+optics.z);}`)]);
+  const seen=texture(target.texture),map=texture(depthOf).setUpdateMatrix(false);
+  return Fn(()=>{
+   const at=uv(),p=viewAt(at,distanceAt(at)).toVar(),n=normalize(cross(dFdx(p),dFdy(p)));
+   const jitter=fract(fract(dot(screenCoordinate.xy,vec2(.06711056,.00583715))).mul(52.9829189).add(tick.mul(.618034)));
+   return march({frame:seen,frameSampler:sampler(seen),depth:map,colour:frame,p,level:placed.mul(vec4(n,0)).y,ground:placed.mul(vec4(p,1)).xz,x:placed.mul(vec4(1,0,0,0)).xyz,y:placed.mul(vec4(0,1,0,0)).xyz,z:placed.mul(vec4(0,0,1,0)).xyz,optics,far:farthest,jitter,amount:wetness});
+  })();
+ };
  const bloomed=(frame:any)=>glow?vec4(frame.rgb.add(glow.rgb),frame.a):frame;
- const lit=(frame:any)=>shafted(bloomed(misted(touched(frame))));
+ const lit=(frame:any)=>shafted(bloomed(misted(mirrored(touched(frame)))));
  const blend=quadOf(mix(history,lit(current),weight));
  // Corner shading at the WebGL chain's settings (post.ts), from the scene's depth alone. Its grain is turned from frame
  // to frame, and the average of still frames smooths it.
@@ -329,7 +375,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    if(!rest)frames=0;else if(kept&&frames===0&&kept.rested())frames=TEMPORAL.carry;
    renderer.setRenderTarget(target);renderer.render(scene,camera);
    if(level&&levelled){renderer.setRenderTarget(level);levelled.render(renderer);}
-   const e=camera.projectionMatrix.elements;optics.value.set(e[0],e[5],e[10],e[14]);placed.value.copy(camera.matrixWorld);farthest.value=(camera as T.PerspectiveCamera).far;tick.value=(tick.value+1)%64;
+   const e=camera.projectionMatrix.elements;optics.value.set(e[0],e[5],e[10],e[14]);placed.value.copy(camera.matrixWorld);farthest.value=(camera as T.PerspectiveCamera).far;wetness.value=wet.value;tick.value=(tick.value+1)%64;
    if(touch){
     // None by night or with the sun at the horizon, where a half-metre march says nothing about a shadow metres long.
     const toLight=touch.toLight.value.subVectors(touch.sun.position,touch.sun.target.position).normalize();
