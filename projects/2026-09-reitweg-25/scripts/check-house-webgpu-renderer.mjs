@@ -43,6 +43,10 @@ const chain=fs.readFileSync('lib/house-model/post-gpu.ts','utf8');
 assert(/createPostGPU\(\.\.\.a,\{tsl:gpu\.tsl,ao:gpu\.ao,bloom:gpu\.bloom,NodeMaterial:gpu\.NodeMaterial,QuadMesh:gpu\.QuadMesh\}\):createPost\(\.\.\.a\)/.test(viewer));
 assert(/weight\.value=1\/\(frames\+1\);/.test(chain)&&/const mapped=agxToneMapping\(shown\.rgb\.mul\(balance\),exposure\);/.test(chain)&&/quadOf\(vec4\(sRGBTransferOETF\(graded\),1\)\)/.test(chain));
 assert(/renderer\.toneMapping=T\.NoToneMapping;renderer\.outputColorSpace=T\.LinearSRGBColorSpace;[\s\S]*?renderer\.toneMapping=mapping;renderer\.outputColorSpace=space;/.test(chain));
+// The kept moving image (temporal.ts) with the WebGL pass's settings: looked up where the last frame saw the point,
+// held to the new frame's neighbouring colours, at full size whatever size the moving frames are drawn at.
+assert(/import \{TEMPORAL\} from '\.\/temporal';/.test(chain)&&/share\.value=is\?TEMPORAL\.blend:1;/.test(chain)&&/expected\.mul\(TEMPORAL\.tolerance\)\.add\(\.05\)/.test(chain)&&/hi\.sub\(lo\)\.mul\(TEMPORAL\.slack\)/.test(chain)&&/frames=TEMPORAL\.carry;/.test(chain),'the kept image in motion');
+assert(/if\(kept\)\{if\(kept\.resize\(w,h\)\)frames=0;\}/.test(chain)&&/temporal:!!kept,/.test(chain),'kept at full size; moving frames jittered');
 // It draws no line loops.
 assert(!/T\.LineLoop/.test(lib),'no line loop in the model');
 // Bounced sunlight is read from the same two atlases and added to the light from all round; the sky light bounced
