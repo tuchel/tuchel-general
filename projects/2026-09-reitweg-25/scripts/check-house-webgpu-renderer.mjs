@@ -81,4 +81,11 @@ assert(/slots\.sky=\{low:uniforms\.uSkyMin,grid:uniforms\.uSkyGrid,cell:uniforms
 assert(/tinted\?:\(rgb:any\)=>any/.test(features)&&/setupVariants=function\(this:any,builder:any\)\{tsl\.diffuseColor\.rgb\.assign\(tinted\(tsl\.diffuseColor\.rgb\)\);return Object\.getPrototypeOf\(this\)\.setupVariants\.call\(this,builder\);\};/.test(features));
 assert(/slots\.tinted=rgb=>\{const shown=before\?before\(rgb\):rgb;/.test(snowCode)&&/if\(kind==='water'\)\{\s*const ice=smoothstep\(\.15,\.7,s\.amount\)/.test(snowCode)&&/metalnessNode:slots\.metalness\?\?null/.test(features));
 assert(/\.mul\(slots\.covered\?slots\.covered\.oneMinus\(\):1\)/.test(foliage));
-console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, lying snow, averaged still frames and colour finish there.');
+// Rain and snow fall there as squares that face the screen, behind what the scene's depth says is nearer, and are drawn
+// in the pass that shows the frame.
+const falling=fs.readFileSync('lib/house-model/falling.ts','utf8'),rain=fs.readFileSync('lib/house-model/rainfall.ts','utf8'),flakes=fs.readFileSync('lib/house-model/snowfall.ts','utf8');
+assert(/new T\.InstancedBufferGeometry\(\)/.test(falling)&&/perspectiveDepthToViewZ\(depth\.sample\(screenUV\)\.r,cameraNear,cameraFar\)/.test(falling)&&/if\(gpu\)\{gpu\.over\(object,camera\);return;\}/.test(falling));
+assert(/const material=gpu\?streaks\(gpu,uniforms,sky\):new T\.ShaderMaterial\(/.test(rain)&&/const material=gpu\?flakes\(gpu,uniforms,sky\):new T\.ShaderMaterial\(/.test(flakes));
+assert(/export function shelterNodes\(/.test(snowCode)&&/over:\(object:T\.Object3D,through:T\.Camera\)=>\{stage\.add\(object\);draw\(through\);\}/.test(chain)&&/get depth\(\)\{return target\.depthTexture;\}/.test(chain));
+assert(/createSnowfall\(bake\?\.cover,lampsOutdoors\(\),falls\)/.test(viewer)&&/createRainfall\(bake\?\.cover,falls\)/.test(viewer));
+console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, lying snow, falling snow and rain, averaged still frames and colour finish there.');

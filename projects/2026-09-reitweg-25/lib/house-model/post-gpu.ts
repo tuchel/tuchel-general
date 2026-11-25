@@ -9,8 +9,8 @@ export type PostGPU={tsl:any;/** three's corner shading pass (GTAONode.js). */ao
  * target, corner shading on still frames, still frames averaged into a clean image, and the same finish to the screen: white balance, tone mapping,
  * the S-curve with its shadow lift, saturation, and the screen's transfer. Not yet there: corner shading, bloom, the
  * lens, mist, the wet mirror, moving-frame blending, and showing a path-traced image; those calls do nothing. */
-export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions,gpu:PostGPU):Post{
- const {texture,uniform,vec3,vec4,float,mix,max,min,pow,dot,clamp,agxToneMapping,sRGBTransferOETF}=gpu.tsl;
+export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions,gpu:PostGPU):Post&{over(object:T.Object3D,camera:T.Camera):void}{
+ const {positionGeometry,texture,uniform,vec3,vec4,float,mix,max,min,pow,dot,clamp,agxToneMapping,sRGBTransferOETF}=gpu.tsl;
  // That renderer draws into plain render targets through the calls the WebGL renderer has for its own.
  const half=()=>new T.RenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false}) as unknown as T.WebGLRenderTarget;
  const target=new T.RenderTarget(1,1,{type:T.HalfFloatType,samples:options.samples,depthTexture:new T.DepthTexture(1,1)}) as unknown as T.WebGLRenderTarget;
@@ -33,13 +33,18 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
  const graded=max(vec3(0),vec3(l).add(c.sub(l).mul(look.y)));
  const output=quadOf(vec4(sRGBTransferOETF(graded),1));
  const lamps=options.lamps??(()=>0);
- const toScreen=()=>{
+ // The finish fills the screen whatever camera it is drawn with, so that what falls over the frame can be drawn in the
+ // same pass (`over`): a second pass to the canvas does not keep what the first left there.
+ (output.material as any).vertexNode=vec4(positionGeometry.xy,0,1);
+ const finished=output as unknown as T.Mesh,stage=new T.Scene();finished.frustumCulled=false;finished.renderOrder=-1;stage.add(finished);
+ const draw=(through:T.Camera)=>{
   // The finish tone-maps and encodes itself, so the renderer is asked for neither while it is drawn.
   const mapping=renderer.toneMapping,space=renderer.outputColorSpace;
   renderer.toneMapping=T.NoToneMapping;renderer.outputColorSpace=T.LinearSRGBColorSpace;
-  shown.value=settled[0].texture;renderer.setRenderTarget(null);output.render(renderer);
+  shown.value=settled[0].texture;renderer.setRenderTarget(null);renderer.render(stage,through);
   renderer.toneMapping=mapping;renderer.outputColorSpace=space;
  };
+ const toScreen=()=>{for(const o of stage.children.slice())if(o!==finished)stage.remove(o);draw(camera);};
  const api={
   passes:[],
   setSize:(width:number,height:number,ratio:number)=>{const w=Math.max(1,Math.floor(width*ratio)),h=Math.max(1,Math.floor(height*ratio));target.setSize(w,h);for(const t of settled)t.setSize(w,h);frames=0;},
@@ -61,11 +66,14 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   get accumulated(){return frames;},
   temporal:false,
   replay:toScreen,
+  /** Draws `object` over the frame on the canvas, with whatever else was drawn over it since it was last shown. */
+  over:(object:T.Object3D,through:T.Camera)=>{stage.add(object);draw(through);},
   setMist:()=>{},keepDepth:()=>{},
-  get depth(){return null;},
+  /** The scene's own depth buffer as last drawn, which what falls over the frame reads as it is (falling.ts). */
+  get depth(){return target.depthTexture;},
   present:()=>{},keep:()=>{},carries:()=>false,carry:()=>{},
   reset:()=>{frames=0;},
   dispose:()=>{target.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();output.material.dispose();},
  };
- return api as unknown as Post;
+ return api as unknown as Post&{over:typeof api.over};
 }

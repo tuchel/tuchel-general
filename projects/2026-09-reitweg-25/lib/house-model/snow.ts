@@ -111,9 +111,10 @@ fn snowOpen(p:vec3<f32>,low:vec3<f32>,grid:vec3<f32>,cell:f32,linked:f32,reach:t
  return linked*smoothstep(-0.7,-0.4,p.y-(low.y+mix(mix(h[0],h[1],f.x),mix(h[2],h[3],f.x),f.y)*grid.y*cell));}
 `;
 /* eslint-disable @typescript-eslint/no-explicit-any */
-let shared:{amount:any;cover:(p:any)=>{own:any;under:any};lies:any;liesUnderSky:any;drifts:any}|undefined;
-/** The snow's values and functions as nodes, made once: the amount, the roofs (snowCover) and how much lies. */
-function snowNodes(tsl:any){
+let shared:{amount:any;cover:(p:any)=>{own:any;under:any};lies:any;liesUnderSky:any;drifts:any;noise:any;open:any}|undefined;
+/** The snow's values and functions as nodes, made once: the amount, the roofs (snowCover), how much lies, its noise
+ * and how open a point is to it. */
+export function snowNodes(tsl:any){
  if(shared)return shared;
  const {uniform,float,max,abs,dot,smoothstep,step,wgsl,wgslFn}=tsl,code=wgsl(SNOW_WGSL);
  const a=coverA.value.map(v=>uniform(v)),b=coverB.value.map(v=>uniform(v));
@@ -124,9 +125,23 @@ function snowNodes(tsl:any){
     under=max(under,e.mul(step(p.y,b[k].z)));own=max(own,e.mul(step(.5,b[k].w)).mul(step(b[k].z,p.y)));}
    return {own,under};},
   lies:wgslFn('fn snowLies(p:vec3<f32>,w:f32,up:f32,under:f32,slope:f32,grain:f32,amount:f32)->vec2<f32>{if(amount<=0.0){return vec2<f32>(0.0,1.0);}return snowOn(p,w,up,1.0-under,slope,grain,amount);}',[code]),
+  noise:wgslFn('fn snowNoiseAt(p:vec2<f32>)->f32{return snowNoise(p);}',[code]),
+  open:wgslFn('fn snowOpenAt(p:vec3<f32>,low:vec3<f32>,grid:vec3<f32>,cell:f32,linked:f32,reach:texture_3d<f32>)->f32{return snowOpen(p,low,grid,cell,linked,reach);}',[code]),
   drifts:wgslFn('fn snowDrifts(p:vec3<f32>,w:f32,amount:f32)->f32{if(amount<=0.0){return 0.0;}return snowOn(p,w,1.0,1.0,0.0,1.0,amount).x*smoothstep(0.5,0.72,snowNoise(p.xz*0.55+5.0)*0.7+snowNoise(p.xz*2.1)*0.3);}',[code]),
   liesUnderSky:wgslFn('fn snowLiesUnderSky(p:vec3<f32>,w:f32,up:f32,under:f32,slope:f32,grain:f32,amount:f32,low:vec3<f32>,grid:vec3<f32>,cell:f32,linked:f32,reach:texture_3d<f32>)->vec2<f32>{if(amount<=0.0){return vec2<f32>(0.0,1.0);}return snowOn(p,w,up,snowOpen(p,low,grid,cell,linked,reach)*(1.0-under),slope,grain,amount);}',[code]),
  };
+}
+/** 1 where nothing stands over a point, 0 under a roof, as nodes: what falls stays out from under them (falling.ts).
+ * `sky`: the sky light's values for the height over each point (sky-visibility.ts, cover), where there is one. */
+export function shelterNodes(tsl:any,sky?:Record<string,{value:unknown}>){
+ const s=snowNodes(tsl),{float,step,texture3D,wgslFn}=tsl;
+ const under=sky&&wgslFn(`fn roofOver(p:vec3<f32>,low:vec3<f32>,grid:vec3<f32>,cell:f32,linked:f32,reach:texture_3d<f32>)->f32{
+  let g=(p.xz-low.xz)/${COVER.cell.toFixed(2)};
+  if(linked>0.5&&all(g>vec2<f32>(0.0))&&all(g<grid.xz*cell/${COVER.cell.toFixed(2)})){
+   let c=vec2<i32>(g);let t=textureLoad(reach,vec3<i32>(c.x,c.y>>1u,i32(grid.y)+1),0);
+   if(p.y<low.y+select(t.g,t.r,(c.y&1)==0)*grid.y*cell-0.1){return 0.0;}}
+  return 1.0;}`),reach=sky&&texture3D(sky.uSkyReach.value);
+ return (p:any)=>{const open=step(s.cover(p).under,0);return under?open.mul(under({p,low:sky.uSkyMin,grid:sky.uSkyGrid,cell:sky.uSkyCell,linked:sky.uSkyLinked,reach})):float(open);};
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 const feature=(kind:SnowKind,how=HOW.surface,most=MOST.surface)=>({key:'snow-'+kind,last:true,compile:(shader:T.WebGLProgramParametersWithUniforms)=>{
