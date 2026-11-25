@@ -4,10 +4,10 @@ const viewer=fs.readFileSync('lib/house-model/viewer.ts','utf8'),page=fs.readFil
 const lib=fs.readdirSync('lib/house-model').filter(f=>f.endsWith('.ts')).map(f=>fs.readFileSync(`lib/house-model/${f}`,'utf8')).join('\n');
 const features=fs.readFileSync('lib/house-model/shader-features.ts','utf8'),lighting=fs.readFileSync('lib/house-model/lighting.ts','utf8'),surfaces=fs.readFileSync('lib/house-model/surface-materials.ts','utf8');
 // `?renderer=webgpu` loads three's WebGPU renderer only when asked, and only for the presets it can draw: Model whole,
-// Balanced without bounced sun and corner shading.
+// Balanced without corner shading.
 assert(/export const drawnWithWebGPU=\(quality:Quality\)=>quality==='model'\|\|quality==='balanced';/.test(viewer));
 assert(/drawnWithWebGPU\(quality\)&&new URLSearchParams\(window\.location\.search\)\.get\('renderer'\)==='webgpu'\?await Promise\.all\(\[import\('three\/webgpu'\),import\('three\/tsl'\),import\('three\/addons\/objects\/SkyMesh\.js'\)\]\)/.test(page));
-assert(/const tier=gpu\?\{\.\.\.asked,sunBounce:0,ao:false\}:asked;/.test(viewer));
+assert(/const tier=gpu\?\{\.\.\.asked,ao:false\}:asked;/.test(viewer));
 // It has no device until `init` resolves: sky light and the first frame wait for it, and the canvas says which backend
 // it runs on.
 assert(/const device=gpu\?\(renderer as unknown as \{init\(\):Promise<unknown>\}\)\.init\(\)\.then\(\(\)=>\{canvas\.dataset\.renderer=/.test(viewer));
@@ -44,4 +44,9 @@ assert(/weight\.value=1\/\(frames\+1\);/.test(chain)&&/const mapped=agxToneMappi
 assert(/renderer\.toneMapping=T\.NoToneMapping;renderer\.outputColorSpace=T\.LinearSRGBColorSpace;[\s\S]*?renderer\.toneMapping=mapping;renderer\.outputColorSpace=space;/.test(chain));
 // It draws no line loops.
 assert(!/T\.LineLoop/.test(lib),'no line loop in the model');
-console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky, sun, textured surfaces, indoor sky light, averaged still frames and colour finish there.');
+// Bounced sunlight is read from the same two atlases and added to the light from all round; the sky light bounced
+// indoors takes its colour from the surfaces round the point, as in the WebGL renderer.
+const bounce=fs.readFileSync('lib/house-model/sun-bounce.ts','utf8');
+assert(/\},nodes:slots=>\{[\s\S]*?slots\.indirect\.push\(context=>\{[\s\S]*?context\.iblIrradiance\.addAssign\(/.test(bounce)&&/slots\.tint=fallback=>/.test(bounce));
+assert(/slots\.tint\?slots\.tint\(warm\):warm/.test(sky));
+console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky, sun, textured surfaces, indoor sky light, bounced sunlight, averaged still frames and colour finish there.');

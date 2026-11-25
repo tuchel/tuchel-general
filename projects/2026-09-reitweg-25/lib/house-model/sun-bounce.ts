@@ -64,6 +64,28 @@ export function bakeSunBounce(occluders:T.Mesh[],receivers:T.Object3D[],sun:T.Di
       if(d.w>1e-6)iblIrradiance+=uBounceSun*bounceAt(uBounceLight,g,0.0).rgb*max(0.0,1.0+2.0*dot(d.xyz,bounceN)/d.w);
      }
     }`);
+  },nodes:slots=>{
+   // The same as nodes, from the same atlases.
+   /* eslint-disable @typescript-eslint/no-explicit-any */
+   const {texture,uniform,vec2,vec3,float,clamp,floor,min,max,mix,dot,select,positionWorld,normalWorld}=slots.tsl;
+   const ready=uniform(0).onRenderUpdate(()=>uniforms.uBounceReady.value),sunlight=uniform(uniforms.uBounceSun.value),Y=vec3(.2126,.7152,.0722);
+   const at=(t:T.DataTexture,g:any,block:number)=>{
+    const j0=clamp(floor(g.y),0,ny-1),j1=min(j0.add(1),ny-1),xz=clamp(g.xz.add(.5),vec2(.5),vec2(nx-.5,nz-.5)).add(vec2(0,block*nz)),size=vec2(t.image.width,t.image.height);
+    const read=(j:any)=>texture(t,vec2(j.mul(nx).add(xz.x),xz.y).div(size)).level(0);
+    return mix(read(j0),read(j1),clamp(g.y.sub(j0),0,1));
+   };
+   const g=positionWorld.add(normalWorld.mul(.35)).sub(BOX.min).div(CELL).sub(.5);
+   const inside=ready.greaterThan(.5).and(min(g.x,min(g.y,g.z)).greaterThan(-.5)).and(g.x.lessThan(nx-.5)).and(g.y.lessThan(ny-.5)).and(g.z.lessThan(nz-.5));
+   slots.indirect.push(context=>{
+    const d=at(directionTexture,g,0),toward=max(0,float(1).add(dot(d.xyz,normalWorld).mul(2).div(max(d.w,1e-6))));
+    context.iblIrradiance.addAssign(select(inside.and(d.w.greaterThan(1e-6)),at(lightTexture,g,0).rgb.mul(sunlight).mul(toward),vec3(0)));
+   });
+   slots.tint=fallback=>{
+    const t=at(lightTexture,g,1),rho=min(t.rgb.div(max(t.w,1e-3)),vec3(.85)),all=rho.div(rho.oneMinus());
+    const m=rho.div(max(dot(rho,Y),1e-4)).add(all.div(max(dot(all,Y),1e-4))).mul(.5);
+    return select(inside.and(t.w.greaterThan(1e-3)),m.mul(dot(fallback,Y)),fallback);
+   };
+   /* eslint-enable @typescript-eslint/no-explicit-any */
   }});
  }});
  for(const root of receivers)receive(root);

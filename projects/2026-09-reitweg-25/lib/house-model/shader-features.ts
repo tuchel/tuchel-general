@@ -10,6 +10,8 @@ export type ShaderFeature={key:string;last?:boolean;compile:(shader:T.WebGLProgr
 /** What a material's features hand on to one another and, at the end, to the material, as nodes of `tsl` (three/tsl):
  * its colour, roughness, world normal, how much indirect light its hollows keep, and its opacity. */
 export type NodeSlots={tsl:any;colour?:any;roughness?:any;normal?:any;cavity?:any;opacity?:any;
+ /** The colour light takes on going round the room at this point, at the brightness of `fallback` (sun-bounce.ts). */
+ tint?:(fallback:any)=>any;
  /** Light added for each lamp or sun after three's own (`light` holds lightDirection, lightColor and reflectedLight). */
  direct:((light:any)=>void)[];
  /** Changes to the light arriving from all round, before three uses it (`context` holds irradiance, iblIrradiance and radiance). */

@@ -179,8 +179,7 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
      #endif
     }`);
   },nodes:slots=>{
-   // The same as nodes: the light from all round is scaled before three uses it. Not yet there: the bounce's own tint
-   // (sun-bounce.ts) and the clear coat.
+   // The same as nodes: the light from all round is scaled before three uses it. Not yet there: the clear coat.
    const {vec3,float,clamp,mix,dot,select,positionWorld,normalWorld,texture3D,sampler,pmremTexture,materialEnvIntensity}=slots.tsl;
    slots.indirect.push(context=>{
     const p=positionWorld,n=normalWorld,g=p.add(n.mul(.35)).sub(uniforms.uSkyMin).div(uniforms.uSkyCell),grid=uniforms.uSkyGrid as any;
@@ -189,8 +188,8 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
     const open=select(inside,clamp(s.x.add(dot(s.yzw,n).mul(2)),0,1),float(1)).toVar(),lift=select(inside,mix(.15,1,clamp(s.x.mul(5),0,1)),float(1)).mul(uniforms.uSkyBounce).toVar();
     const environment=world instanceof T.Scene?world.environment:null;
     const overhead=environment?pmremTexture(environment,vec3(0,1,0),float(1)).mul(Math.PI).mul(materialEnvIntensity):context.iblIrradiance;
-    const visible=mix(lift,1,open);
-    context.iblIrradiance.assign(context.iblIrradiance.mul(open).add(overhead.mul(lift).mul(vec3(1.08,.97,.84)).mul(open.oneMinus())));
+    const visible=mix(lift,1,open),warm=vec3(1.08,.97,.84);
+    context.iblIrradiance.assign(context.iblIrradiance.mul(open).add(overhead.mul(lift).mul(slots.tint?slots.tint(warm):warm).mul(open.oneMinus())));
     context.irradiance.mulAssign(visible);context.radiance.mulAssign(mix(1,visible,.85));
    });
   }});

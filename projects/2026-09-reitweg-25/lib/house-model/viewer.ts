@@ -93,9 +93,9 @@ const SITE_CENTER=new T.Vector3(-5,0,8),SITE_RADIUS=70;
 export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const asked=tierFor(options.quality,undefined,options.extremeOnPhone),realistic=asked.quality!=='model';
  const gpu=drawnWithWebGPU(asked.quality)?options.webgpu:undefined;
- // What the WebGPU renderer cannot draw yet is left out there: bounced sunlight, and of the image passes all but the averaging of still frames and the finish (post-gpu.ts).
+ // What the WebGPU renderer cannot draw yet is left out there: of the image passes all but the averaging of still frames and the finish (post-gpu.ts).
  drawWithNodes(gpu?.tsl&&{...gpu.tsl,PhysicalLightingModel:gpu.PhysicalLightingModel});
- const tier=gpu?{...asked,sunBounce:0,ao:false}:asked;
+ const tier=gpu?{...asked,ao:false}:asked;
  // Whether to try for a screen brighter than white (hdr.ts).
  const bright=tier.hdr&&hdrWanted();
  // The WebGPU renderer is used through the calls the two share; where they differ, `gpu` decides.
