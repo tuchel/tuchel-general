@@ -139,6 +139,9 @@ assert(/key:'pool-caustics',[\s\S]*?\},variant:'',nodes:slots=>\{[\s\S]*?fn caus
 const roomCode=fs.readFileSync('lib/house-model/room-probes.ts','utf8'),softCode=fs.readFileSync('lib/house-model/soft-shadows.ts','utf8');
 assert(/new T\.RenderTarget\(size,size,\{type:T\.HalfFloatType,depthBuffer:false,depth:count\}\)/.test(roomCode)&&/maps3\.depth\(float\(i\)\)\.sample\(oct\(\{d:seen\}\)\)\.level\(/.test(roomCode));
 assert(/export function softShadowFilter\(tsl:any\)/.test(softCode)&&/builder\.material\.userData\?\.plainShadow/.test(softCode)&&/if\(gpu&&options\.soft\)\(sun\.shadow as unknown as \{filterNode:unknown\}\)\.filterNode=softShadowFilter\(gpu\.tsl\);/.test(lighting));
+// Every tap reads the one map node through a function (a node per tap is updated per object, and cost a frame half
+// its script time), and the shadow's radius and size are one pair of uniforms for all materials.
+assert(/fn softDepthAt\(map:texture_depth_2d,p:vec2<i32>\)->f32/.test(softCode)&&!/map\.load\(/.test(softCode)&&/shared\.get\(shadow\)/.test(softCode),'one map node for the soft shadow');
 // Close leaves keep their veins, toothed outline and sheen: where on the blade comes from the vertex's number.
 assert(/key:'leaf-detail',[\s\S]*?\},nodes:\(slots:NodeSlots\)=>\{[\s\S]*?\.element\(vertexIndex\.toFloat\(\)\.mod\(12\)\.toInt\(\)\)\)[\s\S]*?slots\.opacity=[\s\S]*?slots\.normal=normalize\(mix\(round,/.test(foliage));
 // A photograph there is traced by the WebGPU tracer on the same renderer, lit by the sky read back from it, on a device
