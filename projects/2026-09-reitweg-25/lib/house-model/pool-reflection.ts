@@ -19,7 +19,9 @@ export function mirrorView(camera:T.PerspectiveCamera,level:number,mirror:T.Pers
  textureMatrix.set(.5,0,0,.5,0,.5,0,.5,0,0,.5,.5,0,0,0,1).multiply(mirror.projectionMatrix).multiply(mirror.matrixWorldInverse);
  const plane=new T.Plane(new T.Vector3(0,1,0),-level).applyMatrix4(mirror.matrixWorldInverse),clip=new T.Vector4(plane.normal.x,plane.normal.y,plane.normal.z,plane.constant);
  const e=mirror.projectionMatrix.elements,q=new T.Vector4((Math.sign(clip.x)+e[8])/e[0],(Math.sign(clip.y)+e[9])/e[5],-1,(1+e[10])/e[14]);
- clip.multiplyScalar(2/clip.dot(q));e[2]=clip.x;e[6]=clip.y;e[10]=clip.z+1;e[14]=clip.w;
+ // Depth runs 0 to 1 under the WebGPU renderer, which would also remake a camera's projection on meeting it first.
+ const deep=camera.coordinateSystem===T.WebGPUCoordinateSystem;mirror.coordinateSystem=camera.coordinateSystem;
+ clip.multiplyScalar((deep?1:2)/clip.dot(q));e[2]=clip.x;e[6]=clip.y;e[10]=deep?clip.z:clip.z+1;e[14]=clip.w;
  mirror.projectionMatrixInverse.copy(mirror.projectionMatrix).invert();
 }
 export function createPoolReflection(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.PerspectiveCamera,water:T.Object3D[]){
@@ -40,6 +42,12 @@ export function createPoolReflection(renderer:T.WebGLRenderer,scene:T.Scene,came
      vec2 uv=vMirror.xy/vMirror.w+n.xz*uMirrorRipple;
      radiance=texture2D(uMirror,clamp(uv,vec2(0.001),vec2(0.999))).rgb;
     }`);
+  },variant:'',nodes:slots=>{
+   // The same as nodes. The mirror image's rows run top down under the WebGPU renderer.
+   const {texture,uniform,vec2,vec4,mix,clamp,positionWorld,normalWorld}=slots.tsl;
+   const at=uniform(textureMatrix).mul(vec4(positionWorld,1)),ready=uniform(0).onRenderUpdate(()=>uniforms.uMirrorReady.value);
+   const uv=clamp(at.xy.div(at.w).add((slots.normal??normalWorld).xz.mul(POOL_MIRROR.ripple)),.001,.999),image=texture(target.texture,vec2(uv.x,uv.y.oneMinus())).rgb;
+   slots.indirect.push(context=>context.radiance.assign(mix(context.radiance,image,ready)));
   }});
  }
  const visible=()=>{

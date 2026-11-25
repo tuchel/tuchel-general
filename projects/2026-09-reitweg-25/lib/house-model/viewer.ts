@@ -159,7 +159,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // Light.
  let invalidate=()=>{};
  // Extreme: ray-marched cumulus and their shadows (clouds.ts).
- const clouds=realistic&&tier.clouds?createClouds(renderer):undefined;
+ const clouds=realistic&&tier.clouds?createClouds(renderer,gpu?.tsl&&gpu.NodeMaterial&&gpu.QuadMesh?{tsl:gpu.tsl,NodeMaterial:gpu.NodeMaterial,QuadMesh:gpu.QuadMesh}:undefined):undefined;
  const lighting=realistic?createLighting(renderer,scene,model.root,{shadowSize:tier.shadowSize,clouds,soft:softened,gpu:gpu?.SkyMesh?gpu as LightingGPU:undefined}):undefined;
  let sun:T.DirectionalLight,environment:{texture:T.Texture;dispose():void}|undefined;
  if(lighting){sun=lighting.sun;if(festive)lighting.lamps.add(festive.glow);lighting.apply(initialSunStudy);lighting.fitShadow(SITE_CENTER,SITE_RADIUS);}

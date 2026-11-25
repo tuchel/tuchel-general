@@ -24,7 +24,7 @@ assert(/drawWithNodes\(gpu\?\.tsl&&\{\.\.\.gpu\.tsl,PhysicalLightingModel:gpu\.P
 assert(/\},nodes:slots=>\{[\s\S]*?slots\.colour=\(slots\.colour\?\?materialColor\)\.mul\(albedo\);slots\.roughness=clamp\(aged\?texel\.a\.add\(aged\.rough\):texel\.a,\.05,1\);[\s\S]*?slots\.cavity=relief\.b;/.test(surfaces),'scanned and painted surfaces are drawn as nodes');
 // Light is changed in a lighting model of the material's own: three's, with what the features add for each light and
 // change in the light from all round. Leaves glow against the light, glass and water turn opaque at a glancing angle.
-assert(/class Lighting extends tsl\.PhysicalLightingModel\{[\s\S]*?direct\(light:any,builder:any\)\{super\.direct\(light,builder\);for\(const add of slots\.direct\)add\(light\);\}[\s\S]*?indirect\(builder:any\)\{for\(const change of slots\.indirect\)change\(builder\.context\);super\.indirect\(builder\);\}/.test(features));
+assert(/class Lighting extends tsl\.PhysicalLightingModel\{[\s\S]*?direct\(light:any,builder:any\)\{[^\n]*?super\.direct\(light,builder\);for\(const add of slots\.direct\)add\(light\);\}[\s\S]*?indirect\(builder:any\)\{for\(const change of slots\.indirect\)change\(builder\.context\);super\.indirect\(builder\);\}/.test(features));
 const foliage=fs.readFileSync('lib/house-model/foliage.ts','utf8');
 assert(/slots\.direct\.push\(\(\{lightDirection,lightColor,reflectedLight\}\)=>reflectedLight\.directDiffuse\.addAssign\(/.test(foliage));
 assert(/slots\.opacity=mix\(slots\.opacity\?\?materialOpacity,1,normalView\.dot\(positionViewDirection\)\.abs\(\)\.oneMinus\(\)\.pow\(5\)\.mul\(\.88\)\);/.test(surfaces),'glass');
@@ -110,6 +110,14 @@ assert(/if\(gpu\)u\.cloudSpeed\.value=0;/.test(lighting));
 assert(/const WEATHER_WGSL=`fn weatherHash\(c:vec2<f32>\)->f32/.test(surfaces)&&/const aged=weather&&weatherNodes\(slots\.tsl,weather,\{p,n,tu,tv,albedo\}\)/.test(surfaces)&&/const rain=uniform\(0\)\.onRenderUpdate\(\(\)=>wet\.value\)/.test(surfaces));
 // ... and its relief: the texture coordinate is walked along the view ray through the height in the normal map's alpha.
 assert(/const RELIEF_WGSL=`fn reliefUv\(/.test(surfaces)&&/uv=wgslFn\(RELIEF_WGSL\)\(\{uv,shift:/.test(surfaces));
+// Extreme's cumulus: the sky texture and the ground's share of sunlight are marched in WGSL, a band at a time without
+// clearing; the sky reads them, and the sun alone is dimmed by their shadow.
+const cloudCode=fs.readFileSync('lib/house-model/clouds.ts','utf8');
+assert(/const CLOUDS_WGSL=`[\s\S]*?fn cloudSky\([\s\S]*?fn cloudShade\(/.test(cloudCode)&&/renderer\.autoClear=false;/.test(cloudCode)&&/slots\.sunlight=slots\.sunlight\?slots\.sunlight\.mul\(share\):share;/.test(cloudCode));
+assert(/if\(slots\.sunlight&&light\.lightNode\?\.light\?\.isDirectionalLight\)light=\{\.\.\.light,lightColor:light\.lightColor\.mul\(slots\.sunlight\)\};/.test(features)&&/const cloud=clouds\.toward\(gpu\.tsl,direction\);colour=colour\.mul\(cloud\.a\)\.add\(cloud\.rgb\);/.test(lighting));
+// The pool's mirror image: read as nodes with its rows turned, and clipped at the water line for depth from 0 to 1.
+const poolCode=fs.readFileSync('lib/house-model/pool-reflection.ts','utf8');
+assert(/image=texture\(target\.texture,vec2\(uv\.x,uv\.y\.oneMinus\(\)\)\)\.rgb;\s*slots\.indirect\.push\(context=>context\.radiance\.assign\(mix\(context\.radiance,image,ready\)\)\);/.test(poolCode)&&/mirror\.coordinateSystem=camera\.coordinateSystem;\s*clip\.multiplyScalar\(\(deep\?1:2\)\/clip\.dot\(q\)\);e\[2\]=clip\.x;e\[6\]=clip\.y;e\[10\]=deep\?clip\.z:clip\.z\+1;/.test(poolCode));
 // Close leaves keep their veins, toothed outline and sheen: where on the blade comes from the vertex's number.
 assert(/key:'leaf-detail',[\s\S]*?\},nodes:\(slots:NodeSlots\)=>\{[\s\S]*?\.element\(vertexIndex\.toFloat\(\)\.mod\(12\)\.toInt\(\)\)\)[\s\S]*?slots\.opacity=[\s\S]*?slots\.normal=normalize\(mix\(round,/.test(foliage));
 // A photograph there is traced by the WebGPU tracer on the same renderer, lit by the sky read back from it, on a device
