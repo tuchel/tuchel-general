@@ -92,7 +92,7 @@ const SITE_CENTER=new T.Vector3(-5,0,8),SITE_RADIUS=70;
 
 export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const chosen=tierFor(options.quality,undefined,options.extremeOnPhone),gpu=options.webgpu;
- const tier=gpu?forWebGPU(chosen,new URLSearchParams(window.location.search).get('try')?.split(',')):chosen,realistic=tier.quality!=='model';
+ const tier=gpu?forWebGPU(chosen,new URLSearchParams(window.location.search).get('try')?.split(','),new URLSearchParams(window.location.search).get('without')?.split(',')):chosen,realistic=tier.quality!=='model';
  // What the WebGPU renderer cannot draw yet is left out there: of the image passes all but corner shading, the averaging of still frames and the finish (post-gpu.ts).
  drawWithNodes(gpu?.tsl&&{...gpu.tsl,PhysicalLightingModel:gpu.PhysicalLightingModel});
  // Whether to try for a screen brighter than white (hdr.ts).
