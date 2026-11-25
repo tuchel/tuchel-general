@@ -120,7 +120,7 @@ export function createRoomProbes(renderer:T.WebGLRenderer,scene:T.Scene,receiver
    const oct=wgslFn('fn roomOctAt(d:vec3<f32>)->vec2<f32>{return roomOct(d);}',[wgsl(WGSL_OCT)]);
    const low=uniformArray(uniforms.uRoomMin.value).setGroup(renderGroup),high=uniformArray(uniforms.uRoomMax.value).setGroup(renderGroup),middle=uniformArray(uniforms.uRoomCentre.value).setGroup(renderGroup);
    const ready=uniformArray(uniforms.uRoomReady.value,'float').setGroup(renderGroup),active=uniform(0).onRenderUpdate(()=>uniforms.uRoomActive.value);
-   const maps3=texture(maps.texture);
+   const maps3=texture(maps.texture).setUpdateMatrix(false);
    slots.indirect.push((context:any)=>{ // eslint-disable-line @typescript-eslint/no-explicit-any
     // Only inside a baked room, and only that room's layer, is anything read: branches, as in the GLSL's loop.
     If(active.greaterThan(.5),()=>{

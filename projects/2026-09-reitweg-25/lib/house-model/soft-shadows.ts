@@ -70,12 +70,18 @@ fn softIgn(p:vec2<f32>)->f32{return fract(52.9829189*fract(dot(p,vec2<f32>(0.067
 fn softDisc(i:f32,count:f32,phi:f32)->vec2<f32>{let r=sqrt((i+0.5)/count);let t=i*2.399963+phi;return vec2<f32>(cos(t),sin(t))*r;}`);
  const ign=wgslFn('fn softIgnAt(p:vec2<f32>)->f32{return softIgn(p);}',[code]);
  const disc=wgslFn('fn softDiscAt(i:f32,count:f32,phi:f32)->vec2<f32>{return softDisc(i,count,phi);}',[code]);
+ // One texel of the map. A look-up node per tap would each carry a texture matrix that is updated for every object
+ // drawn; the taps share the one map node through this function.
+ const read=wgslFn('fn softDepthAt(map:texture_depth_2d,p:vec2<i32>)->f32{return textureLoad(map,p,0);}');
+ // One pair of uniforms per shadow, so that materials can share the buffer that holds them.
+ const shared=new WeakMap<object,{carried:any,size:any}>();
  return Fn(({depthTexture,shadowCoord,shadow}:any,builder:any)=>{
-  const map=texture(depthTexture),at=shadowCoord.xyz;
-  const carried=reference('radius','float',shadow).setGroup(renderGroup),size=reference('mapSize','vec2',shadow).setGroup(renderGroup);
+  const map=texture(depthTexture).setUpdateMatrix(false),at=shadowCoord.xyz;
+  if(!shared.get(shadow))shared.set(shadow,{carried:reference('radius','float',shadow).setGroup(renderGroup),size:reference('mapSize','vec2',shadow).setGroup(renderGroup)});
+  const {carried,size}=shared.get(shadow)!;
   const radius=carried.fract().mul(1024),perMetre=float(.5).div(radius),range=radius.mul(SHADOW_RANGE.perRadius).add(SHADOW_RANGE.fixed);
   const phi=ign({p:screenCoordinate.xy}).add(carried.floor().mul(.618034)).mul(Math.PI*2).toVar();
-  const depthAt=(o:any)=>map.load(ivec2(at.xy.add(o).clamp(0,.9999).mul(size))).r,compare=(o:any,z:any=at.z)=>depthAt(o).greaterThanEqual(z).select(1,0);
+  const depthAt=(o:any)=>read({map,p:ivec2(at.xy.add(o).clamp(0,.9999).mul(size))}),compare=(o:any,z:any=at.z)=>depthAt(o).greaterThanEqual(z).select(1,0);
   if(builder.material.userData?.plainShadow){
    let plain=float(0);
    for(let i=0;i<3;i++)plain=plain.add(compare(disc({i:float(i),count:float(3),phi}).mul(float(1.5).div(size.x))));
