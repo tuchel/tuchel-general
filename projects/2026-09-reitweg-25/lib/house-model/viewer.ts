@@ -80,7 +80,7 @@ export type WebGPUKit=Partial<LightingGPU>&{
  PMREMGenerator:new(renderer:never)=>{fromScene(scene:T.Scene,sigma:number):{texture:T.Texture;dispose():void};dispose():void};
 };
 /** Whether a preset is drawn with the WebGPU renderer when it is asked for. */
-export const drawnWithWebGPU=(quality:Quality)=>quality==='model'||quality==='balanced';
+export const drawnWithWebGPU=(quality:Quality)=>quality==='model'||quality==='balanced'||quality==='detailed';
 /** A dragged sun re-traces bounced light and the traced scene once it has been still this long (ms). */
 const SUN_SETTLE=150;
 /** A view is at rest once nothing has changed for this long (ms). */

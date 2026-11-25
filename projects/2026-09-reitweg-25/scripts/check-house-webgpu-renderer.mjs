@@ -4,7 +4,7 @@ const viewer=fs.readFileSync('lib/house-model/viewer.ts','utf8'),page=fs.readFil
 const lib=fs.readdirSync('lib/house-model').filter(f=>f.endsWith('.ts')).map(f=>fs.readFileSync(`lib/house-model/${f}`,'utf8')).join('\n');
 const features=fs.readFileSync('lib/house-model/shader-features.ts','utf8'),lighting=fs.readFileSync('lib/house-model/lighting.ts','utf8'),surfaces=fs.readFileSync('lib/house-model/surface-materials.ts','utf8');
 // `?renderer=webgpu` loads three's WebGPU renderer only when asked, and only for the presets it can draw.
-assert(/export const drawnWithWebGPU=\(quality:Quality\)=>quality==='model'\|\|quality==='balanced';/.test(viewer));
+assert(/export const drawnWithWebGPU=\(quality:Quality\)=>quality==='model'\|\|quality==='balanced'\|\|quality==='detailed';/.test(viewer));
 assert(/drawnWithWebGPU\(quality\)&&new URLSearchParams\(window\.location\.search\)\.get\('renderer'\)==='webgpu'\?await Promise\.all\(\[import\('three\/webgpu'\),import\('three\/tsl'\),import\('three\/addons\/objects\/SkyMesh\.js'\),/.test(page));
 // It has no device until `init` resolves: sky light and the first frame wait for it, and the canvas says which backend
 // it runs on.
@@ -50,7 +50,7 @@ assert(/slots\.tint\?slots\.tint\(warm\):warm/.test(sky));
 // Corner shading is three's node pass over the scene's depth, at the WebGL chain's settings: on still frames only, its
 // grain turned from frame to frame so that the average of still frames smooths it, blended in by the finish's amount.
 assert(/import\('three\/addons\/tsl\/display\/GTAONode\.js'\)/.test(page)&&!/ao:false/.test(viewer));
-assert(/const shade=options\.ao&&gpu\.ao\?gpu\.ao\(texture\(target\.depthTexture!\),null,camera\):undefined,/.test(chain)&&/shade\.useTemporalFiltering=true;/.test(chain));
+assert(/const shade=options\.ao&&gpu\.ao\?gpu\.ao\(texture\(depthOf\),null,camera\):undefined,/.test(chain)&&/shade\.useTemporalFiltering=true;/.test(chain));
 assert(/radius\.value=\.7;[^\n]*distanceExponent\.value=1\.6;[^\n]*thickness\.value=1\.4;[^\n]*samples\.value=12;/.test(chain)&&/occlusion\.value=g\.occlusion;/.test(chain));
 assert(/\(refining&&shaded\?shaded:blend\)\.render\(renderer\);/.test(chain));
 // The night sky's stars and moon are drawn with the sky there too, from the same hash and the same disc.
@@ -86,7 +86,7 @@ assert(/\.mul\(slots\.covered\?slots\.covered\.oneMinus\(\):1\)/.test(foliage));
 const falling=fs.readFileSync('lib/house-model/falling.ts','utf8'),rain=fs.readFileSync('lib/house-model/rainfall.ts','utf8'),flakes=fs.readFileSync('lib/house-model/snowfall.ts','utf8');
 assert(/new T\.InstancedBufferGeometry\(\)/.test(falling)&&/perspectiveDepthToViewZ\(depth\.sample\(screenUV\)\.r,cameraNear,cameraFar\)/.test(falling)&&/if\(gpu\)\{gpu\.over\(object,camera\);return;\}/.test(falling));
 assert(/const material=gpu\?streaks\(gpu,uniforms,sky\):new T\.ShaderMaterial\(/.test(rain)&&/const material=gpu\?flakes\(gpu,uniforms,sky\):new T\.ShaderMaterial\(/.test(flakes));
-assert(/export function shelterNodes\(/.test(snowCode)&&/over:\(object:T\.Object3D,through:T\.Camera\)=>\{stage\.add\(object\);draw\(through\);\}/.test(chain)&&/get depth\(\)\{return target\.depthTexture;\}/.test(chain));
+assert(/export function shelterNodes\(/.test(snowCode)&&/over:\(object:T\.Object3D,through:T\.Camera\)=>\{stage\.add\(object\);draw\(through\);\}/.test(chain)&&/get depth\(\)\{return depthOf;\}/.test(chain));
 assert(/createSnowfall\(bake\?\.cover,lampsOutdoors\(\),falls\)/.test(viewer)&&/createRainfall\(bake\?\.cover,falls\)/.test(viewer));
 // The packed roof snow takes its shape there as nodes: moved along the roof's lay, its own normal, gone where thin.
 const slabCode=fs.readFileSync('lib/house-model/snow-slab.ts','utf8');
@@ -97,4 +97,6 @@ assert(/if\(kind==='glass'\)\{[^}]*const lie=s\.cover\(p\)\.own\.mul\(/.test(sno
 assert(/if\(gpu\)\(renderer as unknown as \{backend:\{capabilities:\{getUniformBufferLimit:\(\)=>number\}\}\}\)\.backend\.capabilities\.getUniformBufferLimit=\(\)=>0;/.test(viewer));
 // Materials whose features hold nothing of their own share what three builds from their nodes.
 assert(/\(list\.every\(f=>f\.variant!==undefined\)\?list\.map\(f=>f\.variant\)\.join\('\|'\):material\.uuid\)/.test(features)&&/key:'sky-visibility',variant:''/.test(skyCode)&&/key:'sun-bounce',variant:''/.test(bounce)&&/key:'snow-'\+kind,last:true,variant:\[\.\.\.how\.toArray\(\),\.\.\.most\.value\.toArray\(\)\]\.join\(\)/.test(snowCode));
+// With four samples to a pixel the depth that corner shading and the falling snow read is a plain copy of the scene's.
+assert(/const level=options\.samples>=4\?new T\.RenderTarget\(/.test(chain)&&/depthNode:texture\(target\.depthTexture!\)\.load\(ivec2\(screenCoordinate\)\)\.r/.test(chain)&&/gpu\.ao\(texture\(depthOf\),null,camera\)/.test(chain)&&/get depth\(\)\{return depthOf;\}/.test(chain));
 console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, lying snow with its packed layer on the roofs, falling snow and rain, averaged still frames and colour finish there.');
