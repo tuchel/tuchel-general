@@ -83,10 +83,10 @@ else if(uShed>0.0){vec2 g=vMapUv*${SHED.patches.toFixed(1)},i=floor(g),f=g-i;f=f
  const birchBark=bark.clone();birchBark.color.setRGB(2.3,2.3,2.2);
  // Solid crown core (hybrid) and modelled leaves: colour lives in the vertices.
  const core=new T.MeshStandardMaterial({color:'#ffffff',roughness:.95,vertexColors:true});core.userData.photo='foliage';
- // Modelled leaves, and the same again for trees seen close, which alone take the close detail (detailLeaves).
+ // Modelled leaves, and the same twice again for trees seen close, which alone take the close detail (detailLeaves).
  const leafy=()=>{const m=new T.MeshStandardMaterial({color:'#ffffff',roughness:.78,envMapIntensity:.8,side:T.DoubleSide,vertexColors:true});m.userData.photo='foliage';addShaderFeature(m,translucency);return plainShadow(m);};
- const solid=leafy(),close=leafy();
- return {leaves,depth,fall:{leaves:fallLeaves,depth:fallDepth,shed,twig},bark,birchBark,core,solid,close,style};
+ const solid=leafy(),close=leafy(),edged=leafy();
+ return {leaves,depth,fall:{leaves:fallLeaves,depth:fallDepth,shed,twig},bark,birchBark,core,solid,close,edged,style};
 }
 export type FoliageMaterials=ReturnType<typeof foliageMaterials>;
 
@@ -264,11 +264,14 @@ const BLADE=[[0,0,0],[-.34,.05,.42],[0,.1,.5],[0,0,1],[.34,.05,.42]],BLADE_TRIS=
  * distance along from them) and its margin toothed, `teeth` to a leaf and `tooth` deep. All of it fades out
  * as a pixel grows from `fades[0]` to `fades[1]` of a leaf's length, so a far crown is as it was. Where a fragment lies
  * on its blade is read from its vertex's number: nothing is stored per leaf. */
-export const LEAF_DETAIL={vein:.32,face:.55,sheen:.62,fades:[.12,.45] as const,shoulder:.8,round:2.2,tooth:.07,teeth:11};
+export const LEAF_DETAIL={vein:.32,face:.55,sheen:.62,fades:[.12,.45] as const,edges:[.06,.12] as const,shoulder:.8,round:2.2,tooth:.07,teeth:11};
 /** A modelled tree is drawn with that detail once its leaves cover this many pixels, where it starts to show. Short of
- * that it keeps its plain leaves, which look the same: an edge smoothed by coverage stops a graphics card skipping the
- * leaves hidden behind others, and a crown is many leaves deep (drawTrees). */
+ * that it keeps its plain leaves, which look the same. */
 export const LEAF_CLOSE=1/LEAF_DETAIL.fades[1];
+/** And with a leaf's outline once they cover this many, a little before the outline starts to show (`edges`, as
+ * `fades`). An edge smoothed by coverage stops a graphics card skipping the leaves hidden behind others, and a crown is
+ * many leaves deep, so only the few trees that near are drawn with it (drawTrees). */
+export const LEAF_EDGE=.8/LEAF_DETAIL.edges[1];
 const glslNumber=(n:number)=>Number.isInteger(n)?n.toFixed(1):String(n);
 export const leafDetailGlsl={
  vertex:`const vec2 LEAF_AT[12]=vec2[12](${BLADE_TRIS.map(k=>`vec2(${glslNumber(BLADE[k][0]/.34)},${glslNumber(BLADE[k][2])})`).join(',')});vLeaf=LEAF_AT[gl_VertexID%12];`,
@@ -276,19 +279,19 @@ export const leafDetailGlsl={
  // Side veins leave the rib six to a leaf and run toward the tip as they near the margin, fading there.
  colour:`float leafAcross=abs(vLeaf.x),leafRib=1.0-smoothstep(0.03,0.07+leafPx,leafAcross),leafSide=abs(fract((vLeaf.y-leafAcross*0.3)*6.0)-0.5)*2.0;
   float leafVeins=(1.0-smoothstep(0.0,0.14+leafPx*6.0,leafSide))*(1.0-leafAcross)*0.6;
-  float leafBlade=vLeaf.y<0.42?vLeaf.y/0.42:(1.0-vLeaf.y)/0.58,leafWidth=min(leafBlade,${LEAF_DETAIL.shoulder.toFixed(2)}-${LEAF_DETAIL.round.toFixed(1)}*(vLeaf.y-0.44)*(vLeaf.y-0.44))-${LEAF_DETAIL.tooth.toFixed(2)}*abs(fract(vLeaf.y*${LEAF_DETAIL.teeth.toFixed(1)})-0.5)*2.0;
-  diffuseColor.a*=mix(1.0,smoothstep(-leafPx,leafPx,leafWidth-leafAcross),leafNear);
   diffuseColor.rgb*=1.0+leafNear*(${LEAF_DETAIL.vein.toFixed(2)}*max(leafRib,leafVeins)*vec3(1.0,1.0,0.6)-0.12*leafAcross);`,
+ outline:`float leafBlade=vLeaf.y<0.42?vLeaf.y/0.42:(1.0-vLeaf.y)/0.58,leafWidth=min(leafBlade,${LEAF_DETAIL.shoulder.toFixed(2)}-${LEAF_DETAIL.round.toFixed(1)}*(vLeaf.y-0.44)*(vLeaf.y-0.44))-${LEAF_DETAIL.tooth.toFixed(2)}*abs(fract(vLeaf.y*${LEAF_DETAIL.teeth.toFixed(1)})-0.5)*2.0;
+  diffuseColor.a*=mix(1.0,smoothstep(-leafPx,leafPx,leafWidth-leafAcross),1.0-smoothstep(${LEAF_DETAIL.edges[0].toFixed(2)},${LEAF_DETAIL.edges[1].toFixed(2)},leafPx));`,
  normal:`vec3 leafFace=normalize(cross(dFdx(vViewPosition),dFdy(vViewPosition)));
   if(dot(leafFace,normal)<0.0)leafFace=-leafFace;
   normal=normalize(mix(normal,leafFace,${LEAF_DETAIL.face.toFixed(2)}*leafNear));`,
 };
-/** Gives the modelled leaves of trees seen close their detail (LEAF_DETAIL). */
+/** Gives the modelled leaves of trees seen close their detail (LEAF_DETAIL), and of those nearest their outline. */
 export function detailLeaves(materials:FoliageMaterials){
- materials.close.alphaToCoverage=true;materials.close.userData.detailed=true;
- addShaderFeature(materials.close,{key:'leaf-detail',compile:shader=>{
+ materials.close.userData.detailed=true;materials.edged.alphaToCoverage=true;
+ for(const material of [materials.close,materials.edged]){const outline=material===materials.edged;addShaderFeature(material,{key:'leaf-detail',compile:shader=>{
   shader.vertexShader='varying vec2 vLeaf;\n'+after(shader.vertexShader,'begin_vertex',leafDetailGlsl.vertex);
-  let f='varying vec2 vLeaf;\n'+after(shader.fragmentShader,'color_fragment',leafDetailGlsl.near+leafDetailGlsl.colour);
+  let f='varying vec2 vLeaf;\n'+after(shader.fragmentShader,'color_fragment',leafDetailGlsl.near+leafDetailGlsl.colour+(outline?leafDetailGlsl.outline:''));
   f=after(f,'roughnessmap_fragment',`roughnessFactor=mix(roughnessFactor,${LEAF_DETAIL.sheen.toFixed(2)},leafNear);`);
   shader.fragmentShader=after(f,'normal_fragment_maps',leafDetailGlsl.normal);
  },nodes:(slots:NodeSlots)=>{
@@ -302,11 +305,11 @@ export function detailLeaves(materials:FoliageMaterials){
   const width=min(blade,off.mul(off).mul(-D.round).add(D.shoulder)).sub(abs(fract(along.mul(D.teeth)).sub(.5)).mul(2*D.tooth));
   const base=vec4(slots.colour??materialColor);
   slots.colour=vec4(base.rgb.mul(near.mul(max(rib,veins).mul(D.vein).mul(vec3(1,1,.6)).sub(across.mul(.12))).add(1)),base.a);
-  slots.opacity=(slots.opacity??materialOpacity).mul(mix(1,smoothstep(px.negate(),px,width.sub(across)),near));
+  if(outline)slots.opacity=(slots.opacity??materialOpacity).mul(mix(1,smoothstep(px.negate(),px,width.sub(across)),float(1).sub(smoothstep(D.edges[0],D.edges[1],px))));
   slots.roughness=mix(slots.roughness??materialRoughness,D.sheen,near);
   const round=slots.normal??normalWorld,flat=normalize(cross(dFdx(positionWorld),dFdy(positionWorld)));
   slots.normal=normalize(mix(round,select(dot(flat,round).lessThan(0),flat.negate(),flat),near.mul(D.face)));
- }});
+ }});}
 }
 /** Modelled leaves: a folded four-triangle blade repeated around branch-tip clusters, one geometry per archetype. */
 function modelledLeaves(kind:TreeKind,context:boolean,r:()=>number,clusters:T.Vector3[],crown:T.Vector3,flat:number){
@@ -337,7 +340,7 @@ const LEAF=.15;
 /** A modelled tree whose leaves would each cover fewer pixels than this is drawn as its leaf-card crown (drawTrees). */
 export const LEAF_PIXELS=1.5;
 /** One archetype's trees: where each stands, and the draws that show them (drawTrees). */
-type TreeSet={kind:TreeKind;matrices:T.Matrix4[];colors:T.Color[];summer:T.Color[];bare?:boolean;origins:T.Vector3[];centres:T.Vector3[];radii:number[];leaf:number[];crowns:T.InstancedMesh[];/** The modelled leaves, and the same for trees seen close (LEAF_CLOSE). */solid?:T.InstancedMesh;close?:T.InstancedMesh;bark:T.InstancedMesh;lod?:T.InstancedMesh[];order:Map<T.InstancedMesh,string>};
+type TreeSet={kind:TreeKind;matrices:T.Matrix4[];colors:T.Color[];summer:T.Color[];bare?:boolean;origins:T.Vector3[];centres:T.Vector3[];radii:number[];leaf:number[];crowns:T.InstancedMesh[];/** The modelled leaves, and the same for trees seen close (LEAF_CLOSE) and nearest (LEAF_EDGE). */solid?:T.InstancedMesh;close?:T.InstancedMesh;edged?:T.InstancedMesh;bark:T.InstancedMesh;lod?:T.InstancedMesh[];order:Map<T.InstancedMesh,string>};
 /** Draws `count` but casts shadows from every instance. The WebGPU renderer calls onBeforeRender inside its shadow pass
  * as well, after onBeforeShadow. */
 function drawnCount(mesh:T.InstancedMesh,total:number,casts:boolean){
@@ -372,15 +375,15 @@ export function buildTrees(specs:TreeSpec[],materials:FoliageMaterials,name:stri
   const sheds=!EVERGREEN.includes(kind),cardLeaves=sheds?materials.fall.leaves:materials.leaves,cardDepth=sheds?materials.fall.depth:materials.depth;
   if(arch.leaves){const leaves=new T.InstancedMesh(arch.leaves,cardLeaves,list.length);leaves.name='tree-leaf-cards';leaves.customDepthMaterial=cardDepth;crowns.push(leaves);}
   if(arch.core){const core=new T.InstancedMesh(arch.core,materials.core,list.length);core.name='tree-crown-core';crowns.push(core);}
-  let solid:T.InstancedMesh|undefined,close:T.InstancedMesh|undefined;
-  if(arch.solid){solid=new T.InstancedMesh(arch.solid,materials.solid,list.length);solid.name='tree-leaves';crowns.push(solid);close=new T.InstancedMesh(arch.solid,materials.close,list.length);close.name='tree-leaves-close';}
+  let solid:T.InstancedMesh|undefined,close:T.InstancedMesh|undefined,edged:T.InstancedMesh|undefined;
+  if(arch.solid){solid=new T.InstancedMesh(arch.solid,materials.solid,list.length);solid.name='tree-leaves';crowns.push(solid);close=new T.InstancedMesh(arch.solid,materials.close,list.length);close.name='tree-leaves-close';edged=new T.InstancedMesh(arch.solid,materials.edged,list.length);edged.name='tree-leaves-edged';}
   let lod:T.InstancedMesh[]|undefined;
   if(far){
    lod=[];
    if(far.core){const core=new T.InstancedMesh(far.core,materials.core,list.length);core.name='tree-lod-core';lod.push(core);}
    if(far.leaves){const cards=new T.InstancedMesh(far.leaves,cardLeaves,list.length);cards.name='tree-lod-cards';cards.customDepthMaterial=cardDepth;lod.push(cards);}
   }
-  const set:TreeSet={kind,matrices:[],colors:[],summer:[],origins:[],centres:[],radii:[],leaf:[],crowns,solid,close,bark,lod,order:new Map()};
+  const set:TreeSet={kind,matrices:[],colors:[],summer:[],origins:[],centres:[],radii:[],leaf:[],crowns,solid,close,edged,bark,lod,order:new Map()};
   for(const s of list){
    const r=random(s.seed);
    q.setFromAxisAngle(new T.Vector3(0,1,0),r()*Math.PI*2);
@@ -394,11 +397,11 @@ export function buildTrees(specs:TreeSpec[],materials:FoliageMaterials,name:stri
    const hue=kind==='pine'||kind==='mugo'?.9:kind==='spruce'?.82+r()*.12:kind==='woodland'?.72+r()*.3:kind==='cherry'?.95+r()*.08:.85+r()*.3;
    const color=kind==='cherry'?new T.Color().setRGB(hue,hue*(.97+r()*.04),hue*(.98+r()*.04)):new T.Color().setRGB(hue,hue*(.97+r()*.06),hue*(.85+r()*.2));if(s.tint)color.multiply(new T.Color().setRGB(...s.tint));set.colors.push(color);set.summer.push(color.clone());
   }
-  const extra=close?[close]:[];
+  const extra=close&&edged?[close,edged]:[];
   for(const c of [...crowns,...lod??[],...extra])c.userData.sway='leaf';
   const home=partOf(part);
   for(const mesh of [...crowns,bark,...lod??[],...extra]){
-   const casts=!lod?.includes(mesh)&&mesh!==close;
+   const casts=!lod?.includes(mesh)&&!extra.includes(mesh);
    set.matrices.forEach((m,i)=>{mesh.setMatrixAt(i,m);if(mesh!==bark)mesh.setColorAt(i,set.colors[i]);});
    mesh.castShadow=casts;mesh.receiveShadow=true;mesh.computeBoundingSphere();drawnCount(mesh,list.length,casts);
    if(!casts){mesh.userData.skipPhotographic=true;mesh.userData.drawn=0;mesh.count=0;}
@@ -441,7 +444,7 @@ export function seasonTrees(root:T.Object3D,materials:FoliageMaterials,day:numbe
    if(EVERGREEN.includes(set.kind))return;
    set.summer.forEach((c,i)=>{const phase=(i*.618+k*.237+set.kind.length*.11)%1;if(twigs){set.colors[i].setScalar(.8+.5*phase);return;}const [r,g,b]=leafTint(set.kind,day,phase);set.colors[i].setRGB(c.r*r,c.g*g,c.b*b);});
    set.order.clear();set.bare=bare;
-   for(const mesh of [...set.crowns,...set.lod??[],...(set.close?[set.close]:[])]){
+   for(const mesh of [...set.crowns,...set.lod??[],...(set.close?[set.close]:[]),...(set.edged?[set.edged]:[])]){
     const card=mesh.material===materials.fall.leaves,lod=!!set.lod?.includes(mesh);
     if(!card)mesh.visible=!bare;else{mesh.visible=true;mesh.userData.skipPhotographic=bare||lod;if(lod)mesh.castShadow=bare;}
     mesh.userData.season=day;
@@ -483,21 +486,23 @@ export function drawTrees(root:T.Object3D,cameras:T.Camera[],pixel:number,eye:T.
  let drawn=0,farDrawn=0,lodDrawn=0,left=0;
  root.traverse(o=>{
   for(const set of (o.userData.treeSets??[]) as TreeSet[]){
-   const near:number[]=[],close:number[]=[],far:number[]=[],rest:number[]=[],fine=!!set.close&&!!(set.close.material as T.Material).userData.detailed;
+   const near:number[]=[],close:number[]=[],edged:number[]=[],far:number[]=[],rest:number[]=[],fine=!!set.close&&!!(set.close.material as T.Material).userData.detailed;
    for(let i=0;i<set.matrices.length;i++){
     sphere.set(set.centres[i],set.radii[i]);
     const others=frusta.slice(1).some(f=>f.intersectsSphere(sphere));
     if(!others&&!frusta[0].intersectsSphere(sphere)){rest.push(i);continue;}
     if(!others&&hidden?.(set,i)){rest.push(i);left++;continue;}
     const size=set.leaf[i]/(set.origins[i].distanceTo(from)*pixel);
-    if(set.lod&&(set.bare||size<LEAF_PIXELS))far.push(i);else if(fine&&size>=LEAF_CLOSE)close.push(i);else near.push(i);
+    if(set.lod&&(set.bare||size<LEAF_PIXELS))far.push(i);else if(fine&&size>=LEAF_EDGE)edged.push(i);else if(fine&&size>=LEAF_CLOSE)close.push(i);else near.push(i);
    }
-   // The plain modelled leaves leave out the trees drawn close; every other part of a modelled tree is drawn for both.
-   for(const c of set.crowns)arrange(set,c,[...near,...close,...far,...rest],c===set.solid?near.length:near.length+close.length);
-   if(set.close)arrange(set,set.close,[...close,...near,...far,...rest],close.length);
-   arrange(set,set.bark,[...near,...close,...far,...rest],near.length+close.length+far.length);
-   for(const c of set.lod??[])arrange(set,c,[...far,...near,...close,...rest],far.length);
-   drawn+=near.length+close.length+far.length;lodDrawn+=far.length;if(!set.lod)farDrawn+=near.length;
+   // The plain modelled leaves leave out the trees drawn close; every other part of a modelled tree is drawn for all.
+   const full=[...near,...close,...edged],tail=[...far,...rest];
+   for(const c of set.crowns)arrange(set,c,[...full,...tail],c===set.solid?near.length:full.length);
+   if(set.close)arrange(set,set.close,[...close,...near,...edged,...tail],close.length);
+   if(set.edged)arrange(set,set.edged,[...edged,...near,...close,...tail],edged.length);
+   arrange(set,set.bark,[...full,...tail],full.length+far.length);
+   for(const c of set.lod??[])arrange(set,c,[...far,...full,...rest],far.length);
+   drawn+=full.length+far.length;lodDrawn+=far.length;if(!set.lod)farDrawn+=near.length;
   }
  });
  return {drawn,farDrawn,lod:lodDrawn,hidden:left};
