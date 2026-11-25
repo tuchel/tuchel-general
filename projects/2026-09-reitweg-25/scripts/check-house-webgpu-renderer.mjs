@@ -47,6 +47,8 @@ assert(/renderer\.toneMapping=T\.NoToneMapping;renderer\.outputColorSpace=T\.Lin
 // held to the new frame's neighbouring colours, at full size whatever size the moving frames are drawn at.
 assert(/import \{TEMPORAL\} from '\.\/temporal';/.test(chain)&&/share\.value=is\?TEMPORAL\.blend:1;/.test(chain)&&/expected\.mul\(TEMPORAL\.tolerance\)\.add\(\.05\)/.test(chain)&&/hi\.sub\(lo\)\.mul\(TEMPORAL\.slack\)/.test(chain)&&/frames=TEMPORAL\.carry;/.test(chain),'the kept image in motion');
 assert(/if\(kept\)\{if\(kept\.resize\(w,h\)\)frames=0;\}/.test(chain)&&/temporal:!!kept,/.test(chain),'kept at full size; moving frames jittered');
+// The lens there, so far: the meter eases exposure by the WebGL chain's rule, and the finish carries its grain.
+assert(/import \{LENS,meterCorrection\} from '\.\/lens';/.test(chain)&&/exposure\.value=exposed\*\(meter\?\.adapt\(exposed\)\?\?1\);/.test(chain)&&/meterCorrection\(logAverage,exposure\)\/scale,Math\.min\(1,dt\/LENS\.meter\.seconds\)/.test(chain)&&/n\.mul\(LENS\.grain\)/.test(chain),'the meter and the grain');
 // It draws no line loops.
 assert(!/T\.LineLoop/.test(lib),'no line loop in the model');
 // Bounced sunlight is read from the same two atlases and added to the light from all round; the sky light bounced

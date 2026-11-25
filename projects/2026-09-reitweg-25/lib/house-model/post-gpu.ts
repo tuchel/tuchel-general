@@ -1,6 +1,7 @@
 import * as T from 'three';
 import {finish} from './look';
 import {TEMPORAL} from './temporal';
+import {LENS,meterCorrection} from './lens';
 import type {Post,PostOptions} from './post';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -96,7 +97,45 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
  const e0=pow(clamp(mapped,0,1),vec3(1/2.2)),m=dot(e0,luma),f=float(1).sub(m),e=min(e0.mul(look.z.mul(f.mul(f).mul(f).mul(f)).add(1)),vec3(1));
  const p=pow(e,vec3(look.x)),q=pow(vec3(1).sub(e),vec3(look.x)),c=pow(p.div(max(p.add(q),vec3(1e-5))),vec3(2.2)),l=dot(c,luma);
  const graded=max(vec3(0),vec3(l).add(c.sub(l).mul(look.y)));
- const output=quadOf(vec4(sRGBTransferOETF(graded),1));
+ // The lens's grain on the finished image (lens.ts), new each frame: two hashes summed, triangular noise in -1..1.
+ const seed=uniform(0),grained=options.lens?(()=>{
+  const {fract}=gpu.tsl,at=screenCoordinate.xy,hash=(v:any)=>{const f=fract(v.mul(.1031)),h=f.add(dot(f,f.yzx.add(33.33)));return fract(h.x.add(h.y).mul(h.z));};
+  const n=hash(vec3(at.x,at.y,at.x).add(seed.mul(vec3(17,59,23)))).add(hash(vec3(at.y,at.x,at.y).mul(1.37).add(seed.mul(vec3(91,7,41))))).sub(1);
+  const e=pow(graded,vec3(1/2.2)),m=clamp(dot(e,luma),0,1);
+  return pow(max(e.add(n.mul(LENS.grain).mul(m.mul(float(1).sub(m)).mul(2.8).add(.3))),vec3(0)),vec3(2.2));
+ })():graded;
+ const output=quadOf(vec4(sRGBTransferOETF(grained),1));
+ // The lens's meter (lens.ts): a 32 x 32 summary of the frame's log luminance, weighted to the centre, and of how far
+ // off the middle of the frame is, read back without stalling the graphics card; exposure eases toward its reading.
+ const meter=options.lens&&camera instanceof T.PerspectiveCamera?(()=>{
+  const {uv,vec2,log2,exp}=gpu.tsl,eye=camera,small=new T.RenderTarget(32,32,{type:T.FloatType,depthBuffer:false}) as unknown as T.WebGLRenderTarget;
+  const aspect=uniform(1),range=uniform(new T.Vector2(0,1)),at=uv(),p=at.sub(.5).mul(vec2(aspect,1));
+  let sum:any=vec3(0);for(let y=0;y<2;y++)for(let x=0;x<2;x++)sum=sum.add(current.sample(at.add(vec2(x-.5,y-.5).div(64))).rgb);
+  const quad=quadOf(vec4(log2(max(dot(sum.mul(.25),luma),1e-6)),range.y.div(texture(depthOf).sample(at).r.add(range.x)),exp(dot(p,p).div(-.08)),1));
+  let pending=false,logAverage=NaN,scale=1,last=0;
+  return {
+   /** Distance (metres) to what is in the middle of the frame; NaN until measured. */
+   focus:NaN,
+   read(){
+    if(pending)return;
+    const e=eye.projectionMatrix.elements;range.value.set(e[10],e[14]);aspect.value=eye.aspect;
+    renderer.setRenderTarget(small);quad.render(renderer);pending=true;
+    ((renderer as any).readRenderTargetPixelsAsync(small,0,0,32,32) as Promise<Float32Array>).then(data=>{
+     let total=0,weights=0;const centre:number[]=[];
+     for(let i=0;i<32*32;i++){const w=data[i*4+2];total+=data[i*4]*w;weights+=w;}
+     for(let y=14;y<18;y++)for(let x=14;x<18;x++)centre.push(data[(y*32+x)*4+1]);
+     centre.sort((a,b)=>a-b);logAverage=total/Math.max(weights,1e-6);this.focus=(centre[7]+centre[8])/2;
+    }).catch(()=>{}).finally(()=>{pending=false;});
+   },
+   /** The factor on `exposure`, eased toward what the meter asks for. */
+   adapt(exposure:number){
+    const now=performance.now(),dt=Math.min(.1,(now-(last||now))/1000);last=now;
+    if(Number.isFinite(logAverage))scale*=Math.pow(meterCorrection(logAverage,exposure)/scale,Math.min(1,dt/LENS.meter.seconds));
+    return scale;
+   },
+   dispose(){small.dispose();quad.material.dispose();},
+  };
+ })():undefined;
  const lamps=options.lamps??(()=>0);
  // The finish fills the screen whatever camera it is drawn with, so that what falls over the frame can be drawn in the
  // same pass (`over`): a second pass to the canvas does not keep what the first left there.
@@ -127,13 +166,14 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   compilePasses:()=>Promise.resolve(),
   warm:()=>{},
   render:(refining:boolean,exposed:number,indoor=0)=>{
-   const g=finish(indoor,lamps());balance.value.set(g.balance[0],g.balance[1],g.balance[2]);look.value.set(g.contrast,g.saturation,g.lift);exposure.value=exposed;occlusion.value=g.occlusion;
+   const g=finish(indoor,lamps());balance.value.set(g.balance[0],g.balance[1],g.balance[2]);look.value.set(g.contrast,g.saturation,g.lift);exposure.value=exposed*(meter?.adapt(exposed)??1);seed.value=(seed.value+1)%64;occlusion.value=g.occlusion;
    // Only highlights two and a half times brighter than white bloom.
    if(glow)glow.threshold.value=2.5/Math.max(exposed,1e-4);
    const moved=kept?.moved()??false,rest=refining&&!moved;
    if(!rest)frames=0;else if(kept&&frames===0&&kept.rested())frames=TEMPORAL.carry;
    renderer.setRenderTarget(target);renderer.render(scene,camera);
    if(level&&levelled){renderer.setRenderTarget(level);levelled.render(renderer);}
+   meter?.read();
    const [was,next]=settled;current.value=target.texture;history.value=was.texture;weight.value=1/(frames+1);
    if(kept&&!rest)kept.blend(next,moved);
    else{renderer.setRenderTarget(next);(refining&&shaded?shaded:blend).render(renderer);}
@@ -153,7 +193,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   get depth(){return depthOf;},
   present:()=>{},keep:()=>{},carries:()=>false,carry:()=>{},
   reset:()=>{frames=0;kept?.reset();},
-  dispose:()=>{kept?.dispose();target.dispose();level?.dispose();levelled?.material.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();glow?.dispose();output.material.dispose();},
+  dispose:()=>{kept?.dispose();meter?.dispose();target.dispose();level?.dispose();levelled?.material.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();glow?.dispose();output.material.dispose();},
  };
  return api as unknown as Post&{over:typeof api.over};
 }
