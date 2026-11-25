@@ -208,7 +208,7 @@ const feature=(kind:SnowKind,how=HOW.surface,most=MOST.surface)=>({key:'snow-'+k
  // Snow in shade is lit by the sky alone, and reads blue.
  shader.fragmentShader=before(shader.fragmentShader,'aomap_fragment',`reflectedLight.indirectDiffuse*=mix(vec3(1.0),vec3(${SNOW.shade.join(',')}),snowLie);`);
 },nodes:(slots:NodeSlots)=>{
- // The same as nodes. Not yet there: the dusting on a glass roof.
+ // The same as nodes.
  const {vec3,vec4,float,mix,max,fwidth,varying,smoothstep,normalize,materialOpacity,positionWorld,positionLocal,positionGeometry,normalWorldGeometry,materialColor,materialRoughness,materialMetalness,materialReference}=slots.tsl;
  const s=snowNodes(slots.tsl);
  if(kind==='far'){const c=vec4(slots.colour??materialColor);slots.colour=vec4(mix(c.rgb,materialReference('color','color').mul(vec3(.83,.88,.93)),s.amount.mul(.8)),c.a);return;}
@@ -218,6 +218,14 @@ const feature=(kind:SnowKind,how=HOW.surface,most=MOST.surface)=>({key:'snow-'+k
   slots.tinted=rgb=>mix(mix(before?before(rgb):rgb,vec3(.62,.74,.78),ice),vec3(...SNOW.albedo),drift);
   slots.roughness=mix(slots.roughness??materialRoughness,mix(.25,.88,drift),ice);slots.normal=normalize(mix(slots.normal??normalWorldGeometry,vec3(0,1,0),ice));
   slots.covered=max(ice.mul(.6),drift.mul(.92));slots.opacity=mix(slots.opacity??materialOpacity,1,slots.covered);return;
+ }
+ if(kind==='glass'){
+  // A dusting on a glass roof alone (snowCovers). Glass is black; where the snow lies it takes the snow's colour and
+  // is lit as any surface is, by the sky and the sun, and seen from the room below by what comes through.
+  const lie=s.cover(p).own.mul(s.lies({p,w,up:normalWorldGeometry.y,under:0,slope:how.w,grain:1,amount:s.amount}).x).mul(.6).toVar();
+  slots.tinted=rgb=>mix(before?before(rgb):rgb,vec3(...SNOW.albedo),lie);
+  slots.roughness=mix(slots.roughness??materialRoughness,.86,lie);slots.covered=lie;
+  slots.opacity=mix(slots.opacity??materialOpacity,1,lie);return;
  }
  if(kind!=='surface')return;
  const {under}=s.cover(p),given={p,w,up:normalWorldGeometry.y,under,slope:how.w,grain:most.value.z,amount:s.amount};

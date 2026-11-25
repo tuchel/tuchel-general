@@ -91,4 +91,6 @@ assert(/createSnowfall\(bake\?\.cover,lampsOutdoors\(\),falls\)/.test(viewer)&&/
 // The packed roof snow takes its shape there as nodes: moved along the roof's lay, its own normal, gone where thin.
 const slabCode=fs.readFileSync('lib/house-model/snow-slab.ts','utf8');
 assert(/maskNode:slots\.mask\?\?null/.test(features)&&/slots\.position=\(slots\.position\?\?positionLocal\)\.add\(modelWorldMatrixInverse\.mul\(vec4\(move,0\)\)\.xyz\);slots\.normal=normalize\(varying\(n\)\);/.test(slabCode)&&/slots\.mask=seen\.x\.greaterThanEqual\(\.004\)\.and\(seen\.y\.greaterThanEqual\(0\)\);/.test(slabCode));
+// A glass roof takes its dusting there too.
+assert(/if\(kind==='glass'\)\{[^}]*const lie=s\.cover\(p\)\.own\.mul\(/.test(snowCode)&&!/Not yet there: the dusting on a glass roof/.test(snowCode));
 console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, lying snow with its packed layer on the roofs, falling snow and rain, averaged still frames and colour finish there.');
