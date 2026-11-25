@@ -1,6 +1,7 @@
 import * as T from 'three';
 import {finish} from './look';
 import {TEMPORAL} from './temporal';
+import {MOTION_BLUR} from './motion-blur';
 import {LENS,meterCorrection,focalLength} from './lens';
 import {CONTACT} from './contact-shadows';
 import {MIST,AIR_GLOW} from './mist';
@@ -12,7 +13,8 @@ export type PostGPU={tsl:any;/** three's corner shading pass (GTAONode.js). */ao
 /** The image chain for the WebGPU renderer (post.ts is the WebGL renderer's). So far: the scene into a floating-point
  * target, corner shading on still frames, still frames averaged into a clean image, and the same finish to the screen: white balance, tone mapping,
  * the S-curve with its shadow lift, saturation, and the screen's transfer; moving frames blended into the kept image,
- * and the lens (meter, grain, sun shafts, focus). Not yet there: mist, the wet mirror, and showing a path-traced image;
+ * with the shutter's smear, and the lens (meter, grain, sun shafts, focus), mist and contact shadows. Not yet there: the wet
+ * mirror and showing a path-traced image;
  * those calls do nothing. */
 export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions,gpu:PostGPU):Post&{over(object:T.Object3D,camera:T.Camera):void}{
  const {positionGeometry,screenCoordinate,ivec2,texture,uniform,vec3,vec4,float,mix,max,min,pow,dot,clamp,agxToneMapping,sRGBTransferOETF}=gpu.tsl;
@@ -133,21 +135,37 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    const slack=hi.sub(lo).mul(TEMPORAL.slack).add(.002),held=clamp(keptAt(at),lo.sub(slack),hi.add(slack));
    return vec4(select(seen.and(carried.greaterThan(.5)),mix(held,mine,share.mul(exp(dot(off,off).mul(-TEMPORAL.falloff)))),c),1);
   })());
+  // The shutter (motion-blur.ts): the moving frame smeared along the path each point took since the last frame, before
+  // it joins the kept image. Every look-up is taken; a path too short to see is given no length.
+  const streaks=options.mist?(()=>{
+   const {length,fract}=gpu.tsl,raw=texture(mixed.texture),smeared=half();
+   return {smeared,quad:quadOf(Fn(()=>{
+    const at=uv(),at0=at.add(jitter),d=min(far(depth.sample(at).r),farthest).toVar(),ndc=vec2(at0.x.mul(2).sub(1),at0.y.mul(-2).add(1));
+    const clip=lastViewProj.mul(camWorld.mul(vec4(ndc.x.mul(d).div(lens.x),ndc.y.mul(d).div(lens.y),d.negate(),1))).toVar();
+    const path=at0.sub(vec2(clip.x.div(clip.w).mul(.5).add(.5),clip.y.div(clip.w).mul(-.5).add(.5))).mul(select(clip.w.greaterThan(0),MOTION_BLUR.shutter,0)).toVar(),len=length(path);
+    path.mulAssign(select(len.lessThan(.0008),0,min(1,float(MOTION_BLUR.longest).div(max(len,1e-6)))));
+    const turn=fract(fract(dot(screenCoordinate.xy,vec2(.06711056,.00583715))).mul(52.9829189).add(tick.mul(.618034))).toVar();
+    let sum:any=vec3(0);for(let i=0;i<MOTION_BLUR.taps;i++)sum=sum.add(raw.sample(clamp(at.sub(path.mul(turn.add(i).div(MOTION_BLUR.taps).sub(.5))),0,1)).rgb);
+    return vec4(sum.div(MOTION_BLUR.taps),1);
+   })())};
+  })():undefined;
   const copy=quadOf(vec4(far(texture(depthOf).r),0,0,1));
   const lastWorld=new T.Matrix4(),lastLens=new T.Vector3(),size=new T.Vector2();let valid=false,fresh=true;
   return {mixed,lastDepth,
    reset(){fresh=true;},
-   resize(w:number,h:number){mixed.setSize(w,h);lastDepth.setSize(w,h);const f=renderer.getDrawingBufferSize(size);if(settled[0].width!==f.x||settled[0].height!==f.y){for(const t of settled)t.setSize(f.x,f.y);valid=false;return true;}return false;},
+   resize(w:number,h:number){mixed.setSize(w,h);streaks?.smeared.setSize(w,h);lastDepth.setSize(w,h);const f=renderer.getDrawingBufferSize(size);if(settled[0].width!==f.x||settled[0].height!==f.y){for(const t of settled)t.setSize(f.x,f.y);valid=false;return true;}return false;},
    /** Whether the frame being drawn moved the view (or follows a change of light or scene). */
    moved:()=>!eye.matrixWorld.equals(lastWorld)||lastLens.x!==eye.fov||lastLens.y!==eye.zoom||lastLens.z!==eye.aspect,
    /** A view come to rest counts its moving image as `carry` frames. */
    rested:()=>valid&&!fresh,
-   /** Blends the scene just drawn into the kept image. */
-   blend(next:T.WebGLRenderTarget,moved:boolean){
+   /** Blends the scene just drawn into the kept image, smeared by the shutter where `smear`. */
+   blend(next:T.WebGLRenderTarget,moved:boolean,smear:boolean){
     const e=eye.projectionMatrix.elements,is=carried.value=valid&&(moved||!fresh)?1:0;share.value=is?TEMPORAL.blend:1;
     lens.value.set(e[0],e[5],e[10],e[14]);jitter.value.set(e[8]/2,-e[9]/2);camWorld.value.copy(eye.matrixWorld);
     drawn.value.set(mixed.width,mixed.height);full.value.set(next.width,next.height);
-    renderer.setRenderTarget(mixed);composed.render(renderer);renderer.setRenderTarget(next);moving.render(renderer);
+    renderer.setRenderTarget(mixed);composed.render(renderer);
+    const smearing=streaks&&smear&&valid;if(smearing){renderer.setRenderTarget(streaks.smeared);streaks.quad.render(renderer);}
+    frame.value=(smearing?streaks.smeared:mixed).texture;renderer.setRenderTarget(next);moving.render(renderer);
    },
    /** Keeps this frame's depth and view for the next frame's look-up. */
    remember(){
@@ -156,7 +174,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
     lastView.value.copy(eye.matrixWorldInverse);lastViewProj.value.copy(eye.projectionMatrix);const l=lastViewProj.value.elements;l[8]=0;l[9]=0;lastViewProj.value.multiply(eye.matrixWorldInverse);
     lastWorld.copy(eye.matrixWorld);lastLens.set(eye.fov,eye.zoom,eye.aspect);valid=true;fresh=false;
    },
-   dispose(){mixed.dispose();lastDepth.dispose();composed.material.dispose();moving.material.dispose();copy.material.dispose();},
+   dispose(){mixed.dispose();streaks?.smeared.dispose();streaks?.quad.material.dispose();lastDepth.dispose();composed.material.dispose();moving.material.dispose();copy.material.dispose();},
   };
  })():undefined;
  const shown=texture(settled[0].texture),balance=uniform(new T.Vector3(1,1,1)),look=uniform(new T.Vector3(1,1,0)),exposure=uniform(1);
@@ -272,7 +290,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    dispose(){sharp.dispose();quad.material.dispose();},
   };
  })():undefined;
- let showing=settled[0];
+ let showing=settled[0],flowing=false;
  const lamps=options.lamps??(()=>0);
  // The finish fills the screen whatever camera it is drawn with, so that what falls over the frame can be drawn in the
  // same pass (`over`): a second pass to the canvas does not keep what the first left there.
@@ -320,8 +338,9 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    meter?.read();
    if(!rest)shafts?.reset();shafts?.render(indoor);
    const [was,next]=settled;current.value=target.texture;history.value=was.texture;weight.value=1/(frames+1);
-   if(kept&&!rest)kept.blend(next,moved);
+   if(kept&&!rest)kept.blend(next,moved,moved&&!refining&&flowing);
    else{renderer.setRenderTarget(next);(refining&&shaded?shaded:blend).render(renderer);}
+   flowing=!refining;
    settled=[next,was];if(rest||!kept)frames++;
    kept?.remember();
    showing=view?.eyeLevel&&focus?focus.render(settled[0]):settled[0];
