@@ -34,7 +34,7 @@ assert(crowns>0&&modelled>0,'both kinds drawn in this deep view');
 // Shadows: every tree casts at full detail; crowns cast none, nor do the leaves kept for trees seen close (the plain
 // leaves of the same trees cast for them).
 for(const m of meshes){
- if(m.name==='tree-lod-core'||m.name==='tree-lod-cards'||m.name==='tree-leaves-close'){assert.equal(m.castShadow,false,'crowns cast no shadow');assert(m.userData.skipPhotographic,'the tracer skips crowns');continue;}
+ if(m.name==='tree-lod-core'||m.name==='tree-lod-cards'||m.name==='tree-leaves-close'||m.name==='tree-leaves-edged'){assert.equal(m.castShadow,false,'crowns cast no shadow');assert(m.userData.skipPhotographic,'the tracer skips crowns');continue;}
  m.onBeforeShadow();assert.equal(m.count,m.userData.instances,`${m.name} casts shadows from every tree`);m.onBeforeRender();
 }
 // The mirror's camera adds what it sees: a camera looking back west draws trees the first did not.
