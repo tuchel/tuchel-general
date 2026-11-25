@@ -50,6 +50,9 @@ export function alpineTerrain(){
   shader.uniforms.panoramaAnchor=anchorHeight;
   shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nattribute float panoramaLift;\nuniform float panoramaAnchor;')
    .replace('#include <begin_vertex>','#include <begin_vertex>\n transformed.y-=(cameraPosition.y-panoramaAnchor)*panoramaLift;');
+ },nodes:slots=>{
+  const {attribute,uniform,vec3,positionLocal,cameraPosition}=slots.tsl,anchor=uniform(0).onRenderUpdate(()=>anchorHeight.value);
+  slots.position=(slots.position??positionLocal).sub(vec3(0,cameraPosition.y.sub(anchor).mul(attribute('panoramaLift','float')),0));
  }});
  const mesh=new T.Mesh(geometry,material);mesh.name='alpine-panorama';mesh.frustumCulled=false;
  mesh.userData={scenicBackdrop:true,dynamic:true};group.add(mesh);

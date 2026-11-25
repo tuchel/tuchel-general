@@ -59,7 +59,15 @@ export function distantWoods(ground:(x:number)=>number){
  // The woods take the scene's haze over a longer range than its fog (set for the compressed scenery beyond): clear a
  // couple of hundred metres out, as photographed, and gone into the haze where the ground around them is.
  const material=new T.MeshStandardMaterial({vertexColors:true,roughness:1,side:T.DoubleSide});
- addShaderFeature(material,{key:'distant-woods-haze',compile:shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <fog_fragment>','#ifdef USE_FOG\n gl_FragColor.rgb=mix(gl_FragColor.rgb,fogColor,smoothstep(fogNear*1.5,fogFar*2.2,vFogDepth));\n#endif');}});
+ addShaderFeature(material,{key:'distant-woods-haze',compile:shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <fog_fragment>','#ifdef USE_FOG\n gl_FragColor.rgb=mix(gl_FragColor.rgb,fogColor,smoothstep(fogNear*1.5,fogFar*2.2,vFogDepth));\n#endif');},nodes:slots=>{
+  // The same as nodes: the scene's fog is left off this material, and its own haze is laid over the finished colour.
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const {uniform,vec4,mix,smoothstep,positionView}=slots.tsl,fog=(read:(f:T.Fog)=>number)=>uniform(0).onRenderUpdate(({scene}:any)=>scene?.fog?read(scene.fog):0);
+  const near=fog(f=>f.near),far=fog(f=>f.far),on=fog(()=>1),tone=uniform(new T.Color()).onRenderUpdate(({scene}:any,self:any)=>{if(scene?.fog)self.value.copy(scene.fog.color);});
+  material.fog=false;
+  slots.output=colour=>vec4(mix(colour.rgb,tone,smoothstep(near.mul(1.5),far.mul(2.2),positionView.z.negate()).mul(on)),colour.a);
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+ }});
  const mesh=new T.Mesh(geometry,material);mesh.name='distant-woods';mesh.receiveShadow=true;mesh.userData.dynamic=true;
  mesh.userData.walls=walls;
  return mesh;
