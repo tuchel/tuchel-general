@@ -4,9 +4,9 @@ import type {Post,PostOptions} from './post';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** What the image chain needs from `three/webgpu` and `three/tsl`. */
-export type PostGPU={tsl:any;NodeMaterial:new()=>T.Material;QuadMesh:new(material:T.Material)=>{render(renderer:unknown):void;material:T.Material}};
+export type PostGPU={tsl:any;/** three's corner shading pass (GTAONode.js). */ao?:(depth:unknown,normal:null,camera:T.Camera)=>any;NodeMaterial:new()=>T.Material;QuadMesh:new(material:T.Material)=>{render(renderer:unknown):void;material:T.Material}};
 /** The image chain for the WebGPU renderer (post.ts is the WebGL renderer's). So far: the scene into a floating-point
- * target, still frames averaged into a clean image, and the same finish to the screen: white balance, tone mapping,
+ * target, corner shading on still frames, still frames averaged into a clean image, and the same finish to the screen: white balance, tone mapping,
  * the S-curve with its shadow lift, saturation, and the screen's transfer. Not yet there: corner shading, bloom, the
  * lens, mist, the wet mirror, moving-frame blending, and showing a path-traced image; those calls do nothing. */
 export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions,gpu:PostGPU):Post{
@@ -19,6 +19,11 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
  // A still frame joins the average of those before it.
  const current=texture(target.texture),history=texture(settled[0].texture),weight=uniform(1);
  const blend=quadOf(mix(history,current,weight));
+ // Corner shading at the WebGL chain's settings (post.ts), from the scene's depth alone. Its grain is turned from frame
+ // to frame, and the average of still frames smooths it.
+ const shade=options.ao&&gpu.ao?gpu.ao(texture(target.depthTexture!),null,camera):undefined,occlusion=uniform(1);
+ if(shade){shade.radius.value=.7;shade.distanceExponent.value=1.6;shade.thickness.value=1.4;shade.samples.value=12;shade.resolutionScale=.5;shade.useTemporalFiltering=true;}
+ const shaded=shade&&quadOf(mix(history,vec4(current.rgb.mul(mix(1,shade.getTextureNode().r,occlusion)),current.a),weight));
  // The finish, as the WebGL chain's last pass does it (post.ts, FinishedOutput).
  const shown=texture(settled[0].texture),balance=uniform(new T.Vector3(1,1,1)),look=uniform(new T.Vector3(1,1,0)),exposure=uniform(1);
  const luma=vec3(.2126,.7152,.0722);
@@ -45,11 +50,11 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   compilePasses:()=>Promise.resolve(),
   warm:()=>{},
   render:(refining:boolean,exposed:number,indoor=0)=>{
-   const g=finish(indoor,lamps());balance.value.set(g.balance[0],g.balance[1],g.balance[2]);look.value.set(g.contrast,g.saturation,g.lift);exposure.value=exposed;
+   const g=finish(indoor,lamps());balance.value.set(g.balance[0],g.balance[1],g.balance[2]);look.value.set(g.contrast,g.saturation,g.lift);exposure.value=exposed;occlusion.value=g.occlusion;
    if(!refining)frames=0;
    renderer.setRenderTarget(target);renderer.render(scene,camera);
    const [was,next]=settled;current.value=target.texture;history.value=was.texture;weight.value=1/(frames+1);
-   renderer.setRenderTarget(next);blend.render(renderer);settled=[next,was];frames++;
+   renderer.setRenderTarget(next);(refining&&shaded?shaded:blend).render(renderer);settled=[next,was];frames++;
    toScreen();
   },
   get lightCarried(){return 0;},
@@ -60,7 +65,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   get depth(){return null;},
   present:()=>{},keep:()=>{},carries:()=>false,carry:()=>{},
   reset:()=>{frames=0;},
-  dispose:()=>{target.dispose();for(const t of settled)t.dispose();blend.material.dispose();output.material.dispose();},
+  dispose:()=>{target.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();output.material.dispose();},
  };
  return api as unknown as Post;
 }
