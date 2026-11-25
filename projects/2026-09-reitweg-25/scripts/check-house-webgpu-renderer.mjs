@@ -64,4 +64,10 @@ const air=fs.readFileSync('lib/house-model/atmosphere.ts','utf8');
 assert(/position\?:any/.test(features)&&/positionNode:slots\.position\?\?null/.test(features));
 assert(/leafFall=\{key:'leaf-fall',[\s\S]*?\},nodes:\(slots:NodeSlots\)=>\{[\s\S]*?slots\.colour=select\(bare,/.test(foliage));
 assert(/\},nodes:\(slots:NodeSlots\)=>\{[\s\S]*?slots\.position=\(slots\.position\?\?positionLocal\)\.add\(/.test(air));
+// The far scenery: the mountain backdrop keeps its place as the camera climbs, and the distant woods take their own,
+// longer haze in place of the scene's fog.
+const alps=fs.readFileSync('lib/house-model/alpine-terrain.ts','utf8'),woods=fs.readFileSync('lib/house-model/forests.ts','utf8');
+assert(/output\?:\(colour:any\)=>any/.test(features)&&/outputNode:slots\.output\?slots\.output\(tsl\.output\):null/.test(features));
+assert(/nodes:slots=>\{[\s\S]*?slots\.position=[^\n]*attribute\('panoramaLift','float'\)/.test(alps));
+assert(/nodes:slots=>\{[\s\S]*?material\.fog=false;[\s\S]*?slots\.output=colour=>/.test(woods));
 console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, averaged still frames and colour finish there.');
