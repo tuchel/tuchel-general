@@ -5,7 +5,10 @@ import * as T from 'three';
  * every other, whenever they are added (snow.ts reads what the sky light declares). */
 export type ShaderFeature={key:string;last?:boolean;compile:(shader:T.WebGLProgramParametersWithUniforms)=>void;
  /** The same feature for the WebGPU renderer, which takes no shader text: it sets or builds on the material's `slots`. */
- nodes?:(slots:NodeSlots)=>void};
+ nodes?:(slots:NodeSlots)=>void;
+ /** Given when those nodes hold nothing of the one material's own: what they differ by from the same feature on another
+  * material, if anything. Materials whose features all give one share their built nodes under that renderer. */
+ variant?:string};
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** What a material's features hand on to one another and, at the end, to the material, as nodes of `tsl` (three/tsl):
  * its colour (alpha included), local position, roughness, world normal, how much indirect light its hollows keep, and
@@ -57,8 +60,9 @@ export function addShaderFeature(material:T.Material,feature:ShaderFeature){
  list.push(feature);list.sort((a,b)=>+!!a.last-+!!b.last);
  if(tsl)composeNodes(material,list);
  material.onBeforeCompile=shader=>{for(const f of list)f.compile(shader);};
- // Nodes hold a material's own textures and values, so no two materials share a program there.
- material.customProgramCacheKey=()=>list.map(f=>f.key).join('|')+(tsl?'|'+material.uuid:'');
+ // Nodes may hold a material's own textures and values: materials share what three builds from them only where every
+ // feature says its nodes hold none (`variant`).
+ material.customProgramCacheKey=()=>list.map(f=>f.key).join('|')+(tsl?'|'+(list.every(f=>f.variant!==undefined)?list.map(f=>f.variant).join('|'):material.uuid):'');
  material.needsUpdate=true;
 }
 export function hasShaderFeature(material:T.Material,key:string){return !!(material.userData.shaderFeatures as ShaderFeature[]|undefined)?.some(f=>f.key===key);}

@@ -144,7 +144,7 @@ export function shelterNodes(tsl:any,sky?:Record<string,{value:unknown}>){
  return (p:any)=>{const open=step(s.cover(p).under,0);return under?open.mul(under({p,low:sky.uSkyMin,grid:sky.uSkyGrid,cell:sky.uSkyCell,linked:sky.uSkyLinked,reach})):float(open);};
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
-const feature=(kind:SnowKind,how=HOW.surface,most=MOST.surface)=>({key:'snow-'+kind,last:true,compile:(shader:T.WebGLProgramParametersWithUniforms)=>{
+const feature=(kind:SnowKind,how=HOW.surface,most=MOST.surface)=>({key:'snow-'+kind,last:true,variant:[...how.toArray(),...most.value.toArray()].join(),compile:(shader:T.WebGLProgramParametersWithUniforms)=>{
  Object.assign(shader.uniforms,uniforms);
  if(kind==='far'){
   shader.fragmentShader='uniform float uSnow;\n'+after(shader.fragmentShader,'color_fragment','diffuseColor.rgb=mix(diffuseColor.rgb,diffuse*vec3(0.83,0.88,0.93),uSnow*0.8);');

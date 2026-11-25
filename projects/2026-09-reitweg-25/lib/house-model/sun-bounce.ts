@@ -28,7 +28,7 @@ export function bakeSunBounce(occluders:T.Mesh[],receivers:T.Object3D[],sun:T.Di
  const patched=new Set<T.Material>();
  const receive=(root:T.Object3D)=>root.traverse(o=>{for(const m of materialsOf(o)){
   if(patched.has(m)||!(m instanceof T.MeshStandardMaterial)||m.transparent)continue;patched.add(m);
-  addShaderFeature(m,{key:'sun-bounce',compile:shader=>{
+  addShaderFeature(m,{key:'sun-bounce',variant:'',compile:shader=>{
    Object.assign(shader.uniforms,uniforms);
    shader.vertexShader='varying vec3 vBounceWorld;\n'+shader.vertexShader.replace('#include <project_vertex>',`#include <project_vertex>
     vec4 bounceWorld=vec4(transformed,1.0);
