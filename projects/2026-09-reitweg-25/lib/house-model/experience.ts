@@ -1,9 +1,11 @@
 import * as T from 'three';
-import type {WebGLPathTracer} from 'three-gpu-pathtracer';
 import {atmosphere} from './atmosphere';
 import {initialCapture,type CaptureState} from './experience-data';
 import {fitPng,photoSize} from './photo-size';
 import type {Lighting} from './lighting';
+
+/** What a photograph asks of its path tracer, the WebGL renderer's or the WebGPU renderer's. */
+type Tracer={renderSample():void;readonly samples:number;dispose():void};
 
 /** Photographs, panoramas, films and model export, plus optional breeze and sound. */
 export function createCaptures(options:{
@@ -11,13 +13,15 @@ export function createCaptures(options:{
  invalidate:()=>void;onState:(s:CaptureState)=>void;
  /** Path tracing and export are offered only where memory allows. */
  heavy:boolean;
+ /** Drawn by the WebGPU renderer, which photographs with its own tracer. */
+ gpu?:boolean;
  eyeLevel:()=>boolean;
  /** Orbits the camera for a film; returns false when the camera is at eye level. */
  orbit:(angle:number)=>void;
  beginOrbit:()=>boolean;
 }){
  const {scene,camera,renderer,root,lighting}=options,canvas=renderer.domElement,air=atmosphere(root);
- let state={...initialCapture},disposed=false,abort:AbortController|undefined,tracer:WebGLPathTracer|undefined;
+ let state={...initialCapture},disposed=false,abort:AbortController|undefined,tracer:Tracer|undefined;
  let baked:{dispose:()=>void}|undefined,worker:{dispose:()=>void}|undefined,environment:T.Texture|undefined,renderSize:T.Vector2|undefined,renderRatio=1,lastReport=0,motionSeconds=0,lastMotion=0;
  const send=(s:Partial<CaptureState>)=>{state={...state,...s};if(!disposed)options.onState(state);options.invalidate();};
  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -38,24 +42,41 @@ export function createCaptures(options:{
   stop();
   if(!options.heavy){send({message:'Photographic rendering needs a computer; this device keeps the live view.'});return;}
   if(panorama&&!options.eyeLevel()){send({message:'Choose an eye-level view before making a panorama.'});return;}
+  if(panorama&&options.gpu){send({message:'Panoramas are not yet made with the WebGPU renderer.'});return;}
   const controller=new AbortController();abort=controller;
   send({busy:true,render:'preparing',message:'Preparing photographic materials…'});
-  let local:{scene:T.Scene;dispose:()=>void}|undefined,pt:WebGLPathTracer|undefined,bvh:{dispose:()=>void}|undefined,env:T.Texture|undefined;
+  let local:{scene:T.Scene;dispose:()=>void}|undefined,pt:Tracer|undefined,bvh:{dispose:()=>void}|undefined,env:T.Texture|undefined;
   try{
    const [{photographicScene},{WebGLPathTracer,EquirectCamera},{GenerateMeshBVHWorker}]=await Promise.all([import('./photographic-scene'),import('three-gpu-pathtracer'),import('three-mesh-bvh/src/workers/GenerateMeshBVHWorker.js')]);
    // The same sky that lights the live view, so the photograph matches it.
-   env=lighting.equirect();
+   env=options.gpu?await lighting.equirectGPU():lighting.equirect();
    local=await photographicScene(scene,env,controller.signal,text=>send({message:text}),{maxDistance:90,origin:camera.position.clone(),sunScale:lighting.sunThroughClouds});
    if(controller.signal.aborted){local.dispose();env.dispose();return;}
    send({message:'Building the light transport model…'});
-   pt=new WebGLPathTracer(renderer);
-   Object.assign(pt,{bounces:7,transmissiveBounces:10,renderDelay:0,minSamples:1,fadeDuration:400,filterGlossyFactor:.4,rasterizeScene:false});
-   pt.tiles.set(3,3);pt.textureSize.set(1024,1024);
-   const generator=new GenerateMeshBVHWorker();bvh=generator;pt.setBVHWorker(generator);
+   let generator:{dispose:()=>void}|undefined;
+   if(options.gpu){
+    // The WebGPU renderer's own tracer (three-gpu-pathtracer/webgpu), with the WebGL one's settings. It counts samples
+    // on the graphics card, so the count shown is the last one read back.
+    const {WebGPUPathTracer}=await import('three-gpu-pathtracer/webgpu');
+    const gpuTracer=new WebGPUPathTracer(renderer as never) as unknown as Tracer&{setScene(scene:T.Scene,camera:T.Camera):void;getSampleCountsAsync():Promise<{avg:number}>};
+    Object.assign(gpuTracer,{maxBounces:7,maxTransparentBounces:10,renderDelay:0,minSamples:1,fadeDuration:400,filterGlossyFactor:.4,dynamicLowRes:false,maxSamples:state.maximum?1024:256});
+    gpuTracer.setScene(local.scene,camera);
+    // A scene the card refuses, or a device lost on the way, ends the photograph with a word instead of a black view.
+    const device=(renderer as unknown as {backend:{device?:EventTarget}}).backend.device,failed=()=>{if(tracer===pt){stop();send({message:'Photographic rendering is unavailable on this device. The live view and still images still work.'});}};
+    device?.addEventListener('uncapturederror',failed);const dispose=gpuTracer.dispose.bind(gpuTracer);
+    const sample=gpuTracer.renderSample.bind(gpuTracer);let counted=0,counting=false;
+    pt=Object.assign(gpuTracer,{dispose:()=>{device?.removeEventListener('uncapturederror',failed);dispose();},renderSample:()=>{sample();if(!counting){counting=true;void gpuTracer.getSampleCountsAsync().then(c=>{counted=c.avg;},()=>{}).finally(()=>{counting=false;});}}});
+    Object.defineProperty(pt,'samples',{get:()=>counted});
+   }else{
+   const webgl=new WebGLPathTracer(renderer);pt=webgl;
+   Object.assign(webgl,{bounces:7,transmissiveBounces:10,renderDelay:0,minSamples:1,fadeDuration:400,filterGlossyFactor:.4,rasterizeScene:false});
+   webgl.tiles.set(3,3);webgl.textureSize.set(1024,1024);
+   const worker=new GenerateMeshBVHWorker();generator=bvh=worker;webgl.setBVHWorker(worker);
    let renderCamera:T.Camera=camera;
    if(panorama){renderCamera=new EquirectCamera();renderCamera.position.copy(camera.position);renderCamera.quaternion.copy(camera.quaternion);renderCamera.updateMatrixWorld();}
-   await pt.setSceneAsync(local.scene,renderCamera);
-   if(controller.signal.aborted){pt.dispose();generator.dispose();local.dispose();env.dispose();return;}
+   await webgl.setSceneAsync(local.scene,renderCamera);
+   }
+   if(controller.signal.aborted){pt.dispose();generator?.dispose();local.dispose();env.dispose();return;}
    renderSize=renderer.getSize(new T.Vector2());renderRatio=renderer.getPixelRatio();renderer.setPixelRatio(1);
    const {width,height}=photoSize(renderSize.x,renderSize.y,renderRatio,state.maximum,panorama);
    renderer.setSize(width,height,false);

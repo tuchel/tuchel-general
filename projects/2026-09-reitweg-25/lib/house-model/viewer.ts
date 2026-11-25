@@ -76,7 +76,9 @@ export type ViewerOptions={
 /** What the viewer needs from `three/webgpu`. */
 export type WebGPUKit=Partial<LightingGPU>&{
  PhysicalLightingModel?:unknown;NodeMaterial?:new()=>T.Material;QuadMesh?:PostGPU['QuadMesh'];ao?:PostGPU['ao'];bloom?:PostGPU['bloom'];
- WebGPURenderer:new(options:{antialias:boolean;powerPreference:'high-performance'})=>unknown;
+ WebGPURenderer:new(options:{antialias:boolean;powerPreference:'high-performance';requiredLimits?:Record<string,number>})=>unknown;
+ /** The graphics card's own buffer limits: a photograph's scene passes WebGPU's default 128 MB per buffer. */
+ limits?:Record<string,number>;
  PMREMGenerator:new(renderer:never)=>{fromScene(scene:T.Scene,sigma:number):{texture:T.Texture;dispose():void};dispose():void};
 };
 /** Whether a preset is drawn with the WebGPU renderer when it is asked for. */
@@ -98,7 +100,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // Whether to try for a screen brighter than white (hdr.ts).
  const bright=tier.hdr&&hdrWanted();
  // The WebGPU renderer is used through the calls the two share; where they differ, `gpu` decides.
- const renderer=(gpu?new gpu.WebGPURenderer({antialias:!realistic,powerPreference:'high-performance'}):new T.WebGLRenderer({antialias:!realistic,alpha:false,stencil:false,powerPreference:'high-performance'})) as T.WebGLRenderer;
+ const renderer=(gpu?new gpu.WebGPURenderer({antialias:!realistic,powerPreference:'high-performance',requiredLimits:gpu.limits}):new T.WebGLRenderer({antialias:!realistic,alpha:false,stencil:false,powerPreference:'high-performance'})) as T.WebGLRenderer;
  // Floor views cut roofs at the wall height with per-material clipping.
  renderer.localClippingEnabled=true;
  renderer.setPixelRatio(Math.min(window.devicePixelRatio,tier.pixelRatio));
@@ -282,7 +284,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // Its surface colours sharpen the traced image (albedo-pass.ts); added before the shaders are compiled ahead.
  if(live)addAlbedoOutput(scene);
  const captures=lighting?createCaptures({
-  scene,camera:camera as T.PerspectiveCamera,renderer,root:scene,lighting,heavy:tier.photographic,
+  scene,camera:camera as T.PerspectiveCamera,renderer,root:scene,lighting,heavy:tier.photographic,gpu:!!gpu,
   invalidate:()=>invalidate(),onState:s=>options.onCapture?.(s),
   eyeLevel:()=>rig.eyeLevel,
   beginOrbit:()=>{if(rig.eyeLevel)return false;film={position:camera.position.clone(),target:controls.target.clone()};controls.enabled=false;return true;},

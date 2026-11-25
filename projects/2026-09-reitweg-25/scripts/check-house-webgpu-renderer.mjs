@@ -103,6 +103,11 @@ assert(/const level=options\.samples>=4\?new T\.RenderTarget\(/.test(chain)&&/de
 assert(/const glow=options\.bloom&&gpu\.bloom\?gpu\.bloom\(current,\.06,\.1,1\):undefined/.test(chain)&&/if\(glow\)glow\.threshold\.value=2\.5\/Math\.max\(exposed,1e-4\);/.test(chain)&&/import\('three\/addons\/tsl\/display\/BloomNode\.js'\)/.test(page));
 // The sky's clouds stand where the WebGL sky has them.
 assert(/if\(gpu\)u\.cloudSpeed\.value=0;/.test(lighting));
+// A photograph there is traced by the WebGPU tracer on the same renderer, lit by the sky read back from it, on a device
+// that was asked for the card's own buffer limits.
+const captures=fs.readFileSync('lib/house-model/experience.ts','utf8');
+assert(/env=options\.gpu\?await lighting\.equirectGPU\(\):lighting\.equirect\(\);/.test(captures)&&/await import\('three-gpu-pathtracer\/webgpu'\)/.test(captures)&&/addEventListener\('uncapturederror',failed\)/.test(captures));
+assert(/equirectGPU:async\(width=1024\)=>/.test(lighting)&&/requiredLimits:gpu\.limits/.test(viewer)&&/heavy:tier\.photographic,gpu:!!gpu,/.test(viewer)&&/maxStorageBufferBindingSize:adapter\.limits\.maxStorageBufferBindingSize/.test(page));
 // What lies outside the view is made ready with the rest, not at the first turn of the camera.
 assert(/object\.traverse\(o=>\{if\(o\.frustumCulled\)\{culled\.push\(o\);o\.frustumCulled=false;\}\}\);\s*const done=renderer\.compileAsync\(object,camera,scene\);renderer\.setRenderTarget\(previous\);for\(const o of culled\)o\.frustumCulled=true;/.test(chain));
 // Where the image chain draws the picture, the canvas keeps one sample to a pixel, as with WebGL.
