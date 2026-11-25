@@ -21,7 +21,15 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
  // A still frame joins the average of those before it.
  const current=texture(target.texture),history=texture(settled[0].texture),weight=uniform(1);
  // Faint and tight, as in the WebGL chain: a glow at the sun, glints and sunlit glass, never a veil over the room.
- const glow=options.bloom&&gpu.bloom?gpu.bloom(current,.06,.1,1):undefined,lit=(frame:any)=>glow?vec4(frame.rgb.add(glow.rgb),frame.a):frame;
+ const glow=options.bloom&&gpu.bloom?gpu.bloom(current,.06,.1,1):undefined;
+ // Sunlight scattered by the air (the lens's sun shafts, below), at half size, added with four look-ups around the pixel.
+ const air=options.lens?[half(),half()]:undefined,haze=air&&texture(air[0].texture),hazy=uniform(0),texel=uniform(new T.Vector2());
+ const shafted=(frame:any)=>{
+  if(!haze)return frame;
+  const {uv,vec2}=gpu.tsl,at=uv(),tap=(x:number,y:number)=>haze.sample(at.add(texel.mul(vec2(x,y)))).rgb;
+  return vec4(frame.rgb.add(tap(-.5,-.5).add(tap(.5,-.5)).add(tap(-.5,.5)).add(tap(.5,.5)).mul(hazy.mul(.25))),frame.a);
+ };
+ const lit=(frame:any)=>shafted(glow?vec4(frame.rgb.add(glow.rgb),frame.a):frame);
  const blend=quadOf(mix(history,lit(current),weight));
  // With four samples to a pixel the scene's depth cannot be read as one value, which corner shading and what falls over
  // the frame need: its first sample is copied to a plain depth buffer after the scene is drawn.
@@ -105,6 +113,46 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   return pow(max(e.add(n.mul(LENS.grain).mul(m.mul(float(1).sub(m)).mul(2.8).add(.3))),vec3(0)),vec3(2.2));
  })():graded;
  const output=quadOf(vec4(sRGBTransferOETF(grained),1));
+ // The lens's sun shafts (lens.ts, SunShafts): the air between the eye and each surface, marched through the sun's
+ // shadow map, jittered per frame and averaged while the view rests. The map is read as plain depths and compared here.
+ const shafts=air&&haze&&options.lens&&camera instanceof T.PerspectiveCamera?(()=>{
+  const {Fn,uv,vec2,ivec2,normalize,smoothstep,fract,select}=gpu.tsl,eye=camera,sun=options.lens.sun,{forward:g,reach,steps,room,outdoors,indoors}=LENS.air;
+  const lens=uniform(new T.Vector4(1,1,0,1)),camWorld=uniform(new T.Matrix4()),shadowMatrix=uniform(new T.Matrix4()),mapSize=uniform(new T.Vector2(1,1));
+  const sunDirection=uniform(new T.Vector3()),sunLight=uniform(new T.Vector3()),indoor=uniform(0),turn=uniform(0),share=uniform(1),before=texture(air[1].texture);
+  let quad:ReturnType<typeof quadOf>|undefined,map:any,held:T.Texture|undefined,count=0;
+  const make=(depths:T.Texture)=>quadOf(Fn(()=>{
+   const at=uv(),view=normalize(vec3(at.x.mul(2).sub(1).div(lens.x),at.y.mul(-2).add(1).div(lens.y),-1)).toVar();
+   const along=lens.w.div(texture(depthOf).sample(at).r.add(lens.z)),reached=min(along.div(max(view.z.negate(),1e-3)),reach);
+   const origin=camWorld.mul(vec4(0,0,0,1)).xyz.toVar(),dir=normalize(camWorld.mul(vec4(view,0)).xyz).toVar();
+   const c=dot(dir,sunDirection),phase=float(1-g*g).div(pow(float(1+g*g).sub(c.mul(2*g)),1.5).mul(12.566371));
+   const pace=reached.div(steps).toVar(),offset=fract(fract(dot(screenCoordinate.xy,vec2(.06711056,.00583715))).mul(52.9829189).add(turn.mul(.618034))).toVar();
+   map=texture(depths);let scattered:any=float(0);
+   for(let i=0;i<steps;i++){
+    const t=pace.mul(offset.add(i)),s=shadowMatrix.mul(vec4(origin.add(dir.mul(t)),1)),q=s.xyz.div(s.w);
+    const outside=q.x.lessThan(0).or(q.y.lessThan(0)).or(q.z.lessThan(0)).or(q.x.greaterThan(1)).or(q.y.greaterThan(1)).or(q.z.greaterThan(1));
+    const seen=map.load(ivec2(vec2(q.x,q.y.oneMinus()).clamp(0,.9999).mul(mapSize))).r.greaterThanEqual(q.z.sub(.0005));
+    // A room's dusty air for its first metres, then the clear air beyond the glass.
+    scattered=scattered.add(select(outside.or(seen),1,0).mul(mix(outdoors,indoors,indoor.mul(float(1).sub(smoothstep(room-1,room+1,t))))));
+   }
+   return vec4(mix(before.sample(at).rgb,sunLight.mul(phase).mul(scattered).mul(pace),share),1);
+  })());
+  return {
+   reset(){count=0;},
+   setSize(w:number,h:number){for(const t of air)t.setSize(Math.max(1,Math.round(w/2)),Math.max(1,Math.round(h/2)));count=0;texel.value.set(1/Math.max(1,w),1/Math.max(1,h));},
+   /** Marches this frame's air; night has nothing to scatter. */
+   render(inside:number){
+    const depths=sun.shadow.map?.depthTexture as T.Texture|undefined;
+    if(!(sun.intensity>0)||!depths){count=0;hazy.value=0;return;}
+    if(!quad||held!==depths){quad?.material.dispose();quad=make(depths);held=depths;}
+    const e=eye.projectionMatrix.elements,image=depths.image as {width:number;height:number};lens.value.set(e[0],e[5],e[10],e[14]);camWorld.value.copy(eye.matrixWorld);
+    shadowMatrix.value.copy(sun.shadow.matrix);mapSize.value.set(image.width,image.height);
+    sunDirection.value.subVectors(sun.position,sun.target.position).normalize();sunLight.value.set(sun.color.r,sun.color.g,sun.color.b).multiplyScalar(sun.intensity);
+    indoor.value=inside;const [was,next]=[air[0],air[1]];before.value=was.texture;share.value=1/(count+1);turn.value=count;
+    renderer.setRenderTarget(next);quad.render(renderer);air[0]=next;air[1]=was;count++;haze.value=next.texture;hazy.value=1;
+   },
+   dispose(){for(const t of air)t.dispose();quad?.material.dispose();},
+  };
+ })():undefined;
  // The lens's meter (lens.ts): a 32 x 32 summary of the frame's log luminance, weighted to the centre, and of how far
  // off the middle of the frame is, read back without stalling the graphics card; exposure eases toward its reading.
  const meter=options.lens&&camera instanceof T.PerspectiveCamera?(()=>{
@@ -155,6 +203,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    const w=Math.max(1,Math.floor(width*ratio)),h=Math.max(1,Math.floor(height*ratio));target.setSize(w,h);level?.setSize(w,h);
    // The kept image stays at full size whatever size the moving frames are drawn at.
    if(kept){if(kept.resize(w,h))frames=0;}else{for(const t of settled)t.setSize(w,h);frames=0;}
+   shafts?.setSize(w,h);
   },
   compileAsync:(object:T.Object3D)=>{
    const previous=renderer.getRenderTarget();renderer.setRenderTarget(target);
@@ -174,6 +223,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    renderer.setRenderTarget(target);renderer.render(scene,camera);
    if(level&&levelled){renderer.setRenderTarget(level);levelled.render(renderer);}
    meter?.read();
+   if(!rest)shafts?.reset();shafts?.render(indoor);
    const [was,next]=settled;current.value=target.texture;history.value=was.texture;weight.value=1/(frames+1);
    if(kept&&!rest)kept.blend(next,moved);
    else{renderer.setRenderTarget(next);(refining&&shaded?shaded:blend).render(renderer);}
@@ -192,8 +242,8 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   /** The scene's own depth buffer as last drawn, which what falls over the frame reads as it is (falling.ts). */
   get depth(){return depthOf;},
   present:()=>{},keep:()=>{},carries:()=>false,carry:()=>{},
-  reset:()=>{frames=0;kept?.reset();},
-  dispose:()=>{kept?.dispose();meter?.dispose();target.dispose();level?.dispose();levelled?.material.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();glow?.dispose();output.material.dispose();},
+  reset:()=>{frames=0;kept?.reset();shafts?.reset();},
+  dispose:()=>{kept?.dispose();meter?.dispose();shafts?.dispose();target.dispose();level?.dispose();levelled?.material.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();glow?.dispose();output.material.dispose();},
  };
  return api as unknown as Post&{over:typeof api.over};
 }
