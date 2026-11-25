@@ -9,8 +9,9 @@ import type {Post,PostOptions,PostView} from './post';
 export type PostGPU={tsl:any;/** three's corner shading pass (GTAONode.js). */ao?:(depth:unknown,normal:null,camera:T.Camera)=>any;/** three's bloom (BloomNode.js). */bloom?:(input:unknown,strength:number,radius:number,threshold:number)=>any;NodeMaterial:new()=>T.Material;QuadMesh:new(material:T.Material)=>{render(renderer:unknown):void;material:T.Material}};
 /** The image chain for the WebGPU renderer (post.ts is the WebGL renderer's). So far: the scene into a floating-point
  * target, corner shading on still frames, still frames averaged into a clean image, and the same finish to the screen: white balance, tone mapping,
- * the S-curve with its shadow lift, saturation, and the screen's transfer. Not yet there: the
- * lens, mist, the wet mirror, moving-frame blending, and showing a path-traced image; those calls do nothing. */
+ * the S-curve with its shadow lift, saturation, and the screen's transfer; moving frames blended into the kept image,
+ * and the lens (meter, grain, sun shafts, focus). Not yet there: mist, the wet mirror, and showing a path-traced image;
+ * those calls do nothing. */
 export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions,gpu:PostGPU):Post&{over(object:T.Object3D,camera:T.Camera):void}{
  const {positionGeometry,screenCoordinate,ivec2,texture,uniform,vec3,vec4,float,mix,max,min,pow,dot,clamp,agxToneMapping,sRGBTransferOETF}=gpu.tsl;
  // That renderer draws into plain render targets through the calls the WebGL renderer has for its own.

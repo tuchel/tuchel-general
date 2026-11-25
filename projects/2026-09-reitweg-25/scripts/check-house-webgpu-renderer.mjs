@@ -6,7 +6,7 @@ const features=fs.readFileSync('lib/house-model/shader-features.ts','utf8'),ligh
 // `?renderer=webgpu` loads three's WebGPU renderer only when asked, and only for the presets it can draw.
 // Every preset is drawn there; Extreme leaves off the parts not ported yet, and `&try=` turns named ones on to test them.
 const tierCode=fs.readFileSync('lib/house-model/device-tier.ts','utf8');
-assert(/export const WEBGPU_PENDING=\[[^\]]*'lens'[^\]]*\] as const;/.test(tierCode)&&!/WEBGPU_PENDING=\[[^\]]*'(temporal|roomProbes|softShadows|steerMotion)'/.test(tierCode)&&/WEBGPU_PENDING\.filter\(k=>!tried\.includes\(k\)\)\.map\(k=>\[k,false\]\)/.test(tierCode));
+assert(/export const WEBGPU_PENDING=\[[^\]]*'wetMirror'[^\]]*\] as const;/.test(tierCode)&&!/WEBGPU_PENDING=\[[^\]]*'(lens|temporal|roomProbes|softShadows|steerMotion)'/.test(tierCode)&&/WEBGPU_PENDING\.filter\(k=>!tried\.includes\(k\)\)\.map\(k=>\[k,false\]\)/.test(tierCode));
 assert(/const tier=gpu\?forWebGPU\(chosen,new URLSearchParams\(window\.location\.search\)\.get\('try'\)\?\.split\(','\)\):chosen/.test(viewer)&&/const wide=!gpu&&tier\.quality==='extreme'/.test(viewer));
 assert(/const webgpu=new URLSearchParams\(window\.location\.search\)\.get\('renderer'\)==='webgpu'\?await Promise\.all\(\[import\('three\/webgpu'\),import\('three\/tsl'\),import\('three\/addons\/objects\/SkyMesh\.js'\),/.test(page));
 // It has no device until `init` resolves: sky light and the first frame wait for it, and the canvas says which backend
