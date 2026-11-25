@@ -93,4 +93,6 @@ const slabCode=fs.readFileSync('lib/house-model/snow-slab.ts','utf8');
 assert(/maskNode:slots\.mask\?\?null/.test(features)&&/slots\.position=\(slots\.position\?\?positionLocal\)\.add\(modelWorldMatrixInverse\.mul\(vec4\(move,0\)\)\.xyz\);slots\.normal=normalize\(varying\(n\)\);/.test(slabCode)&&/slots\.mask=seen\.x\.greaterThanEqual\(\.004\)\.and\(seen\.y\.greaterThanEqual\(0\)\);/.test(slabCode));
 // A glass roof takes its dusting there too.
 assert(/if\(kind==='glass'\)\{[^}]*const lie=s\.cover\(p\)\.own\.mul\(/.test(snowCode)&&!/Not yet there: the dusting on a glass roof/.test(snowCode));
+// Instanced meshes share their shaders: their matrices are vertex attributes, not a buffer named after each mesh.
+assert(/if\(gpu\)\(renderer as unknown as \{backend:\{capabilities:\{getUniformBufferLimit:\(\)=>number\}\}\}\)\.backend\.capabilities\.getUniformBufferLimit=\(\)=>0;/.test(viewer));
 console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, lying snow with its packed layer on the roofs, falling snow and rain, averaged still frames and colour finish there.');
