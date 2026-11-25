@@ -137,6 +137,8 @@ assert(/if\(slots\.sunlight&&light\.lightNode\?\.light\?\.isDirectionalLight\)li
 // The pool's mirror image: read as nodes with its rows turned, and clipped at the water line for depth from 0 to 1.
 const poolCode=fs.readFileSync('lib/house-model/pool-reflection.ts','utf8');
 assert(/image=texture\(target\.texture,vec2\(uv\.x,uv\.y\.oneMinus\(\)\)\)\.rgb;\s*slots\.indirect\.push\(context=>context\.radiance\.assign\(mix\(context\.radiance,image,ready\)\)\);/.test(poolCode)&&/mirror\.coordinateSystem=camera\.coordinateSystem;\s*clip\.multiplyScalar\(\(deep\?1:2\)\/clip\.dot\(q\)\);e\[2\]=clip\.x;e\[6\]=clip\.y;e\[10\]=deep\?clip\.z:clip\.z\+1;/.test(poolCode));
+// While the view moves the mirror image is redrawn every `pace` frames there and kept in between, with the view it was drawn for.
+assert(/pace:2/.test(poolCode)&&/const held=\(spare:boolean\)=>spare&&uniforms\.uMirrorReady\.value===1&&turn%POOL_MIRROR\.pace!==0;/.test(poolCode)&&/mirror\?\.prepare\(low&&!!gpu\)/.test(viewer)&&/mirror\.render\(low&&!!gpu\)/.test(viewer),'the pool mirror spared in motion');
 // The net of light on the pool's floor, as nodes.
 assert(/key:'pool-caustics',[\s\S]*?\},variant:'',nodes:slots=>\{[\s\S]*?fn causticNet\(p:vec2<f32>,t:f32\)->f32/.test(surfaces));
 // Room reflections and the softened sun shadow, as nodes: the rooms' maps as layers read by octahedral direction, and
