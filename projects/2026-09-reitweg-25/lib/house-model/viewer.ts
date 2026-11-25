@@ -98,7 +98,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // Whether to try for a screen brighter than white (hdr.ts).
  const bright=tier.hdr&&hdrWanted();
  // The WebGPU renderer is used through the calls the two share; where they differ, `gpu` decides.
- const renderer=(gpu?new gpu.WebGPURenderer({antialias:true,powerPreference:'high-performance'}):new T.WebGLRenderer({antialias:!realistic,alpha:false,stencil:false,powerPreference:'high-performance'})) as T.WebGLRenderer;
+ const renderer=(gpu?new gpu.WebGPURenderer({antialias:!realistic,powerPreference:'high-performance'}):new T.WebGLRenderer({antialias:!realistic,alpha:false,stencil:false,powerPreference:'high-performance'})) as T.WebGLRenderer;
  // Floor views cut roofs at the wall height with per-material clipping.
  renderer.localClippingEnabled=true;
  renderer.setPixelRatio(Math.min(window.devicePixelRatio,tier.pixelRatio));

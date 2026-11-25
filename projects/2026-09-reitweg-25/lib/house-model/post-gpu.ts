@@ -57,7 +57,10 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   setSize:(width:number,height:number,ratio:number)=>{const w=Math.max(1,Math.floor(width*ratio)),h=Math.max(1,Math.floor(height*ratio));target.setSize(w,h);level?.setSize(w,h);for(const t of settled)t.setSize(w,h);frames=0;},
   compileAsync:(object:T.Object3D)=>{
    const previous=renderer.getRenderTarget();renderer.setRenderTarget(target);
-   const done=renderer.compileAsync(object,camera,scene);renderer.setRenderTarget(previous);return done;
+   // three makes ready only what the camera sees, and the rest held the first turn of the view for half a second:
+   // everything counts as seen for the moment the list is drawn up.
+   const culled:T.Object3D[]=[];object.traverse(o=>{if(o.frustumCulled){culled.push(o);o.frustumCulled=false;}});
+   const done=renderer.compileAsync(object,camera,scene);renderer.setRenderTarget(previous);for(const o of culled)o.frustumCulled=true;return done;
   },
   compilePasses:()=>Promise.resolve(),
   warm:()=>{},

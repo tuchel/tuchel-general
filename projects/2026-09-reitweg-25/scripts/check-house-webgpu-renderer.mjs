@@ -103,4 +103,8 @@ assert(/const level=options\.samples>=4\?new T\.RenderTarget\(/.test(chain)&&/de
 assert(/const glow=options\.bloom&&gpu\.bloom\?gpu\.bloom\(current,\.06,\.1,1\):undefined/.test(chain)&&/if\(glow\)glow\.threshold\.value=2\.5\/Math\.max\(exposed,1e-4\);/.test(chain)&&/import\('three\/addons\/tsl\/display\/BloomNode\.js'\)/.test(page));
 // The sky's clouds stand where the WebGL sky has them.
 assert(/if\(gpu\)u\.cloudSpeed\.value=0;/.test(lighting));
+// What lies outside the view is made ready with the rest, not at the first turn of the camera.
+assert(/object\.traverse\(o=>\{if\(o\.frustumCulled\)\{culled\.push\(o\);o\.frustumCulled=false;\}\}\);\s*const done=renderer\.compileAsync\(object,camera,scene\);renderer\.setRenderTarget\(previous\);for\(const o of culled\)o\.frustumCulled=true;/.test(chain));
+// Where the image chain draws the picture, the canvas keeps one sample to a pixel, as with WebGL.
+assert(/new gpu\.WebGPURenderer\(\{antialias:!realistic,/.test(viewer));
 console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, lying snow with its packed layer on the roofs, falling snow and rain, averaged still frames and colour finish there.');
