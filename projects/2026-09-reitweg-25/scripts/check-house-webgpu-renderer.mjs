@@ -53,4 +53,6 @@ assert(/import\('three\/addons\/tsl\/display\/GTAONode\.js'\)/.test(page)&&!/ao:
 assert(/const shade=options\.ao&&gpu\.ao\?gpu\.ao\(texture\(target\.depthTexture!\),null,camera\):undefined,/.test(chain)&&/shade\.useTemporalFiltering=true;/.test(chain));
 assert(/radius\.value=\.7;[^\n]*distanceExponent\.value=1\.6;[^\n]*thickness\.value=1\.4;[^\n]*samples\.value=12;/.test(chain)&&/occlusion\.value=g\.occlusion;/.test(chain));
 assert(/\(refining&&shaded\?shaded:blend\)\.render\(renderer\);/.test(chain));
-console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, averaged still frames and colour finish there.');
+// The night sky's stars and moon are drawn with the sky there too, from the same hash and the same disc.
+assert(/if\(!env\)\{[\s\S]*?const cell=direction\.mul\(230\)[\s\S]*?sparkle\.greaterThan\(\.996\)[\s\S]*?uniform\(moon\.value\)[\s\S]*?\.greaterThan\(\.999\)/.test(lighting));
+console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, averaged still frames and colour finish there.');

@@ -133,10 +133,20 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
   const env=disc===0;
   if(gpu){
    // The same additions as nodes: the night's blue, and for the image light its saturation and the ground's return.
-   const {vec3,vec4,float,normalize,smoothstep,mix,dot,positionWorld,cameraPosition}=gpu.tsl,material=s.material as unknown as {colorNode:ReturnType<typeof vec4>};
-   const direction=normalize(positionWorld.sub(cameraPosition)),sunUp=normalize(valuesOf(s).sunPosition as unknown as ReturnType<typeof vec3>).y;
+   const {vec2,vec3,vec4,float,normalize,smoothstep,mix,dot,cross,floor,fract,length,sin,sqrt,max,select,uniform,positionWorld,cameraPosition}=gpu.tsl,material=s.material as unknown as {colorNode:ReturnType<typeof vec4>};
+   const direction=normalize(positionWorld.sub(cameraPosition)),toSun=normalize(valuesOf(s).sunPosition as unknown as ReturnType<typeof vec3>),sunUp=toSun.y;
    let colour=material.colorNode.rgb.add(vec3(...NIGHT).mul(float(1).sub(smoothstep(-.1,.05,sunUp))));
    if(env){colour=mix(vec3(dot(colour,vec3(.2126,.7152,.0722))),colour,saturation as never);colour=mix(colour,ground as never,smoothstep(0,-.06,direction.y));}
+   // Stars and the moon, as `celestial` draws them.
+   if(!env){
+    const cell=direction.mul(230),h=fract(floor(cell).mul(.1031)),h3=h.add(dot(h,h.zyx.add(31.32))),sparkle=fract(h3.x.add(h3.y).mul(h3.z)),mag=fract(sparkle.mul(917));
+    const star=mix(vec3(1,.86,.72),vec3(.75,.85,1),fract(sparkle.mul(271))).mul(mag.mul(mag).mul(mag).mul(.5).add(.03)).mul(float(1).sub(smoothstep(-.2,-.05,sunUp))).mul(smoothstep(.02,.25,direction.y)).mul(float(1).sub(smoothstep(.1,.42,length(fract(cell).sub(.5)))));
+    colour=colour.add(select(sparkle.greaterThan(.996).and(direction.y.greaterThan(0)),star,vec3(0)));
+    const m=uniform(moon.value),mx=normalize(cross(vec3(0,1,0),m.xyz)),my=cross(m.xyz,mx),q=vec2(dot(direction,mx),dot(direction,my)).div(Math.sin(MOON.radius*MOON.scale*Math.PI/180)),r2=dot(q,q);
+    const facing=mx.mul(q.x).add(my.mul(q.y)).sub(m.xyz.mul(sqrt(max(float(1).sub(r2),0)))),seas=sin(q.x.mul(5.1).add(1.3)).mul(sin(q.y.mul(4.3).sub(.7))).mul(.18).add(.82).add(sin(q.x.mul(11).sub(q.y.mul(9))).mul(.08));
+    const disc=m.w.mul(seas).mul(smoothstep(-.04,.12,dot(facing,toSun)).add(.012)).mul(float(1).sub(smoothstep(.86,1,r2))).mul(smoothstep(-.01,.06,direction.y));
+    colour=colour.add(select(dot(direction,m.xyz).greaterThan(.999).and(r2.lessThan(1)),disc,float(0)));
+   }
    material.colorNode=vec4(colour,1);
   }
   else s.material.onBeforeCompile=shader=>{
