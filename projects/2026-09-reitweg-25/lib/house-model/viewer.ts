@@ -519,7 +519,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    if(motion&&captures?.breezeOn&&tier.photographic)renderer.shadowMap.needsUpdate=true;
    probes?.setCamera(rig.camera);
    cullTrees(low);
-   if(mirror)timed('mirror',()=>mirror.render());post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel,carry:carrying&&live&&level!=='upper'&&!snow.amount&&!raining&&!wet.value?live.generation:undefined});
+   if(mirror)timed('mirror',()=>mirror.render(low&&!!gpu));post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel,carry:carrying&&live&&level!=='upper'&&!snow.amount&&!raining&&!wet.value?live.generation:undefined});
    if(low)steer?.finish(performance.now());
    if(jitter)camera.clearViewOffset();
    fall();
@@ -538,7 +538,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(!(rig.camera instanceof T.PerspectiveCamera))return;
   const height=renderer.getDrawingBufferSize(buffer).y*scaleFor(low),pixel=2*Math.tan(T.MathUtils.degToRad(rig.camera.fov/2))/Math.max(1,height)/rig.camera.zoom;
   occlusion?.poll(rig.camera);
-  const reflected=mirror?.prepare();const counts=drawTrees(scene,reflected?[rig.camera,reflected]:[rig.camera],pixel,rig.camera,occlusion?.hidden);perf?.trees(counts);
+  const reflected=mirror?.prepare(low&&!!gpu);const counts=drawTrees(scene,reflected?[rig.camera,reflected]:[rig.camera],pixel,rig.camera,occlusion?.hidden);perf?.trees(counts);
  };
  // Shaders for the upper floor's section cut, every renovation, eye-level grass and the lamps compile in the
  // background after the first frame, so the first visit to each has no stall. Everything is shown for the moment the

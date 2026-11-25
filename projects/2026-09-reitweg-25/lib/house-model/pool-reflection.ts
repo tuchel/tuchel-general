@@ -5,8 +5,10 @@ import {addShaderFeature,after,hasShaderFeature,materialsOf} from './shader-feat
  * the water reads it where the sky light alone would otherwise reflect, so the house, the trees and the clouds appear in
  * it. Ripples bend the reflection by the same normals that shade the water. The mirror image is drawn only while the
  * pool is in view, and clipped at the water line so nothing below it shows (after Lengyel's oblique near plane, as in
- * three's Reflector). Only the part of the view the pool takes up is drawn (`crop`), so most of the scene is culled. */
-export const POOL_MIRROR={level:-.085+.003,scale:.5,ripple:.035};
+ * three's Reflector). Only the part of the view the pool takes up is drawn (`crop`), so most of the scene is culled.
+ * Where a moving frame's time is short (`spare`), the image is redrawn every `pace` frames and kept in between, still
+ * read with the view it was drawn for, so it stays where it belongs on the water. */
+export const POOL_MIRROR={level:-.085+.003,scale:.5,ripple:.035,pace:2};
 
 /** The part of `camera`'s view that `box` takes up, as [left, bottom, right, top] in -1..1 with `margin` around it, or
  * the whole view when the box reaches behind the camera. */
@@ -48,7 +50,8 @@ export function createPoolReflection(renderer:T.WebGLRenderer,scene:T.Scene,came
  const textureMatrix=new T.Matrix4(),uniforms={uMirror:{value:target.texture},uMirrorMatrix:{value:textureMatrix},uMirrorReady:{value:0},uMirrorRipple:{value:new T.Vector2(POOL_MIRROR.ripple,POOL_MIRROR.ripple)}};
  const box=new T.Box3();for(const o of water)box.expandByObject(o);
  const frustum=new T.Frustum(),projection=new T.Matrix4();
- const patched=new Set<T.Material>();
+ const patched=new Set<T.Material>();let turn=0;
+ const held=(spare:boolean)=>spare&&uniforms.uMirrorReady.value===1&&turn%POOL_MIRROR.pace!==0;
  for(const o of water)for(const m of materialsOf(o)){
   if(patched.has(m)||!hasShaderFeature(m,'pool-water'))continue;patched.add(m);
   addShaderFeature(m,{key:'pool-mirror',compile:shader=>{
@@ -80,11 +83,12 @@ export function createPoolReflection(renderer:T.WebGLRenderer,scene:T.Scene,came
  return {
   setSize:(width:number,height:number)=>target.setSize(Math.max(1,Math.round(width*POOL_MIRROR.scale)),Math.max(1,Math.round(height*POOL_MIRROR.scale))),
   /** The mirror's camera for this frame, or undefined when the pool is out of view (draws only what it can see use it). */
-  prepare:()=>{if(!visible())return undefined;aim();return mirror;},
+  prepare:(spare=false)=>{if(!visible()||held(spare))return undefined;aim();return mirror;},
   /** Draws the mirror image for the current camera; call before the frame. */
-  render:()=>{
+  render:(spare=false)=>{
    if(!visible()){uniforms.uMirrorReady.value=0;return;}
-   aim();
+   if(held(spare)){turn++;return;}
+   aim();turn=1;
    const shown=water.map(o=>o.visible),previous=renderer.getRenderTarget(),autoUpdate=renderer.shadowMap.autoUpdate;
    water.forEach(o=>{o.visible=false;});renderer.shadowMap.autoUpdate=false;
    renderer.setRenderTarget(target);renderer.clear();renderer.render(scene,mirror);
