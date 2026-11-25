@@ -58,4 +58,10 @@ assert(/if\(!env\)\{[\s\S]*?const cell=direction\.mul\(230\)[\s\S]*?sparkle\.gre
 // three refreshes an object's values each frame only when its material holds a node. A plain-coloured material whose
 // light is changed holds none of its own, so it is given its colour as one: otherwise it never learns a bake finished.
 assert(/colorNode:slots\.colour\?\?\(lit\?tsl\.materialColor:null\)/.test(features));
+// Trees by season and in the wind: a card's shed leaves and its twigs are its colour's alpha, which three also cuts its
+// shadow by, and the sway moves the vertex, shadow and all.
+const air=fs.readFileSync('lib/house-model/atmosphere.ts','utf8');
+assert(/position\?:any/.test(features)&&/positionNode:slots\.position\?\?null/.test(features));
+assert(/leafFall=\{key:'leaf-fall',[\s\S]*?\},nodes:\(slots:NodeSlots\)=>\{[\s\S]*?slots\.colour=select\(bare,/.test(foliage));
+assert(/\},nodes:\(slots:NodeSlots\)=>\{[\s\S]*?slots\.position=\(slots\.position\?\?positionLocal\)\.add\(/.test(air));
 console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, averaged still frames and colour finish there.');

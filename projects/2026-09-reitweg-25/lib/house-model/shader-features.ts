@@ -8,8 +8,9 @@ export type ShaderFeature={key:string;last?:boolean;compile:(shader:T.WebGLProgr
  nodes?:(slots:NodeSlots)=>void};
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** What a material's features hand on to one another and, at the end, to the material, as nodes of `tsl` (three/tsl):
- * its colour, roughness, world normal, how much indirect light its hollows keep, and its opacity. */
-export type NodeSlots={tsl:any;colour?:any;roughness?:any;normal?:any;cavity?:any;opacity?:any;
+ * its colour (alpha included), local position, roughness, world normal, how much indirect light its hollows keep, and
+ * its opacity. */
+export type NodeSlots={tsl:any;colour?:any;position?:any;roughness?:any;normal?:any;cavity?:any;opacity?:any;
  /** The colour light takes on going round the room at this point, at the brightness of `fallback` (sun-bounce.ts). */
  tint?:(fallback:any)=>any;
  /** Light added for each lamp or sun after three's own (`light` holds lightDirection, lightColor and reflectedLight). */
@@ -33,7 +34,7 @@ function composeNodes(material:T.Material,list:ShaderFeature[]){
  else delete (material as any).setupLightingModel;
  // three refreshes an object's values each frame only when its material holds a node: one whose light alone is changed
  // gets its plain colour as a node, or the hooks would never see their values change.
- Object.assign(material as any,{colorNode:slots.colour??(lit?tsl.materialColor:null),roughnessNode:slots.roughness??null,normalNode:slots.normal?tsl.transformNormalToView(slots.normal):null,aoNode:slots.cavity??null,opacityNode:slots.opacity??null});
+ Object.assign(material as any,{colorNode:slots.colour??(lit?tsl.materialColor:null),positionNode:slots.position??null,roughnessNode:slots.roughness??null,normalNode:slots.normal?tsl.transformNormalToView(slots.normal):null,aoNode:slots.cavity??null,opacityNode:slots.opacity??null});
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 export function addShaderFeature(material:T.Material,feature:ShaderFeature){
