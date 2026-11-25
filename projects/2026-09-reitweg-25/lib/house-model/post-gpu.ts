@@ -2,6 +2,8 @@ import * as T from 'three';
 import {finish} from './look';
 import {TEMPORAL} from './temporal';
 import {LENS,meterCorrection,focalLength} from './lens';
+import {CONTACT} from './contact-shadows';
+import {MIST,AIR_GLOW} from './mist';
 import type {Post,PostOptions,PostView} from './post';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -30,13 +32,70 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   const {uv,vec2}=gpu.tsl,at=uv(),tap=(x:number,y:number)=>haze.sample(at.add(texel.mul(vec2(x,y)))).rgb;
   return vec4(frame.rgb.add(tap(-.5,-.5).add(tap(.5,-.5)).add(tap(-.5,.5)).add(tap(.5,.5)).mul(hazy.mul(.25))),frame.a);
  };
- const lit=(frame:any)=>shafted(glow?vec4(frame.rgb.add(glow.rgb),frame.a):frame);
- const blend=quadOf(mix(history,lit(current),weight));
  // With four samples to a pixel the scene's depth cannot be read as one value, which corner shading and what falls over
  // the frame need: its first sample is copied to a plain depth buffer after the scene is drawn.
  const level=options.samples>=4?new T.RenderTarget(1,1,{depthTexture:new T.DepthTexture(1,1)}) as unknown as T.WebGLRenderTarget:undefined,depthOf=(level??target).depthTexture!;
  const levelled=level&&quadOf(vec4(0));
  if(levelled)Object.assign(levelled.material,{depthNode:texture(target.depthTexture!).load(ivec2(screenCoordinate)).r,depthTest:true,depthWrite:true,depthFunc:T.AlwaysDepth});
+ // Where each pixel's point lies, from the scene's depth: `optics` holds the projection's terms; rows run top down.
+ const optics=uniform(new T.Vector4(1,1,0,1)),placed=uniform(new T.Matrix4()),farthest=uniform(1000),tick=uniform(0),depths=texture(depthOf);
+ const distanceAt=(at:any)=>optics.w.div(depths.sample(at).r.add(optics.z));
+ const viewAt=(at:any,d:any)=>vec3(at.x.mul(2).sub(1).mul(d).div(optics.x),at.y.mul(-2).add(1).mul(d).div(optics.y),d.negate());
+ // Short shadows where things touch (contact-shadows.ts): each pixel that faces the sun looks a short way toward it
+ // through the frame's own depth. Every step is taken, the first hit kept: a look-up may not sit inside a branch here.
+ const touch=options.contact&&options.lens&&camera instanceof T.PerspectiveCamera?{sun:options.lens.sun,amount:uniform(0),toLight:uniform(new T.Vector3())}:undefined;
+ const touched=(frame:any)=>{
+  if(!touch)return frame;
+  const {Fn,uv,vec2,normalize,cross,dFdx,dFdy,smoothstep,fract,select}=gpu.tsl;
+  return Fn(()=>{
+   const at=uv(),d=distanceAt(at).toVar(),p=viewAt(at,d).toVar(),n=normalize(cross(dFdx(p),dFdy(p))).toVar(),facing=dot(n,touch.toLight).toVar();
+   const bias=max(.015,d.mul(.004)).toVar(),jitter=fract(fract(dot(screenCoordinate.xy,vec2(.06711056,.00583715))).mul(52.9829189).add(tick.mul(.618034))).toVar();
+   const from=p.add(n.mul(bias)).toVar(),shade=float(0).toVar(),open=float(1).toVar();
+   for(let i=0;i<CONTACT.steps;i++){
+    const t=jitter.add(i).mul(CONTACT.reach/CONTACT.steps).toVar(),q=from.add(touch.toLight.mul(bias.add(t))).toVar(),away=max(q.z.negate(),.05);
+    const to=vec2(q.x.mul(optics.x).div(away).mul(.5).add(.5),q.y.mul(optics.y).div(away).mul(-.5).add(.5)).toVar();
+    open.mulAssign(select(q.z.lessThan(-.05).and(to.x.greaterThanEqual(0)).and(to.y.greaterThanEqual(0)).and(to.x.lessThanEqual(1)).and(to.y.lessThanEqual(1)),1,0));
+    const gap=q.z.negate().sub(distanceAt(to)).toVar(),hit=select(open.greaterThan(.5).and(gap.greaterThan(bias)).and(gap.lessThan(CONTACT.thick)),1,0).toVar();
+    shade.assign(mix(shade,float(1).sub(t.mul(.6/CONTACT.reach)),hit));open.mulAssign(float(1).sub(hit));
+   }
+   const on=select(d.lessThan(CONTACT.far).and(d.lessThan(farthest.mul(.999))).and(facing.greaterThan(.04)),1,0);
+   return vec4(frame.rgb.mul(float(1).sub(shade.mul(touch.amount).mul(on).mul(smoothstep(.04,.25,facing)).mul(float(1).sub(smoothstep(CONTACT.far*.6,CONTACT.far,d))))),frame.a);
+  })();
+ };
+ // Ground mist (mist.ts, mistOver) and the lamps' glow in thick air (lampGlow), from each pixel's point.
+ const mist=options.mist&&camera instanceof T.PerspectiveCamera?uniform(new T.Vector4()):undefined,glowing=uniform(new T.Vector3());
+ const lampsAt=mist&&options.glowLamps?.length?options.glowLamps.slice(0,AIR_GLOW.most):[],glowColour=new T.Vector3().setFromColor(new T.Color(AIR_GLOW.colour));
+ const misted=(frame:any)=>{
+  if(!mist)return frame;
+  const {Fn,If,uv,vec2,normalize,length,floor,fract,exp,abs,sqrt,atan,smoothstep,select,uniformArray}=gpu.tsl;
+  const hash=(c:any)=>{const p=fract(vec3(c.x,c.y,c.x).mul(.1031)),r=p.add(dot(p,vec3(p.y,p.z,p.x).add(33.33)));return fract(r.x.add(r.y).mul(r.z));};
+  const pools=(g:any)=>{const i=floor(g),f0=g.sub(i),f=f0.mul(f0).mul(f0.mul(-2).add(3));return mix(mix(hash(i),hash(i.add(vec2(1,0))),f.x),mix(hash(i.add(vec2(0,1))),hash(i.add(vec2(1,1))),f.x),f.y);};
+  const lamps=lampsAt.length?uniformArray(lampsAt,'vec3'):undefined;
+  return Fn(()=>{
+   const at=uv(),d=distanceAt(at).toVar(),colour=frame.rgb.toVar();
+   If(mist.a.greaterThan(0).or(glowing.x.greaterThan(0)),()=>{
+    const ray=viewAt(at,float(1)).toVar(),eye=placed.mul(vec4(0,0,0,1)).xyz.toVar(),dir=normalize(placed.mul(vec4(ray,0)).xyz).toVar();
+    // The sky stands for the land far off: mist lies along the horizon.
+    const far=select(d.greaterThanEqual(farthest.mul(.999)),600,d.mul(length(ray))).toVar(),point=eye.add(dir.mul(far)).toVar();
+    const dy=point.y.sub(eye.y).div(MIST.depth).toVar(),level=abs(dy).lessThan(.01),a=exp(max(eye.y,0).div(-MIST.depth)).toVar(),b=exp(max(point.y,0).div(-MIST.depth));
+    const mean=select(level,a,a.sub(b).div(select(level,1,dy)));
+    const lie=mix(mix(float(MIST.patch[0]),float(MIST.patch[1]),pools(point.xz.div(MIST.patchSize)).mul(.65).add(pools(point.xz.div(MIST.patchSize/2.7).add(7.3)).mul(.35))),1,smoothstep(90,150,far));
+    colour.assign(mix(mist.rgb,colour,exp(mist.a.mul(lie).mul(far).mul(max(mean,0)).negate())));
+    if(lamps)If(glowing.x.greaterThan(0),()=>{
+     const sum=float(0).toVar();
+     for(let i=0;i<lampsAt.length;i++){
+      const q=lamps.element(i).sub(eye).toVar(),along=dot(q,dir).toVar(),h=max(sqrt(max(dot(q,q).sub(along.mul(along)),0)),AIR_GLOW.nearest).toVar();
+      sum.addAssign(atan(far.sub(along).div(h)).add(atan(along.div(h))).div(h).mul(exp(h.div(-AIR_GLOW.reach))));
+     }
+     colour.addAssign(glowing.mul(sum));
+    });
+   });
+   return vec4(colour,frame.a);
+  })();
+ };
+ const bloomed=(frame:any)=>glow?vec4(frame.rgb.add(glow.rgb),frame.a):frame;
+ const lit=(frame:any)=>shafted(bloomed(misted(touched(frame))));
+ const blend=quadOf(mix(history,lit(current),weight));
  // Corner shading at the WebGL chain's settings (post.ts), from the scene's depth alone. Its grain is turned from frame
  // to frame, and the average of still frames smooths it.
  const shade=options.ao&&gpu.ao?gpu.ao(texture(depthOf),null,camera):undefined,occlusion=uniform(1);
@@ -252,6 +311,12 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    if(!rest)frames=0;else if(kept&&frames===0&&kept.rested())frames=TEMPORAL.carry;
    renderer.setRenderTarget(target);renderer.render(scene,camera);
    if(level&&levelled){renderer.setRenderTarget(level);levelled.render(renderer);}
+   const e=camera.projectionMatrix.elements;optics.value.set(e[0],e[5],e[10],e[14]);placed.value.copy(camera.matrixWorld);farthest.value=(camera as T.PerspectiveCamera).far;tick.value=(tick.value+1)%64;
+   if(touch){
+    // None by night or with the sun at the horizon, where a half-metre march says nothing about a shadow metres long.
+    const toLight=touch.toLight.value.subVectors(touch.sun.position,touch.sun.target.position).normalize();
+    touch.amount.value=touch.sun.intensity>0?CONTACT.strength*T.MathUtils.smoothstep(toLight.y,...CONTACT.low):0;toLight.transformDirection(camera.matrixWorldInverse);
+   }
    meter?.read();
    if(!rest)shafts?.reset();shafts?.render(indoor);
    const [was,next]=settled;current.value=target.texture;history.value=was.texture;weight.value=1/(frames+1);
@@ -269,7 +334,9 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   replay:toScreen,
   /** Draws `object` over the frame on the canvas, with whatever else was drawn over it since it was last shown. */
   over:(object:T.Object3D,through:T.Camera)=>{stage.add(object);draw(through);},
-  setMist:()=>{},keepDepth:()=>{},
+  /** How much mist lies (0–1, mist.ts) and its colour, and how far the lamps' glow hangs in the air (0–1). */
+  setMist:(amount:number,colour:T.Color,lampGlow=0)=>{if(!mist)return;mist.value.set(colour.r,colour.g,colour.b,amount/MIST.reach);glowing.value.copy(glowColour).multiplyScalar(lampsAt.length?lampGlow*AIR_GLOW.strength:0);},
+  keepDepth:()=>{},
   /** The scene's own depth buffer as last drawn, which what falls over the frame reads as it is (falling.ts). */
   get depth(){return depthOf;},
   present:()=>{},keep:()=>{},carries:()=>false,carry:()=>{},
