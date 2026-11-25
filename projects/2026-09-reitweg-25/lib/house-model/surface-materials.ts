@@ -284,6 +284,15 @@ float causticNet(vec2 p,float t){
   shader.fragmentShader=after(shader.fragmentShader,'map_fragment',`
    {vec2 cp=mod(vec2(vCausticPos.x+vCausticPos.y*0.4,vCausticPos.z-vCausticPos.y*0.3)*${CAUSTICS.scale.toFixed(1)},6.2831853)-250.0;
     diffuseColor.rgb*=1.0+${CAUSTICS.strength.toFixed(2)}*(clamp(causticNet(cp,uWaterTime*0.35+1.3)*2.2,0.0,1.6)-0.3);}`);
+ },variant:'',nodes:slots=>{
+  // The same net in WGSL.
+  const {wgslFn,uniform,vec2,vec4,mod,clamp,positionWorld,materialColor}=slots.tsl,p=positionWorld;
+  const net=wgslFn(`fn causticNet(p:vec2<f32>,t:f32)->f32{var i=p;var c=1.0;
+   for(var n=0;n<5;n++){let k=t*(1.0-3.5/f32(n+1));i=p+vec2<f32>(cos(k-i.x)+sin(k+i.y),sin(k-i.y)+cos(k+i.x));c+=1.0/length(vec2<f32>(p.x/(sin(i.x+k)/0.005),p.y/(cos(i.y+k)/0.005)));}
+   c/=5.0;c=1.17-pow(c,1.4);return pow(abs(c),8.0);}`);
+  const cp=mod(vec2(p.x.add(p.y.mul(.4)),p.z.sub(p.y.mul(.3))).mul(CAUSTICS.scale),Math.PI*2).sub(250),t=uniform(0).onRenderUpdate(()=>time.value);
+  const base=vec4(slots.colour??materialColor);
+  slots.colour=vec4(base.rgb.mul(clamp(net({p:cp,t:t.mul(.35).add(1.3)}).mul(2.2),0,1.6).sub(.3).mul(CAUSTICS.strength).add(1)),base.a);
  }});
 }
 /** Detailed materials: textured surfaces, clear glass, reflective water, calmer metals. `weathered`: what stands

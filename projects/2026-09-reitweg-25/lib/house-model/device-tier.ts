@@ -71,7 +71,7 @@ export const PHONE_EXTREME={pixelRatio:2,shadowSize:2048,samples:2,refineFrames:
 /** Extreme's parts that the WebGPU renderer does not draw yet. With `?renderer=webgpu` they are left off, so Extreme is
  * Detailed at Extreme's resolution plus what has been ported; `&try=lens,clouds` turns named parts on there, to test
  * one on a real graphics card before it comes off this list. */
-export const WEBGPU_PENDING=['treeOcclusion','steerMotion','roomProbes','liveTrace','lens','poolMirror','wetMirror','temporal','lampGlow','living','lightCarry','softShadows','hdr'] as const;
+export const WEBGPU_PENDING=['treeOcclusion','steerMotion','roomProbes','liveTrace','lens','wetMirror','temporal','lampGlow','living','lightCarry','softShadows','hdr'] as const;
 export const forWebGPU=(tier:TierSettings,tried:string[]=[]):TierSettings=>({...tier,...Object.fromEntries(WEBGPU_PENDING.filter(k=>!tried.includes(k)).map(k=>[k,false]))});
 export function tierFor(quality:Quality,phone=isPhone(),extremeOnPhone=false):TierSettings{
  if(phone&&quality==='extreme'&&extremeOnPhone)return {...tiers.extreme,...PHONE_EXTREME};
