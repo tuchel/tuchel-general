@@ -55,4 +55,7 @@ assert(/radius\.value=\.7;[^\n]*distanceExponent\.value=1\.6;[^\n]*thickness\.va
 assert(/\(refining&&shaded\?shaded:blend\)\.render\(renderer\);/.test(chain));
 // The night sky's stars and moon are drawn with the sky there too, from the same hash and the same disc.
 assert(/if\(!env\)\{[\s\S]*?const cell=direction\.mul\(230\)[\s\S]*?sparkle\.greaterThan\(\.996\)[\s\S]*?uniform\(moon\.value\)[\s\S]*?\.greaterThan\(\.999\)/.test(lighting));
+// three refreshes an object's values each frame only when its material holds a node. A plain-coloured material whose
+// light is changed holds none of its own, so it is given its colour as one: otherwise it never learns a bake finished.
+assert(/colorNode:slots\.colour\?\?\(lit\?tsl\.materialColor:null\)/.test(features));
 console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, averaged still frames and colour finish there.');
