@@ -48,9 +48,12 @@ assert(/renderer\.toneMapping=T\.NoToneMapping;renderer\.outputColorSpace=T\.Lin
 assert(/import \{TEMPORAL\} from '\.\/temporal';/.test(chain)&&/share\.value=is\?TEMPORAL\.blend:1;/.test(chain)&&/expected\.mul\(TEMPORAL\.tolerance\)\.add\(\.05\)/.test(chain)&&/hi\.sub\(lo\)\.mul\(TEMPORAL\.slack\)/.test(chain)&&/frames=TEMPORAL\.carry;/.test(chain),'the kept image in motion');
 assert(/if\(kept\)\{if\(kept\.resize\(w,h\)\)frames=0;\}/.test(chain)&&/temporal:!!kept,/.test(chain),'kept at full size; moving frames jittered');
 // The lens there, so far: the meter eases exposure by the WebGL chain's rule, and the finish carries its grain.
-assert(/import \{LENS,meterCorrection\} from '\.\/lens';/.test(chain)&&/exposure\.value=exposed\*\(meter\?\.adapt\(exposed\)\?\?1\);/.test(chain)&&/meterCorrection\(logAverage,exposure\)\/scale,Math\.min\(1,dt\/LENS\.meter\.seconds\)/.test(chain)&&/n\.mul\(LENS\.grain\)/.test(chain),'the meter and the grain');
+assert(/import \{LENS,meterCorrection[^}]*\} from '\.\/lens';/.test(chain)&&/exposure\.value=exposed\*\(meter\?\.adapt\(exposed\)\?\?1\);/.test(chain)&&/meterCorrection\(logAverage,exposure\)\/scale,Math\.min\(1,dt\/LENS\.meter\.seconds\)/.test(chain)&&/n\.mul\(LENS\.grain\)/.test(chain),'the meter and the grain');
 // Its sun shafts: the air marched through the sun's shadow map with the WebGL pass's settings, at half size.
 assert(/\{forward:g,reach,steps,room,outdoors,indoors\}=LENS\.air/.test(chain)&&/for\(let i=0;i<steps;i\+\+\)/.test(chain)&&/map\.load\(ivec2\(vec2\(q\.x,q\.y\.oneMinus\(\)\)/.test(chain)&&/if\(!rest\)shafts\?\.reset\(\);shafts\?\.render\(indoor\);/.test(chain),'sun shafts');
+// Its focus: at eye level the kept image is blurred by distance from what the meter found in the middle of the frame,
+// with the WebGL pass's spiral and its rule that a sharp edge does not spill over what is nearer.
+assert(/import \{LENS,meterCorrection,focalLength\} from '\.\/lens';/.test(chain)&&/radius<LENS\.maxBlur;i\+\+,radius\+=\.6\/radius/.test(chain)&&/d\.greaterThan\(centre\),min\(s,centreSize\.mul\(2\)\),s\)/.test(chain)&&/f\*f\/\(LENS\.fNumber\*Math\.max\(d-f,1e-3\)\)\/LENS\.sensor\*image\.height/.test(chain)&&/showing=view\?\.eyeLevel&&focus\?focus\.render\(settled\[0\]\):settled\[0\];/.test(chain),'depth of field');
 // It draws no line loops.
 assert(!/T\.LineLoop/.test(lib),'no line loop in the model');
 // Bounced sunlight is read from the same two atlases and added to the light from all round; the sky light bounced
