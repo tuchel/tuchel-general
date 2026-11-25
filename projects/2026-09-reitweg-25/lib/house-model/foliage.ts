@@ -493,8 +493,9 @@ export function drawTrees(root:T.Object3D,cameras:T.Camera[],pixel:number,eye:T.
     if(!others&&!frusta[0].intersectsSphere(sphere)){rest.push(i);continue;}
     if(!others&&hidden?.(set,i)){rest.push(i);left++;continue;}
     const size=set.leaf[i]/(set.origins[i].distanceTo(from)*pixel);
-    if(set.lod&&(set.bare||size<LEAF_PIXELS))far.push(i);else if(fine&&size>=LEAF_EDGE)edged.push(i);else if(fine&&size>=LEAF_CLOSE)close.push(i);else near.push(i);
+    if(set.lod&&(set.bare||size<LEAF_PIXELS))far.push(i);else if(fine&&set.leaf[i]/(Math.max(.5,set.centres[i].distanceTo(from)-set.radii[i])*pixel)>=LEAF_EDGE)edged.push(i);else if(fine&&size>=LEAF_CLOSE)close.push(i);else near.push(i);
    }
+   // The outline goes by the nearest leaves, at the crown's near side: a view from under a tree is far from its foot.
    // The plain modelled leaves leave out the trees drawn close; every other part of a modelled tree is drawn for all.
    const full=[...near,...close,...edged],tail=[...far,...rest];
    for(const c of set.crowns)arrange(set,c,[...full,...tail],c===set.solid?near.length:full.length);
