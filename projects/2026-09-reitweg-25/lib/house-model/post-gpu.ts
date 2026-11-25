@@ -137,7 +137,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   })());
   // The shutter (motion-blur.ts): the moving frame smeared along the path each point took since the last frame, before
   // it joins the kept image. Every look-up is taken; a path too short to see is given no length.
-  const streaks=options.mist?(()=>{
+  const streaks=options.mist&&options.shutter?(()=>{
    const {length,fract}=gpu.tsl,raw=texture(mixed.texture),smeared=half();
    return {smeared,quad:quadOf(Fn(()=>{
     const at=uv(),at0=at.add(jitter),d=min(far(depth.sample(at).r),farthest).toVar(),ndc=vec2(at0.x.mul(2).sub(1),at0.y.mul(-2).add(1));
