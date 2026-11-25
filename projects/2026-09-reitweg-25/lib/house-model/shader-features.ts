@@ -31,7 +31,9 @@ function composeNodes(material:T.Material,list:ShaderFeature[]){
  }
  if(lit)(material as any).setupLightingModel=()=>m.isMeshPhysicalMaterial?new Lighting(m.clearcoat>0,m.sheen>0,m.iridescence>0,m.anisotropy>0,m.transmission>0,m.dispersion>0):new Lighting();
  else delete (material as any).setupLightingModel;
- Object.assign(material as any,{colorNode:slots.colour??null,roughnessNode:slots.roughness??null,normalNode:slots.normal?tsl.transformNormalToView(slots.normal):null,aoNode:slots.cavity??null,opacityNode:slots.opacity??null});
+ // three refreshes an object's values each frame only when its material holds a node: one whose light alone is changed
+ // gets its plain colour as a node, or the hooks would never see their values change.
+ Object.assign(material as any,{colorNode:slots.colour??(lit?tsl.materialColor:null),roughnessNode:slots.roughness??null,normalNode:slots.normal?tsl.transformNormalToView(slots.normal):null,aoNode:slots.cavity??null,opacityNode:slots.opacity??null});
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 export function addShaderFeature(material:T.Material,feature:ShaderFeature){
