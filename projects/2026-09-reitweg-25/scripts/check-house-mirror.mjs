@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import * as T from 'three';
 import {build} from 'esbuild';
 await build({entryPoints:['lib/house-model/pool-reflection.ts','lib/house-model/device-tier.ts'],outdir:'tmp/mirror-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external'});
-const {POOL_MIRROR,mirrorView}=await import('../tmp/mirror-check/pool-reflection.mjs');
+const {POOL_MIRROR,mirrorView,mirrorFit}=await import('../tmp/mirror-check/pool-reflection.mjs');
 const {tiers}=await import('../tmp/mirror-check/device-tier.mjs');
 
 // The mirror lies on the water: the pool's surface is a 6 mm slab centred 85 mm below the coping (pool.ts).
@@ -39,5 +39,9 @@ assert(Math.hypot(uv.x/uv.w-r.x/r.w,uv.y/uv.w-r.y/r.w)<1e-6,'the water samples t
  assert(/mirrorView\(camera,POOL_MIRROR\.level,mirror,textureMatrix,box,2\*POOL_MIRROR\.ripple\)/.test(fs.readFileSync('lib/house-model/pool-reflection.ts','utf8')),'the mirror image is cropped to the pool with room for the ripples');}
 assert.equal(tiers.extreme.poolMirror,true);for(const q of ['detailed','balanced','model'])assert.equal(tiers[q].poolMirror,false,`${q} reflects the sky light only`);
 const viewer=fs.readFileSync('lib/house-model/viewer.ts','utf8');
-assert(/if\(mirror\)timed\('mirror',\(\)=>mirror\.render\(\)\);post\.render\(still/.test(viewer),'the mirror image is drawn before each live frame');
+assert(/if\(mirror\)timed\('mirror',\(\)=>mirror\.render\(low&&!!gpu\)\);post\.render\(still/.test(viewer),'the mirror image is drawn before each live frame');
+// The image is as large as the part of the view the pool takes up needs, at half the view's resolution: it steps down by
+// halves as that part shrinks, and holds its size near a step so it does not flicker.
+assert.deepEqual([[1,.6],[1,.45],[1,.4],[.5,.45],[.5,.55],[.5,.2],[.25,.3]].map(([was,need])=>mirrorFit(was,need)),[1,1,.5,.5,1,.25,.5]);
+assert(/const f=mirrorFit\(fit,Math\.max\(crop\[2\]-crop\[0\],crop\[3\]-crop\[1\]\)\/2\);if\(f!==fit\)\{fit=f;size\(\);\}/.test(fs.readFileSync('lib/house-model/pool-reflection.ts','utf8')));
 console.log(`Passed: the pool mirrors the scene at its water line (${POOL_MIRROR.level} m), clipping everything below it, sampled where the reflection falls; Extreme only.`);

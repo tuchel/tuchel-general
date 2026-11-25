@@ -44,13 +44,17 @@ export function mirrorView(camera:T.PerspectiveCamera,level:number,mirror:T.Pers
  mirror.projectionMatrixInverse.copy(mirror.projectionMatrix).invert();
  return crop;
 }
+/** How much of its full size the mirror image needs when the pool takes up `need` of the view's width or height
+ * (whichever is more), stepping down by halves so that it stays at half the view's resolution. `was`, its size now,
+ * holds until the need is clearly under the next step. */
+export const mirrorFit=(was:number,need:number)=>{const want=need>.5?1:need>.25?.5:.25;return want>=was||need<want*.85?want:was;};
 export function createPoolReflection(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.PerspectiveCamera,water:T.Object3D[]){
  const target=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,samples:2});
  const mirror=new T.PerspectiveCamera();
  const textureMatrix=new T.Matrix4(),uniforms={uMirror:{value:target.texture},uMirrorMatrix:{value:textureMatrix},uMirrorReady:{value:0},uMirrorRipple:{value:new T.Vector2(POOL_MIRROR.ripple,POOL_MIRROR.ripple)}};
  const box=new T.Box3();for(const o of water)box.expandByObject(o);
  const frustum=new T.Frustum(),projection=new T.Matrix4();
- const patched=new Set<T.Material>();let turn=0;
+ const patched=new Set<T.Material>();let turn=0,fit=1;const full=[1,1],size=()=>target.setSize(Math.max(1,Math.round(full[0]*fit)),Math.max(1,Math.round(full[1]*fit)));
  const held=(spare:boolean)=>spare&&uniforms.uMirrorReady.value===1&&turn%POOL_MIRROR.pace!==0;
  for(const o of water)for(const m of materialsOf(o)){
   if(patched.has(m)||!hasShaderFeature(m,'pool-water'))continue;patched.add(m);
@@ -79,9 +83,10 @@ export function createPoolReflection(renderer:T.WebGLRenderer,scene:T.Scene,came
  const aim=()=>{
   const crop=mirrorView(camera,POOL_MIRROR.level,mirror,textureMatrix,box,2*POOL_MIRROR.ripple);
   uniforms.uMirrorRipple.value.set(2/(crop[2]-crop[0]),2/(crop[3]-crop[1])).multiplyScalar(POOL_MIRROR.ripple);
+  const f=mirrorFit(fit,Math.max(crop[2]-crop[0],crop[3]-crop[1])/2);if(f!==fit){fit=f;size();}
  };
  return {
-  setSize:(width:number,height:number)=>target.setSize(Math.max(1,Math.round(width*POOL_MIRROR.scale)),Math.max(1,Math.round(height*POOL_MIRROR.scale))),
+  setSize:(width:number,height:number)=>{full[0]=width*POOL_MIRROR.scale;full[1]=height*POOL_MIRROR.scale;size();},
   /** The mirror's camera for this frame, or undefined when the pool is out of view (draws only what it can see use it). */
   prepare:(spare=false)=>{if(!visible()||held(spare))return undefined;aim();return mirror;},
   /** Draws the mirror image for the current camera; call before the frame. */
