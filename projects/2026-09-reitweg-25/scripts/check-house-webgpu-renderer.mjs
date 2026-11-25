@@ -37,7 +37,7 @@ assert(/if\(gpu\)links\.needsUpdate=true;/.test(sky)&&/for\(const v of volumes\)
 // The image chain there (post-gpu.ts): the scene into a floating-point target, still frames averaged, and the WebGL
 // chain's finish, which tone-maps and encodes itself, so the renderer is asked for neither while it is drawn.
 const chain=fs.readFileSync('lib/house-model/post-gpu.ts','utf8');
-assert(/createPostGPU\(\.\.\.a,\{tsl:gpu\.tsl,ao:gpu\.ao,NodeMaterial:gpu\.NodeMaterial,QuadMesh:gpu\.QuadMesh\}\):createPost\(\.\.\.a\)/.test(viewer));
+assert(/createPostGPU\(\.\.\.a,\{tsl:gpu\.tsl,ao:gpu\.ao,bloom:gpu\.bloom,NodeMaterial:gpu\.NodeMaterial,QuadMesh:gpu\.QuadMesh\}\):createPost\(\.\.\.a\)/.test(viewer));
 assert(/weight\.value=1\/\(frames\+1\);/.test(chain)&&/const mapped=agxToneMapping\(shown\.rgb\.mul\(balance\),exposure\);/.test(chain)&&/quadOf\(vec4\(sRGBTransferOETF\(graded\),1\)\)/.test(chain));
 assert(/renderer\.toneMapping=T\.NoToneMapping;renderer\.outputColorSpace=T\.LinearSRGBColorSpace;[\s\S]*?renderer\.toneMapping=mapping;renderer\.outputColorSpace=space;/.test(chain));
 // It draws no line loops.
@@ -99,4 +99,6 @@ assert(/if\(gpu\)\(renderer as unknown as \{backend:\{capabilities:\{getUniformB
 assert(/\(list\.every\(f=>f\.variant!==undefined\)\?list\.map\(f=>f\.variant\)\.join\('\|'\):material\.uuid\)/.test(features)&&/key:'sky-visibility',variant:''/.test(skyCode)&&/key:'sun-bounce',variant:''/.test(bounce)&&/key:'snow-'\+kind,last:true,variant:\[\.\.\.how\.toArray\(\),\.\.\.most\.value\.toArray\(\)\]\.join\(\)/.test(snowCode));
 // With four samples to a pixel the depth that corner shading and the falling snow read is a plain copy of the scene's.
 assert(/const level=options\.samples>=4\?new T\.RenderTarget\(/.test(chain)&&/depthNode:texture\(target\.depthTexture!\)\.load\(ivec2\(screenCoordinate\)\)\.r/.test(chain)&&/gpu\.ao\(texture\(depthOf\),null,camera\)/.test(chain)&&/get depth\(\)\{return depthOf;\}/.test(chain));
+// Detailed's bloom there: three's, at the WebGL chain's strength, radius and threshold.
+assert(/const glow=options\.bloom&&gpu\.bloom\?gpu\.bloom\(current,\.06,\.1,1\):undefined/.test(chain)&&/if\(glow\)glow\.threshold\.value=2\.5\/Math\.max\(exposed,1e-4\);/.test(chain)&&/import\('three\/addons\/tsl\/display\/BloomNode\.js'\)/.test(page));
 console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, lying snow with its packed layer on the roofs, falling snow and rain, averaged still frames and colour finish there.');

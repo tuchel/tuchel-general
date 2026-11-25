@@ -4,10 +4,10 @@ import type {Post,PostOptions} from './post';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** What the image chain needs from `three/webgpu` and `three/tsl`. */
-export type PostGPU={tsl:any;/** three's corner shading pass (GTAONode.js). */ao?:(depth:unknown,normal:null,camera:T.Camera)=>any;NodeMaterial:new()=>T.Material;QuadMesh:new(material:T.Material)=>{render(renderer:unknown):void;material:T.Material}};
+export type PostGPU={tsl:any;/** three's corner shading pass (GTAONode.js). */ao?:(depth:unknown,normal:null,camera:T.Camera)=>any;/** three's bloom (BloomNode.js). */bloom?:(input:unknown,strength:number,radius:number,threshold:number)=>any;NodeMaterial:new()=>T.Material;QuadMesh:new(material:T.Material)=>{render(renderer:unknown):void;material:T.Material}};
 /** The image chain for the WebGPU renderer (post.ts is the WebGL renderer's). So far: the scene into a floating-point
  * target, corner shading on still frames, still frames averaged into a clean image, and the same finish to the screen: white balance, tone mapping,
- * the S-curve with its shadow lift, saturation, and the screen's transfer. Not yet there: corner shading, bloom, the
+ * the S-curve with its shadow lift, saturation, and the screen's transfer. Not yet there: the
  * lens, mist, the wet mirror, moving-frame blending, and showing a path-traced image; those calls do nothing. */
 export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions,gpu:PostGPU):Post&{over(object:T.Object3D,camera:T.Camera):void}{
  const {positionGeometry,screenCoordinate,ivec2,texture,uniform,vec3,vec4,float,mix,max,min,pow,dot,clamp,agxToneMapping,sRGBTransferOETF}=gpu.tsl;
@@ -18,7 +18,9 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
  const quadOf=(node:any)=>{const m=new gpu.NodeMaterial() as any;m.fragmentNode=node;m.depthTest=false;m.depthWrite=false;return new gpu.QuadMesh(m);};
  // A still frame joins the average of those before it.
  const current=texture(target.texture),history=texture(settled[0].texture),weight=uniform(1);
- const blend=quadOf(mix(history,current,weight));
+ // Faint and tight, as in the WebGL chain: a glow at the sun, glints and sunlit glass, never a veil over the room.
+ const glow=options.bloom&&gpu.bloom?gpu.bloom(current,.06,.1,1):undefined,lit=(frame:any)=>glow?vec4(frame.rgb.add(glow.rgb),frame.a):frame;
+ const blend=quadOf(mix(history,lit(current),weight));
  // With four samples to a pixel the scene's depth cannot be read as one value, which corner shading and what falls over
  // the frame need: its first sample is copied to a plain depth buffer after the scene is drawn.
  const level=options.samples>=4?new T.RenderTarget(1,1,{depthTexture:new T.DepthTexture(1,1)}) as unknown as T.WebGLRenderTarget:undefined,depthOf=(level??target).depthTexture!;
@@ -28,7 +30,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
  // to frame, and the average of still frames smooths it.
  const shade=options.ao&&gpu.ao?gpu.ao(texture(depthOf),null,camera):undefined,occlusion=uniform(1);
  if(shade){shade.radius.value=.7;shade.distanceExponent.value=1.6;shade.thickness.value=1.4;shade.samples.value=12;shade.resolutionScale=.5;shade.useTemporalFiltering=true;}
- const shaded=shade&&quadOf(mix(history,vec4(current.rgb.mul(mix(1,shade.getTextureNode().r,occlusion)),current.a),weight));
+ const shaded=shade&&quadOf(mix(history,lit(vec4(current.rgb.mul(mix(1,shade.getTextureNode().r,occlusion)),current.a)),weight));
  // The finish, as the WebGL chain's last pass does it (post.ts, FinishedOutput).
  const shown=texture(settled[0].texture),balance=uniform(new T.Vector3(1,1,1)),look=uniform(new T.Vector3(1,1,0)),exposure=uniform(1);
  const luma=vec3(.2126,.7152,.0722);
@@ -61,6 +63,8 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   warm:()=>{},
   render:(refining:boolean,exposed:number,indoor=0)=>{
    const g=finish(indoor,lamps());balance.value.set(g.balance[0],g.balance[1],g.balance[2]);look.value.set(g.contrast,g.saturation,g.lift);exposure.value=exposed;occlusion.value=g.occlusion;
+   // Only highlights two and a half times brighter than white bloom.
+   if(glow)glow.threshold.value=2.5/Math.max(exposed,1e-4);
    if(!refining)frames=0;
    renderer.setRenderTarget(target);renderer.render(scene,camera);
    if(level&&levelled){renderer.setRenderTarget(level);levelled.render(renderer);}
@@ -79,7 +83,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   get depth(){return depthOf;},
   present:()=>{},keep:()=>{},carries:()=>false,carry:()=>{},
   reset:()=>{frames=0;},
-  dispose:()=>{target.dispose();level?.dispose();levelled?.material.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();output.material.dispose();},
+  dispose:()=>{target.dispose();level?.dispose();levelled?.material.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();glow?.dispose();output.material.dispose();},
  };
  return api as unknown as Post&{over:typeof api.over};
 }

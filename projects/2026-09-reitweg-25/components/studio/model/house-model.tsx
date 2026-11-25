@@ -93,7 +93,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
   import('@/lib/house-model/viewer').then(async({createHouseViewer,drawnWithWebGPU})=>{
    type WebGPUKit=NonNullable<Parameters<typeof createHouseViewer>[1]['webgpu']>;
    // `?renderer=webgpu`: three's WebGPU renderer, for the presets it can draw (viewer.ts, drawnWithWebGPU).
-   const webgpu=drawnWithWebGPU(quality)&&new URLSearchParams(window.location.search).get('renderer')==='webgpu'?await Promise.all([import('three/webgpu'),import('three/tsl'),import('three/addons/objects/SkyMesh.js'),import('three/addons/tsl/display/GTAONode.js')]).then(([gpu,tsl,{SkyMesh},{ao}])=>({ao,WebGPURenderer:gpu.WebGPURenderer,PMREMGenerator:gpu.PMREMGenerator,CubeRenderTarget:gpu.CubeRenderTarget,PhysicalLightingModel:gpu.PhysicalLightingModel,NodeMaterial:gpu.NodeMaterial,QuadMesh:gpu.QuadMesh,SkyMesh,tsl}) as unknown as WebGPUKit).catch(()=>undefined):undefined;
+   const webgpu=drawnWithWebGPU(quality)&&new URLSearchParams(window.location.search).get('renderer')==='webgpu'?await Promise.all([import('three/webgpu'),import('three/tsl'),import('three/addons/objects/SkyMesh.js'),import('three/addons/tsl/display/GTAONode.js'),import('three/addons/tsl/display/BloomNode.js')]).then(([gpu,tsl,{SkyMesh},{ao},{bloom}])=>({ao,bloom,WebGPURenderer:gpu.WebGPURenderer,PMREMGenerator:gpu.PMREMGenerator,CubeRenderTarget:gpu.CubeRenderTarget,PhysicalLightingModel:gpu.PhysicalLightingModel,NodeMaterial:gpu.NodeMaterial,QuadMesh:gpu.QuadMesh,SkyMesh,tsl}) as unknown as WebGPUKit).catch(()=>undefined):undefined;
    if(cancelled||!host.current)return;
    try{
     api.current=createHouseViewer(host.current,{
