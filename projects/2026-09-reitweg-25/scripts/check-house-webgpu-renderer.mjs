@@ -120,6 +120,11 @@ const poolCode=fs.readFileSync('lib/house-model/pool-reflection.ts','utf8');
 assert(/image=texture\(target\.texture,vec2\(uv\.x,uv\.y\.oneMinus\(\)\)\)\.rgb;\s*slots\.indirect\.push\(context=>context\.radiance\.assign\(mix\(context\.radiance,image,ready\)\)\);/.test(poolCode)&&/mirror\.coordinateSystem=camera\.coordinateSystem;\s*clip\.multiplyScalar\(\(deep\?1:2\)\/clip\.dot\(q\)\);e\[2\]=clip\.x;e\[6\]=clip\.y;e\[10\]=deep\?clip\.z:clip\.z\+1;/.test(poolCode));
 // The net of light on the pool's floor, as nodes.
 assert(/key:'pool-caustics',[\s\S]*?\},variant:'',nodes:slots=>\{[\s\S]*?fn causticNet\(p:vec2<f32>,t:f32\)->f32/.test(surfaces));
+// Room reflections and the softened sun shadow, as nodes: the rooms' maps as layers read by octahedral direction, and
+// the shadow's own filter in place of the change to three's shader text.
+const roomCode=fs.readFileSync('lib/house-model/room-probes.ts','utf8'),softCode=fs.readFileSync('lib/house-model/soft-shadows.ts','utf8');
+assert(/new T\.RenderTarget\(size,size,\{type:T\.HalfFloatType,depthBuffer:false,depth:count\}\)/.test(roomCode)&&/maps3\.depth\(float\(i\)\)\.sample\(oct\(\{d:seen\}\)\)\.level\(/.test(roomCode));
+assert(/export function softShadowFilter\(tsl:any\)/.test(softCode)&&/builder\.material\.userData\?\.plainShadow/.test(softCode)&&/if\(gpu&&options\.soft\)\(sun\.shadow as unknown as \{filterNode:unknown\}\)\.filterNode=softShadowFilter\(gpu\.tsl\);/.test(lighting)&&/if\(softened&&!options\.webgpu\)installSoftShadows\(\);/.test(viewer));
 // Close leaves keep their veins, toothed outline and sheen: where on the blade comes from the vertex's number.
 assert(/key:'leaf-detail',[\s\S]*?\},nodes:\(slots:NodeSlots\)=>\{[\s\S]*?\.element\(vertexIndex\.toFloat\(\)\.mod\(12\)\.toInt\(\)\)\)[\s\S]*?slots\.opacity=[\s\S]*?slots\.normal=normalize\(mix\(round,/.test(foliage));
 // A photograph there is traced by the WebGPU tracer on the same renderer, lit by the sky read back from it, on a device

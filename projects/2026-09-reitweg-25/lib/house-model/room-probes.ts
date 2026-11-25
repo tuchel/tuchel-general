@@ -63,13 +63,24 @@ export function roomBoxes(rooms:ReturnType<typeof probeRooms>,solids:T.Mesh[]){
  * reflection up where its ray leaves the room's box, blurred with roughness, in place of the sky's, while the camera
  * is inside a baked room (`setCamera`); views from outside keep the sky's. `beforeFace`: readies the scene for a face's
  * camera (trees in its view). */
-export function createRoomProbes(renderer:T.WebGLRenderer,scene:T.Scene,receivers:T.Object3D[],solids:()=>T.Mesh[],beforeFace?:(camera:T.Camera)=>void){
+/** What the WebGPU renderer bakes the probes with. */
+export type ProbesGPU={tsl:any;NodeMaterial:new()=>T.Material;QuadMesh:new(material:T.Material)=>{render(renderer:unknown):void};CubeRenderTarget:new(size:number,options:object)=>T.WebGLCubeRenderTarget}; // eslint-disable-line @typescript-eslint/no-explicit-any
+const WGSL_OCT=`
+fn roomOct(d:vec3<f32>)->vec2<f32>{let n=d/(abs(d.x)+abs(d.y)+abs(d.z));let s=vec2<f32>(select(-1.0,1.0,n.x>=0.0),select(-1.0,1.0,n.z>=0.0));
+ let f=select((1.0-abs(n.zx))*s,n.xz,n.y>=0.0);return f*0.5+0.5;}
+fn roomDir(uv:vec2<f32>)->vec3<f32>{let f=uv*2.0-1.0;var n=vec3<f32>(f.x,1.0-abs(f.x)-abs(f.y),f.y);let t=max(-n.y,0.0);
+ n.x+=select(t,-t,n.x>=0.0);n.z+=select(t,-t,n.z>=0.0);return normalize(n);}`;
+export function createRoomProbes(renderer:T.WebGLRenderer,scene:T.Scene,receivers:T.Object3D[],solids:()=>T.Mesh[],beforeFace?:(camera:T.Camera)=>void,gpu?:ProbesGPU){
  const rooms=probeRooms(),count=rooms.length,size=ROOM_PROBES.size,lods=Math.log2(size);
- const maps=new T.WebGLArrayRenderTarget(size,size,count,{type:T.HalfFloatType,depthBuffer:false});
+ const maps=(gpu?new T.RenderTarget(size,size,{type:T.HalfFloatType,depthBuffer:false,depth:count}):new T.WebGLArrayRenderTarget(size,size,count,{type:T.HalfFloatType,depthBuffer:false})) as T.WebGLArrayRenderTarget;
  Object.assign(maps.texture,{generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter,magFilter:T.LinearFilter});
- const cube=new T.WebGLCubeRenderTarget(size,{type:T.HalfFloatType});cube.texture.generateMipmaps=false;
+ const cube=gpu?new gpu.CubeRenderTarget(size,{type:T.HalfFloatType}):new T.WebGLCubeRenderTarget(size,{type:T.HalfFloatType});cube.texture.generateMipmaps=false;
  const eye=new T.CubeCamera(.05,400,cube);
- const convert=new FullScreenQuad(new T.ShaderMaterial({uniforms:{cube:{value:cube.texture}},
+ // The same conversion as a node material for the WebGPU renderer.
+ const convertGPU=()=>{const {wgsl,wgslFn,uv,vec4,cubeTexture}=gpu!.tsl,m=new gpu!.NodeMaterial();
+  Object.assign(m,{fragmentNode:vec4(cubeTexture(cube.texture,wgslFn('fn roomDirAt(uv:vec2<f32>)->vec3<f32>{return roomDir(uv);}',[wgsl(WGSL_OCT)])({uv:uv()})).rgb,1),depthTest:false,depthWrite:false});
+  return new gpu!.QuadMesh(m);};
+ const convert:{render(renderer:unknown):void;dispose?():void;material?:T.Material}=gpu?convertGPU():new FullScreenQuad(new T.ShaderMaterial({uniforms:{cube:{value:cube.texture}},
   vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}',
   fragmentShader:`uniform samplerCube cube;varying vec2 vUv;${GLSL_OCT}\nvoid main(){gl_FragColor=vec4(textureCube(cube,roomDir(vUv)).rgb,1.0);}`,depthTest:false,depthWrite:false}));
  const uniforms={uRoomMaps:{value:maps.texture},uRoomMin:{value:rooms.map(()=>new T.Vector3())},uRoomMax:{value:rooms.map(()=>new T.Vector3())},
@@ -103,6 +114,24 @@ export function createRoomProbes(renderer:T.WebGLRenderer,scene:T.Scene,receiver
      }
     }
     #endif`);
+  },variant:'',nodes:slots=>{
+   // The same as nodes: the room the point stands in decides which layer the reflection is read from.
+   const {wgsl,wgslFn,uniform,uniformArray,vec3,float,texture,normalize,reflect,select,sqrt,positionWorld,cameraPosition,materialEnvIntensity,materialRoughness}=slots.tsl;
+   const oct=wgslFn('fn roomOctAt(d:vec3<f32>)->vec2<f32>{return roomOct(d);}',[wgsl(WGSL_OCT)]);
+   const low=uniformArray(uniforms.uRoomMin.value),high=uniformArray(uniforms.uRoomMax.value),middle=uniformArray(uniforms.uRoomCentre.value);
+   const ready=uniformArray(uniforms.uRoomReady.value,'float'),active=uniform(0).onRenderUpdate(()=>uniforms.uRoomActive.value);
+   const maps3=texture(maps.texture);
+   slots.indirect.push((context:any)=>{ // eslint-disable-line @typescript-eslint/no-explicit-any
+    const p=positionWorld,r=normalize(reflect(normalize(p.sub(cameraPosition)),slots.normal??vec3(0,1,0))).add(1e-5);
+    let radiance=context.radiance;
+    for(let i=0;i<count;i++){
+     const lo=low.element(i),hi=high.element(i),far=hi.sub(p).div(r).max(lo.sub(p).div(r));
+     const seen=normalize(p.add(r.mul(far.x.min(far.y).min(far.z))).sub(middle.element(i)));
+     const inside=ready.element(i).greaterThan(.5).and(p.greaterThanEqual(lo.sub(.05)).all()).and(p.lessThanEqual(hi.add(.05)).all());
+     radiance=select(active.greaterThan(.5).and(inside),maps3.depth(float(i)).sample(oct({d:seen})).level(sqrt(slots.roughness??materialRoughness).mul(lods)).rgb.mul(materialEnvIntensity),radiance);
+    }
+    context.radiance.assign(radiance);
+   });
   }});
  }});
  for(const root of receivers)receive(root);
@@ -144,7 +173,7 @@ export function createRoomProbes(renderer:T.WebGLRenderer,scene:T.Scene,receiver
   get active(){return uniforms.uRoomActive.value>.5;},
   /** Rooms still to bake. */
   get baking(){return dirty||done.size<count;},
-  dispose:()=>{maps.dispose();cube.dispose();convert.dispose();(convert.material as T.Material).dispose();},
+  dispose:()=>{maps.dispose();cube.dispose();convert.dispose?.();(convert.material as T.Material|undefined)?.dispose();},
  };
 }
 export type RoomProbes=ReturnType<typeof createRoomProbes>;

@@ -3,7 +3,7 @@ import {Sky} from 'three/addons/objects/Sky.js';
 import {FullScreenQuad} from 'three/addons/postprocessing/Pass.js';
 import {sunStudyReading,sunDirection,type SunStudy} from './sun-position';
 import {CLOUDS,type Clouds} from './clouds';
-import {SHADOW_RANGE,packShadow} from './soft-shadows';
+import {SHADOW_RANGE,packShadow,softShadowFilter} from './soft-shadows';
 
 /** One sky drives everything: the visible sky, image-based light and reflections,
  * sun colour and strength, haze and exposure. Sky scattering follows three's
@@ -165,6 +165,8 @@ export function createLighting(renderer:T.WebGLRenderer,scene:T.Scene,root:T.Obj
  const cubeTarget=gpu?new gpu.CubeRenderTarget(128,{type:T.HalfFloatType}):new T.WebGLCubeRenderTarget(128,{type:T.HalfFloatType}),cubeCamera=new T.CubeCamera(.1,40000,cubeTarget);
  const pmrem=gpu?new gpu.PMREMGenerator(renderer as never):new T.PMREMGenerator(renderer);let envTarget:T.WebGLRenderTarget|null=null,envDirty=true,envAt=0;
  const sun=new T.DirectionalLight('#fff4de',3);sun.name='sun';sun.castShadow=true;
+ // The softened lookup, which the WebGPU renderer takes as the shadow's own filter rather than as a change to three's shaders.
+ if(gpu&&options.soft)(sun.shadow as unknown as {filterNode:unknown}).filterNode=softShadowFilter(gpu.tsl);
  sun.shadow.mapSize.set(options.shadowSize,options.shadowSize);sun.shadow.radius=2.2;sun.shadow.blurSamples=12;
  scene.add(sun,sun.target);
  scene.fog=new T.Fog('#dce4e2',140,460);

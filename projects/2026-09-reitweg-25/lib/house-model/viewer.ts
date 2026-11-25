@@ -106,7 +106,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // A traced view's light stays while the camera moves (carry.ts, LIGHT_CARRY): asked for until judged on a real graphics card.
  const carrying=tier.lightCarry&&new URLSearchParams(location.search).get('carry')!=='off';
  const softened=tier.softShadows&&new URLSearchParams(location.search).get('soft')!=='off';
- if(softened)installSoftShadows();
+ if(softened&&!options.webgpu)installSoftShadows();
  // The WebGPU renderer keeps a shadow's redraw on the light: the viewer's own switch is passed on to the sun's.
  let sunShadow:T.DirectionalLightShadow|undefined;
  // three's shadow pass multiplies a cutout's texture alpha by its colour node's alpha; ours already holds the texture's
@@ -199,7 +199,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const bounce=realistic&&tier.sunBounce?bakeSunBounce(batches.meshes.filter(b=>(b.parent===model.root||model.toggled.includes(b.parent!))&&[b.material].flat().every(m=>!m.transparent&&!m.alphaTest&&m.userData.photo!=='lawn')),[model.root,stage],sun,tier.sunBounce,tier.bounces):undefined;
  // Extreme: each main room reflects itself (room-probes.ts), baked in the whole-house view, trees drawn for each face.
  const probes=realistic&&tier.roomProbes?createRoomProbes(renderer,scene,[model.root],()=>batches.meshes.filter(b=>{for(let a:T.Object3D|null=b;a;a=a.parent)if(!a.visible)return false;return true;}),
-  lens=>drawTrees(scene,[lens],2/ROOM_PROBES.size,lens)):undefined;
+  lens=>drawTrees(scene,[lens],2/ROOM_PROBES.size,lens),gpu?.tsl&&gpu.NodeMaterial&&gpu.QuadMesh&&gpu.CubeRenderTarget?{tsl:gpu.tsl,NodeMaterial:gpu.NodeMaterial,QuadMesh:gpu.QuadMesh,CubeRenderTarget:gpu.CubeRenderTarget}:undefined):undefined;
  let live:ReturnType<typeof createLiveTrace>|undefined=undefined;
  // The neighbors' buildings (neighbors.ts), built the first time they are shown; with the setting, outside only.
  let neighbors:T.Mesh|undefined,neighborsOn=false;
