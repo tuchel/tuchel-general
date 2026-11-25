@@ -112,6 +112,9 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // three's shadow pass multiplies a cutout's texture alpha by its colour node's alpha; ours already holds the texture's
  // (shader-features.ts), so leaf cards would be cut by the alpha squared and cast next to nothing.
  if(gpu){const r=renderer as unknown as {_getShadowNodes:(m:T.Material&{map?:T.Texture|null;colorNode?:unknown})=>unknown},nodes=r._getShadowNodes.bind(r);r._getShadowNodes=m=>{const map=m.map;if(!m.colorNode||!map)return nodes(m);m.map=null;try{return nodes(m);}finally{m.map=map;}};}
+ // three gives each instanced mesh of a few hundred its matrices in a buffer named after it, so no two share a shader;
+ // as vertex attributes, as it does for larger ones, they share one (230 pipelines at Balanced otherwise).
+ if(gpu)(renderer as unknown as {backend:{capabilities:{getUniformBufferLimit:()=>number}}}).backend.capabilities.getUniformBufferLimit=()=>0;
  if(gpu)Object.defineProperty(renderer.shadowMap,'needsUpdate',{set:(on:boolean)=>{if(on&&sunShadow)sunShadow.needsUpdate=true;},get:()=>!!sunShadow?.needsUpdate});
  renderer.shadowMap.enabled=true;renderer.shadowMap.type=softened?T.BasicShadowMap:T.PCFShadowMap;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
  renderer.toneMapping=realistic?T.AgXToneMapping:T.ACESFilmicToneMapping;renderer.toneMappingExposure=.9;
