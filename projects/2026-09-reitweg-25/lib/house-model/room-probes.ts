@@ -116,21 +116,23 @@ export function createRoomProbes(renderer:T.WebGLRenderer,scene:T.Scene,receiver
     #endif`);
   },variant:'',nodes:slots=>{
    // The same as nodes: the room the point stands in decides which layer the reflection is read from.
-   const {wgsl,wgslFn,uniform,uniformArray,vec3,float,texture,normalize,reflect,select,sqrt,positionWorld,cameraPosition,materialEnvIntensity,materialRoughness}=slots.tsl;
+   const {If,wgsl,wgslFn,uniform,uniformArray,renderGroup,vec3,float,texture,normalize,reflect,sqrt,positionWorld,cameraPosition,materialEnvIntensity,materialRoughness}=slots.tsl;
    const oct=wgslFn('fn roomOctAt(d:vec3<f32>)->vec2<f32>{return roomOct(d);}',[wgsl(WGSL_OCT)]);
-   const low=uniformArray(uniforms.uRoomMin.value),high=uniformArray(uniforms.uRoomMax.value),middle=uniformArray(uniforms.uRoomCentre.value);
-   const ready=uniformArray(uniforms.uRoomReady.value,'float'),active=uniform(0).onRenderUpdate(()=>uniforms.uRoomActive.value);
+   const low=uniformArray(uniforms.uRoomMin.value).setGroup(renderGroup),high=uniformArray(uniforms.uRoomMax.value).setGroup(renderGroup),middle=uniformArray(uniforms.uRoomCentre.value).setGroup(renderGroup);
+   const ready=uniformArray(uniforms.uRoomReady.value,'float').setGroup(renderGroup),active=uniform(0).onRenderUpdate(()=>uniforms.uRoomActive.value);
    const maps3=texture(maps.texture);
    slots.indirect.push((context:any)=>{ // eslint-disable-line @typescript-eslint/no-explicit-any
-    const p=positionWorld,r=normalize(reflect(normalize(p.sub(cameraPosition)),slots.normal??vec3(0,1,0))).add(1e-5);
-    let radiance=context.radiance;
-    for(let i=0;i<count;i++){
-     const lo=low.element(i),hi=high.element(i),far=hi.sub(p).div(r).max(lo.sub(p).div(r));
-     const seen=normalize(p.add(r.mul(far.x.min(far.y).min(far.z))).sub(middle.element(i)));
-     const inside=ready.element(i).greaterThan(.5).and(p.greaterThanEqual(lo.sub(.05)).all()).and(p.lessThanEqual(hi.add(.05)).all());
-     radiance=select(active.greaterThan(.5).and(inside),maps3.depth(float(i)).sample(oct({d:seen})).level(sqrt(slots.roughness??materialRoughness).mul(lods)).rgb.mul(materialEnvIntensity),radiance);
-    }
-    context.radiance.assign(radiance);
+    // Only inside a baked room, and only that room's layer, is anything read: branches, as in the GLSL's loop.
+    If(active.greaterThan(.5),()=>{
+     const p=positionWorld,r=normalize(reflect(normalize(p.sub(cameraPosition)),slots.normal??vec3(0,1,0))).add(1e-5).toVar(),level=sqrt(slots.roughness??materialRoughness).mul(lods).toVar();
+     for(let i=0;i<count;i++){
+      const lo=low.element(i),hi=high.element(i);
+      If(ready.element(i).greaterThan(.5).and(p.greaterThanEqual(lo.sub(.05)).all()).and(p.lessThanEqual(hi.add(.05)).all()),()=>{
+       const far=hi.sub(p).div(r).max(lo.sub(p).div(r)),seen=normalize(p.add(r.mul(far.x.min(far.y).min(far.z))).sub(middle.element(i)));
+       context.radiance.assign(maps3.depth(float(i)).sample(oct({d:seen})).level(level).rgb.mul(materialEnvIntensity));
+      });
+     }
+    });
    });
   }});
  }});
