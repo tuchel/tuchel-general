@@ -113,7 +113,7 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
  const patched=new Set<T.Material>();
  const receive=(root:T.Object3D)=>root.traverse(o=>{for(const m of materialsOf(o)){
   if(patched.has(m)||!(m instanceof T.MeshStandardMaterial)||m.transparent)continue;patched.add(m);
-  addShaderFeature(m,{key:'sky-visibility',compile:shader=>{
+  addShaderFeature(m,{key:'sky-visibility',variant:'',compile:shader=>{
    Object.assign(shader.uniforms,uniforms);
    shader.vertexShader='varying vec3 vSkyWorld;\n'+after(shader.vertexShader,'project_vertex',`
     vec4 skyWorld=vec4(transformed,1.0);

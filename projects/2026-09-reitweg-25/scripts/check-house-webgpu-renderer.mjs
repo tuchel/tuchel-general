@@ -16,7 +16,7 @@ assert(/if\(gpu\)Object\.defineProperty\(renderer\.shadowMap,'needsUpdate',\{set
 assert(/const makeSky=\(\)=>\(gpu\?new gpu\.SkyMesh\(\):new Sky\(\)\) as Sky/.test(lighting)&&/gpu\?new gpu\.PMREMGenerator\(renderer as never\):new T\.PMREMGenerator\(renderer\)/.test(lighting));
 // A shader feature may carry the same effect as nodes; a material's features are composed in order into its colour,
 // roughness, normal and cavity, and no two materials share a program, since nodes hold a material's own textures.
-assert(/nodes\?:\(slots:NodeSlots\)=>void/.test(features)&&/if\(tsl\)composeNodes\(material,list\);/.test(features)&&/\+\(tsl\?'\|'\+material\.uuid:''\)/.test(features));
+assert(/nodes\?:\(slots:NodeSlots\)=>void/.test(features)&&/if\(tsl\)composeNodes\(material,list\);/.test(features));
 assert(/drawWithNodes\(gpu\?\.tsl&&\{\.\.\.gpu\.tsl,PhysicalLightingModel:gpu\.PhysicalLightingModel\}\);/.test(viewer));
 assert(/\},nodes:slots=>\{[\s\S]*?slots\.colour=\(slots\.colour\?\?materialColor\)\.mul\(albedo\);slots\.roughness=clamp\(texel\.a,\.05,1\);[\s\S]*?slots\.cavity=relief\.b;/.test(surfaces),'scanned and painted surfaces are drawn as nodes');
 // Light is changed in a lighting model of the material's own: three's, with what the features add for each light and
@@ -95,4 +95,6 @@ assert(/maskNode:slots\.mask\?\?null/.test(features)&&/slots\.position=\(slots\.
 assert(/if\(kind==='glass'\)\{[^}]*const lie=s\.cover\(p\)\.own\.mul\(/.test(snowCode)&&!/Not yet there: the dusting on a glass roof/.test(snowCode));
 // Instanced meshes share their shaders: their matrices are vertex attributes, not a buffer named after each mesh.
 assert(/if\(gpu\)\(renderer as unknown as \{backend:\{capabilities:\{getUniformBufferLimit:\(\)=>number\}\}\}\)\.backend\.capabilities\.getUniformBufferLimit=\(\)=>0;/.test(viewer));
+// Materials whose features hold nothing of their own share what three builds from their nodes.
+assert(/\(list\.every\(f=>f\.variant!==undefined\)\?list\.map\(f=>f\.variant\)\.join\('\|'\):material\.uuid\)/.test(features)&&/key:'sky-visibility',variant:''/.test(skyCode)&&/key:'sun-bounce',variant:''/.test(bounce)&&/key:'snow-'\+kind,last:true,variant:\[\.\.\.how\.toArray\(\),\.\.\.most\.value\.toArray\(\)\]\.join\(\)/.test(snowCode));
 console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, lying snow with its packed layer on the roofs, falling snow and rain, averaged still frames and colour finish there.');
