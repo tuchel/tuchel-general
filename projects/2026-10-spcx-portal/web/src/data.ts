@@ -40,6 +40,8 @@ export const SRC = {
   wedbushInit: { label: 'Young and the Invested, Wedbush initiates SpaceX at Outperform with a 12-month $190 target, Jul 1, 2026', url: 'https://youngandtheinvested.com/wedbush-spacex-spcx-stock-outperform/' },
   evercoreInit: { label: 'Tech Times, Evercore ISI initiates SpaceX at Outperform, $230, Jul 14, 2026', url: 'https://www.techtimes.com/articles/320503/20260714/spacex-stock-hits-record-low-before-starship-flight-13-evercore-turns-bullish.htm' },
   evercoreOct: { label: 'Stocktwits, Evercore raises SpaceX target to $275 from $230, Oct 16, 2026', url: 'https://stocktwits.com/news-articles/markets/equity/spacex-catalysts-2027-evercore-upside-potential/cZxKduaRBsN' },
+  pivotalInit: { label: '24/7 Wall St., Pivotal Research launches SpaceX coverage at Buy, $220, Sep 8, 2026', url: 'https://247wallst.com/investing/2026/09/08/spacex-rises-4-as-pivotal-research-launches-coverage-at-220-intuitive-machines-climbs-5-rocket-lab-gains-3/' },
+  susqInit: { label: 'CoinGape, Susquehanna initiates SpaceX at Neutral, $170, Jun 23, 2026', url: 'https://coingape.com/news/stocks/spacex-stock-gets-neutral-rating-with-170-target-as-shares-fall-below-debut-price/' },
   cfraNov: { label: 'Motley Fool via Mitrade, CFRA keeps Sell and $115 target, Nov 17, 2026', url: 'https://www.mitrade.com/insights/news/live-news/article-8-2258831-20261117' },
   oppInit: { label: 'Reuters via The Star, Oppenheimer launches first SpaceX coverage at Outperform, $190, Jun 11, 2026', url: 'https://www.thestar.com.my/tech/tech-news/2026/06/11/oppenheimer-launches-wall-street039s-first-coverage-of-spacex-with-bullish-outlook' },
   oppJun: { label: 'Investing.com, Oppenheimer raises SpaceX target to $250 from $190, Jun 18, 2026', url: 'https://ng.investing.com/news/stock-market-news/spacex-stock-target-raised-at-oppenheimer-heres-the-new-12month-forecast-2565697' },
@@ -245,6 +247,7 @@ const CLOSES = `
 2026-11-19 138.43
 2026-11-20 127.79
 2026-11-23 133.35
+2026-11-24 125.81
 `;
 
 /** `intraday` marks a price taken during the session, before the close. */
@@ -293,9 +296,9 @@ export const FIRMS: Firm[] = [
   { firm: 'TD Cowen', rating: 'Buy', points: [pt('2026-10-20', 200, SRC.q3Moves), pt('2026-10-21', 224, SRC.q3Moves)] },
   { firm: 'Mizuho', rating: 'Outperform', points: [pt('2026-07-07', 200, SRC.coverage), pt('2026-10-21', 205, SRC.gsQ3)] },
   { firm: 'Stifel', rating: 'Buy', points: [pt('2026-10-20', 190, SRC.gsQ3), pt('2026-10-21', 190, SRC.gsQ3)] },
-  { firm: 'Pivotal Research', rating: 'Buy', points: [pt('2026-10-20', 230, SRC.mbRatings), pt('2026-10-21', 260, SRC.mbRatings)] },
+  { firm: 'Pivotal Research', rating: 'Buy', points: [pt('2026-09-08', 220, SRC.pivotalInit), pt('2026-10-20', 230, SRC.mbRatings), pt('2026-10-21', 260, SRC.mbRatings)] },
   { firm: 'Needham', rating: 'Buy', points: [pt('2026-10-21', 250, SRC.mbRatings)] },
-  { firm: 'Susquehanna', rating: 'Neutral', points: [pt('2026-10-20', 173, SRC.mbRatings), pt('2026-10-21', 176, SRC.mbRatings)] },
+  { firm: 'Susquehanna', rating: 'Neutral', points: [pt('2026-06-23', 170, SRC.susqInit), pt('2026-10-20', 173, SRC.mbRatings), pt('2026-10-21', 176, SRC.mbRatings)] },
   { firm: 'Oppenheimer', rating: 'Outperform', points: [pt('2026-06-11', 190, SRC.oppInit), pt('2026-06-18', 250, SRC.oppJun), pt('2026-09-02', 280, SRC.mbRatings)] },
   { firm: 'Raymond James', rating: 'Strong Buy', points: [pt('2026-07-07', 800, SRC.rjInit), pt('2026-10-14', 800, SRC.rjOct)] },
   { firm: 'Evercore ISI', rating: 'Outperform', points: [pt('2026-07-14', 230, SRC.evercoreInit), pt('2026-10-16', 275, SRC.evercoreOct)] },
