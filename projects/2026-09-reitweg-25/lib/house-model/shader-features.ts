@@ -13,8 +13,6 @@ export type ShaderFeature={key:string;last?:boolean;compile:(shader:T.WebGLProgr
 export type NodeSlots={tsl:any;colour?:any;position?:any;roughness?:any;metalness?:any;normal?:any;cavity?:any;opacity?:any;
  /** The sky light's grid and what stands over each point of it, for a feature that reads them (snow.ts). */
  sky?:{low:any;grid:any;cell:any;linked:any;reach:any};
- /** Where the surface is drawn at all, in the sun's shadow of it as well (snow-slab.ts). */
- mask?:any;
  /** How much of the surface lying snow hides, 0–1 (snow.ts). */
  covered?:any;
  /** The colour once three has multiplied the vertices' and instances' tints into it, which it does after `colour`. */
@@ -48,7 +46,7 @@ function composeNodes(material:T.Material,list:ShaderFeature[]){
  else delete (material as any).setupVariants;
  // three refreshes an object's values each frame only when its material holds a node: one whose light alone is changed
  // gets its plain colour as a node, or the hooks would never see their values change.
- Object.assign(material as any,{colorNode:slots.colour??(lit?tsl.materialColor:null),positionNode:slots.position??null,outputNode:slots.output?slots.output(tsl.output):null,roughnessNode:slots.roughness??null,metalnessNode:slots.metalness??null,normalNode:slots.normal?tsl.transformNormalToView(slots.normal):null,aoNode:slots.cavity??null,opacityNode:slots.opacity??null,maskNode:slots.mask??null});
+ Object.assign(material as any,{colorNode:slots.colour??(lit?tsl.materialColor:null),positionNode:slots.position??null,outputNode:slots.output?slots.output(tsl.output):null,roughnessNode:slots.roughness??null,metalnessNode:slots.metalness??null,normalNode:slots.normal?tsl.transformNormalToView(slots.normal):null,aoNode:slots.cavity??null,opacityNode:slots.opacity??null});
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 export function addShaderFeature(material:T.Material,feature:ShaderFeature){
