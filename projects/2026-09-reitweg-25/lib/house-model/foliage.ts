@@ -59,6 +59,21 @@ else if(uShed>0.0){vec2 g=vMapUv*${SHED.patches.toFixed(1)},i=floor(g),f=g-i;f=f
  float n=mix(mix(leafHash(i),leafHash(i+vec2(1.0,0.0)),f.x),mix(leafHash(i+vec2(0.0,1.0)),leafHash(i+vec2(1.0,1.0)),f.x),f.y);
  diffuseColor.a*=smoothstep(-.06,.06,n-uShed*${SHED.bare.toFixed(2)});}
 #endif`);
+ },nodes:(slots:NodeSlots)=>{
+  // The same as nodes, in the colour's alpha.
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const {uv,uniform,vec2,vec3,vec4,float,floor,fract,dot,mix,min,max,length,clamp,smoothstep,step,select,fwidth,materialColor}=slots.tsl;
+  const gone=uniform(0).onRenderUpdate(()=>shed.value),bare=uniform(0).onRenderUpdate(()=>twig.value).greaterThan(.5),base=vec4(slots.colour??materialColor);
+  const hash=(c:any)=>{const p=fract(vec3(c.x,c.y,c.x).mul(.1031)),q=p.add(dot(p,p.yzx.add(33.33)));return fract(q.x.add(q.y).mul(q.z));};
+  const tq=uv().mul(4),tc=floor(tq),th=hash(tc.add(7)),q0=tq.sub(tc),q=vec2(select(th.greaterThan(.5),q0.x.oneMinus(),q0.x),q0.y),dq=fwidth(uv()).mul(4);
+  const seg=(a:number[],b:number[])=>{const pa=q.sub(vec2(...a)),ba=vec2(b[0]-a[0],b[1]-a[1]);return length(pa.sub(ba.mul(clamp(dot(pa,ba).div(dot(ba,ba)),0,1))));};
+  const shoots=[[.5,.02,.47,.42],[.47,.42,.36,.8],[.36,.8,.3,.98],[.47,.42,.66,.78],[.66,.78,.74,.97],[.66,.78,.56,.95],[.36,.8,.44,.96],[.49,.22,.22,.5],[.22,.5,.06,.72],[.22,.5,.2,.82],[.48,.3,.8,.52],[.8,.52,.96,.66],[.8,.52,.84,.84],[.12,.62,.02,.9],[.88,.58,.98,.9]];
+  const d=shoots.reduce((near:any,[ax,ay,bx,by])=>min(near,seg([ax,ay],[bx,by])),float(1)),px=max(dq.x,dq.y),w=max(mix(.02,.008,q.y),px.mul(.5));
+  const twigs=vec4(...TWIGS.map(Number),smoothstep(w,w.add(px),d).oneMinus().mul(step(smoothstep(.02,.07,px).mul(.78).add(.22),fract(th.mul(7.31)).add(.001))));
+  const g=uv().mul(SHED.patches),i=floor(g),f0=g.sub(i),f=f0.mul(f0).mul(f0.mul(-2).add(3));
+  const n=mix(mix(hash(i),hash(i.add(vec2(1,0))),f.x),mix(hash(i.add(vec2(0,1))),hash(i.add(vec2(1,1))),f.x),f.y);
+  slots.colour=select(bare,twigs,vec4(base.rgb,base.a.mul(select(gone.greaterThan(0),smoothstep(-.06,.06,n.sub(gone.mul(SHED.bare))),float(1)))));
+  /* eslint-enable @typescript-eslint/no-explicit-any */
  }};
  const fallLeaves=cards();addShaderFeature(fallLeaves,translucency);addShaderFeature(fallLeaves,leafFall);
  const fallDepth=shadow();addShaderFeature(fallDepth,leafFall);

@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {addShaderFeature,after,materialsOf} from './shader-features';
+import {addShaderFeature,after,materialsOf,type NodeSlots} from './shader-features';
 import {springMorning} from './garden-sound';
 
 /** Optional motion and sound. Leaves and grass sway in the vertex shader; the same
@@ -26,6 +26,14 @@ export function atmosphere(root:T.Object3D){
    float breezeAmount=uBreezeStrength*breezeGust*breezeAnchor;
    transformed.x+=breezeAmount*breezeSway;
    transformed.z+=breezeAmount*.6*sin(uBreezeTime*.69+breezePhase);`);
+ },nodes:(slots:NodeSlots)=>{
+  // The same as nodes. An instance's place in the row stands in for where it stands, to set each plant's own beat.
+  const {uniform,vec3,float,sin,smoothstep,pow,clamp,positionLocal,positionGeometry,modelWorldMatrix,instanceIndex}=slots.tsl;
+  const time=uniform(0).onRenderUpdate(()=>clock.value),blow=uniform(0).onRenderUpdate(()=>strength.value),p=positionGeometry;
+  const phase=modelWorldMatrix.element(3).x.mul(.31).add(modelWorldMatrix.element(3).z.mul(.23)).add(float(instanceIndex).mul(1.7)).add(p.x.mul(.6)).add(p.z.mul(.45));
+  const gust=sin(time.mul(.37).add(phase.mul(.22))).mul(.3).add(.7),swing=sin(time.mul(.85).add(phase)).mul(.7).add(sin(time.mul(1.63).add(phase.mul(.61))).mul(.3));
+  const anchor=sway==='leaf'?smoothstep(1.5,9,p.y).mul(.09):pow(clamp(p.y,0,1),1.4).mul(.12),amount=blow.mul(gust).mul(anchor);
+  slots.position=(slots.position??positionLocal).add(vec3(amount.mul(swing),0,amount.mul(.6).mul(sin(time.mul(.69).add(phase)))));
  }});
  root.traverse(o=>{
   const sway=(o.userData.sway||legacy[o.name]) as 'leaf'|'grass'|undefined;
