@@ -75,7 +75,7 @@ export type ViewerOptions={
 };
 /** What the viewer needs from `three/webgpu`. */
 export type WebGPUKit=Partial<LightingGPU>&{
- PhysicalLightingModel?:unknown;NodeMaterial?:new()=>T.Material;QuadMesh?:PostGPU['QuadMesh'];ao?:PostGPU['ao'];
+ PhysicalLightingModel?:unknown;NodeMaterial?:new()=>T.Material;QuadMesh?:PostGPU['QuadMesh'];ao?:PostGPU['ao'];bloom?:PostGPU['bloom'];
  WebGPURenderer:new(options:{antialias:boolean;powerPreference:'high-performance'})=>unknown;
  PMREMGenerator:new(renderer:never)=>{fromScene(scene:T.Scene,sigma:number):{texture:T.Texture;dispose():void};dispose():void};
 };
@@ -268,7 +268,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // Rain and snow fall as nodes there too (falling.ts).
  let shows:ReturnType<typeof createPostGPU>|undefined;
  const falls=gpu?.tsl&&gpu.NodeMaterial?{tsl:gpu.tsl,NodeMaterial:gpu.NodeMaterial,over:(o:T.Object3D,c:T.Camera)=>shows?.over(o,c)}:undefined;
- const makePost=(...a:Parameters<typeof createPost>)=>gpu?.tsl&&gpu.NodeMaterial&&gpu.QuadMesh?shows=createPostGPU(...a,{tsl:gpu.tsl,ao:gpu.ao,NodeMaterial:gpu.NodeMaterial,QuadMesh:gpu.QuadMesh}):createPost(...a);
+ const makePost=(...a:Parameters<typeof createPost>)=>gpu?.tsl&&gpu.NodeMaterial&&gpu.QuadMesh?shows=createPostGPU(...a,{tsl:gpu.tsl,ao:gpu.ao,bloom:gpu.bloom,NodeMaterial:gpu.NodeMaterial,QuadMesh:gpu.QuadMesh}):createPost(...a);
  const post=realistic?makePost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,mist:tier.weathered,wetMirror:tier.wetMirror,glowLamps:tier.lampGlow?lampsOutdoors():undefined,temporal:tier.temporal&&new URLSearchParams(location.search).get('taa')!=='off',hdr:()=>screen&&renderer.outputColorSpace===DisplayP3ColorSpace?HDR.peak:0,afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
  if(post){mistFor=r=>{if(scene.fog){
   const outdoors=study.enabled&&level==='exterior',lies=outdoors&&!snowing&&!raining?mistAmount(r.apparentElevation,study.minutes,study.day):0;
