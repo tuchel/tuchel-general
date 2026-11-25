@@ -131,7 +131,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const perf=new URLSearchParams(location.search).get('debug')==='perf'?createPerfReadout(renderer,host,{quality:tier.quality,get motionScale(){return steer?.scale??tier.motionScale;}}):undefined;
  // Extreme: moving frames at the largest scale that holds 60 frames a second, timed by the graphics card where the
  // browser allows (the readout's own timers take it while it shows) and by the time between frames otherwise.
- if(tier.steerMotion){const gl=renderer.getContext() as WebGL2RenderingContext;steer=createMotionResolution({gl,timer:perf?null:gl.getExtension('EXT_disjoint_timer_query_webgl2'),initial:tier.motionScale});}
+ if(tier.steerMotion){const gl=gpu?undefined:renderer.getContext() as WebGL2RenderingContext;steer=createMotionResolution({gl,timer:perf||!gl?null:gl.getExtension('EXT_disjoint_timer_query_webgl2'),initial:tier.motionScale});}
  const timed=<R,>(label:string,work:()=>R):R=>perf?perf.time(label,work):work();
  const baked=(label:string,work:()=>boolean|undefined)=>perf?perf.baked(label,work):work();
  const scene=new T.Scene();scene.background=realistic?null:new T.Color('#edece5');

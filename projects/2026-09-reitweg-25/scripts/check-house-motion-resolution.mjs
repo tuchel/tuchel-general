@@ -69,5 +69,8 @@ const move=(steer,seconds,gl,cost)=>{const drawn=[];let now=steer.clock??0;
  assert(/createMotionResolution\(/.test(viewer)&&/steer\?\.start\(/.test(viewer)&&/steer\?\.finish\(/.test(viewer)&&/steer\?\.rest\(/.test(viewer),'the viewer brackets moving frames');
  assert(/scaleFor=\(moving:boolean\)=>moving\?\(steer\?\.scale\?\?tier\.motionScale\):1/.test(viewer),'moving frames at the steered scale, resting ones at full');
  assert(/get motionScale\(\)/.test(viewer),'the readout shows the scale in use');
+ // Under the WebGPU renderer there is no WebGL context to time with, so the frame intervals steer.
+ assert(/const gl=gpu\?undefined:renderer\.getContext\(\) as WebGL2RenderingContext;steer=createMotionResolution\(\{gl,timer:perf\|\|!gl\?null:/.test(viewer),'WebGPU steers by frame intervals');
+ assert(!/WEBGPU_PENDING=\[[^\]]*'steerMotion'/.test(tiers),'steering is on under WebGPU');
 }
 console.log(`Passed: measured by the graphics card, a heavy view settles at the largest scale that fits ${M.budget.toFixed(1)} ms with ${Math.round((1-M.headroom)*100)}% to spare, a light one climbs to full resolution a step each ${M.period} ms, and the heaviest stays at ${M.steps[0]}; by frame intervals alone, the largest scale that holds 60 frames a second, with failed steps up not retried at once; processor-bound frames and rests change nothing.`);
