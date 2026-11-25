@@ -1,5 +1,6 @@
 import * as T from 'three';
 import {finish} from './look';
+import {TEMPORAL} from './temporal';
 import type {Post,PostOptions} from './post';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -32,6 +33,63 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
  if(shade){shade.radius.value=.7;shade.distanceExponent.value=1.6;shade.thickness.value=1.4;shade.samples.value=12;shade.resolutionScale=.5;shade.useTemporalFiltering=true;}
  const shaded=shade&&quadOf(mix(history,lit(vec4(current.rgb.mul(mix(1,shade.getTextureNode().r,occlusion)),current.a)),weight));
  // The finish, as the WebGL chain's last pass does it (post.ts, FinishedOutput).
+ // The kept image in motion (temporal.ts, Extreme): each pixel's point is looked up where the last frame saw it and the
+ // new frame, drawn smaller and jittered, is blended in. The same steps as the WebGL pass; rows run top down here, and
+ // the point comes from the depth buffer's own value.
+ const kept=options.temporal&&camera instanceof T.PerspectiveCamera?(()=>{
+  const {Fn,uv,vec2,floor,abs,exp,select}=gpu.tsl,eye=camera;
+  const mixed=half(),lastDepth=half(),composed=quadOf(lit(shade?vec4(current.rgb.mul(mix(1,shade.getTextureNode().r,occlusion)),current.a):current));
+  const frame=texture(mixed.texture),depth=texture(depthOf),last=texture(lastDepth.texture),share=uniform(1),carried=uniform(0);
+  const drawn=uniform(new T.Vector2(1,1)),full=uniform(new T.Vector2(1,1)),jitter=uniform(new T.Vector2()),lens=uniform(new T.Vector4(1,1,0,1));
+  const lastViewProj=uniform(new T.Matrix4()),lastView=uniform(new T.Matrix4()),camWorld=uniform(new T.Matrix4());
+  // How far in front of the eye a depth value lies.
+  const far=(d:any)=>lens.w.div(d.add(lens.z));
+  const keptAt=(at:any)=>{
+   const p=at.mul(full),c=floor(p.sub(.5)).add(.5),f=p.sub(c);
+   const w0=f.mul(f.mul(f.mul(-.5).add(1)).sub(.5)),w1=f.mul(f).mul(f.mul(1.5).sub(2.5)).add(1),w2=f.mul(f).mul(f.mul(-1.5).add(2)).add(f.mul(.5)),w3=f.mul(f).mul(f.mul(.5).sub(.5)),w12=w1.add(w2);
+   const t0=c.sub(1).div(full),t3=c.add(2).div(full),t12=c.add(w2.div(w12)).div(full);
+   const tap=(x:any,y:any,wx:any,wy:any)=>history.sample(vec2(x.x,y.y)).rgb.mul(wx.x).mul(wy.y);
+   return max(tap(t0,t0,w0,w0).add(tap(t12,t0,w12,w0)).add(tap(t3,t0,w3,w0)).add(tap(t0,t12,w0,w12)).add(tap(t12,t12,w12,w12)).add(tap(t3,t12,w3,w12)).add(tap(t0,t3,w0,w3)).add(tap(t12,t3,w12,w3)).add(tap(t3,t3,w3,w3)),vec3(0));
+  };
+  const moving=quadOf(Fn(()=>{
+   const at0=uv(),q=at0.sub(jitter).toVar(),p=q.mul(drawn),centre=floor(p).add(.5),off=p.sub(centre),near=centre.div(drawn).toVar();
+   const c=frame.sample(q).rgb.toVar(),distance=far(depth.sample(q).r).toVar();
+   const ndc=vec2(at0.x.mul(2).sub(1),at0.y.mul(-2).add(1)),world=camWorld.mul(vec4(ndc.x.mul(distance).div(lens.x),ndc.y.mul(distance).div(lens.y),distance.negate(),1)).toVar();
+   const clip=lastViewProj.mul(world).toVar(),at=vec2(clip.x.div(clip.w).mul(.5).add(.5),clip.y.div(clip.w).mul(-.5).add(.5)).toVar();
+   const inside=clip.w.greaterThan(0).and(at.x.greaterThanEqual(0)).and(at.y.greaterThanEqual(0)).and(at.x.lessThanEqual(1)).and(at.y.lessThanEqual(1));
+   const expected=lastView.mul(world).z.negate(),seen=inside.and(abs(last.sample(at).r.sub(expected)).lessThan(expected.mul(TEMPORAL.tolerance).add(.05)));
+   // The new frame's colours around the pixel: a kept colour outside them belongs to something else.
+   const mine=frame.sample(near).rgb.toVar(),lo=mine.toVar(),hi=mine.toVar();
+   for(let y=-1;y<=1;y++)for(let x=-1;x<=1;x++)if(x||y){const n=frame.sample(near.add(vec2(x,y).div(drawn))).rgb;lo.assign(min(lo,n));hi.assign(max(hi,n));}
+   const slack=hi.sub(lo).mul(TEMPORAL.slack).add(.002),held=clamp(keptAt(at),lo.sub(slack),hi.add(slack));
+   return vec4(select(seen.and(carried.greaterThan(.5)),mix(held,mine,share.mul(exp(dot(off,off).mul(-TEMPORAL.falloff)))),c),1);
+  })());
+  const copy=quadOf(vec4(far(texture(depthOf).r),0,0,1));
+  const lastWorld=new T.Matrix4(),lastLens=new T.Vector3(),size=new T.Vector2();let valid=false,fresh=true;
+  return {mixed,lastDepth,
+   reset(){fresh=true;},
+   resize(w:number,h:number){mixed.setSize(w,h);lastDepth.setSize(w,h);const f=renderer.getDrawingBufferSize(size);if(settled[0].width!==f.x||settled[0].height!==f.y){for(const t of settled)t.setSize(f.x,f.y);valid=false;return true;}return false;},
+   /** Whether the frame being drawn moved the view (or follows a change of light or scene). */
+   moved:()=>!eye.matrixWorld.equals(lastWorld)||lastLens.x!==eye.fov||lastLens.y!==eye.zoom||lastLens.z!==eye.aspect,
+   /** A view come to rest counts its moving image as `carry` frames. */
+   rested:()=>valid&&!fresh,
+   /** Blends the scene just drawn into the kept image. */
+   blend(next:T.WebGLRenderTarget,moved:boolean){
+    const e=eye.projectionMatrix.elements,is=carried.value=valid&&(moved||!fresh)?1:0;share.value=is?TEMPORAL.blend:1;
+    lens.value.set(e[0],e[5],e[10],e[14]);jitter.value.set(e[8]/2,-e[9]/2);camWorld.value.copy(eye.matrixWorld);
+    drawn.value.set(mixed.width,mixed.height);full.value.set(next.width,next.height);
+    renderer.setRenderTarget(mixed);composed.render(renderer);renderer.setRenderTarget(next);moving.render(renderer);
+   },
+   /** Keeps this frame's depth and view for the next frame's look-up. */
+   remember(){
+    const e=eye.projectionMatrix.elements;lens.value.set(e[0],e[5],e[10],e[14]);
+    renderer.setRenderTarget(lastDepth);copy.render(renderer);
+    lastView.value.copy(eye.matrixWorldInverse);lastViewProj.value.copy(eye.projectionMatrix);const l=lastViewProj.value.elements;l[8]=0;l[9]=0;lastViewProj.value.multiply(eye.matrixWorldInverse);
+    lastWorld.copy(eye.matrixWorld);lastLens.set(eye.fov,eye.zoom,eye.aspect);valid=true;fresh=false;
+   },
+   dispose(){mixed.dispose();lastDepth.dispose();composed.material.dispose();moving.material.dispose();copy.material.dispose();},
+  };
+ })():undefined;
  const shown=texture(settled[0].texture),balance=uniform(new T.Vector3(1,1,1)),look=uniform(new T.Vector3(1,1,0)),exposure=uniform(1);
  const luma=vec3(.2126,.7152,.0722);
  const mapped=agxToneMapping(shown.rgb.mul(balance),exposure);
@@ -54,7 +112,11 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
  const toScreen=()=>{for(const o of stage.children.slice())if(o!==finished)stage.remove(o);draw(camera);};
  const api={
   passes:[],
-  setSize:(width:number,height:number,ratio:number)=>{const w=Math.max(1,Math.floor(width*ratio)),h=Math.max(1,Math.floor(height*ratio));target.setSize(w,h);level?.setSize(w,h);for(const t of settled)t.setSize(w,h);frames=0;},
+  setSize:(width:number,height:number,ratio:number)=>{
+   const w=Math.max(1,Math.floor(width*ratio)),h=Math.max(1,Math.floor(height*ratio));target.setSize(w,h);level?.setSize(w,h);
+   // The kept image stays at full size whatever size the moving frames are drawn at.
+   if(kept){if(kept.resize(w,h))frames=0;}else{for(const t of settled)t.setSize(w,h);frames=0;}
+  },
   compileAsync:(object:T.Object3D)=>{
    const previous=renderer.getRenderTarget();renderer.setRenderTarget(target);
    // three makes ready only what the camera sees, and the rest held the first turn of the view for half a second:
@@ -68,16 +130,21 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    const g=finish(indoor,lamps());balance.value.set(g.balance[0],g.balance[1],g.balance[2]);look.value.set(g.contrast,g.saturation,g.lift);exposure.value=exposed;occlusion.value=g.occlusion;
    // Only highlights two and a half times brighter than white bloom.
    if(glow)glow.threshold.value=2.5/Math.max(exposed,1e-4);
-   if(!refining)frames=0;
+   const moved=kept?.moved()??false,rest=refining&&!moved;
+   if(!rest)frames=0;else if(kept&&frames===0&&kept.rested())frames=TEMPORAL.carry;
    renderer.setRenderTarget(target);renderer.render(scene,camera);
    if(level&&levelled){renderer.setRenderTarget(level);levelled.render(renderer);}
    const [was,next]=settled;current.value=target.texture;history.value=was.texture;weight.value=1/(frames+1);
-   renderer.setRenderTarget(next);(refining&&shaded?shaded:blend).render(renderer);settled=[next,was];frames++;
+   if(kept&&!rest)kept.blend(next,moved);
+   else{renderer.setRenderTarget(next);(refining&&shaded?shaded:blend).render(renderer);}
+   settled=[next,was];if(rest||!kept)frames++;
+   kept?.remember();
    toScreen();
   },
   get lightCarried(){return 0;},
   get accumulated(){return frames;},
-  temporal:false,
+  /** Moving frames are jittered too, and blended into the kept image. */
+  temporal:!!kept,
   replay:toScreen,
   /** Draws `object` over the frame on the canvas, with whatever else was drawn over it since it was last shown. */
   over:(object:T.Object3D,through:T.Camera)=>{stage.add(object);draw(through);},
@@ -85,8 +152,8 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   /** The scene's own depth buffer as last drawn, which what falls over the frame reads as it is (falling.ts). */
   get depth(){return depthOf;},
   present:()=>{},keep:()=>{},carries:()=>false,carry:()=>{},
-  reset:()=>{frames=0;},
-  dispose:()=>{target.dispose();level?.dispose();levelled?.material.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();glow?.dispose();output.material.dispose();},
+  reset:()=>{frames=0;kept?.reset();},
+  dispose:()=>{kept?.dispose();target.dispose();level?.dispose();levelled?.material.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();glow?.dispose();output.material.dispose();},
  };
  return api as unknown as Post&{over:typeof api.over};
 }
