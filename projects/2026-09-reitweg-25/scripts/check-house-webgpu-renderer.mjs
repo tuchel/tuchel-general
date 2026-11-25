@@ -50,7 +50,7 @@ assert(/slots\.tint\?slots\.tint\(warm\):warm/.test(sky));
 // Corner shading is three's node pass over the scene's depth, at the WebGL chain's settings: on still frames only, its
 // grain turned from frame to frame so that the average of still frames smooths it, blended in by the finish's amount.
 assert(/import\('three\/addons\/tsl\/display\/GTAONode\.js'\)/.test(page)&&!/ao:false/.test(viewer));
-assert(/const shade=options\.ao&&gpu\.ao\?gpu\.ao\(texture\(target\.depthTexture!\),null,camera\):undefined,/.test(chain)&&/shade\.useTemporalFiltering=true;/.test(chain));
+assert(/const shade=options\.ao&&gpu\.ao\?gpu\.ao\(texture\(depthOf\),null,camera\):undefined,/.test(chain)&&/shade\.useTemporalFiltering=true;/.test(chain));
 assert(/radius\.value=\.7;[^\n]*distanceExponent\.value=1\.6;[^\n]*thickness\.value=1\.4;[^\n]*samples\.value=12;/.test(chain)&&/occlusion\.value=g\.occlusion;/.test(chain));
 assert(/\(refining&&shaded\?shaded:blend\)\.render\(renderer\);/.test(chain));
 // The night sky's stars and moon are drawn with the sky there too, from the same hash and the same disc.
