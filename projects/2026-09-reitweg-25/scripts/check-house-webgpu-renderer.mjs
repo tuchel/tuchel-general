@@ -110,6 +110,8 @@ assert(/if\(gpu\)u\.cloudSpeed\.value=0;/.test(lighting));
 assert(/const WEATHER_WGSL=`fn weatherHash\(c:vec2<f32>\)->f32/.test(surfaces)&&/const aged=weather&&weatherNodes\(slots\.tsl,weather,\{p,n,tu,tv,albedo\}\)/.test(surfaces)&&/const rain=uniform\(0\)\.onRenderUpdate\(\(\)=>wet\.value\)/.test(surfaces));
 // ... and its relief: the texture coordinate is walked along the view ray through the height in the normal map's alpha.
 assert(/const RELIEF_WGSL=`fn reliefUv\(/.test(surfaces)&&/uv=wgslFn\(RELIEF_WGSL\)\(\{uv,shift:/.test(surfaces));
+// Close leaves keep their veins, toothed outline and sheen: where on the blade comes from the vertex's number.
+assert(/key:'leaf-detail',[\s\S]*?\},nodes:\(slots:NodeSlots\)=>\{[\s\S]*?\.element\(vertexIndex\.toFloat\(\)\.mod\(12\)\.toInt\(\)\)\)[\s\S]*?slots\.opacity=[\s\S]*?slots\.normal=normalize\(mix\(round,/.test(foliage));
 // A photograph there is traced by the WebGPU tracer on the same renderer, lit by the sky read back from it, on a device
 // that was asked for the card's own buffer limits.
 const captures=fs.readFileSync('lib/house-model/experience.ts','utf8');
