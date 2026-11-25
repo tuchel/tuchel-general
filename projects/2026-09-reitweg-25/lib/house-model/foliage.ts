@@ -316,11 +316,13 @@ const LEAF=.15;
 export const LEAF_PIXELS=1.5;
 /** One archetype's trees: where each stands, and the draws that show them (drawTrees). */
 type TreeSet={kind:TreeKind;matrices:T.Matrix4[];colors:T.Color[];summer:T.Color[];bare?:boolean;origins:T.Vector3[];centres:T.Vector3[];radii:number[];leaf:number[];crowns:T.InstancedMesh[];bark:T.InstancedMesh;lod?:T.InstancedMesh[];order:Map<T.InstancedMesh,string>};
-/** Draws `count` but casts shadows from every instance. */
+/** Draws `count` but casts shadows from every instance. The WebGPU renderer calls onBeforeRender inside its shadow pass
+ * as well, after onBeforeShadow. */
 function drawnCount(mesh:T.InstancedMesh,total:number,casts:boolean){
  mesh.userData.instances=total;mesh.userData.drawn=total;
- mesh.onBeforeRender=()=>{mesh.count=mesh.userData.drawn as number;};
- if(casts)mesh.onBeforeShadow=()=>{mesh.count=total;};
+ let casting=false;
+ mesh.onBeforeRender=()=>{mesh.count=casting?total:mesh.userData.drawn as number;};
+ if(casts){mesh.onBeforeShadow=()=>{casting=true;mesh.count=total;};mesh.onAfterShadow=()=>{casting=false;};}
 }
 
 /** Instances trees by archetype. Returns a group with one leaf and one bark draw per archetype; near modelled trees also

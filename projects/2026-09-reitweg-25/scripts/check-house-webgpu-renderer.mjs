@@ -70,4 +70,8 @@ const alps=fs.readFileSync('lib/house-model/alpine-terrain.ts','utf8'),woods=fs.
 assert(/output\?:\(colour:any\)=>any/.test(features)&&/outputNode:slots\.output\?slots\.output\(tsl\.output\):null/.test(features));
 assert(/nodes:slots=>\{[\s\S]*?slots\.position=[^\n]*attribute\('panoramaLift','float'\)/.test(alps));
 assert(/nodes:slots=>\{[\s\S]*?material\.fog=false;[\s\S]*?slots\.output=colour=>/.test(woods));
+// The WebGPU renderer calls onBeforeRender inside its shadow pass too: every tree still casts there.
+assert(/let casting=false;[\s\S]{0,120}mesh\.onBeforeRender=\(\)=>\{mesh\.count=casting\?total:mesh\.userData\.drawn as number;\};[\s\S]{0,160}mesh\.onAfterShadow=\(\)=>\{casting=false;\};/.test(foliage));
+// A cutout's shadow is cut by its colour node's alpha once, not by the texture's alpha as well.
+assert(/r\._getShadowNodes=m=>\{const map=m\.map;if\(!m\.colorNode\|\|!map\)return nodes\(m\);m\.map=null;try\{return nodes\(m\);\}finally\{m\.map=map;\}\};/.test(viewer));
 console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, averaged still frames and colour finish there.');
