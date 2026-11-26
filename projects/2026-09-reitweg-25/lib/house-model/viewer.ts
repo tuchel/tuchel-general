@@ -36,7 +36,7 @@ import {insideEntrancePolygon} from './entrance-garden';
 import {winterGardenOutline} from './renovations';
 import {createSnowfall,SNOWFALL,type Snowfall} from './snowfall';
 import {createRainfall,RAINFALL,type Rainfall} from './rainfall';
-import {createSmoke,FLUE_VAPOUR,type Smoke} from './smoke';
+import {createSmoke,FLUE_VAPOUR,SMOKE,type Smoke} from './smoke';
 import {mistAmount,AIR_GLOW} from './mist';
 import {gardenLightPoints,GARDEN_LIGHTS} from './garden-lights';
 import {snowDrifts} from './snow-drift';
@@ -221,9 +221,9 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const lightFire=()=>{
   if(smoke||!tier.weathered||!post)return;
   const chimney=scene.getObjectByName('chimney');if(!chimney)return;
-  const top=new T.Box3().setFromObject(chimney),made=smoke=createSmoke(new T.Vector3((top.min.x+top.max.x)/2,top.max.y+.1,(top.min.z+top.max.z)/2));
+  const top=new T.Box3().setFromObject(chimney),made=smoke=createSmoke(new T.Vector3((top.min.x+top.max.x)/2,top.max.y+.1,(top.min.z+top.max.z)/2),SMOKE,falls);
   const cap=scene.getObjectByName('flue-cap');
-  if(cap){const at=new T.Box3().setFromObject(cap);vapour=createSmoke(new T.Vector3((at.min.x+at.max.x)/2,at.max.y+.05,(at.min.z+at.max.z)/2),FLUE_VAPOUR);}
+  if(cap){const at=new T.Box3().setFromObject(cap);vapour=createSmoke(new T.Vector3((at.min.x+at.max.x)/2,at.max.y+.05,(at.min.z+at.max.z)/2),FLUE_VAPOUR,falls);}
   void Promise.all([made.mesh,vapour?.mesh].map(m=>m?renderer.compileAsync(m,camera).catch(()=>{}):undefined)).then(()=>{smokeReady=true;changed();});
  };
  // Where lamplight reaches the outdoor air, for the flakes that fall through it (snowfall.ts): a little out from each
