@@ -71,9 +71,11 @@ export const PHONE_EXTREME={pixelRatio:2,shadowSize:2048,samples:2,refineFrames:
 /** Extreme's parts that the WebGPU renderer does not draw yet. With `?renderer=webgpu` they are left off, so Extreme is
  * Detailed at Extreme's resolution plus what has been ported; `&try=wetMirror,living` turns named parts on there, to test
  * one on a real graphics card before it comes off this list, and `&without=softShadows,roomProbes` turns named on-off
- * parts off, to find what one costs there. */
+ * parts off on either renderer, to find what one costs or adds. */
 export const WEBGPU_PENDING=['treeOcclusion','liveTrace','wetMirror','living','lightCarry','hdr'] as const;
-export const forWebGPU=(tier:TierSettings,tried:string[]=[],without:string[]=[]):TierSettings=>({...tier,...Object.fromEntries(WEBGPU_PENDING.filter(k=>!tried.includes(k)).map(k=>[k,false])),...Object.fromEntries(without.filter(k=>typeof (tier as unknown as Record<string,unknown>)[k]==='boolean').map(k=>[k,false]))});
+/** `tier` with the named on-off parts off (`&without=`, on either renderer). */
+export const lacking=(tier:TierSettings,without:string[]=[]):TierSettings=>({...tier,...Object.fromEntries(without.filter(k=>typeof (tier as unknown as Record<string,unknown>)[k]==='boolean').map(k=>[k,false]))});
+export const forWebGPU=(tier:TierSettings,tried:string[]=[],without:string[]=[]):TierSettings=>lacking({...tier,...Object.fromEntries(WEBGPU_PENDING.filter(k=>!tried.includes(k)).map(k=>[k,false]))},without);
 export function tierFor(quality:Quality,phone=isPhone(),extremeOnPhone=false):TierSettings{
  if(phone&&quality==='extreme'&&extremeOnPhone)return {...tiers.extreme,...PHONE_EXTREME};
  if(phone&&(quality==='detailed'||quality==='extreme'))return {...tiers.detailed,shadowSize:2048,samples:2};
