@@ -103,3 +103,43 @@ a:hover { text-decoration-color: currentColor; }
 @media (pointer: coarse) { .spcx-toggle { min-height: 44px; } }
 .spcx-toggle--events::before { border-color: var(--ink-2); border-radius: 1px; transform: rotate(45deg) scale(0.85); }
 .spcx-toggle--events[aria-pressed="true"]::before { background: var(--ink); border-color: var(--ink); }
+
+/* Tuchel Indicator: one line that opens onto its evidence */
+.ti { border-bottom: 1px solid var(--hair); animation: rise var(--motion-reveal) var(--ease-enter) 40ms both; }
+.ti > summary { display: grid; grid-template-columns: auto auto minmax(120px, 1fr) auto; align-items: center; column-gap: 20px; row-gap: 10px; padding: 16px 28px 16px 0; position: relative; cursor: pointer; list-style: none; }
+.ti > summary::-webkit-details-marker { display: none; }
+.ti > summary::after { content: '+'; position: absolute; right: 0; top: 50%; translate: 0 -50%; color: var(--slate); font-size: 14px; transition: transform var(--motion-base) var(--ease-standard); }
+.ti[open] > summary::after { transform: rotate(45deg); }
+.ti > summary:focus-visible { outline: 2px solid var(--chart-signal); outline-offset: 2px; border-radius: 2px; }
+.ti-name { font-size: 12.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--slate); }
+.ti-read { display: flex; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; }
+.ti-verdict { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.ti-read[data-side="buy"] .ti-verdict { color: var(--up); }
+.ti-read[data-side="sell"] .ti-verdict { color: var(--down); }
+.ti-score { font-size: 17px; font-weight: 600; color: var(--ink); }
+.ti-gauge { display: grid; gap: 5px; min-width: 0; }
+.ti-track { position: relative; display: flex; gap: 2px; height: 6px; }
+.ti-track > span[style*="flex"] { border-radius: 2px; background: var(--chart-hair); }
+.ti-track > span[data-on="buy"] { background: color-mix(in srgb, var(--up) 55%, var(--page)); }
+.ti-track > span[data-on="sell"] { background: color-mix(in srgb, var(--down) 55%, var(--page)); }
+.ti-track > span[data-on="hold"] { background: var(--slate); }
+.ti-pin { position: absolute; top: -4px; width: 2px; height: 14px; margin-left: -1px; border-radius: 1px; background: var(--ink); box-shadow: 0 0 0 2px var(--page); animation: ti-pin var(--motion-reveal) var(--ease-enter) 200ms both; }
+@keyframes ti-pin { from { left: 50%; opacity: 0; } }
+.ti-ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--slate); }
+.ti-axes { font-size: 12.5px; color: var(--slate); font-variant-numeric: tabular-nums; text-align: right; }
+.ti-axes b { font-weight: 600; color: var(--ink); }
+@media (max-width: 860px) {
+  .ti > summary { grid-template-columns: auto 1fr; }
+  .ti-read { justify-self: end; }
+  .ti-gauge, .ti-axes { grid-column: 1 / -1; }
+  .ti-axes { text-align: left; }
+}
+.ti::details-content { height: 0; overflow: clip; opacity: 0; transition: height var(--motion-slow) var(--ease-standard), opacity var(--motion-base) var(--ease-standard), content-visibility var(--motion-slow) allow-discrete; }
+.ti[open]::details-content { height: auto; opacity: 1; }
+.ti-body { padding: 12px 0 24px; }
+.ti-h { margin: 28px 0 6px; font-size: 14px; font-weight: 600; color: var(--ink); }
+.ti-table td:nth-child(2) { text-align: left; white-space: normal; }
+.ti-table .ti-sum > * { font-weight: 600; color: var(--ink); }
+.ti-days .fig-mark[data-lit="1"] circle:first-child { fill-opacity: 1; }
+@media (max-width: 520px) { .ti-table th:nth-child(2), .ti-table td:nth-child(2) { display: table-cell; } .ti-table th:nth-child(5), .ti-table td:nth-child(5) { display: table-cell; } .ti-table th, .ti-table td { white-space: normal; } }
+@media (prefers-reduced-motion: reduce) { .ti, .ti-pin { animation: none; } }
