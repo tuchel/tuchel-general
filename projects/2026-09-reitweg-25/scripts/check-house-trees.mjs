@@ -18,6 +18,9 @@ const heightPx=1964,pixel=2*Math.tan(T.MathUtils.degToRad(camera.fov/2))/heightP
 const counts=drawTrees(scene,[camera],pixel,camera);
 const meshes=[];group.traverse(o=>{if(o.isInstancedMesh)meshes.push(o);});
 const total=specs.length;
+// A tree mesh that casts no shadow and has no tree to draw this frame is not drawn at all: an instanced mesh of none
+// still costs a draw.
+{let empty=0;for(const m of meshes)if(!m.castShadow){assert.equal(m.visible,m.userData.drawn>0,`${m.name}: shown only with trees to draw`);if(!m.visible)empty++;}assert(empty>0,'some have none in this view');}
 // Every visible tree is drawn once, either modelled or as a crown, with its bark; trees behind the camera are not.
 const frustum=new T.Frustum().setFromProjectionMatrix(new T.Matrix4().multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse));
 let visible=0;for(const s of specs){const sphere=new T.Sphere(new T.Vector3(s.x,s.height*.55,s.z),Math.max(s.height,s.r*2)*.62);if(frustum.intersectsSphere(sphere))visible++;}

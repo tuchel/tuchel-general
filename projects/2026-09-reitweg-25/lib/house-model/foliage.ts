@@ -447,7 +447,7 @@ export function seasonTrees(root:T.Object3D,materials:FoliageMaterials,day:numbe
    for(const mesh of [...set.crowns,...set.lod??[],...(set.close?[set.close]:[]),...(set.edged?[set.edged]:[])]){
     const card=mesh.material===materials.fall.leaves,lod=!!set.lod?.includes(mesh);
     if(!card)mesh.visible=!bare;else{mesh.visible=true;mesh.userData.skipPhotographic=bare||lod;if(lod)mesh.castShadow=bare;}
-    mesh.userData.season=day;
+    mesh.userData.shown=mesh.visible;mesh.userData.season=day;
    }
   });
  });
@@ -455,6 +455,8 @@ export function seasonTrees(root:T.Object3D,materials:FoliageMaterials,day:numbe
 /** Writes each draw's instances in `order`, the drawn ones first; uploads only when the order changed. */
 function arrange(set:TreeSet,mesh:T.InstancedMesh,order:number[],drawn:number){
  const key=order.slice(0,drawn).join(',');mesh.userData.drawn=drawn;mesh.count=drawn;
+ // An instanced mesh of none still costs a draw; one that casts shadows is needed for them (drawnCount).
+ if(!mesh.castShadow)mesh.visible=drawn>0&&mesh.userData.shown!==false;
  if(set.order.get(mesh)===key)return;set.order.set(mesh,key);
  order.forEach((j,i)=>{mesh.setMatrixAt(i,set.matrices[j]);if(mesh.instanceColor)mesh.setColorAt(i,set.colors[j]);});
  mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
