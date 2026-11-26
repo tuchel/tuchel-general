@@ -15,7 +15,7 @@ export type PostGPU={tsl:any;/** three's corner shading pass (GTAONode.js). */ao
 /** The image chain for the WebGPU renderer (post.ts is the WebGL renderer's). So far: the scene into a floating-point
  * target, corner shading on still frames, still frames averaged into a clean image, and the same finish to the screen: white balance, tone mapping,
  * the S-curve with its shadow lift, saturation, and the screen's transfer; moving frames blended into the kept image,
- * with the shutter's smear, and the lens (meter, grain, sun shafts, focus), mist and contact shadows. The wet mirror waits behind `try=wetMirror`. Not yet
+ * with the shutter's smear, and the lens (meter, grain, sun shafts, focus), mist, contact shadows and the wet mirror. Not yet
  * there: showing a path-traced image;
  * those calls do nothing. */
 export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions,gpu:PostGPU):Post&{over(object:T.Object3D,camera:T.Camera):void}{
