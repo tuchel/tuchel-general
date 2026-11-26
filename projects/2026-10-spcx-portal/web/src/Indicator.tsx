@@ -220,6 +220,7 @@ export function TuchelPanel() {
         <span className="ti-axes">
           Execution credit <b>{n0(r.credit)}</b> · Market mood <b>{n0(r.mood)}</b>, {moodName(r.mood)} · {day(r.date)} close
         </span>
+        <span className="ti-more" aria-hidden="true"><span className="ti-more-open">Details</span><span className="ti-more-close">Close</span></span>
       </summary>
       <div className="ti-body">
         <TuchelIndicator />

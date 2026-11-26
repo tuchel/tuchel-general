@@ -106,10 +106,15 @@ a:hover { text-decoration-color: currentColor; }
 
 /* Tuchel Indicator: one line that opens onto its evidence */
 .ti { border-bottom: 1px solid var(--hair); animation: rise var(--motion-reveal) var(--ease-enter) 40ms both; }
-.ti > summary { display: grid; grid-template-columns: auto auto minmax(120px, 1fr) auto; align-items: center; column-gap: 20px; row-gap: 10px; padding: 16px 28px 16px 0; position: relative; cursor: pointer; list-style: none; }
+.ti > summary { display: grid; grid-template-columns: auto auto minmax(120px, 1fr) auto auto; align-items: center; column-gap: 20px; row-gap: 10px; padding: 14px 0; cursor: pointer; list-style: none; }
 .ti > summary::-webkit-details-marker { display: none; }
-.ti > summary::after { content: '+'; position: absolute; right: 0; top: 50%; translate: 0 -50%; color: var(--slate); font-size: 14px; transition: transform var(--motion-base) var(--ease-standard); }
-.ti[open] > summary::after { transform: rotate(45deg); }
+.ti-more { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px 0 16px; border-radius: 999px; background: var(--chart-hair-2); font-size: 13px; font-weight: 500; color: var(--ink); white-space: nowrap; transition: background var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard); }
+.ti-more::after { content: ''; width: 7px; height: 7px; margin-top: -3px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); transition: transform var(--motion-base) var(--ease-standard), margin var(--motion-base) var(--ease-standard); }
+.ti[open] .ti-more::after { transform: rotate(-135deg); margin-top: 3px; }
+.ti > summary:hover .ti-more, .ti[open] .ti-more { background: var(--chart-surface); box-shadow: inset 0 0 0 1px var(--chart-hair), var(--chart-shadow-1); }
+.ti-more-close, .ti[open] .ti-more-open { display: none; }
+.ti[open] .ti-more-close { display: inline; }
+@media (pointer: coarse) { .ti-more { min-height: 44px; } }
 .ti > summary:focus-visible { outline: 2px solid var(--chart-signal); outline-offset: 2px; border-radius: 2px; }
 .ti-name { font-size: 12.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--slate); }
 .ti-read { display: flex; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; }
@@ -131,8 +136,9 @@ a:hover { text-decoration-color: currentColor; }
 @media (max-width: 860px) {
   .ti > summary { grid-template-columns: auto 1fr; }
   .ti-read { justify-self: end; }
-  .ti-gauge, .ti-axes { grid-column: 1 / -1; }
-  .ti-axes { text-align: left; }
+  .ti-gauge { grid-column: 1 / -1; }
+  .ti-axes { text-align: left; grid-column: 1 / -1; }
+  .ti-more { grid-column: 1 / -1; justify-self: start; }
 }
 .ti::details-content { height: 0; overflow: clip; opacity: 0; transition: height var(--motion-slow) var(--ease-standard), opacity var(--motion-base) var(--ease-standard), content-visibility var(--motion-slow) allow-discrete; }
 .ti[open]::details-content { height: auto; opacity: 1; }
