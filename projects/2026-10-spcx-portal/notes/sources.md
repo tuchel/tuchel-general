@@ -107,3 +107,31 @@ Medians: Jul 7 $228 (12 firms), Oct 20 $230 (19), Oct 21 $246.50 (20), Oct 22 $2
 | Oct 20, 2026 | Q3 2026 results; Q1 2027 guide of $33–37B on the call | Q3 2026 release; call transcript |
 | Nov 4, 2026 | SpaceX announces a multiyear deal with Qualcomm for Starlink Mobile's terrestrial base stations (Dragonwing platforms); tens of thousands of US sites, rollout from 2027; no value disclosed | [Via Satellite](https://www.satellitetoday.com/connectivity/2026/11/04/spacex-strikes-deal-with-qualcomm-for-terrestrial-component-of-starlink-mobile-network/); also [CNBC](https://www.cnbc.com/2026/11/04/spacex-strikes-deal-with-qualcomm-for-mobile-network-infrastructure.html), [Bloomberg](https://www.bloomberg.com/news/articles/2026-11-04/qualcomm-to-build-equipment-for-spacex-s-us-mobile-phone-network) |
 | Nov 13, 2026 | Starship Flight 15 lifts off from Starbase and reaches orbit, deploying Starlink satellites; the Super Heavy booster called off its tower catch and diverted to a Gulf splashdown (TNW, citing Spaceflight Now, says it exploded just before water impact). On Nov 14, after about 22 hours and 14 orbits, Ship 42 was caught by the Starbase tower, the first upper-stage catch ([Interesting Engineering](https://interestingengineering.com/space/spacex-starship-ship-42-first-upper-stage-catch), [IBTimes UK](https://www.ibtimes.co.uk/spacex-starship-ship-42-first-tower-catch-1832419)). The booster aborted after a low-fuel warning and was lost in the Gulf | [Interesting Engineering](https://interestingengineering.com/space/spacex-starship-15th-flight-booster-catch-skipped); also [The Next Web](https://thenextweb.com/news/spacex-starship-flight-15-booster-catch-aborted) |
+
+## Tuchel Indicator
+
+James's brief (Nov 25, 2026): combine how much credit the market gives SpaceX for its results with the market's own mood, as a quantitative buy / hold / sell gauge on two axes, specific to SPCX. He chose raw CNN Fear & Greed for mood and a weeks-to-quarters horizon, and declined a test on other IPOs.
+
+**Formula** (`web/src/tuchel.ts`; fixed, not to be tuned to past prices):
+
+- Execution credit, 0–100: the mean of three percentile ranks, each taken against every trading day from the IPO up to that day (ties count half; first reading on trading day 21, Jul 14).
+  1. Close ÷ median analyst target in force that day (each firm's latest point in `FIRMS`).
+  2. SPCX close ÷ Nasdaq-100 close.
+  3. Close ÷ revenue of the latest quarter public before that day's close (Q1 2026 until Aug 4, Q2 2026 until Oct 20, then Q3 2026).
+- Market mood, 0–100: the CNN Fear & Greed Index as published.
+- Score: the mean of the two. Bands are CNN's own for its index, applied to the score: under 25 strong buy, under 45 buy, 45–55 hold, to 75 sell, above 75 strong sell.
+
+**Series** (`web/src/sentiment.ts`, one row per SPCX trading day: date, CNN index, Nasdaq-100 close, VIX close):
+
+- CNN Fear & Greed: `https://production.dataviz.cnn.io/index/fearandgreed/graphdata`, the `fear_and_greed_historical` array (x is epoch ms at 00:00 UTC, y the score), rounded to 0.1.
+- Nasdaq-100: `https://fred.stlouisfed.org/graph/fredgraph.csv?id=NASDAQ100&cosd=2026-06-11`.
+- VIX (context only, not in the score): `https://fred.stlouisfed.org/graph/fredgraph.csv?id=VIXCLS&cosd=2026-06-11`. FRED can post it a day late.
+- Shares outstanding, 13.58 billion ([StockAnalysis](https://stockanalysis.com/stocks/spcx/statistics/), Nov 20). Used only to print the run-rate multiple; the percentile does not depend on it. It has been held constant, though the count moved when the Cursor deal closed on Aug 14.
+
+Jun 12 to Nov 24 was read twice, independently, on Nov 25 and Nov 26. Nasdaq-100 and VIX agreed on every day. CNN differed on one day, Jun 15 (39.5 against 40.1); the raw point is 40.14, so 40.1 stands.
+
+**Daily refresh.** After adding the day's close to `data.ts`, append one row to `sentiment.ts` for the same date from the three URLs above. Read each value from the fetched text itself, not from a summary of it, and check the CNN `previous_close` against the prior row. If a source cannot be read, leave the row out: the page then shows the last day with a full row and its date. Never estimate or carry a value forward. Refresh the share count at each quarterly filing.
+
+**What the record shows** (95 readings, Jul 14 to Nov 24): Oct 6, the October high ($171.92), scored 61, sell, on credit 75 and mood 47; CNN called that day neutral, not greed. Nov 24 scored 15, strong buy, on credit 12 and mood 17. Mean move in the close over the next 20 trading days: strong buy +13.3% (15 days), buy +4.3% (26), hold +3.4% (29), sell −17.5% (5). The record holds one low and one high and the windows overlap, so this describes the sample and does not validate the gauge. The gauge has read buy or strong buy since Oct 14 while the close fell from $152.16 to $125.81.
+
+**Open.** A SpaceX–Tesla merger would change the revenue base, the share count, and the targets; on an announcement, mark a break and restart the percentiles at the close of the deal.

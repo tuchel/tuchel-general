@@ -1,7 +1,9 @@
 import { useState } from 'react';
 
 import { CONSENSUS, FY26_ESTIMATES, NINE_MONTHS_2026, LATEST_VINTAGE, NOTES, Q1_27_GUIDE, PRICES, QUARTERS, SRC, type Source } from './data.ts';
+import { TuchelPanel } from './Indicator.tsx';
 import { RevenuePrice } from './RevenuePrice.tsx';
+import { MARKET_SRC } from './sentiment.ts';
 import { median, targetsAt, vintage } from './targets.ts';
 
 const last = PRICES[PRICES.length - 1];
@@ -32,6 +34,7 @@ export function App() {
       </header>
 
       <main>
+        <TuchelPanel />
         <RevenuePrice />
 
         <div className="more">
@@ -79,7 +82,7 @@ export function App() {
             <summary>Sources</summary>
             <div className="more-body">
               <ul className="src">
-                {[...(Object.values(SRC) as Source[]), ...NOTES].filter((s, i, a) => !s.url || a.findIndex((o) => o.url === s.url) === i).map((s) => (
+                {[...(Object.values(SRC) as Source[]), ...(Object.values(MARKET_SRC) as Source[]), ...NOTES].filter((s, i, a) => !s.url || a.findIndex((o) => o.url === s.url) === i).map((s) => (
                   <li key={s.label}>{cite(s, s.label)}</li>
                 ))}
               </ul>
