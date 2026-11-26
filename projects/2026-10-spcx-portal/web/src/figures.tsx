@@ -1,5 +1,5 @@
 import { LATEST_VINTAGE } from './data.ts';
-import { TuchelIndicator } from './Indicator.tsx';
+import { TuchelIndicator, TuchelParts } from './Indicator.tsx';
 import { RevenuePrice } from './RevenuePrice.tsx';
 
 export const figures = {
@@ -11,4 +11,5 @@ export const figures = {
     ],
   },
   'tuchel-indicator': { component: TuchelIndicator, states: [] },
+  'tuchel-parts': { component: TuchelParts, states: [] },
 };
