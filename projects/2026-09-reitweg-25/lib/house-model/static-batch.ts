@@ -5,7 +5,9 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
  * Every model state (floor × renovation combination) is enumerated once. Meshes
  * that are shown in exactly the same states, with the same world transform in
  * each, share a batch. Source meshes stay in the graph for logic and checks but
- * leave render layer 0, so neither the camera, the shadow map nor picking sees them. */
+ * leave render layer 0, so neither the camera, the shadow map nor picking sees them.
+ * They also leave the per-frame matrix update, which thousands of them made a cost of every frame; `sync` settles
+ * their matrices after a change of state. */
 export type StaticModel={
  root:T.Object3D;
  states:number;
@@ -94,7 +96,11 @@ export function batchStatic(model:StaticModel):StaticBatches{
   if(parent!==root){parent.updateMatrixWorld(true);batch.applyMatrix4(parent.matrixWorld.clone().invert());batch.updateMatrix();}
   parent.add(batch);batches.push(batch);
  }
- for(const mesh of meshes)mesh.layers.disableAll();
- const sync=(state:number)=>{for(const b of batches){const sig=b.userData.signature as Uint32Array;b.visible=!!(sig[state>>5]&(1<<(state&31)));}};
+ for(const mesh of meshes){mesh.layers.disableAll();mesh.matrixAutoUpdate=false;mesh.matrixWorldAutoUpdate=false;}
+ const sync=(state:number)=>{
+  for(const b of batches){const sig=b.userData.signature as Uint32Array;b.visible=!!(sig[state>>5]&(1<<(state&31)));}
+  // Parents come before children in `meshes`, so a mesh under another finds its parent settled.
+  for(const m of meshes){m.updateMatrix();m.parent?.updateWorldMatrix(true,false);if(m.parent)m.matrixWorld.multiplyMatrices(m.parent.matrixWorld,m.matrix);else m.matrixWorld.copy(m.matrix);for(const c of m.children)c.matrixWorldNeedsUpdate=true;}
+ };
  return {meshes:batches,sync,sourceCount:meshes.length};
 }

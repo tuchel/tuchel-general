@@ -35,6 +35,14 @@ for(const realistic of [false,true]){
  for(const level of ['exterior','ground','upper'])for(const nook of [true,false])for(const east of [false,true])for(const garage of [false,true])for(const front of [false,true]){const state={...renovationState(),east,nook,garage,front};
   model.setLevel(level);model.setRenovations(state);batches.sync(model.stateOf(level,state));const [source,merged]=count();
   for(const uuid of new Set([...source.keys(),...merged.keys()]))assert.equal(Math.round(merged.get(uuid)||0),Math.round(source.get(uuid)||0),`${level}, nook ${nook}, east ${east}, garage ${garage}, front ${front}: batched triangles match the scene for each material`);}
+ // Source meshes are static, so they are left out of the per-frame matrix update (thousands of them); a change of
+ // state settles them once, to where an untouched model has them.
+ {const plain=buildHouseModel(realistic,realistic?landscapeContext().group:undefined),list=r=>{const out=[];r.traverse(o=>{if(o instanceof T.Mesh&&!(o instanceof T.InstancedMesh)&&!o.userData.batch&&!o.userData.dynamic)out.push(o);});return out;};
+  const frozen=list(model.root),free=list(plain.root);assert.equal(frozen.length,free.length);
+  for(const m of frozen)assert(!m.matrixAutoUpdate&&!m.matrixWorldAutoUpdate,'source meshes skip the per-frame matrix update');
+  for(const s of [0,1,7,100,model.stateCount-1]){model.applyState(s);batches.sync(s);plain.applyState(s);plain.root.updateMatrixWorld(true);
+   frozen.forEach((m,i)=>{for(let k=0;k<16;k++)assert(Math.abs(m.matrixWorld.elements[k]-free[i].matrixWorld.elements[k])<1e-9,`state ${s}: ${m.name||i} sits where the model puts it`);});}
+  plain.dispose();}
  let sources=0;model.root.traverse(o=>{if(o instanceof T.Mesh&&!(o instanceof T.InstancedMesh)&&!o.userData.batch&&!o.userData.dynamic){sources++;assert(!o.layers.isEnabled(0),'source meshes leave the render layer');}});
  for(const b of batches.meshes){assert(b.layers.isEnabled(0));for(const n of b.matrixWorld.elements)assert(Number.isFinite(n));}
  assert(batches.meshes.length*5<sources,`${batches.meshes.length} batches replace ${sources} meshes`);
