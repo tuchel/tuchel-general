@@ -140,6 +140,6 @@ a:hover { text-decoration-color: currentColor; }
 .ti-h { margin: 28px 0 6px; font-size: 14px; font-weight: 600; color: var(--ink); }
 .ti-table td:nth-child(2) { text-align: left; white-space: normal; }
 .ti-table .ti-sum > * { font-weight: 600; color: var(--ink); }
-.ti-days .fig-mark[data-lit="1"] circle:first-child { fill-opacity: 1; }
+
 @media (max-width: 520px) { .ti-table th:nth-child(2), .ti-table td:nth-child(2) { display: table-cell; } .ti-table th:nth-child(5), .ti-table td:nth-child(5) { display: table-cell; } .ti-table th, .ti-table td { white-space: normal; } }
 @media (prefers-reduced-motion: reduce) { .ti, .ti-pin { animation: none; } }

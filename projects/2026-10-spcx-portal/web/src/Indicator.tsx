@@ -2,7 +2,7 @@
  * The Tuchel Indicator: a one-line reading that opens onto its evidence.
  *
  * The figure has two panels on one 0–100 scale. The map plots execution credit against market
- * mood, one dot per trading day joined in order, with the score's bands as diagonals. The
+ * mood, one dot per trading day joined in order and shaded from pale to blue by date, with the score's bands as diagonals. The
  * history draws credit, mood, and their mean over time. A day lights in both panels at once.
  */
 import {
@@ -38,6 +38,10 @@ function tip(r: Reading): Tip {
   return { title: `${day(r.date)}, 2026`, rows };
 }
 
+/** Time on the map, 0 to 1: close to the page's ground for the first reading, full blue for the latest. */
+const ramp = (f: number) => `color-mix(in srgb, ${c('series1')} ${Math.round(18 + 82 * f)}%, ${c('halo')})`;
+const span = Math.max(1, READINGS.length - 1);
+
 type Box = { x0: number; x1: number; y0: number; y1: number };
 const boxOf = (l: Label): Box => {
   const b = labelBox(l.text, { size: l.size ?? 12, weight: l.weight });
@@ -64,7 +68,7 @@ export function TuchelIndicator({ mode }: { mode?: RenderMode }) {
           : `The score has ranged from ${n0(Math.min(...READINGS.map((r) => r.score)))} to ${n0(high.score)} over ${READINGS.length} trading days.`,
         scrutinize: `${READINGS.length} trading days hold one low and one high, and the ${HORIZON}-day windows overlap; the gauge has read ${side(LATEST)} since ${day(runStart.date)}, while the close went from ${usd(runStart.close)} to ${usd(LATEST.close)}.`,
       }}
-      note={`Not investment advice. Each percentile uses only the days up to that reading, so past readings never change; the first is trading day ${WARMUP + 1}. Bands are CNN's for its index, applied to the score.`}
+      note={`Not investment advice. Each percentile uses only the days up to that reading, so past readings never change; the first is trading day ${WARMUP + 1}. Bands are CNN's for its index, applied to the score. The map's path darkens with time, as along the history's axis.`}
       keyItems={[
         { label: 'Score', color: c('ink'), shape: 'line' },
         { label: 'Execution credit', color: c('series1'), shape: 'line' },
@@ -104,7 +108,6 @@ export function TuchelIndicator({ mode }: { mode?: RenderMode }) {
         const frame: Rule[] = [
           { id: 'mx', x1: mx(0), x2: mx(100), y1: my(0), y2: my(0), stroke: c('slate'), opacity: 0.6 },
           { id: 'my', x1: mx(0), x2: mx(0), y1: my(0), y2: my(100), stroke: c('slate'), opacity: 0.6 },
-          { id: 'hx', x1: hx0, x2: width - hr, y1: hy(0), y2: hy(0), stroke: c('slate'), opacity: 0.6 },
         ];
         // Band names sit in the map's lower right, where low mood meets high credit and days are rare.
         const zoneAt: Array<[number, number, 'middle' | 'end']> = [[27, 4, 'middle'], [66, 4, 'middle'], [98, 4, 'end'], [98, 31, 'end'], [98, 78, 'end']];
@@ -114,11 +117,19 @@ export function TuchelIndicator({ mode }: { mode?: RenderMode }) {
         }));
 
         const path = READINGS.map((r) => [mx(r.credit), my(r.mood)] as const);
+        // The path is one segment per day, shaded by date, so its order reads without tracing it.
+        const steps: Rule[] = path.slice(1).map((p, i) => ({
+          id: `step${i}`, x1: path[i][0], y1: path[i][1], x2: p[0], y2: p[1], stroke: ramp((i + 1) / span), width: 1.5,
+        }));
+        // The same shading runs along the history's time axis, as the key to the map.
+        const clock: Rule[] = READINGS.slice(1).map((r, i) => ({
+          id: `clock${i}`, x1: hx(t(READINGS[i].date)), x2: hx(t(r.date)), y1: hy(0) + 2, y2: hy(0) + 2, stroke: ramp((i + 1) / span), width: 4,
+        }));
         const dots: Dot[] = READINGS.map((r, i) => {
           const latest = r === LATEST;
           return {
             id: `m${i}`, cx: path[i][0], cy: path[i][1], r: latest ? 5 : r === high ? 3.5 : 2,
-            fill: latest ? c('signal') : c('ink'), fillOpacity: latest || r === high ? 1 : 0.45, stroke: latest || r === high ? c('halo') : undefined, strokeWidth: 1.5, hit: 7,
+            fill: ramp(i / span), stroke: latest || r === high ? c('halo') : undefined, strokeWidth: 1.5, hit: 7,
             label: `${day(r.date)}: ${r.verdict.label}, score ${n0(r.score)}, credit ${n0(r.credit)}, mood ${n0(r.mood)}`, tip: tip(r), keys: [`d${i}`],
           };
         });
@@ -127,7 +138,7 @@ export function TuchelIndicator({ mode }: { mode?: RenderMode }) {
         const named: Label[] = [];
         for (const r of high === LATEST ? [LATEST] : [LATEST, high]) {
           const [px, py] = [mx(r.credit), my(r.mood)];
-          const base = { id: `name-${r.date}`, text: day(r.date), size: 12, weight: 600, fill: r === LATEST ? c('signal') : c('ink'), halo: c('halo') };
+          const base = { id: `name-${r.date}`, text: day(r.date), size: 12, weight: 600, fill: r === LATEST ? c('series1') : c('ink'), halo: c('halo') };
           const seats: Label[] = [
             { ...base, x: px + 9, y: py + 4, anchor: 'start' }, { ...base, x: px, y: py - 10, anchor: 'middle' },
             { ...base, x: px - 9, y: py + 4, anchor: 'end' }, { ...base, x: px, y: py + 19, anchor: 'middle' },
@@ -165,7 +176,7 @@ export function TuchelIndicator({ mode }: { mode?: RenderMode }) {
             <AxisY scale={hy} ticks={[0, ...edges, 100]} format={n0} at={hx0} grid={{ to: width - hr }} unit="score" />
             <AxisX scale={hx} ticks={months} format={(v) => new Date(v).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })} at={hy(0)} unit="time" />
             <Rules data={[...frame, ...diagonals]} />
-            <Line spec={{ id: 'path', points: path, stroke: c('slate'), width: 1 }} />
+            <Rules data={[...steps, ...clock]} />
             <Texts data={[...zones, ...titles, ...bandNames]} />
             {series('credit', (r) => r.credit, c('series1'), 1.25)}
             {series('mood', (r) => r.mood, c('series2'), 1.25)}
