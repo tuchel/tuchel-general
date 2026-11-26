@@ -402,7 +402,7 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
   /** Shows the kept image moved into the current view; the live image where the move uncovered something. */
   carry:(exposure:number,indoor=0)=>{if(kept)present(kept.light.texture,1,0,exposure,indoor,kept.demodulated,true);},
 
-  reset:()=>{if(temporal)temporal.reset();else accumulate.frames=0;traced?.colours?.dispose();if(traced)traced.colours=undefined;},
+  reset:()=>{if(temporal)temporal.reset();else accumulate.frames=0;shafts?.reset();traced?.colours?.dispose();if(traced)traced.colours=undefined;},
   dispose:()=>{traced?.dispose();focused?.dispose();kept?.light.dispose();kept?.depth.dispose();kept?.ratio.dispose();lit?.dispose();lighting.dispose();relight.dispose();copy.dispose();copying.dispose();for(const p of composer.passes)(p as Pass&{dispose?:()=>void}).dispose?.();composer.dispose();target.dispose();},
  };
 }
