@@ -36,6 +36,9 @@ assert(order.every((v,i)=>v>0&&(i===0||v>order[i-1])),'depth, shafts, meter, set
 // A traced image of the same view takes the live view's haze (by depth, as three's fog) and its sky, where no surface is
 // hit; grain uses float arithmetic only, since the output pass compiles as GLSL ES 1.0.
 assert(/smoothstep\(fogRange\.x,fogRange\.y,d\)/.test(post)&&/d>=far\*0\.999\?live/.test(post),'traced images get haze and the live sky');
+// When the light changes at a resting view (the hour, the weather), the averaged shafts start again: daylight's do not
+// stay over the night as a veil.
+assert(/ reset:\(\)=>\{[^\n]*shafts\?\.reset\(\);/.test(post),'a change of light restarts the shafts');
 const grain=post.slice(post.indexOf('if(uGrain>0.0)'),post.indexOf('#ifdef SRGB_TRANSFER`'));
 assert(grain.length>0&&!/\buint\b|>>|\^/.test(grain),'grain hash is GLSL ES 1.0');
 console.log(`Passed: an f/${LENS.fNumber} full-frame lens blurs the garden ${far.toFixed(1)} px behind a table 3 m away and nothing from the air; metering moves at most ${LENS.meter.stops} stop either way; a sunbeam returns ${(beam*100).toFixed(1)}% of the sunlight; Extreme only.`);
