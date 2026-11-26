@@ -39,6 +39,8 @@ assert(/smoothstep\(fogRange\.x,fogRange\.y,d\)/.test(post)&&/d>=far\*0\.999\?li
 // When the light changes at a resting view (the hour, the weather), the averaged shafts start again: daylight's do not
 // stay over the night as a veil.
 assert(/ reset:\(\)=>\{[^\n]*shafts\?\.reset\(\);/.test(post),'a change of light restarts the shafts');
+// However the light changes (rain clouding the sky over eases it frame by frame), the shafts themselves notice.
+assert(/some\(\(v,i\)=>v!==was\[i\]\)\)this\.frames=0;/.test(fs.readFileSync('lib/house-model/lens.ts','utf8')),'a new sun restarts the shafts');
 const grain=post.slice(post.indexOf('if(uGrain>0.0)'),post.indexOf('#ifdef SRGB_TRANSFER`'));
 assert(grain.length>0&&!/\buint\b|>>|\^/.test(grain),'grain hash is GLSL ES 1.0');
 console.log(`Passed: an f/${LENS.fNumber} full-frame lens blurs the garden ${far.toFixed(1)} px behind a table 3 m away and nothing from the air; metering moves at most ${LENS.meter.stops} stop either way; a sunbeam returns ${(beam*100).toFixed(1)}% of the sunlight; Extreme only.`);

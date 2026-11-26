@@ -117,8 +117,11 @@ export class SunShafts extends Pass{
    const raw=!map.compareFunction;if(raw!==!!this.march.defines?.RAW_SHADOW){this.march.defines=raw?{RAW_SHADOW:1}:{};this.march.needsUpdate=true;}
    u.shadow.value=map;u.shadowMatrix.value.copy(sun.shadow.matrix);
    u.projectionInverse.value.copy(this.camera.projectionMatrixInverse);u.cameraWorld.value.copy(this.camera.matrixWorld);
-   (u.sunDirection.value as T.Vector3).subVectors(sun.position,sun.target.position).normalize();
-   (u.sunLight.value as T.Vector3).set(sun.color.r,sun.color.g,sun.color.b).multiplyScalar(sun.intensity);
+   // A new light (the hour, clouding over) starts the average again: the old light's shafts do not stay as a veil.
+   const direction=u.sunDirection.value as T.Vector3,light=u.sunLight.value as T.Vector3,was=[...direction.toArray(),...light.toArray()];
+   direction.subVectors(sun.position,sun.target.position).normalize();
+   light.set(sun.color.r,sun.color.g,sun.color.b).multiplyScalar(sun.intensity);
+   if([...direction.toArray(),...light.toArray()].some((v,i)=>v!==was[i]))this.frames=0;
    u.indoor.value=this.indoor;
    const [history,next]=this.targets;u.history.value=history.texture;u.weight.value=1/(this.frames+1);u.frame.value=this.frames;
    renderer.setRenderTarget(next);this.marchQuad.render(renderer);
