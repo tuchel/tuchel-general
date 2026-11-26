@@ -42,6 +42,7 @@ export const SRC = {
   evercoreOct: { label: 'Stocktwits, Evercore raises SpaceX target to $275 from $230, Oct 16, 2026', url: 'https://stocktwits.com/news-articles/markets/equity/spacex-catalysts-2027-evercore-upside-potential/cZxKduaRBsN' },
   pivotalInit: { label: '24/7 Wall St., Pivotal Research launches SpaceX coverage at Buy, $220, Sep 8, 2026', url: 'https://247wallst.com/investing/2026/09/08/spacex-rises-4-as-pivotal-research-launches-coverage-at-220-intuitive-machines-climbs-5-rocket-lab-gains-3/' },
   susqInit: { label: 'CoinGape, Susquehanna initiates SpaceX at Neutral, $170, Jun 23, 2026', url: 'https://coingape.com/news/stocks/spacex-stock-gets-neutral-rating-with-170-target-as-shares-fall-below-debut-price/' },
+  fccStarmind: { label: 'TechCrunch, FCC approves SpaceX plan to put AI data centers in space, Nov 25, 2026', url: 'https://techcrunch.com/2026/11/25/fcc-approves-spacex-plan-to-put-ai-data-centers-in-space/' },
   cfraNov: { label: 'Motley Fool via Mitrade, CFRA keeps Sell and $115 target, Nov 17, 2026', url: 'https://www.mitrade.com/insights/news/live-news/article-8-2258831-20261117' },
   oppInit: { label: 'Reuters via The Star, Oppenheimer launches first SpaceX coverage at Outperform, $190, Jun 11, 2026', url: 'https://www.thestar.com.my/tech/tech-news/2026/06/11/oppenheimer-launches-wall-street039s-first-coverage-of-spacex-with-bullish-outlook' },
   oppJun: { label: 'Investing.com, Oppenheimer raises SpaceX target to $250 from $190, Jun 18, 2026', url: 'https://ng.investing.com/news/stock-market-news/spacex-stock-target-raised-at-oppenheimer-heres-the-new-12month-forecast-2565697' },
@@ -129,6 +130,7 @@ export const EVENTS: KeyEvent[] = [
   { date: '2026-10-20', title: 'Q3 2026 results', detail: 'Q1 2027 revenue guided to $33–37B on the call.', source: SRC.q3 },
   { date: '2026-11-04', title: 'Qualcomm deal for Starlink Mobile', detail: 'Multiyear; base stations for tens of thousands of US sites from 2027.', source: SRC.qualcomm },
   { date: '2026-11-13', title: 'Starship Flight 15; first ship catch', detail: 'Reached orbit; Ship 42 caught by the tower on Nov 14, a first. Booster lost in the Gulf.', source: SRC.shipCatch },
+  { date: '2026-11-25', title: 'FCC clears orbital data centers', detail: 'Conditional approval for Starmind, up to 1 million data-center satellites; first due by 2033.', source: SRC.fccStarmind },
 ];
 
 /** Daily closing price, USD. Jun 12–Oct 15 from Yahoo Finance; Oct 16–20 from StockAnalysis. */
@@ -248,6 +250,7 @@ const CLOSES = `
 2026-11-20 127.79
 2026-11-23 133.35
 2026-11-24 125.81
+2026-11-25 127.44
 `;
 
 /** `intraday` marks a price taken during the session, before the close. */
