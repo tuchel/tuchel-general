@@ -9,6 +9,7 @@ import {
   AxisX, AxisY, Dots, Figure, Line, Rules, Texts, c, d3, labelBox,
   type Dot, type Label, type RenderMode, type Rule, type Tip,
 } from '../../../../shared/charts/src/index.ts';
+import { QUARTERS } from './data.ts';
 import { BANDS, HORIZON, LATEST, READINGS, RECORD, WARMUP, moodName, type Reading } from './tuchel.ts';
 import { MARKET_SRC, SHARES } from './sentiment.ts';
 
@@ -193,14 +194,112 @@ export function TuchelIndicator({ mode }: { mode?: RenderMode }) {
 
 const fix = (v: number, d: number) => v.toFixed(d);
 
+/** The three inputs to execution credit, in the order they are averaged. */
+const PARTS: Array<{ id: 'target' | 'relative' | 'sales'; name: string; mid: string; color: 'series3' | 'series4' | 'series5'; why: string }> = [
+  {
+    id: 'target', name: 'Price against analyst targets', mid: 'price against analyst targets', color: 'series3',
+    why: 'The share price divided by the middle analyst target. Analysts set targets from the business’s results and outlook, so a price far below them means the market is giving less credit than the people who study the company closely.',
+  },
+  {
+    id: 'relative', name: 'SpaceX against the market', mid: 'SpaceX against the market', color: 'series4',
+    why: 'The share price divided by the Nasdaq-100. This takes out the days when everything moves together and leaves the part of the move that is about SpaceX.',
+  },
+  {
+    id: 'sales', name: 'Price against sales', mid: 'price against sales', color: 'series5',
+    why: 'The company’s market value divided by four times its latest quarter’s revenue: the price per dollar of sales. When revenue jumps and the price does not follow, this falls.',
+  },
+];
+
+// Results come out after the close, so the sales rank steps on the next trading day.
+const RELEASES = QUARTERS.flatMap((q) => {
+  if (!q.released) return [];
+  const before = READINGS.filter((r) => r.date <= q.released!).at(-1);
+  const after = READINGS.find((r) => r.date > q.released!);
+  return before && after ? [{ q, before, after }] : [];
+});
+const lastRelease = RELEASES.at(-1);
+const lowest = PARTS.reduce((a, p) => (LATEST[p.id].rank < LATEST[a.id].rank ? p : a));
+
+/** Each input's percentile rank over time, with their mean. */
+export function TuchelParts({ mode }: { mode?: RenderMode }) {
+  const partTip = (r: Reading): Tip => ({
+    title: `${day(r.date)}, 2026`,
+    rows: [
+      ...PARTS.map((p) => [p.name, n0(r[p.id].rank)] as [string, string]),
+      ['Execution credit', n0(r.credit)],
+      ['Close', usd(r.close)],
+    ],
+  });
+  return (
+    <Figure
+      id="tuchel-parts"
+      mode={mode}
+      headline={[
+        'Execution credit is ', { value: LATEST.credit, format: n0, from: 50 },
+        `: ${PARTS.map((p) => `${p.mid} ranks ${n0(LATEST[p.id].rank)}`).join(', ')}`,
+      ]}
+      dek={`Percentile rank of each input against every trading day since the IPO, 0 to 100, and their mean. Daily, ${day(first.date)} to ${day(LATEST.date)}, 2026.`}
+      takeaways={{
+        look: `The right-hand end of the lines, ${day(LATEST.date)}: ${PARTS.map((p) => `${p.mid} at ${n0(LATEST[p.id].rank)}`).join(', ')}.`,
+        learn: lastRelease
+          ? `After ${lastRelease.q.label} results the sales rank went from ${n0(lastRelease.before.sales.rank)} to ${n0(lastRelease.after.sales.rank)} in one day, as revenue came in ${(lastRelease.q.revenue / QUARTERS[QUARTERS.indexOf(lastRelease.q) - 1].revenue).toFixed(1)} times the quarter before.`
+          : `The three ranks move together most days and part at earnings, when the sales rank steps.`,
+        scrutinize: `Each rank compares a day only with the ${READINGS.length + WARMUP} trading days since the IPO, so ${lowest.mid} at ${n0(LATEST[lowest.id].rank)} means low for these months, not cheap in any absolute sense.`,
+      }}
+      note="The sales rank steps the day after each earnings release, when a new quarter's revenue replaces the last."
+      keyItems={[
+        { label: 'Execution credit (mean)', color: c('series1'), shape: 'line' },
+        ...PARTS.map((p) => ({ label: p.name, color: c(p.color), shape: 'line' as const })),
+      ]}
+      label={`Line chart of the three inputs to execution credit as percentile ranks from ${day(first.date)} to ${day(LATEST.date)}, 2026, with their mean, which ends at ${n0(LATEST.credit)}.`}
+      data={{
+        caption: 'Percentile ranks by day',
+        columns: ['Date', ...PARTS.map((p) => p.name), 'Execution credit'],
+        rows: [...READINGS].reverse().map((r) => [day(r.date), ...PARTS.map((p) => n0(r[p.id].rank)), n0(r.credit)]),
+      }}
+      height={(w) => (w < 560 ? 240 : 280)}
+    >
+      {({ width, height }) => {
+        const m = { l: 30, r: 12, t: 26, b: 30 };
+        const x = d3.scaleLinear().domain([t(first.date), t(LATEST.date)]).range([m.l, width - m.r]);
+        const y = d3.scaleLinear().domain([0, 100]).range([height - m.b, m.t]);
+        const months = d3.range(0, 12).map((mo) => Date.UTC(2026, mo, 1)).filter((v) => v >= t(first.date) && v <= t(LATEST.date));
+        const releases: Rule[] = RELEASES.map(({ q }) => ({
+          id: `rel-${q.id}`, x1: x(t(q.released!)), x2: x(t(q.released!)), y1: y(0), y2: y(100), stroke: c('slate'), dash: '2 3', opacity: 0.7,
+        }));
+        const releaseNames: Label[] = RELEASES.map(({ q }) => ({
+          id: `reln-${q.id}`, x: x(t(q.released!)) + 5, y: m.t - 8, text: `${q.label.slice(0, 2)} results`, anchor: 'start', size: 11.5, fill: c('slate'),
+        }));
+        const scrub: Dot[] = READINGS.map((r, i) => ({
+          id: `p${i}`, cx: x(t(r.date)), cy: y(r.credit), r: 3.5, fill: c('series1'), stroke: c('halo'), strokeWidth: 2, hit: 9,
+          label: `${day(r.date)}: execution credit ${n0(r.credit)}; ${PARTS.map((p) => `${p.mid} ${n0(r[p.id].rank)}`).join(', ')}`, tip: partTip(r),
+        }));
+        return (
+          <>
+            <AxisY scale={y} ticks={[0, 25, 50, 75, 100]} format={n0} at={m.l} grid={{ to: width - m.r }} unit="rank" />
+            <AxisX scale={x} ticks={months} format={(v) => new Date(v).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })} at={y(0)} unit="time" />
+            <Rules data={[{ id: 'base', x1: m.l, x2: width - m.r, y1: y(0), y2: y(0), stroke: c('slate'), opacity: 0.6 }, ...releases]} />
+            <Texts data={releaseNames} />
+            {PARTS.map((p) => (
+              <Line key={p.id} spec={{ id: p.id, points: READINGS.map((r) => [x(t(r.date)), y(r[p.id].rank)] as const), stroke: c(p.color), width: 1.25 }} />
+            ))}
+            <Line spec={{ id: 'credit', points: READINGS.map((r) => [x(t(r.date)), y(r.credit)] as const), stroke: c('series1'), width: 2 }} />
+            <Dots data={scrub} className="spcx-days" />
+          </>
+        );
+      }}
+    </Figure>
+  );
+}
+
 /** The always-visible reading; opening it shows the figure, the parts, and the record. */
 export function TuchelPanel() {
   const r = LATEST;
   const s = side(r);
   const parts: Array<[string, string, string]> = [
-    ['Price ÷ median analyst target', `${fix(r.target.value, 2)} (${usd(r.close)} against $${r.target.median}, ${r.target.firms} firms)`, n0(r.target.rank)],
-    ['SPCX ÷ Nasdaq-100', 'ratio of the two closes', n0(r.relative.rank)],
-    ['Run-rate sales multiple', `${fix(r.sales.value, 1)}× (market value ÷ four times ${r.sales.quarter} revenue)`, n0(r.sales.rank)],
+    ['Price against analyst targets', `${fix(r.target.value, 2)} (${usd(r.close)} against $${r.target.median}, ${r.target.firms} firms)`, n0(r.target.rank)],
+    ['SpaceX against the market', 'SPCX close ÷ Nasdaq-100 close', n0(r.relative.rank)],
+    ['Price against sales', `${fix(r.sales.value, 1)}× (market value ÷ four times ${r.sales.quarter} revenue)`, n0(r.sales.rank)],
   ];
   return (
     <details className="ti">
@@ -224,6 +323,19 @@ export function TuchelPanel() {
       </summary>
       <div className="ti-body">
         <TuchelIndicator />
+
+        <h3 className="ti-h">What execution credit measures</h3>
+        <p className="ti-lede">How much the market is paying for SpaceX's results, compared with every other day since the IPO. It asks the question three ways and averages the answers.</p>
+        <dl className="ti-why">
+          {PARTS.map((p) => <div key={p.id}><dt>{p.name}</dt><dd>{p.why}</dd></div>)}
+        </dl>
+        <p className="more-note">
+          Each is ranked from 0, the lowest day since the IPO, to 100, the highest. They are averaged because each has a blind spot: targets move slowly, the market comparison ignores the business's own numbers, and sales update once a quarter.
+        </p>
+        <details className="ti-sub">
+          <summary><span className="ti-more"><span className="ti-more-open">Show each input over time</span><span className="ti-more-close">Hide the inputs</span></span></summary>
+          <div className="ti-sub-body"><TuchelParts /></div>
+        </details>
 
         <h3 className="ti-h">What is in the reading</h3>
         <table className="cov ti-table">

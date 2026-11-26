@@ -144,6 +144,21 @@ a:hover { text-decoration-color: currentColor; }
 .ti[open]::details-content { height: auto; opacity: 1; }
 .ti-body { padding: 12px 0 24px; }
 .ti-h { margin: 28px 0 6px; font-size: 14px; font-weight: 600; color: var(--ink); }
+.ti-lede { margin: 0 0 12px; font-size: 14px; line-height: 1.5; color: var(--ink-2); max-width: 68ch; }
+.ti-why { display: grid; gap: 12px; margin: 0; max-width: 68ch; }
+.ti-why dt { font-size: 14px; font-weight: 600; color: var(--ink); }
+.ti-why dd { margin: 2px 0 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); text-wrap: pretty; }
+.ti-sub { margin-top: 16px; }
+.ti-sub > summary { display: inline-flex; cursor: pointer; list-style: none; border-radius: 999px; }
+.ti-sub > summary::-webkit-details-marker { display: none; }
+.ti-sub > summary:focus-visible { outline: 2px solid var(--chart-signal); outline-offset: 2px; }
+.ti-sub > summary:hover .ti-more, .ti-sub[open] > summary .ti-more { background: var(--chart-surface); box-shadow: inset 0 0 0 1px var(--chart-hair), var(--chart-shadow-1); }
+.ti-sub:not([open]) .ti-more-open { display: inline; }
+.ti-sub:not([open]) .ti-more-close { display: none; }
+.ti-sub:not([open]) .ti-more::after { transform: rotate(45deg); margin-top: -3px; }
+.ti-sub::details-content { height: 0; overflow: clip; opacity: 0; transition: height var(--motion-slow) var(--ease-standard), opacity var(--motion-base) var(--ease-standard), content-visibility var(--motion-slow) allow-discrete; }
+.ti-sub[open]::details-content { height: auto; opacity: 1; }
+.ti-sub-body { padding-top: 20px; }
 .ti-table td:nth-child(2) { text-align: left; white-space: normal; }
 .ti-table .ti-sum > * { font-weight: 600; color: var(--ink); }
 
