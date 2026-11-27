@@ -32,7 +32,7 @@ assert(/ratio:new T\.WebGLRenderTarget\(1,1,\{type:T\.HalfFloatType,depthBuffer:
 // Only under the scene, sun and weather the image was traced for.
 // `?carry=off` is the comparison.
 assert(/const carrying=tier\.lightCarry&&new URLSearchParams\(location\.search\)\.get\('carry'\)!=='off';/.test(viewer));
-assert(/carry:carrying&&live&&level!=='upper'&&!snow\.amount&&!raining&&!wet\.value\?live\.generation:undefined/.test(viewer));
+assert(/carry:motionTrace\?MOVING\.generation:carrying&&live&&level!=='upper'&&!snow\.amount&&!raining&&!wet\.value\?live\.generation:undefined/.test(viewer));
 assert(/kept\.generation===view\.carry/.test(post));
 // A kept image moved into a rested view lies over the live frame with the carried light, and fades out toward the edge
 // of what the traced view saw: no strip of live light beside it.
