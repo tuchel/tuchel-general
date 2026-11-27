@@ -108,6 +108,9 @@ assert(/\.mul\(slots\.covered\?slots\.covered\.oneMinus\(\):1\)/.test(foliage));
 const falling=fs.readFileSync('lib/house-model/falling.ts','utf8'),rain=fs.readFileSync('lib/house-model/rainfall.ts','utf8'),flakes=fs.readFileSync('lib/house-model/snowfall.ts','utf8');
 assert(/new T\.InstancedBufferGeometry\(\)/.test(falling)&&/perspectiveDepthToViewZ\(depth\.sample\(screenUV\)\.r,cameraNear,cameraFar\)/.test(falling)&&/if\(gpu\)\{gpu\.over\(object,camera\);return;\}/.test(falling));
 assert(/const material=gpu\?streaks\(gpu,uniforms,sky\):new T\.ShaderMaterial\(/.test(rain)&&/const material=gpu\?flakes\(gpu,uniforms,sky\):new T\.ShaderMaterial\(/.test(flakes));
+// The scene's four-sample buffer is not kept once it has been resolved: nothing reads it again, and storing it costs
+// the graphics card about 7% of the pass on the Mac.
+assert(/target\.storeMultisampledColorBuffer=false;/.test(chain),'the multisample buffer is dropped after the scene pass');
 // The chimney's smoke and the flue's vapour (smoke.ts) are puffs of nodes there too, drawn over the frame the same way.
 const smoke=fs.readFileSync('lib/house-model/smoke.ts','utf8');
 assert(/const material=gpu\?puffs\(gpu,uniforms,look\):new T\.ShaderMaterial\(/.test(smoke)&&/drawOver\(renderer,mesh,camera,gpu\)/.test(smoke)&&/createSmoke\(new T\.Vector3\([^;]*,SMOKE,falls\)/.test(viewer)&&/,FLUE_VAPOUR,falls\)/.test(viewer),'smoke under the WebGPU renderer');
