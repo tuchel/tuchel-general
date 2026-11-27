@@ -42,7 +42,6 @@ export function createCaptures(options:{
   stop();
   if(!options.heavy){send({message:'Photographic rendering needs a computer; this device keeps the live view.'});return;}
   if(panorama&&!options.eyeLevel()){send({message:'Choose an eye-level view before making a panorama.'});return;}
-  if(panorama&&options.gpu){send({message:'Panoramas are not yet made with the WebGPU renderer.'});return;}
   const controller=new AbortController();abort=controller;
   send({busy:true,render:'preparing',message:'Preparing photographic materials…'});
   let local:{scene:T.Scene;dispose:()=>void}|undefined,pt:Tracer|undefined,bvh:{dispose:()=>void}|undefined,env:T.Texture|undefined;
@@ -53,14 +52,15 @@ export function createCaptures(options:{
    local=await photographicScene(scene,env,controller.signal,text=>send({message:text}),{maxDistance:90,origin:camera.position.clone(),sunScale:lighting.sunThroughClouds});
    if(controller.signal.aborted){local.dispose();env.dispose();return;}
    send({message:'Building the light transport model…'});
-   let generator:{dispose:()=>void}|undefined;
+   let generator:{dispose:()=>void}|undefined,renderCamera:T.Camera=camera;
+   if(panorama){renderCamera=new EquirectCamera();renderCamera.position.copy(camera.position);renderCamera.quaternion.copy(camera.quaternion);renderCamera.updateMatrixWorld();}
    if(options.gpu){
     // The WebGPU renderer's own tracer (three-gpu-pathtracer/webgpu), with the WebGL one's settings. It counts samples
     // on the graphics card, so the count shown is the last one read back.
     const {WebGPUPathTracer}=await import('three-gpu-pathtracer/webgpu');
     const gpuTracer=new WebGPUPathTracer(renderer as never) as unknown as Tracer&{setScene(scene:T.Scene,camera:T.Camera):void;getSampleCountsAsync():Promise<{avg:number}>};
     Object.assign(gpuTracer,{maxBounces:7,maxTransparentBounces:10,renderDelay:0,minSamples:1,fadeDuration:400,filterGlossyFactor:.4,dynamicLowRes:false,maxSamples:state.maximum?1024:256});
-    gpuTracer.setScene(local.scene,camera);
+    gpuTracer.setScene(local.scene,renderCamera);
     // A scene the card refuses, or a device lost on the way, ends the photograph with a word instead of a black view.
     const device=(renderer as unknown as {backend:{device?:EventTarget}}).backend.device,failed=()=>{if(tracer===pt){stop();send({message:'Photographic rendering is unavailable on this device. The live view and still images still work.'});}};
     device?.addEventListener('uncapturederror',failed);const dispose=gpuTracer.dispose.bind(gpuTracer);
@@ -72,8 +72,6 @@ export function createCaptures(options:{
    Object.assign(webgl,{bounces:7,transmissiveBounces:10,renderDelay:0,minSamples:1,fadeDuration:400,filterGlossyFactor:.4,rasterizeScene:false});
    webgl.tiles.set(3,3);webgl.textureSize.set(1024,1024);
    const worker=new GenerateMeshBVHWorker();generator=bvh=worker;webgl.setBVHWorker(worker);
-   let renderCamera:T.Camera=camera;
-   if(panorama){renderCamera=new EquirectCamera();renderCamera.position.copy(camera.position);renderCamera.quaternion.copy(camera.quaternion);renderCamera.updateMatrixWorld();}
    await webgl.setSceneAsync(local.scene,renderCamera);
    }
    if(controller.signal.aborted){pt.dispose();generator?.dispose();local.dispose();env.dispose();return;}
