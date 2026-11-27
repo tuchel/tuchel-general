@@ -176,4 +176,7 @@ assert(/new gpu\.WebGPURenderer\(\{antialias:!realistic,/.test(viewer));
 const albedoCode=fs.readFileSync('lib/house-model/albedo-pass.ts','utf8');
 assert(/nodes:slots=>\{/.test(albedoCode)&&/slots\.output=\(colour:any\)=>select\(on\.greaterThan\(\.5\),vec4\(diffuseColor\.rgb,1\),before\?before\(colour\):colour\);/.test(albedoCode),'surface colours as nodes');
 assert(/present:\(image:T\.Texture,amount:number,/.test(chain)&&/renderAlbedo\(renderer,scene,camera,traced\.colours\)/.test(chain)&&/shafted\(misted\(vec4\(/.test(chain)&&!/present:\(\)=>\{\},/.test(chain),'traced image shown on WebGPU');
+// The tracer's sky comes from the renderer in use: the WebGPU renderer cannot read a target back at once.
+const liveCode=fs.readFileSync('lib/house-model/live-trace.ts','utf8');
+assert(/isWebGPURenderer\?lighting\.equirectGPU\(\):lighting\.equirect\(\)/.test(liveCode)&&!/=lighting\.equirect\(\);/.test(liveCode),'the tracer\'s sky on WebGPU');
 console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, lying snow with its packed layer on the roofs, falling snow and rain, averaged still frames and colour finish there.');

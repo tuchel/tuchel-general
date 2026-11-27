@@ -31,6 +31,8 @@ export function createLiveTrace(options:{renderer:T.WebGLRenderer;scene:T.Scene;
   if(prepared){prepared.gpu.dispose();prepared.local.dispose();prepared.environment.dispose();prepared=undefined;}
  };
  const cancelled=()=>new DOMException('Cancelled','AbortError');
+ // The WebGPU renderer reads a target back a moment later.
+ const sky=async()=>(renderer as {isWebGPURenderer?:boolean}).isWebGPURenderer?lighting.equirectGPU():lighting.equirect();
  const prepare=async()=>{
   if(!('gpu' in navigator)){unavailable=true;return;}
   const controller=new AbortController();abort=controller;
@@ -38,7 +40,7 @@ export function createLiveTrace(options:{renderer:T.WebGLRenderer;scene:T.Scene;
   try{
    const {photographicScene,sceneCache}=await import('./photographic-scene');
    if(controller.signal.aborted)return;
-   cache??=sceneCache();environment=lighting.equirect();
+   cache??=sceneCache();environment=await sky();
    local=await photographicScene(scene,environment,controller.signal,()=>{},{maxDistance:REACH,origin:ORIGIN,sunScale:lighting.sunThroughClouds,instances:true,cache});
    if(controller.signal.aborted)throw cancelled();
    if(prepared){
@@ -66,7 +68,7 @@ export function createLiveTrace(options:{renderer:T.WebGLRenderer;scene:T.Scene;
  const relight=async()=>{
   if(!prepared)return;
   const {copyLights}=await import('./photographic-scene'),p=prepared;if(!p||p!==prepared)return;
-  const environment=lighting.equirect();
+  const environment=await sky();if(p!==prepared){environment.dispose();return;}
   copyLights(scene,p.local.scene,lighting.sunThroughClouds);p.local.scene.environment=p.local.scene.background=environment;
   p.gpu.relight();p.environment.dispose();p.environment=environment;
  };
