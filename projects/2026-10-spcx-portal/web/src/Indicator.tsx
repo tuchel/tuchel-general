@@ -1,0 +1,372 @@
+/**
+ * The Tuchel Indicator: a one-line reading that opens onto its evidence.
+ *
+ * The figure has two panels on one 0–100 scale. The map plots execution credit against market
+ * mood, one dot per trading day joined in order and shaded from pale to blue by date, with the score's bands as diagonals. The
+ * history draws credit, mood, and their mean over time. A day lights in both panels at once.
+ */
+import {
+  AxisX, AxisY, Dots, Figure, Line, Rules, Texts, c, d3, labelBox,
+  type Dot, type Label, type RenderMode, type Rule, type Tip,
+} from '../../../../shared/charts/src/index.ts';
+import { QUARTERS } from './data.ts';
+import { BANDS, HORIZON, LATEST, READINGS, RECORD, WARMUP, moodName, type Reading } from './tuchel.ts';
+import { MARKET_SRC, SHARES } from './sentiment.ts';
+
+const t = (iso: string) => Date.parse(`${iso}T00:00:00Z`);
+const day = (iso: string) => new Date(t(iso)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+const usd = (v: number) => `$${v.toFixed(2)}`;
+const n0 = (v: number) => String(Math.round(v));
+const pct = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v * 100).toFixed(1)}%`;
+
+const first = READINGS[0];
+const high = READINGS.reduce((a, r) => (r.score > a.score ? r : a));
+const side = (r: Reading) => (r.verdict.id.endsWith('buy') ? 'buy' : r.verdict.id.endsWith('sell') ? 'sell' : 'hold');
+// The run of days, ending today, on the same side of the gauge.
+const runStart = READINGS[READINGS.length - 1 - [...READINGS].reverse().findIndex((r) => side(r) !== side(LATEST)) + 1] ?? first;
+const low = RECORD[0];
+const sells = READINGS.filter((r) => side(r) === 'sell' && r.forward !== undefined);
+const sellMean = sells.length ? sells.reduce((a, r) => a + r.forward!, 0) / sells.length : undefined;
+
+function tip(r: Reading): Tip {
+  const rows: Array<[string, string]> = [
+    ['Reading', `${r.verdict.label}, ${n0(r.score)}`],
+    ['Execution credit', n0(r.credit)],
+    ['Market mood', `${n0(r.mood)}, ${moodName(r.mood)}`],
+    ['Close', usd(r.close)],
+  ];
+  if (r.forward !== undefined) rows.push([`${HORIZON} trading days later`, pct(r.forward)]);
+  return { title: `${day(r.date)}, 2026`, rows };
+}
+
+/** Time on the map, 0 to 1: close to the page's ground for the first reading, full blue for the latest. */
+const ramp = (f: number) => `color-mix(in srgb, ${c('series1')} ${Math.round(18 + 82 * f)}%, ${c('halo')})`;
+const span = Math.max(1, READINGS.length - 1);
+
+type Box = { x0: number; x1: number; y0: number; y1: number };
+const boxOf = (l: Label): Box => {
+  const b = labelBox(l.text, { size: l.size ?? 12, weight: l.weight });
+  const x0 = l.anchor === 'end' ? l.x - b.width : l.anchor === 'middle' ? l.x - b.width / 2 : l.x;
+  return { x0, x1: x0 + b.width, y0: l.y - b.height, y1: l.y + 3 };
+};
+const hits = (a: Box, b: Box) => a.x0 < b.x1 + 4 && b.x0 < a.x1 + 4 && a.y0 < b.y1 + 2 && b.y0 < a.y1 + 2;
+
+export function TuchelIndicator({ mode }: { mode?: RenderMode }) {
+  return (
+    <Figure
+      id="tuchel-indicator"
+      mode={mode}
+      headline={[
+        'The Tuchel Indicator reads ', { value: LATEST.score, format: n0, from: 50 },
+        `, ${LATEST.verdict.label.toLowerCase()}: execution credit `, { value: LATEST.credit, format: n0, from: 50 },
+        ', market mood ', { value: LATEST.mood, format: n0, from: 50 },
+      ]}
+      dek={`Execution credit is how richly SPCX is priced against analyst targets, the Nasdaq-100, and its sales, as a percentile of every day since the IPO. Market mood is the CNN Fear & Greed Index. Both run 0 to 100; the score is their mean. Daily, ${day(first.date)} to ${day(LATEST.date)}, 2026.`}
+      takeaways={{
+        look: `The filled dot on the map, ${day(LATEST.date)}: credit ${n0(LATEST.credit)} and mood ${n0(LATEST.mood)}, against ${n0(high.credit)} and ${n0(high.mood)} on ${day(high.date)}, the highest score so far at ${n0(high.score)}.`,
+        learn: low.mean !== undefined && sellMean !== undefined
+          ? `Scores under 25 were followed by a mean ${pct(low.mean)} move in the close over ${HORIZON} trading days (${low.complete} days); the ${sells.length} scores above 55 by ${pct(sellMean)}.`
+          : `The score has ranged from ${n0(Math.min(...READINGS.map((r) => r.score)))} to ${n0(high.score)} over ${READINGS.length} trading days.`,
+        scrutinize: `${READINGS.length} trading days hold one low and one high, and the ${HORIZON}-day windows overlap; the gauge has read ${side(LATEST)} since ${day(runStart.date)}, while the close went from ${usd(runStart.close)} to ${usd(LATEST.close)}.`,
+      }}
+      note={`Not investment advice. Each percentile uses only the days up to that reading, so past readings never change; the first is trading day ${WARMUP + 1}. Bands are CNN's for its index, applied to the score. The map's path darkens with time, as along the history's axis.`}
+      keyItems={[
+        { label: 'Score', color: c('ink'), shape: 'line' },
+        { label: 'Execution credit', color: c('series1'), shape: 'line' },
+        { label: 'Market mood', color: c('series2'), shape: 'line' },
+      ]}
+      label={`Two panels. A map of execution credit against market mood with one dot per trading day from ${day(first.date)} to ${day(LATEST.date)}, 2026, and the same two measures and their mean over time. The latest score is ${n0(LATEST.score)}, ${LATEST.verdict.label.toLowerCase()}.`}
+      data={{
+        caption: 'Daily readings',
+        columns: ['Date', 'Close ($)', 'Execution credit', 'Market mood', 'Score', 'Reading', `Close ${HORIZON} trading days later`],
+        rows: [...READINGS].reverse().map((r) => [day(r.date), r.close.toFixed(2), n0(r.credit), r.mood.toFixed(1), n0(r.score), r.verdict.label, r.forward === undefined ? '—' : pct(r.forward)]),
+      }}
+      height={(w) => (w < 700 ? Math.min(w - 48, 340) + 66 + 238 : 372)}
+    >
+      {({ width, height }) => {
+        const wide = width >= 700;
+        const mt = 26;
+        const mb = 40;
+        const ml = 30;
+        const size = wide ? height - mt - mb : Math.min(width - 48, 340);
+        // Map: a square, credit across and mood up.
+        const mx = d3.scaleLinear().domain([0, 100]).range([ml, ml + size]);
+        const my = d3.scaleLinear().domain([0, 100]).range([mt + size, mt]);
+        // History: beside the map when there is room, under it otherwise.
+        const hr = 78;
+        const hx0 = wide ? ml + size + 64 : ml;
+        const hTop = wide ? mt : mt + size + mb + 26;
+        const hBot = wide ? mt + size : height - 30;
+        const hx = d3.scaleLinear().domain([t(first.date), t(LATEST.date)]).range([hx0, width - hr]);
+        const hy = d3.scaleLinear().domain([0, 100]).range([hBot, hTop]);
+
+        const edges = BANDS.slice(1).map((b) => b.from);
+        const diagonals: Rule[] = edges.map((s) => {
+          const sum = 2 * s;
+          const [a, b] = sum <= 100 ? [[0, sum], [sum, 0]] : [[sum - 100, 100], [100, sum - 100]];
+          return { id: `diag${s}`, x1: mx(a[0]), y1: my(a[1]), x2: mx(b[0]), y2: my(b[1]), stroke: c('slate'), dash: '2 3', opacity: 0.55 };
+        });
+        const frame: Rule[] = [
+          { id: 'mx', x1: mx(0), x2: mx(100), y1: my(0), y2: my(0), stroke: c('slate'), opacity: 0.6 },
+          { id: 'my', x1: mx(0), x2: mx(0), y1: my(0), y2: my(100), stroke: c('slate'), opacity: 0.6 },
+        ];
+        // Band names sit in the map's lower right, where low mood meets high credit and days are rare.
+        const zoneAt: Array<[number, number, 'middle' | 'end']> = [[27, 4, 'middle'], [66, 4, 'middle'], [98, 4, 'end'], [98, 31, 'end'], [98, 78, 'end']];
+        const zones: Label[] = BANDS.map((b, i) => ({
+          id: `zone-${b.id}`, x: mx(zoneAt[i][0]), y: my(zoneAt[i][1]), text: b.label, anchor: zoneAt[i][2], size: 11.5,
+          weight: b.id === LATEST.verdict.id ? 600 : 400, fill: b.id === LATEST.verdict.id ? c('ink') : c('slate'), halo: c('halo'),
+        }));
+
+        const path = READINGS.map((r) => [mx(r.credit), my(r.mood)] as const);
+        // The path is one segment per day, shaded by date, so its order reads without tracing it.
+        const steps: Rule[] = path.slice(1).map((p, i) => ({
+          id: `step${i}`, x1: path[i][0], y1: path[i][1], x2: p[0], y2: p[1], stroke: ramp((i + 1) / span), width: 1.5,
+        }));
+        // The same shading runs along the history's time axis, as the key to the map.
+        const clock: Rule[] = READINGS.slice(1).map((r, i) => ({
+          id: `clock${i}`, x1: hx(t(READINGS[i].date)), x2: hx(t(r.date)), y1: hy(0) + 2, y2: hy(0) + 2, stroke: ramp((i + 1) / span), width: 4,
+        }));
+        const dots: Dot[] = READINGS.map((r, i) => {
+          const latest = r === LATEST;
+          return {
+            id: `m${i}`, cx: path[i][0], cy: path[i][1], r: latest ? 5 : r === high ? 3.5 : 2,
+            fill: ramp(i / span), stroke: latest || r === high ? c('halo') : undefined, strokeWidth: 1.5, hit: 7,
+            label: `${day(r.date)}: ${r.verdict.label}, score ${n0(r.score)}, credit ${n0(r.credit)}, mood ${n0(r.mood)}`, tip: tip(r), keys: [`d${i}`],
+          };
+        });
+        // The latest day and the highest score are named; each label takes the first seat clear of the others.
+        const placed: Box[] = zones.map(boxOf);
+        const named: Label[] = [];
+        for (const r of high === LATEST ? [LATEST] : [LATEST, high]) {
+          const [px, py] = [mx(r.credit), my(r.mood)];
+          const base = { id: `name-${r.date}`, text: day(r.date), size: 12, weight: 600, fill: r === LATEST ? c('series1') : c('ink'), halo: c('halo') };
+          const seats: Label[] = [
+            { ...base, x: px + 9, y: py + 4, anchor: 'start' }, { ...base, x: px, y: py - 10, anchor: 'middle' },
+            { ...base, x: px - 9, y: py + 4, anchor: 'end' }, { ...base, x: px, y: py + 19, anchor: 'middle' },
+          ];
+          const seat = seats.find((s) => {
+            const b = boxOf(s);
+            return b.x0 >= mx(0) + 2 && b.x1 <= mx(100) && b.y0 >= my(100) && b.y1 <= my(0) - 2 && !placed.some((o) => hits(b, o));
+          });
+          if (seat) { named.push(seat); placed.push(boxOf(seat)); }
+        }
+        const titles: Label[] = [
+          { id: 't-mood', x: 0, y: mt - 12, text: 'Market mood', anchor: 'start', size: 11.5, weight: 600, fill: c('series2') },
+          { id: 't-credit', x: mx(100), y: my(0) + 34, text: 'Execution credit', anchor: 'end', size: 11.5, weight: 600, fill: c('series1') },
+          { id: 't-hist', x: hx0, y: hTop - 12, text: 'Since July', anchor: 'start', size: 11.5, weight: 600, fill: c('ink') },
+        ];
+
+        const series = (id: string, f: (r: Reading) => number, stroke: string, w: number) => (
+          <Line spec={{ id, points: READINGS.map((r) => [hx(t(r.date)), hy(f(r))] as const), stroke, width: w }} />
+        );
+        const bandNames: Label[] = BANDS.map((b) => ({
+          id: `band-${b.id}`, x: width - hr + 8, y: hy((b.from + b.to) / 2), baseline: 'middle', text: b.label, anchor: 'start', size: 11.5,
+          weight: b.id === LATEST.verdict.id ? 600 : 400, fill: b.id === LATEST.verdict.id ? c('ink') : c('slate'),
+        }));
+        const scrub: Dot[] = READINGS.map((r, i) => ({
+          id: `h${i}`, cx: hx(t(r.date)), cy: hy(r.score), r: 3.5, fill: c('ink'), stroke: c('halo'), strokeWidth: 2, hit: 9,
+          label: `${day(r.date)}: score ${n0(r.score)}`, tip: tip(r), keys: [`d${i}`],
+        }));
+        const months = d3.range(0, 12).map((m) => Date.UTC(2026, m, 1)).filter((v) => v >= t(first.date) && v <= t(LATEST.date));
+        const quarter = [0, 25, 50, 75, 100];
+
+        return (
+          <>
+            <AxisY scale={my} ticks={quarter} format={n0} at={mx(0)} grid={{ to: mx(100) }} unit="mood" />
+            <AxisX scale={mx} ticks={quarter} format={n0} at={my(0)} unit="credit" />
+            <AxisY scale={hy} ticks={[0, ...edges, 100]} format={n0} at={hx0} grid={{ to: width - hr }} unit="score" />
+            <AxisX scale={hx} ticks={months} format={(v) => new Date(v).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })} at={hy(0)} unit="time" />
+            <Rules data={[...frame, ...diagonals]} />
+            <Rules data={[...steps, ...clock]} />
+            <Texts data={[...zones, ...titles, ...bandNames]} />
+            {series('credit', (r) => r.credit, c('series1'), 1.25)}
+            {series('mood', (r) => r.mood, c('series2'), 1.25)}
+            {series('score', (r) => r.score, c('ink'), 2)}
+            <Dots data={dots} className="ti-days" />
+            <Texts data={named} />
+            <Dots data={scrub} className="spcx-days" />
+          </>
+        );
+      }}
+    </Figure>
+  );
+}
+
+const fix = (v: number, d: number) => v.toFixed(d);
+
+/** The three inputs to execution credit, in the order they are averaged. */
+const PARTS: Array<{ id: 'target' | 'relative' | 'sales'; name: string; mid: string; color: 'series3' | 'series4' | 'series5'; why: string }> = [
+  {
+    id: 'target', name: 'Price against analyst targets', mid: 'price against analyst targets', color: 'series3',
+    why: 'The share price divided by the middle analyst target. Analysts set targets from the business’s results and outlook, so a price far below them means the market is giving less credit than the people who study the company closely.',
+  },
+  {
+    id: 'relative', name: 'SpaceX against the market', mid: 'SpaceX against the market', color: 'series4',
+    why: 'The share price divided by the Nasdaq-100. This takes out the days when everything moves together and leaves the part of the move that is about SpaceX.',
+  },
+  {
+    id: 'sales', name: 'Price against sales', mid: 'price against sales', color: 'series5',
+    why: 'The company’s market value divided by four times its latest quarter’s revenue: the price per dollar of sales. When revenue jumps and the price does not follow, this falls.',
+  },
+];
+
+// Results come out after the close, so the sales rank steps on the next trading day.
+const RELEASES = QUARTERS.flatMap((q) => {
+  if (!q.released) return [];
+  const before = READINGS.filter((r) => r.date <= q.released!).at(-1);
+  const after = READINGS.find((r) => r.date > q.released!);
+  return before && after ? [{ q, before, after }] : [];
+});
+const lastRelease = RELEASES.at(-1);
+const lowest = PARTS.reduce((a, p) => (LATEST[p.id].rank < LATEST[a.id].rank ? p : a));
+
+/** Each input's percentile rank over time, with their mean. */
+export function TuchelParts({ mode }: { mode?: RenderMode }) {
+  const partTip = (r: Reading): Tip => ({
+    title: `${day(r.date)}, 2026`,
+    rows: [
+      ...PARTS.map((p) => [p.name, n0(r[p.id].rank)] as [string, string]),
+      ['Execution credit', n0(r.credit)],
+      ['Close', usd(r.close)],
+    ],
+  });
+  return (
+    <Figure
+      id="tuchel-parts"
+      mode={mode}
+      headline={[
+        'Execution credit is ', { value: LATEST.credit, format: n0, from: 50 },
+        `: ${PARTS.map((p) => `${p.mid} ranks ${n0(LATEST[p.id].rank)}`).join(', ')}`,
+      ]}
+      dek={`Percentile rank of each input against every trading day since the IPO, 0 to 100, and their mean. Daily, ${day(first.date)} to ${day(LATEST.date)}, 2026.`}
+      takeaways={{
+        look: `The right-hand end of the lines, ${day(LATEST.date)}: ${PARTS.map((p) => `${p.mid} at ${n0(LATEST[p.id].rank)}`).join(', ')}.`,
+        learn: lastRelease
+          ? `After ${lastRelease.q.label} results the sales rank went from ${n0(lastRelease.before.sales.rank)} to ${n0(lastRelease.after.sales.rank)} in one day, as revenue came in ${(lastRelease.q.revenue / QUARTERS[QUARTERS.indexOf(lastRelease.q) - 1].revenue).toFixed(1)} times the quarter before.`
+          : `The three ranks move together most days and part at earnings, when the sales rank steps.`,
+        scrutinize: `Each rank compares a day only with the ${READINGS.length + WARMUP} trading days since the IPO, so ${lowest.mid} at ${n0(LATEST[lowest.id].rank)} means low for these months, not cheap in any absolute sense.`,
+      }}
+      note="The sales rank steps the day after each earnings release, when a new quarter's revenue replaces the last."
+      keyItems={[
+        { label: 'Execution credit (mean)', color: c('series1'), shape: 'line' },
+        ...PARTS.map((p) => ({ label: p.name, color: c(p.color), shape: 'line' as const })),
+      ]}
+      label={`Line chart of the three inputs to execution credit as percentile ranks from ${day(first.date)} to ${day(LATEST.date)}, 2026, with their mean, which ends at ${n0(LATEST.credit)}.`}
+      data={{
+        caption: 'Percentile ranks by day',
+        columns: ['Date', ...PARTS.map((p) => p.name), 'Execution credit'],
+        rows: [...READINGS].reverse().map((r) => [day(r.date), ...PARTS.map((p) => n0(r[p.id].rank)), n0(r.credit)]),
+      }}
+      height={(w) => (w < 560 ? 240 : 280)}
+    >
+      {({ width, height }) => {
+        const m = { l: 30, r: 12, t: 26, b: 30 };
+        const x = d3.scaleLinear().domain([t(first.date), t(LATEST.date)]).range([m.l, width - m.r]);
+        const y = d3.scaleLinear().domain([0, 100]).range([height - m.b, m.t]);
+        const months = d3.range(0, 12).map((mo) => Date.UTC(2026, mo, 1)).filter((v) => v >= t(first.date) && v <= t(LATEST.date));
+        const releases: Rule[] = RELEASES.map(({ q }) => ({
+          id: `rel-${q.id}`, x1: x(t(q.released!)), x2: x(t(q.released!)), y1: y(0), y2: y(100), stroke: c('slate'), dash: '2 3', opacity: 0.7,
+        }));
+        const releaseNames: Label[] = RELEASES.map(({ q }) => ({
+          id: `reln-${q.id}`, x: x(t(q.released!)) + 5, y: m.t - 8, text: `${q.label.slice(0, 2)} results`, anchor: 'start', size: 11.5, fill: c('slate'),
+        }));
+        const scrub: Dot[] = READINGS.map((r, i) => ({
+          id: `p${i}`, cx: x(t(r.date)), cy: y(r.credit), r: 3.5, fill: c('series1'), stroke: c('halo'), strokeWidth: 2, hit: 9,
+          label: `${day(r.date)}: execution credit ${n0(r.credit)}; ${PARTS.map((p) => `${p.mid} ${n0(r[p.id].rank)}`).join(', ')}`, tip: partTip(r),
+        }));
+        return (
+          <>
+            <AxisY scale={y} ticks={[0, 25, 50, 75, 100]} format={n0} at={m.l} grid={{ to: width - m.r }} unit="rank" />
+            <AxisX scale={x} ticks={months} format={(v) => new Date(v).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })} at={y(0)} unit="time" />
+            <Rules data={[{ id: 'base', x1: m.l, x2: width - m.r, y1: y(0), y2: y(0), stroke: c('slate'), opacity: 0.6 }, ...releases]} />
+            <Texts data={releaseNames} />
+            {PARTS.map((p) => (
+              <Line key={p.id} spec={{ id: p.id, points: READINGS.map((r) => [x(t(r.date)), y(r[p.id].rank)] as const), stroke: c(p.color), width: 1.25 }} />
+            ))}
+            <Line spec={{ id: 'credit', points: READINGS.map((r) => [x(t(r.date)), y(r.credit)] as const), stroke: c('series1'), width: 2 }} />
+            <Dots data={scrub} className="spcx-days" />
+          </>
+        );
+      }}
+    </Figure>
+  );
+}
+
+/** The always-visible reading; opening it shows the figure, the parts, and the record. */
+export function TuchelPanel() {
+  const r = LATEST;
+  const s = side(r);
+  const parts: Array<[string, string, string]> = [
+    ['Price against analyst targets', `${fix(r.target.value, 2)} (${usd(r.close)} against $${r.target.median}, ${r.target.firms} firms)`, n0(r.target.rank)],
+    ['SpaceX against the market', 'SPCX close ÷ Nasdaq-100 close', n0(r.relative.rank)],
+    ['Price against sales', `${fix(r.sales.value, 1)}× (market value ÷ four times ${r.sales.quarter} revenue)`, n0(r.sales.rank)],
+  ];
+  return (
+    <details className="ti">
+      <summary>
+        <span className="ti-name">Tuchel Indicator</span>
+        <span className="ti-read" data-side={s}>
+          <span className="ti-verdict">{r.verdict.label}</span>
+          <span className="ti-score">{n0(r.score)}</span>
+        </span>
+        <span className="ti-gauge" role="img" aria-label={`Score ${n0(r.score)} on a scale from 0, strong buy, to 100, strong sell`}>
+          <span className="ti-track">
+            {BANDS.map((b) => <span key={b.id} style={{ flexGrow: b.to - b.from }} data-on={b.id === r.verdict.id ? s : undefined} />)}
+            <span className="ti-pin" style={{ left: `${r.score}%` }} />
+          </span>
+          <span className="ti-ends"><span>Buy</span><span>Hold</span><span>Sell</span></span>
+        </span>
+        <span className="ti-axes">
+          Execution credit <b>{n0(r.credit)}</b> · Market mood <b>{n0(r.mood)}</b>, {moodName(r.mood)} · {day(r.date)} close
+        </span>
+        <span className="ti-more" aria-hidden="true"><span className="ti-more-open">Details</span><span className="ti-more-close">Close</span></span>
+      </summary>
+      <div className="ti-body">
+        <TuchelIndicator />
+
+        <h3 className="ti-h">What execution credit measures</h3>
+        <p className="ti-lede">How much the market is paying for SpaceX's results, compared with every other day since the IPO. It asks the question three ways and averages the answers.</p>
+        <dl className="ti-why">
+          {PARTS.map((p) => <div key={p.id}><dt>{p.name}</dt><dd>{p.why}</dd></div>)}
+        </dl>
+        <p className="more-note">
+          Each is ranked from 0, the lowest day since the IPO, to 100, the highest. They are averaged because each has a blind spot: targets move slowly, the market comparison ignores the business's own numbers, and sales update once a quarter.
+        </p>
+        <details className="ti-sub">
+          <summary><span className="ti-more"><span className="ti-more-open">Show each input over time</span><span className="ti-more-close">Hide the inputs</span></span></summary>
+          <div className="ti-sub-body"><TuchelParts /></div>
+        </details>
+
+        <h3 className="ti-h">What is in the reading</h3>
+        <table className="cov ti-table">
+          <thead><tr><th scope="col">Part</th><th scope="col">Value on {day(r.date)}</th><th scope="col">Percentile since IPO</th></tr></thead>
+          <tbody>
+            {parts.map(([name, value, rank]) => <tr key={name}><th scope="row">{name}</th><td>{value}</td><td>{rank}</td></tr>)}
+            <tr className="ti-sum"><th scope="row">Execution credit</th><td>mean of the three percentiles</td><td>{n0(r.credit)}</td></tr>
+            <tr><th scope="row">Market mood</th><td>CNN Fear &amp; Greed Index, {moodName(r.mood)}; VIX {fix(r.vix, 2)}</td><td>{fix(r.mood, 1)}</td></tr>
+            <tr className="ti-sum"><th scope="row">Score</th><td>mean of credit and mood</td><td>{n0(r.score)}</td></tr>
+          </tbody>
+        </table>
+
+        <h3 className="ti-h">What followed each reading</h3>
+        <table className="cov ti-table">
+          <thead><tr><th scope="col">Reading</th><th scope="col">Score</th><th scope="col">Days</th><th scope="col">Mean move, next {HORIZON} trading days</th><th scope="col">Rose</th></tr></thead>
+          <tbody>
+            {RECORD.map((b) => (
+              <tr key={b.id}>
+                <th scope="row">{b.label}</th>
+                <td>{b.from}–{b.to}</td>
+                <td>{b.days}</td>
+                <td>{b.mean === undefined ? '—' : `${pct(b.mean)} (${b.complete} days)`}</td>
+                <td>{b.complete ? `${b.rose} of ${b.complete}` : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="more-note">
+          {READINGS.length} trading days is a short record: it holds one low and one high, and neighbouring {HORIZON}-day windows share most of their days, so the day counts overstate the evidence. The run-rate multiple uses {fix(SHARES.count / 1e9, 2)} billion shares ({MARKET_SRC.shares.label.split(',')[0]}, {day(SHARES.asOf)}); the VIX is shown for context and is not in the score.
+        </p>
+      </div>
+    </details>
+  );
+}

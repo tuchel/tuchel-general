@@ -1,6 +1,6 @@
 # SPCX portal
 
-A dashboard for Space Exploration Technologies Corp. (SpaceX, Nasdaq: SPCX). It opens on one figure: quarterly revenue and the daily closing share price on a shared time axis. Analyst coverage and sources sit behind disclosures below it.
+A dashboard for Space Exploration Technologies Corp. (SpaceX, Nasdaq: SPCX). It opens on one figure: quarterly revenue and the daily closing share price on a shared time axis. Analyst coverage and sources sit behind disclosures below it. Above it, the Tuchel Indicator gives one buy / hold / sell reading from SpaceX's execution credit and the market's mood, and opens onto its evidence (`web/src/tuchel.ts`).
 
 **Status:** first figure live, with an outlook view (Q4 2026 analyst estimates, Q1 2027 guidance). Data through the Q3 2026 release (October 20, 2026).
 
