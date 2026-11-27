@@ -16,6 +16,7 @@ import {createCameraRig,type Framing} from './camera-rig';
 import {createCaptures} from './experience';
 import {STIR} from './atmosphere';
 import {createLiveTrace,traceFade,LIVE_TRACE} from './live-trace';
+import {createMoveTrace,moveTraceAsked} from './move-trace';
 import {addAlbedoOutput} from './albedo-pass';
 import {createPoolReflection} from './pool-reflection';
 import {hasShaderFeature,materialsOf,drawWithNodes} from './shader-features';
@@ -279,6 +280,9 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  if(post)perf?.watch(post.passes);
  // Extreme: path tracing takes over the view while the camera rests.
  live=tier.liveTrace&&lighting&&post&&camera instanceof T.PerspectiveCamera?createLiveTrace({renderer,scene,camera,lighting}):undefined;
+ // A prototype behind `?moveTrace=` (move-trace.ts): a path-traced sample every frame, on the renderer's own device.
+ const tracing=gpu&&lighting&&camera instanceof T.PerspectiveCamera?moveTraceAsked():undefined;
+ const motionTrace=tracing&&lighting&&camera instanceof T.PerspectiveCamera?createMoveTrace({renderer,scene,camera,lighting,asked:tracing,ready:()=>{canvas.dataset.moveTrace='ready';changed();}}):undefined;
  // Its surface colours sharpen the traced image (albedo-pass.ts); added before the shaders are compiled ahead.
  if(live)addAlbedoOutput(scene);
  const captures=lighting?createCaptures({
@@ -521,6 +525,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    probes?.setCamera(rig.camera);
    cullTrees(low);
    if(mirror)timed('mirror',()=>mirror.render(low&&!!gpu));post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel,carry:carrying&&live&&level!=='upper'&&!snow.amount&&!raining&&!wet.value?live.generation:undefined});
+   motionTrace?.step();
    if(low)steer?.finish(performance.now());
    if(jitter)camera.clearViewOffset();
    fall();
@@ -724,7 +729,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   snapshot:rig.snapshot,
   restore:(s:Parameters<typeof rig.restore>[0])=>{rig.restore(s);changed();},
   dispose:()=>{
-   disposed=true;screen?.dispose();snowfall?.dispose();rainfall?.dispose();smoke?.dispose();vapour?.dispose();wet.value=0;slabs?.dispose();drifts?.dispose();festive?.dispose();cancelAnimationFrame(frame);touches();perf?.dispose();occlusion?.dispose();steer?.dispose();probes?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);clearTimeout(cloudSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
+   disposed=true;motionTrace?.dispose();screen?.dispose();snowfall?.dispose();rainfall?.dispose();smoke?.dispose();vapour?.dispose();wet.value=0;slabs?.dispose();drifts?.dispose();festive?.dispose();cancelAnimationFrame(frame);touches();perf?.dispose();occlusion?.dispose();steer?.dispose();probes?.dispose();window.removeEventListener('keydown',walkDown);window.removeEventListener('keyup',walkUp);window.removeEventListener('blur',walkBlur);window.removeEventListener('blur',away);window.removeEventListener('focus',back);clearTimeout(sunSettle);clearTimeout(cloudSettle);captures?.dispose();live?.dispose();mirror?.dispose();observer.disconnect();visibility.disconnect();controls.dispose();
    canvas.removeEventListener('webglcontextlost',lost);canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',up);canvas.removeEventListener('wheel',wheel);canvas.removeEventListener('keydown',key);
    bake?.dispose();bounce?.dispose();clouds?.dispose();grass?.dispose();post?.dispose();lighting?.dispose();textures?.dispose();environment?.dispose();
    const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>();
