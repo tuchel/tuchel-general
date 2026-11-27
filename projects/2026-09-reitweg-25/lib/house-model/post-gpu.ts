@@ -355,7 +355,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    return vec4(mix(was,select(d.greaterThanEqual(farthest.mul(.999)),was,aired),amount),1);
   })())};
  })();
- let showing=settled[0],flowing=false;
+ let showing=settled[0],flowing=false,near=false;
  const lamps=options.lamps??(()=>0);
  // The finish fills the screen whatever camera it is drawn with, so that what falls over the frame can be drawn in the
  // same pass (`over`): a second pass to the canvas does not keep what the first left there.
@@ -409,7 +409,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    flowing=!refining;
    settled=[next,was];if(rest||!kept)frames++;
    kept?.remember();
-   showing=view?.eyeLevel&&focus?focus.render(out):out;
+   near=!!view?.eyeLevel;showing=near&&focus?focus.render(out):out;
    toScreen();
   },
   get lightCarried(){return 0;},
@@ -425,7 +425,8 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   /** The scene's own depth buffer as last drawn, which what falls over the frame reads as it is (falling.ts). */
   get depth(){return depthOf;},
   /** Shows a path-traced image (linear, before exposure) over the settled live image, through the same finish, `amount`
-   * (0–1) of it. Exposure and finish hold as the view's last frame left them; the grain keeps moving. */
+   * (0–1) of it. Exposure and finish hold as the view's last frame left them, as does the focus at eye level; the grain keeps
+   * moving. */
   present:(image:T.Texture,amount:number,_radius:number,_exposure:number,_indoor=0,demodulated=false)=>{
    const size=renderer.getDrawingBufferSize(new T.Vector2());
    if(traced.out.width!==size.x||traced.out.height!==size.y)traced.out.setSize(size.x,size.y);
@@ -436,7 +437,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    if(traced.colours)traced.surfaces.value=traced.colours.texture;
    if(scene.fog instanceof T.Fog){traced.fogColour.value.copy(scene.fog.color);traced.fogRange.value.set(scene.fog.near,scene.fog.far);}
    renderer.setRenderTarget(traced.out);traced.quad.render(renderer);
-   seed.value=(seed.value+1)%64;showing=traced.out;toScreen();
+   seed.value=(seed.value+1)%64;showing=near&&focus?focus.render(traced.out):traced.out;toScreen();
   },
   keep:()=>{},carries:()=>false,carry:()=>{},
   reset:()=>{frames=0;kept?.reset();shafts?.reset();traced.colours?.dispose();traced.colours=undefined;},
