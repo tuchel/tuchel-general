@@ -8,6 +8,7 @@ import {MIST,AIR_GLOW} from './mist';
 import {WET_MIRROR} from './wet-reflections';
 import {wet} from './surface-materials';
 import {renderAlbedo,SHARP} from './albedo-pass';
+import {CARRY,LIGHT_CARRY,carryApplies,lightCarried} from './carry';
 import type {Post,PostOptions,PostView} from './post';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -16,9 +17,8 @@ export type PostGPU={tsl:any;/** three's corner shading pass (GTAONode.js). */ao
 /** The image chain for the WebGPU renderer (post.ts is the WebGL renderer's). So far: the scene into a floating-point
  * target, corner shading on still frames, still frames averaged into a clean image, and the same finish to the screen: white balance, tone mapping,
  * the S-curve with its shadow lift, saturation, and the screen's transfer; moving frames blended into the kept image,
- * with the shutter's smear, and the lens (meter, grain, sun shafts, focus), mist, contact shadows and the wet mirror. Not yet
- * there: showing a path-traced image;
- * those calls do nothing. */
+ * with the shutter's smear, and the lens (meter, grain, sun shafts, focus), mist, contact shadows and the wet mirror; a
+ * path-traced image over a resting view, and its light kept for the frames that follow. */
 export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions,gpu:PostGPU):Post&{over(object:T.Object3D,camera:T.Camera):void}{
  const {positionGeometry,screenCoordinate,ivec2,texture,uniform,vec3,vec4,float,mix,max,min,pow,dot,clamp,agxToneMapping,sRGBTransferOETF}=gpu.tsl;
  // That renderer draws into plain render targets through the calls the WebGL renderer has for its own.
@@ -342,19 +342,62 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    dispose(){sharp.dispose();quad.material.dispose();},
   };
  })():undefined;
+ // A traced view's light, kept for the frames that follow (carry.ts): the image, the depth and the view it was traced
+ // for, and what it changed (`ratio`, at half size with its smaller levels). `keptAt`: where that view saw a pixel's
+ // point, and whether it saw that point there.
+ const light=camera instanceof T.PerspectiveCamera?{image:half(),depth:half(),lit:half(),ratio:new T.RenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter}) as unknown as T.WebGLRenderTarget,
+  camera:new T.PerspectiveCamera(),demodulated:false,generation:-1,version:-1,reach:0}:undefined;
+ const keptViewProj=uniform(new T.Matrix4()),keptView=uniform(new T.Matrix4()),keptDepth=texture((light?.depth??settled[0]).texture);
+ const keptAt=(at:any)=>{
+  const {vec2,abs}=gpu.tsl,world=placed.mul(vec4(viewAt(at,distanceAt(at)),1)).toVar(),clip=keptViewProj.mul(world).toVar(),expected=keptView.mul(world).z.negate();
+  const to=vec2(clip.x.div(clip.w).mul(.5).add(.5),clip.y.div(clip.w).mul(-.5).add(.5)).toVar();
+  return {to,seen:clip.w.greaterThan(0).and(abs(keptDepth.sample(to).r.sub(expected)).lessThan(expected.mul(CARRY.tolerance).add(.05)))};
+ };
  // A path-traced image over the settled live one (post.ts, TracedBlend): multiplied by the live view's surface colours
  // where it arrives divided by its own, under the live view's fog, mist, lamp glow and sun shafts, which the traced
- // scene has not; where no surface is hit the live view's sky shows. A data texture's rows run bottom up.
+ // scene has not; where no surface is hit the live view's sky shows. A data texture's rows run bottom up. `moved`: the
+ // image was traced for the kept view; each point is looked up where that view saw it, and the live image shows where
+ // it did not. `ratio`: what the traced image changed instead, for moving frames to keep.
  const traced=(()=>{
   const {Fn,uv,vec2,select,smoothstep}=gpu.tsl,image=texture(settled[0].texture),live=texture(settled[0].texture),surfaces=texture(settled[0].texture);
-  const amount=uniform(0),divided=uniform(0),fogColour=uniform(new T.Color()),fogRange=uniform(new T.Vector2(1e9,1e9));
-  return {image,live,surfaces,amount,divided,fogColour,fogRange,out:half(),colours:undefined as T.WebGLRenderTarget|undefined,quad:quadOf(Fn(()=>{
-   const at=uv(),was=live.sample(at).rgb.toVar(),d=distanceAt(at).toVar();
-   const light=image.sample(vec2(at.x,at.y.oneMinus())).rgb.mul(mix(vec3(1),max(surfaces.sample(at).rgb,vec3(SHARP.floor)),divided));
-   const aired=shafted(misted(vec4(mix(light,fogColour,smoothstep(fogRange.x,fogRange.y,d)),1))).rgb;
-   return vec4(mix(was,select(d.greaterThanEqual(farthest.mul(.999)),was,aired),amount),1);
-  })())};
+  const amount=uniform(0),divided=uniform(0),moved=uniform(0),fogColour=uniform(new T.Color()),fogRange=uniform(new T.Vector2(1e9,1e9));
+  const drawn=(ratio:boolean)=>quadOf(Fn(()=>{
+   const at=uv(),was=live.sample(at).rgb.toVar(),d=distanceAt(at).toVar(),{to,seen}=keptAt(at),from=select(moved.greaterThan(.5),to,at);
+   const valid=select(moved.lessThan(.5).or(seen.and(to.x.greaterThan(0)).and(to.y.greaterThan(0)).and(to.x.lessThan(1)).and(to.y.lessThan(1))),1,0);
+   const light=image.sample(vec2(from.x,from.y.oneMinus())).rgb.mul(mix(vec3(1),max(surfaces.sample(at).rgb,vec3(SHARP.floor)),divided));
+   const aired=select(d.greaterThanEqual(farthest.mul(.999)),was,shafted(misted(vec4(mix(light,fogColour,smoothstep(fogRange.x,fogRange.y,d)),1))).rgb).toVar();
+   return ratio?vec4(clamp(aired.add(.004).div(was.add(.004)),LIGHT_CARRY.least,LIGHT_CARRY.most),1):vec4(mix(was,aired,amount.mul(valid)),1);
+  })());
+  return {image,live,surfaces,amount,divided,moved,fogColour,fogRange,out:half(),colours:undefined as T.WebGLRenderTarget|undefined,quad:drawn(false),ratio:drawn(true)};
  })();
+ // A moving frame under the light of the last traced view (carry.ts, LIGHT_CARRY): multiplied by the kept ratio where
+ // that view saw the same point; a point it did not see takes the light of that part of the frame as a whole.
+ let carriedLight=0;
+ const relight=light&&kept?(()=>{
+  const {Fn,uv,smoothstep,select}=gpu.tsl,frame=texture(settled[0].texture),broad=texture(light.ratio.texture),amount=uniform(0);
+  const quad=quadOf(Fn(()=>{
+   const at=uv(),c=frame.sample(at),{to,seen}=keptAt(at),valid=select(seen,smoothstep(0,LIGHT_CARRY.edge,min(min(to.x,to.y),min(to.x.oneMinus(),to.y.oneMinus()))),0);
+   return vec4(c.rgb.mul(mix(vec3(1),mix(broad.sample(clamp(to,0,1)).level(LIGHT_CARRY.coarse-1).rgb,broad.sample(to).level(LIGHT_CARRY.fine-1).rgb,valid),amount)),c.a);
+  })());
+  return {quad,render(image:T.WebGLRenderTarget){
+   if(light.lit.width!==image.width||light.lit.height!==image.height)light.lit.setSize(image.width,image.height);
+   frame.value=image.texture;amount.value=carriedLight;renderer.setRenderTarget(light.lit);quad.render(renderer);return light.lit;
+  }};
+ })():undefined;
+ const copied=texture(settled[0].texture),copy=quadOf(copied),depthCopy=quadOf(vec4(distanceAt(gpu.tsl.uv()),0,0,1));
+ /** Draws `image` over the settled live image through the finish; `reproject`: it is the kept image. */
+ const show=(image:T.Texture,amount:number,demodulated:boolean,reproject:boolean)=>{
+  const size=renderer.getDrawingBufferSize(new T.Vector2());
+  if(traced.out.width!==size.x||traced.out.height!==size.y)traced.out.setSize(size.x,size.y);
+  if(demodulated&&(traced.colours?.width!==size.x||traced.colours.height!==size.y)){
+   traced.colours?.dispose();traced.colours=new T.RenderTarget(size.x,size.y,{samples:4,colorSpace:T.SRGBColorSpace}) as unknown as T.WebGLRenderTarget;renderAlbedo(renderer,scene,camera,traced.colours);
+  }
+  traced.image.value=image;traced.live.value=settled[0].texture;traced.amount.value=amount;traced.moved.value=reproject?1:0;traced.divided.value=demodulated&&traced.colours?1:0;
+  if(traced.colours)traced.surfaces.value=traced.colours.texture;
+  if(scene.fog instanceof T.Fog){traced.fogColour.value.copy(scene.fog.color);traced.fogRange.value.set(scene.fog.near,scene.fog.far);}
+  renderer.setRenderTarget(traced.out);traced.quad.render(renderer);
+  seed.value=(seed.value+1)%64;showing=near&&focus?focus.render(traced.out):traced.out;toScreen();
+ };
  let showing=settled[0],flowing=false,near=false;
  const lamps=options.lamps??(()=>0);
  // The finish fills the screen whatever camera it is drawn with, so that what falls over the frame can be drawn in the
@@ -409,10 +452,14 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    flowing=!refining;
    settled=[next,was];if(rest||!kept)frames++;
    kept?.remember();
-   near=!!view?.eyeLevel;showing=near&&focus?focus.render(out):out;
+   // The screen's frame takes the last traced view's light while it applies; the kept image stays as it was drawn.
+   carriedLight=light&&relight&&view?.carry!==undefined&&light.generation===view.carry?lightCarried(light.camera,camera,light.reach):0;
+   const lit=relight&&carriedLight>0?relight.render(out):out;
+   near=!!view?.eyeLevel;showing=near&&focus?focus.render(lit):lit;
    toScreen();
   },
-  get lightCarried(){return 0;},
+  /** How much of a traced view's light the last frame carried (carry.ts, LIGHT_CARRY). */
+  get lightCarried(){return carriedLight;},
   get accumulated(){return frames;},
   /** Moving frames are jittered too, and blended into the kept image. */
   temporal:!!kept,
@@ -427,21 +474,28 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   /** Shows a path-traced image (linear, before exposure) over the settled live image, through the same finish, `amount`
    * (0–1) of it. Exposure and finish hold as the view's last frame left them, as does the focus at eye level; the grain keeps
    * moving. */
-  present:(image:T.Texture,amount:number,_radius:number,_exposure:number,_indoor=0,demodulated=false)=>{
-   const size=renderer.getDrawingBufferSize(new T.Vector2());
-   if(traced.out.width!==size.x||traced.out.height!==size.y)traced.out.setSize(size.x,size.y);
-   if(demodulated&&(traced.colours?.width!==size.x||traced.colours.height!==size.y)){
-    traced.colours?.dispose();traced.colours=new T.RenderTarget(size.x,size.y,{samples:4,colorSpace:T.SRGBColorSpace}) as unknown as T.WebGLRenderTarget;renderAlbedo(renderer,scene,camera,traced.colours);
-   }
-   traced.image.value=image;traced.live.value=settled[0].texture;traced.amount.value=amount;traced.divided.value=demodulated&&traced.colours?1:0;
-   if(traced.colours)traced.surfaces.value=traced.colours.texture;
-   if(scene.fog instanceof T.Fog){traced.fogColour.value.copy(scene.fog.color);traced.fogRange.value.set(scene.fog.near,scene.fog.far);}
-   renderer.setRenderTarget(traced.out);traced.quad.render(renderer);
-   seed.value=(seed.value+1)%64;showing=near&&focus?focus.render(traced.out):traced.out;toScreen();
+  present:(image:T.Texture,amount:number,_radius:number,_exposure:number,_indoor=0,demodulated=false)=>show(image,amount,demodulated,false),
+  /** Keeps a traced image with the view it was traced for, that view's depth and what the image changed, to carry
+   * through the moves that follow; `generation`: the trace's scene and sun (live-trace.ts). */
+  keep:(image:T.Texture,demodulated:boolean,generation:number)=>{
+   if(!light||(light.version===image.version&&light.generation===generation))return;
+   const from=image.image as {width:number;height:number},previous=renderer.getRenderTarget();
+   light.image.setSize(from.width,from.height);light.depth.setSize(target.width,target.height);light.ratio.setSize(Math.ceil(traced.out.width/2),Math.ceil(traced.out.height/2));
+   copied.value=image;renderer.setRenderTarget(light.image);copy.render(renderer);
+   renderer.setRenderTarget(light.depth);depthCopy.render(renderer);
+   // The blend is still set as it was for showing this image (present).
+   renderer.setRenderTarget(light.ratio);traced.ratio.render(renderer);
+   renderer.setRenderTarget(previous);
+   light.camera.copy(camera as T.PerspectiveCamera);light.camera.updateMatrixWorld();
+   keptViewProj.value.multiplyMatrices(light.camera.projectionMatrix,light.camera.matrixWorldInverse);keptView.value.copy(light.camera.matrixWorldInverse);
+   light.demodulated=demodulated;light.generation=generation;light.version=image.version;light.reach=meter&&Number.isFinite(meter.focus)?meter.focus:0;
   },
-  keep:()=>{},carries:()=>false,carry:()=>{},
+  /** Whether the kept image can stand in for `camera`'s view: the same scene and sun, and a small move (carry.ts). */
+  carries:(camera:T.Camera,generation:number)=>!!light&&light.generation===generation&&carryApplies(light.camera,camera),
+  /** Shows the kept image moved into the current view; the live image where the move uncovered something. */
+  carry:()=>{if(light)show(light.image.texture,1,light.demodulated,true);},
   reset:()=>{frames=0;kept?.reset();shafts?.reset();traced.colours?.dispose();traced.colours=undefined;},
-  dispose:()=>{traced.out.dispose();traced.colours?.dispose();traced.quad.material.dispose();kept?.dispose();meter?.dispose();focus?.dispose();shafts?.dispose();target.dispose();level?.dispose();levelled?.material.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();glow?.dispose();output.material.dispose();},
+  dispose:()=>{traced.out.dispose();traced.colours?.dispose();traced.quad.material.dispose();traced.ratio.material.dispose();if(light)for(const t of [light.image,light.depth,light.lit,light.ratio])t.dispose();relight?.quad.material.dispose();copy.material.dispose();depthCopy.material.dispose();kept?.dispose();meter?.dispose();focus?.dispose();shafts?.dispose();target.dispose();level?.dispose();levelled?.material.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();glow?.dispose();output.material.dispose();},
  };
  return api as unknown as Post&{over:typeof api.over};
 }
