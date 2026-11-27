@@ -10,6 +10,7 @@ export const ALBEDO_KEY='albedo-output';
  * image's own detail. */
 export const SHARP={floor:.05};
 const pass={value:0};
+let shared:any; // eslint-disable-line @typescript-eslint/no-explicit-any
 const SURFACES=new Set(['MeshStandardMaterial','MeshPhysicalMaterial','MeshBasicMaterial','MeshLambertMaterial','MeshPhongMaterial']);
 /** Glass, water and other see-through surfaces: both colour passes leave them out, so each shows what lies behind. */
 export const seeThrough=(m:T.Material)=>m.transparent||((m as T.MeshPhysicalMaterial).transmission??0)>=.5;
@@ -17,6 +18,10 @@ export function addAlbedoOutput(root:T.Object3D){
  root.traverse(o=>{for(const m of materialsOf(o))if(SURFACES.has(m.type)&&!hasShaderFeature(m,ALBEDO_KEY))addShaderFeature(m,{key:ALBEDO_KEY,compile:shader=>{
   shader.uniforms.uAlbedoPass=pass;
   shader.fragmentShader='uniform float uAlbedoPass;\n'+after(shader.fragmentShader,'dithering_fragment','if(uAlbedoPass>0.5)gl_FragColor=vec4(diffuseColor.rgb,1.0);');
+ },nodes:slots=>{
+  // The same as a node: one switch for every material, bound once a render.
+  const {uniform,renderGroup,select,vec4,diffuseColor}=slots.tsl,on=shared??=uniform(0).setGroup(renderGroup).onRenderUpdate(()=>pass.value),before=slots.output;
+  slots.output=(colour:any)=>select(on.greaterThan(.5),vec4(diffuseColor.rgb,1),before?before(colour):colour); // eslint-disable-line @typescript-eslint/no-explicit-any
  }});});
 }
 /** Draws the colours into `target` on white (where nothing is drawn, the traced light is kept as it is): only surfaces

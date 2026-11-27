@@ -7,6 +7,7 @@ import {CONTACT} from './contact-shadows';
 import {MIST,AIR_GLOW} from './mist';
 import {WET_MIRROR} from './wet-reflections';
 import {wet} from './surface-materials';
+import {renderAlbedo,SHARP} from './albedo-pass';
 import type {Post,PostOptions,PostView} from './post';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -341,6 +342,19 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    dispose(){sharp.dispose();quad.material.dispose();},
   };
  })():undefined;
+ // A path-traced image over the settled live one (post.ts, TracedBlend): multiplied by the live view's surface colours
+ // where it arrives divided by its own, under the live view's fog, mist, lamp glow and sun shafts, which the traced
+ // scene has not; where no surface is hit the live view's sky shows. A data texture's rows run bottom up.
+ const traced=(()=>{
+  const {Fn,uv,vec2,select,smoothstep}=gpu.tsl,image=texture(settled[0].texture),live=texture(settled[0].texture),surfaces=texture(settled[0].texture);
+  const amount=uniform(0),divided=uniform(0),fogColour=uniform(new T.Color()),fogRange=uniform(new T.Vector2(1e9,1e9));
+  return {image,live,surfaces,amount,divided,fogColour,fogRange,out:half(),colours:undefined as T.WebGLRenderTarget|undefined,quad:quadOf(Fn(()=>{
+   const at=uv(),was=live.sample(at).rgb.toVar(),d=distanceAt(at).toVar();
+   const light=image.sample(vec2(at.x,at.y.oneMinus())).rgb.mul(mix(vec3(1),max(surfaces.sample(at).rgb,vec3(SHARP.floor)),divided));
+   const aired=shafted(misted(vec4(mix(light,fogColour,smoothstep(fogRange.x,fogRange.y,d)),1))).rgb;
+   return vec4(mix(was,select(d.greaterThanEqual(farthest.mul(.999)),was,aired),amount),1);
+  })())};
+ })();
  let showing=settled[0],flowing=false;
  const lamps=options.lamps??(()=>0);
  // The finish fills the screen whatever camera it is drawn with, so that what falls over the frame can be drawn in the
@@ -410,9 +424,23 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   keepDepth:()=>{},
   /** The scene's own depth buffer as last drawn, which what falls over the frame reads as it is (falling.ts). */
   get depth(){return depthOf;},
-  present:()=>{},keep:()=>{},carries:()=>false,carry:()=>{},
-  reset:()=>{frames=0;kept?.reset();shafts?.reset();},
-  dispose:()=>{kept?.dispose();meter?.dispose();focus?.dispose();shafts?.dispose();target.dispose();level?.dispose();levelled?.material.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();glow?.dispose();output.material.dispose();},
+  /** Shows a path-traced image (linear, before exposure) over the settled live image, through the same finish, `amount`
+   * (0–1) of it. Exposure and finish hold as the view's last frame left them; the grain keeps moving. */
+  present:(image:T.Texture,amount:number,_radius:number,_exposure:number,_indoor=0,demodulated=false)=>{
+   const size=renderer.getDrawingBufferSize(new T.Vector2());
+   if(traced.out.width!==size.x||traced.out.height!==size.y)traced.out.setSize(size.x,size.y);
+   if(demodulated&&(traced.colours?.width!==size.x||traced.colours.height!==size.y)){
+    traced.colours?.dispose();traced.colours=new T.RenderTarget(size.x,size.y,{samples:4,colorSpace:T.SRGBColorSpace}) as unknown as T.WebGLRenderTarget;renderAlbedo(renderer,scene,camera,traced.colours);
+   }
+   traced.image.value=image;traced.live.value=settled[0].texture;traced.amount.value=amount;traced.divided.value=demodulated&&traced.colours?1:0;
+   if(traced.colours)traced.surfaces.value=traced.colours.texture;
+   if(scene.fog instanceof T.Fog){traced.fogColour.value.copy(scene.fog.color);traced.fogRange.value.set(scene.fog.near,scene.fog.far);}
+   renderer.setRenderTarget(traced.out);traced.quad.render(renderer);
+   seed.value=(seed.value+1)%64;showing=traced.out;toScreen();
+  },
+  keep:()=>{},carries:()=>false,carry:()=>{},
+  reset:()=>{frames=0;kept?.reset();shafts?.reset();traced.colours?.dispose();traced.colours=undefined;},
+  dispose:()=>{traced.out.dispose();traced.colours?.dispose();traced.quad.material.dispose();kept?.dispose();meter?.dispose();focus?.dispose();shafts?.dispose();target.dispose();level?.dispose();levelled?.material.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();glow?.dispose();output.material.dispose();},
  };
  return api as unknown as Post&{over:typeof api.over};
 }
