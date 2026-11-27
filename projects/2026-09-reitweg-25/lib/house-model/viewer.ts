@@ -76,7 +76,7 @@ export type ViewerOptions={
 /** What the viewer needs from `three/webgpu`. */
 export type WebGPUKit=Partial<LightingGPU>&{
  PhysicalLightingModel?:unknown;NodeMaterial?:new()=>T.Material;QuadMesh?:PostGPU['QuadMesh'];ao?:PostGPU['ao'];bloom?:PostGPU['bloom'];
- WebGPURenderer:new(options:{antialias:boolean;powerPreference:'high-performance';requiredLimits?:Record<string,number>})=>unknown;
+ WebGPURenderer:new(options:{antialias:boolean;powerPreference:'high-performance';requiredLimits?:Record<string,number>;/** Half floats: a canvas that shows above white (hdr.ts). */outputType?:T.TextureDataType})=>unknown;
  /** The graphics card's own buffer limits: a photograph's scene passes WebGPU's default 128 MB per buffer. */
  limits?:Record<string,number>;
  PMREMGenerator:new(renderer:never)=>{fromScene(scene:T.Scene,sigma:number):{texture:T.Texture;dispose():void};dispose():void};
@@ -96,9 +96,9 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // What the WebGPU renderer cannot draw yet is left out there: of the image passes all but corner shading, the averaging of still frames and the finish (post-gpu.ts).
  drawWithNodes(gpu?.tsl&&{...gpu.tsl,PhysicalLightingModel:gpu.PhysicalLightingModel});
  // Whether to try for a screen brighter than white (hdr.ts).
- const bright=tier.hdr&&hdrWanted();
+ const bright=tier.hdr&&hdrWanted(!!gpu);
  // The WebGPU renderer is used through the calls the two share; where they differ, `gpu` decides.
- const renderer=(gpu?new gpu.WebGPURenderer({antialias:!realistic,powerPreference:'high-performance',requiredLimits:gpu.limits}):new T.WebGLRenderer({antialias:!realistic,alpha:false,stencil:false,powerPreference:'high-performance'})) as T.WebGLRenderer;
+ const renderer=(gpu?new gpu.WebGPURenderer({antialias:!realistic,powerPreference:'high-performance',requiredLimits:gpu.limits,...(gpu&&bright?{outputType:T.HalfFloatType}:{})}):new T.WebGLRenderer({antialias:!realistic,alpha:false,stencil:false,powerPreference:'high-performance'})) as T.WebGLRenderer;
  // Floor views cut roofs at the wall height with per-material clipping.
  renderer.localClippingEnabled=true;
  renderer.setPixelRatio(Math.min(window.devicePixelRatio,tier.pixelRatio));
@@ -269,7 +269,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  let shows:ReturnType<typeof createPostGPU>|undefined;
  const falls=gpu?.tsl&&gpu.NodeMaterial?{tsl:gpu.tsl,NodeMaterial:gpu.NodeMaterial,over:(o:T.Object3D,c:T.Camera)=>shows?.over(o,c)}:undefined;
  const makePost=(...a:Parameters<typeof createPost>)=>gpu?.tsl&&gpu.NodeMaterial&&gpu.QuadMesh?shows=createPostGPU(...a,{tsl:gpu.tsl,ao:gpu.ao,bloom:gpu.bloom,NodeMaterial:gpu.NodeMaterial,QuadMesh:gpu.QuadMesh}):createPost(...a);
- const post=realistic?makePost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,mist:tier.weathered,wetMirror:tier.wetMirror,glowLamps:tier.lampGlow?lampsOutdoors():undefined,temporal:tier.temporal&&new URLSearchParams(location.search).get('taa')!=='off',hdr:()=>screen&&renderer.outputColorSpace===DisplayP3ColorSpace?HDR.peak:0,afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
+ const post=realistic?makePost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,mist:tier.weathered,wetMirror:tier.wetMirror,glowLamps:tier.lampGlow?lampsOutdoors():undefined,temporal:tier.temporal&&new URLSearchParams(location.search).get('taa')!=='off',hdr:()=>(gpu?bright:screen)&&renderer.outputColorSpace===DisplayP3ColorSpace?HDR.peak:0,afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
  if(post){mistFor=r=>{if(scene.fog){
   const outdoors=study.enabled&&level==='exterior',lies=outdoors&&!snowing&&!raining?mistAmount(r.apparentElevation,study.minutes,study.day):0;
   // The lamps' glow hangs in mist, rain and falling snow, and faintly in any night's air (mist.ts).
@@ -626,7 +626,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   canvas.dataset.cars='shown';
  };
  if(options.cars&&tier.cars!=='none'){canvas.dataset.cars='loading';void addCars(options.cars).catch(error=>console.warn('Garage cars',error));}
- if(bright)void createHdrScreen(canvas,renderer.getContext() as WebGL2RenderingContext,()=>{screen=undefined;changed();}).then(made=>{if(disposed)made?.dispose();else if(made){screen=made;canvas.dataset.hdr='true';changed();}});
+ if(bright&&!gpu)void createHdrScreen(canvas,renderer.getContext() as WebGL2RenderingContext,()=>{screen=undefined;changed();}).then(made=>{if(disposed)made?.dispose();else if(made){screen=made;canvas.dataset.hdr='true';changed();}});
  const begin=()=>{if(!disposed)frame=requestAnimationFrame(render);};
  // The WebGPU renderer has no device until `init` resolves; sky light and the first frame wait for it.
  const device=gpu?(renderer as unknown as {init():Promise<unknown>}).init().then(()=>{canvas.dataset.renderer=(renderer as unknown as {backend:{isWebGPUBackend?:boolean}}).backend.isWebGPUBackend?'webgpu':'webgpu-on-webgl2';}):undefined;

@@ -9,6 +9,7 @@ import {WET_MIRROR} from './wet-reflections';
 import {wet} from './surface-materials';
 import {renderAlbedo,SHARP} from './albedo-pass';
 import {CARRY,LIGHT_CARRY,carryApplies,lightCarried} from './carry';
+import {HDR} from './hdr';
 import type {Post,PostOptions,PostView} from './post';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -234,7 +235,9 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
  const mapped=agxToneMapping(shown.rgb.mul(balance),exposure);
  const e0=pow(clamp(mapped,0,1),vec3(1/2.2)),m=dot(e0,luma),f=float(1).sub(m),e=min(e0.mul(look.z.mul(f.mul(f).mul(f).mul(f)).add(1)),vec3(1));
  const p=pow(e,vec3(look.x)),q=pow(vec3(1).sub(e),vec3(look.x)),c=pow(p.div(max(p.add(q),vec3(1e-5))),vec3(2.2)),l=dot(c,luma);
- const graded=max(vec3(0),vec3(l).add(c.sub(l).mul(look.y)));
+ const graded0=max(vec3(0),vec3(l).add(c.sub(l).mul(look.y)));
+ // A canvas that shows above white (hdr.ts): light the scene holds above the knee is shown brighter, up to `bright` times.
+ const bright=uniform(0),graded=graded0.mul(clamp(pow(dot(shown.rgb.mul(balance),luma).mul(exposure).div(HDR.knee),HDR.curve),1,max(bright,1)));
  // The lens's grain on the finished image (lens.ts), new each frame: two hashes summed, triangular noise in -1..1.
  const seed=uniform(0),grained=options.lens?(()=>{
   const {fract}=gpu.tsl,at=screenCoordinate.xy,hash=(v:any)=>{const f=fract(v.mul(.1031)),h=f.add(dot(f,f.yzx.add(33.33)));return fract(h.x.add(h.y).mul(h.z));};
@@ -431,7 +434,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   compilePasses:()=>Promise.resolve(),
   warm:()=>{},
   render:(refining:boolean,exposed:number,indoor=0,view?:PostView)=>{
-   const g=finish(indoor,lamps());balance.value.set(g.balance[0],g.balance[1],g.balance[2]);look.value.set(g.contrast,g.saturation,g.lift);exposure.value=exposed*(meter?.adapt(exposed)??1);seed.value=(seed.value+1)%64;occlusion.value=g.occlusion;
+   const g=finish(indoor,lamps());balance.value.set(g.balance[0],g.balance[1],g.balance[2]);look.value.set(g.contrast,g.saturation,g.lift);exposure.value=exposed*(meter?.adapt(exposed)??1);seed.value=(seed.value+1)%64;occlusion.value=g.occlusion;bright.value=options.hdr?.()??0;
    // Only highlights two and a half times brighter than white bloom.
    if(glow)glow.threshold.value=2.5/Math.max(exposed,1e-4);
    const moved=kept?.moved()??false,rest=refining&&!moved;

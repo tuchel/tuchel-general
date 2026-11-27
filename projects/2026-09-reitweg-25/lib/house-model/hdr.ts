@@ -16,11 +16,11 @@ type Device={queue:{copyExternalImageToTexture(source:{source:HTMLCanvasElement}
 type Context={configure(to:Record<string,unknown>):void;getConfiguration():{toneMapping?:{mode?:string}};getCurrentTexture():unknown};
 type FloatCanvas=WebGL2RenderingContext&{drawingBufferStorage?:(format:number,width:number,height:number)=>void};
 
-/** Whether to try: the screen shows above white now, and the browser has what the copy needs. `?hdr=off` and `?hdr=on`
- * decide for the screen. (A WebGL canvas is given floating point only if its context has alpha; three's always has.) */
-export function hdrWanted(){
+/** Whether to try: the screen shows above white now, and the browser has what the copy needs (`own`: the canvas is
+ * WebGPU's own and needs no copy). `?hdr=off` and `?hdr=on` decide for the screen. (A WebGL canvas is given floating point only if its context has alpha; three's always has.) */
+export function hdrWanted(own=false){
  const asked=new URLSearchParams(location.search).get('hdr');
- return asked!=='off'&&(asked==='on'||window.matchMedia('(dynamic-range: high)').matches)&&'gpu' in navigator&&'drawingBufferStorage' in WebGL2RenderingContext.prototype;
+ return asked!=='off'&&(asked==='on'||window.matchMedia('(dynamic-range: high)').matches)&&(own||'gpu' in navigator&&'drawingBufferStorage' in WebGL2RenderingContext.prototype);
 }
 
 /** Undefined where the graphics card or the browser refuses any step; the canvas is then left as it was. */
