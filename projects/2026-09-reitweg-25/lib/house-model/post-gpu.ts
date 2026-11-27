@@ -181,14 +181,15 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    const slack=hi.sub(lo).mul(TEMPORAL.slack).add(.002),held=clamp(keptAt(at),lo.sub(slack),hi.add(slack));
    return vec4(select(seen.and(carried.greaterThan(.5)),mix(held,mine,share.mul(exp(dot(off,off).mul(-TEMPORAL.falloff)))),c),1);
   })());
-  // The shutter (motion-blur.ts): the moving frame smeared along the path each point took since the last frame, before
-  // it joins the kept image. Every look-up is taken; a path too short to see is given no length.
+  // The shutter (motion-blur.ts): the kept image smeared along the path each point took since the last frame, for the
+  // screen only. (Smeared before it joined the kept image, the frame's jittered samples were scattered and the whole
+  // moving picture went soft.) Every look-up is taken; a path too short to see is given no length.
   const streaks=options.mist&&options.shutter?(()=>{
    const {length,fract}=gpu.tsl,raw=texture(mixed.texture),smeared=half();
-   return {smeared,quad:quadOf(Fn(()=>{
-    const at=uv(),at0=at.add(jitter),d=min(far(depth.sample(at).r),farthest).toVar(),ndc=vec2(at0.x.mul(2).sub(1),at0.y.mul(-2).add(1));
+   return {smeared,raw,quad:quadOf(Fn(()=>{
+    const at=uv(),d=min(far(depth.sample(at.sub(jitter)).r),farthest).toVar(),ndc=vec2(at.x.mul(2).sub(1),at.y.mul(-2).add(1));
     const clip=lastViewProj.mul(camWorld.mul(vec4(ndc.x.mul(d).div(lens.x),ndc.y.mul(d).div(lens.y),d.negate(),1))).toVar();
-    const path=at0.sub(vec2(clip.x.div(clip.w).mul(.5).add(.5),clip.y.div(clip.w).mul(-.5).add(.5))).mul(select(clip.w.greaterThan(0),MOTION_BLUR.shutter,0)).toVar(),len=length(path);
+    const path=at.sub(vec2(clip.x.div(clip.w).mul(.5).add(.5),clip.y.div(clip.w).mul(-.5).add(.5))).mul(select(clip.w.greaterThan(0),MOTION_BLUR.shutter,0)).toVar(),len=length(path);
     path.mulAssign(select(len.lessThan(.0008),0,min(1,float(MOTION_BLUR.longest).div(max(len,1e-6)))));
     const turn=fract(fract(dot(screenCoordinate.xy,vec2(.06711056,.00583715))).mul(52.9829189).add(tick.mul(.618034))).toVar();
     let sum:any=vec3(0);for(let i=0;i<MOTION_BLUR.taps;i++)sum=sum.add(raw.sample(clamp(at.sub(path.mul(turn.add(i).div(MOTION_BLUR.taps).sub(.5))),0,1)).rgb);
@@ -199,19 +200,23 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   const lastWorld=new T.Matrix4(),lastLens=new T.Vector3(),size=new T.Vector2();let valid=false,fresh=true;
   return {mixed,lastDepth,
    reset(){fresh=true;},
-   resize(w:number,h:number){mixed.setSize(w,h);streaks?.smeared.setSize(w,h);lastDepth.setSize(w,h);const f=renderer.getDrawingBufferSize(size);if(settled[0].width!==f.x||settled[0].height!==f.y){for(const t of settled)t.setSize(f.x,f.y);valid=false;return true;}return false;},
+   resize(w:number,h:number){mixed.setSize(w,h);lastDepth.setSize(w,h);const f=renderer.getDrawingBufferSize(size);streaks?.smeared.setSize(f.x,f.y);if(settled[0].width!==f.x||settled[0].height!==f.y){for(const t of settled)t.setSize(f.x,f.y);valid=false;return true;}return false;},
    /** Whether the frame being drawn moved the view (or follows a change of light or scene). */
    moved:()=>!eye.matrixWorld.equals(lastWorld)||lastLens.x!==eye.fov||lastLens.y!==eye.zoom||lastLens.z!==eye.aspect,
    /** A view come to rest counts its moving image as `carry` frames. */
    rested:()=>valid&&!fresh,
-   /** Blends the scene just drawn into the kept image, smeared by the shutter where `smear`. */
-   blend(next:T.WebGLRenderTarget,moved:boolean,smear:boolean){
+   /** Blends the scene just drawn into the kept image. */
+   blend(next:T.WebGLRenderTarget,moved:boolean){
     const e=eye.projectionMatrix.elements,is=carried.value=valid&&(moved||!fresh)?1:0;share.value=is?TEMPORAL.blend:1;
     lens.value.set(e[0],e[5],e[10],e[14]);jitter.value.set(e[8]/2,-e[9]/2);camWorld.value.copy(eye.matrixWorld);
     drawn.value.set(mixed.width,mixed.height);full.value.set(next.width,next.height);
     renderer.setRenderTarget(mixed);composed.render(renderer);
-    const smearing=streaks&&smear&&valid;if(smearing){renderer.setRenderTarget(streaks.smeared);streaks.quad.render(renderer);}
-    frame.value=(smearing?streaks.smeared:mixed).texture;renderer.setRenderTarget(next);moving.render(renderer);
+    renderer.setRenderTarget(next);moving.render(renderer);
+   },
+   /** The kept image `from` as the shutter shows it; call before `remember`. */
+   smear(from:T.WebGLRenderTarget){
+    if(!streaks||!valid)return from;
+    streaks.raw.value=from.texture;renderer.setRenderTarget(streaks.smeared);streaks.quad.render(renderer);return streaks.smeared;
    },
    /** Keeps this frame's depth and view for the next frame's look-up. */
    remember(){
@@ -384,12 +389,13 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    meter?.read();
    if(!rest)shafts?.reset();shafts?.render(indoor);
    const [was,next]=settled;current.value=target.texture;history.value=was.texture;weight.value=1/(frames+1);
-   if(kept&&!rest)kept.blend(next,moved,moved&&!refining&&flowing);
+   if(kept&&!rest)kept.blend(next,moved);
    else{renderer.setRenderTarget(next);(refining&&shaded?shaded:blend).render(renderer);}
+   const out=kept&&!rest&&moved&&!refining&&flowing?kept.smear(next):next;
    flowing=!refining;
    settled=[next,was];if(rest||!kept)frames++;
    kept?.remember();
-   showing=view?.eyeLevel&&focus?focus.render(settled[0]):settled[0];
+   showing=view?.eyeLevel&&focus?focus.render(out):out;
    toScreen();
   },
   get lightCarried(){return 0;},
