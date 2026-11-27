@@ -59,7 +59,7 @@ export const CONVERGED={mean:1,p99:4};
 export const converged=(change:{mean:number;p99:number})=>change.mean<CONVERGED.mean&&change.p99<CONVERGED.p99;
 /** Builds every geometry's ray-tracing tree in background workers (the tracer's own options), so the tracer, which
  * builds only what is missing, does none of it on the page's thread. Instanced trees share one tree per archetype. */
-async function treesInBackground(scene:T.Scene,signal?:AbortSignal){
+export async function treesInBackground(scene:T.Scene,signal?:AbortSignal){
  const [{GenerateMeshBVHWorker},{SAH}]=await Promise.all([import('three-mesh-bvh/src/workers/GenerateMeshBVHWorker.js'),import('three-mesh-bvh')]);
  const found=new Set<T.BufferGeometry>();
  scene.traverse(o=>{const g=(o as T.Mesh).isMesh?(o as T.Mesh).geometry:undefined;if(g&&!g.boundsTree)found.add(g);});
