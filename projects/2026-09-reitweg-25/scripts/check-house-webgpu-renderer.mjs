@@ -147,7 +147,10 @@ assert(/key:'pool-caustics',[\s\S]*?\},variant:'',nodes:slots=>\{[\s\S]*?fn caus
 // Room reflections and the softened sun shadow, as nodes: the rooms' maps as layers read by octahedral direction, and
 // the shadow's own filter in place of the change to three's shader text.
 const roomCode=fs.readFileSync('lib/house-model/room-probes.ts','utf8'),softCode=fs.readFileSync('lib/house-model/soft-shadows.ts','utf8');
-assert(/new T\.RenderTarget\(size,size,\{type:T\.HalfFloatType,depthBuffer:false,depth:count\}\)/.test(roomCode)&&/maps3\.depth\(float\(i\)\)\.sample\(oct\(\{d:seen\}\)\)\.level\(/.test(roomCode));
+assert(/new T\.RenderTarget\(size,size,\{type:T\.HalfFloatType,depthBuffer:false,depth:count\}\)/.test(roomCode)&&/maps3\.depth\(float\(index\)\)\.sample\(oct\(\{d:seen\}\)\)\.level\(/.test(roomCode));
+// One look-up, in the room found first: a look-up per room is paid for at every pixel where the graphics card turns the
+// branches into selections.
+assert(roomCode.split('maps3.depth(').length===2&&/If\(index\.greaterThanEqual\(0\),\(\)=>\{/.test(roomCode),'one room look-up');
 // The rooms' boxes and whether the camera stands in one are the same for every material: one set of uniforms for all,
 // in the group that is bound once a render, not one set per material.
 assert(/const \{low,high,middle,ready,active,maps3,oct\}=shared\?\?=/.test(roomCode)&&/active:uniform\(0\)\.setGroup\(renderGroup\)\.onRenderUpdate\(/.test(roomCode),'room uniforms shared');
