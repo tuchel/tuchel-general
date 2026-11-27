@@ -85,7 +85,7 @@ export function createRoomProbes(renderer:T.WebGLRenderer,scene:T.Scene,receiver
   fragmentShader:`uniform samplerCube cube;varying vec2 vUv;${GLSL_OCT}\nvoid main(){gl_FragColor=vec4(textureCube(cube,roomDir(vUv)).rgb,1.0);}`,depthTest:false,depthWrite:false}));
  const uniforms={uRoomMaps:{value:maps.texture},uRoomMin:{value:rooms.map(()=>new T.Vector3())},uRoomMax:{value:rooms.map(()=>new T.Vector3())},
   uRoomCentre:{value:rooms.map(()=>new T.Vector3())},uRoomReady:{value:rooms.map(()=>0)},uRoomActive:{value:0}};
- const patched=new Set<T.Material>();
+ const patched=new Set<T.Material>();let shared:any; // eslint-disable-line @typescript-eslint/no-explicit-any
  const receive=(root:T.Object3D)=>root.traverse(o=>{for(const m of materialsOf(o)){
   if(patched.has(m)||!(m instanceof T.MeshStandardMaterial))continue;patched.add(m);
   addShaderFeature(m,{key:'room-reflection',compile:shader=>{
@@ -117,10 +117,12 @@ export function createRoomProbes(renderer:T.WebGLRenderer,scene:T.Scene,receiver
   },variant:'',nodes:slots=>{
    // The same as nodes: the room the point stands in decides which layer the reflection is read from.
    const {If,wgsl,wgslFn,uniform,uniformArray,renderGroup,vec3,float,texture,normalize,reflect,sqrt,positionWorld,cameraPosition,materialEnvIntensity,materialRoughness}=slots.tsl;
-   const oct=wgslFn('fn roomOctAt(d:vec3<f32>)->vec2<f32>{return roomOct(d);}',[wgsl(WGSL_OCT)]);
-   const low=uniformArray(uniforms.uRoomMin.value).setGroup(renderGroup),high=uniformArray(uniforms.uRoomMax.value).setGroup(renderGroup),middle=uniformArray(uniforms.uRoomCentre.value).setGroup(renderGroup);
-   const ready=uniformArray(uniforms.uRoomReady.value,'float').setGroup(renderGroup),active=uniform(0).onRenderUpdate(()=>uniforms.uRoomActive.value);
-   const maps3=texture(maps.texture).setUpdateMatrix(false);
+   // One set for every material, in the group bound once a render: a set per material is a buffer and an update per
+   // drawn object each frame.
+   const {low,high,middle,ready,active,maps3,oct}=shared??={oct:wgslFn('fn roomOctAt(d:vec3<f32>)->vec2<f32>{return roomOct(d);}',[wgsl(WGSL_OCT)]),
+    low:uniformArray(uniforms.uRoomMin.value).setGroup(renderGroup),high:uniformArray(uniforms.uRoomMax.value).setGroup(renderGroup),middle:uniformArray(uniforms.uRoomCentre.value).setGroup(renderGroup),
+    ready:uniformArray(uniforms.uRoomReady.value,'float').setGroup(renderGroup),active:uniform(0).setGroup(renderGroup).onRenderUpdate(()=>uniforms.uRoomActive.value),
+    maps3:texture(maps.texture).setUpdateMatrix(false)};
    slots.indirect.push((context:any)=>{ // eslint-disable-line @typescript-eslint/no-explicit-any
     // Only inside a baked room, and only that room's layer, is anything read: branches, as in the GLSL's loop.
     If(active.greaterThan(.5),()=>{

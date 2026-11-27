@@ -148,6 +148,9 @@ assert(/key:'pool-caustics',[\s\S]*?\},variant:'',nodes:slots=>\{[\s\S]*?fn caus
 // the shadow's own filter in place of the change to three's shader text.
 const roomCode=fs.readFileSync('lib/house-model/room-probes.ts','utf8'),softCode=fs.readFileSync('lib/house-model/soft-shadows.ts','utf8');
 assert(/new T\.RenderTarget\(size,size,\{type:T\.HalfFloatType,depthBuffer:false,depth:count\}\)/.test(roomCode)&&/maps3\.depth\(float\(i\)\)\.sample\(oct\(\{d:seen\}\)\)\.level\(/.test(roomCode));
+// The rooms' boxes and whether the camera stands in one are the same for every material: one set of uniforms for all,
+// in the group that is bound once a render, not one set per material.
+assert(/const \{low,high,middle,ready,active,maps3,oct\}=shared\?\?=/.test(roomCode)&&/active:uniform\(0\)\.setGroup\(renderGroup\)\.onRenderUpdate\(/.test(roomCode),'room uniforms shared');
 assert(/export function softShadowFilter\(tsl:any\)/.test(softCode)&&/builder\.material\.userData\?\.plainShadow/.test(softCode)&&/if\(gpu&&options\.soft\)\(sun\.shadow as unknown as \{filterNode:unknown\}\)\.filterNode=softShadowFilter\(gpu\.tsl\);/.test(lighting));
 // Every tap reads the one map node through a function (a node per tap is updated per object, and cost a frame half
 // its script time), and the shadow's radius and size are one pair of uniforms for all materials.
