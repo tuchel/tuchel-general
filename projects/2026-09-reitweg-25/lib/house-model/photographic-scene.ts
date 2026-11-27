@@ -69,7 +69,7 @@ export async function photographicScene(source:T.Scene,environment:T.Texture,sig
  scene.environment=environment;scene.background=environment;
  const cleanup=()=>{if(cache){scene.clear();return;}geometries.forEach(g=>g.dispose());materials.forEach(m=>m.material.dispose());textures.forEach(t=>t.dispose());};
  const surfaceOf=(m:T.Material):Standard|undefined=>{
-  if(!hasShaderFeature(m,'surface-v1'))return;
+  if(!m.userData.surfaceUniforms)return;
   const u=(m.userData.surfaceUniforms||{}) as Record<string,{value:unknown}>;
   const color=u.uSurfaceColor?.value as T.Texture|undefined,normal=u.uSurfaceNormal?.value as T.Texture|undefined;
   if(!color?.image||!normal?.image)return;
@@ -77,7 +77,7 @@ export async function photographicScene(source:T.Scene,environment:T.Texture,sig
   return {...maps,metres:u.uSurfaceMetres.value as T.Vector2,slope:(u.uSurfaceSlope.value as number)>.5};
  };
  // A surface whose textures have not loaded yet is converted again once they have.
- const ready=(m:T.Material)=>!hasShaderFeature(m,'surface-v1')||!!surfaceOf(m);
+ const ready=(m:T.Material)=>!m.userData.surfaceUniforms||!!surfaceOf(m);
  const material=(m:T.Material)=>{
   const known=materials.get(m);if(known&&(known.ready||!ready(m)))return known.material;
   known?.material.dispose();
@@ -89,7 +89,7 @@ export async function photographicScene(source:T.Scene,environment:T.Texture,sig
   }
   if(hasShaderFeature(m,'fresnel-glass')){Object.assign(c,{transparent:false,opacity:1,transmission:1,ior:1.5,thickness:.02,roughness:.01,side:T.DoubleSide});c.color.set('#ffffff');}
   if(hasShaderFeature(m,'pool-water')){Object.assign(c,{transparent:false,opacity:1,transmission:.9,ior:1.33,thickness:1.4,roughness:.03});c.color.set('#7fc6c9');}
-  if(c instanceof T.MeshStandardMaterial&&(c.map||hasShaderFeature(m,'surface-v1')))c.vertexColors=!!(m as T.MeshStandardMaterial).vertexColors||!!m.userData.instanceTint;
+  if(c instanceof T.MeshStandardMaterial&&(c.map||m.userData.surfaceUniforms))c.vertexColors=!!(m as T.MeshStandardMaterial).vertexColors||!!m.userData.instanceTint;
   materials.set(m,{material:c,ready:ready(m)});return c;
  };
  source.updateMatrixWorld(true);
