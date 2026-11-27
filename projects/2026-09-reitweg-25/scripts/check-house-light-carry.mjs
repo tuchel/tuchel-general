@@ -34,4 +34,9 @@ assert(/ratio:new T\.WebGLRenderTarget\(1,1,\{type:T\.HalfFloatType,depthBuffer:
 assert(/const carrying=tier\.lightCarry&&new URLSearchParams\(location\.search\)\.get\('carry'\)!=='off';/.test(viewer));
 assert(/carry:carrying&&live&&level!=='upper'&&!snow\.amount&&!raining&&!wet\.value\?live\.generation:undefined/.test(viewer));
 assert(/kept\.generation===view\.carry/.test(post));
+// A kept image moved into a rested view lies over the live frame with the carried light, and fades out toward the edge
+// of what the traced view saw: no strip of live light beside it.
+{const post=fs.readFileSync('lib/house-model/post.ts','utf8'),chain=fs.readFileSync('lib/house-model/post-gpu.ts','utf8');
+ assert(post.includes('u.raster.value=reproject&&kept&&lit&&carriedLight>0?lit.texture:accumulate.latest;')&&post.includes('?smoothstep(0.0,${LIGHT_CARRY.edge.toFixed(2)},min(min(at.x,at.y),min(1.0-at.x,1.0-at.y))):0.0;\n    }'),'WebGL: the kept image over the relit frame, faded at its border');
+ assert(chain.includes('traced.live.value=(reproject&&light&&carriedLight>0?light.lit:settled[0]).texture;')&&chain.includes('valid=select(moved.lessThan(.5),1,select(seen,smoothstep(0,LIGHT_CARRY.edge,min(min(to.x,to.y),min(to.x.oneMinus(),to.y.oneMinus()))),0))'),'WebGPU: the same');}
 console.log(`Passed: in Extreme on a computer, a path-traced view's light stays on the surfaces it lit while the camera moves up to ${LIGHT_CARRY.move} m or turns ${Math.round(LIGHT_CARRY.turn*180/Math.PI)}°, fading out toward that limit.`);

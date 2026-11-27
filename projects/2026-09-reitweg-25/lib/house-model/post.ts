@@ -78,7 +78,8 @@ class AccumulatePass extends Pass{
  * for little, so edges stay sharp. A denoised image arrives divided by its surface colours (live-trace-webgpu.ts) and is
  * multiplied by the live view's, drawn at full resolution (albedo-pass.ts), for the texture detail its pixels lack.
  * `reproject`: the image was traced for an earlier view (carry.ts); each pixel's point, from this view's depth, is looked
- * up where that view saw it, and where its kept depth disagrees (the move uncovered it) the live image shows. */
+ * up where that view saw it, and where its kept depth disagrees (the move uncovered it) the live image shows, as it
+ * does toward the border of what that view saw. */
 class TracedBlend{
  target=new T.WebGLRenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false});
  material:T.ShaderMaterial;quad:FullScreenQuad;
@@ -98,7 +99,7 @@ class TracedBlend{
      vec4 ray=invProj*vec4(vUv*2.0-1.0,1.0,1.0);ray.xyz/=ray.w;
      vec4 world=camWorld*vec4(ray.xyz*(texture2D(depth,vUv).r/-ray.z),1.0),clip=prevViewProj*world;
      at=clip.xy/clip.w*0.5+0.5;float expected=-(prevView*world).z;
-     valid=clip.w>0.0&&all(greaterThan(at,vec2(0.0)))&&all(lessThan(at,vec2(1.0)))&&abs(texture2D(prevDepth,at).r-expected)<${CARRY.tolerance}*expected+0.05?1.0:0.0;
+     valid=clip.w>0.0&&all(greaterThan(at,vec2(0.0)))&&all(lessThan(at,vec2(1.0)))&&abs(texture2D(prevDepth,at).r-expected)<${CARRY.tolerance}*expected+0.05?smoothstep(0.0,${LIGHT_CARRY.edge.toFixed(2)},min(min(at.x,at.y),min(1.0-at.x,1.0-at.y))):0.0;
     }
     if(radius<0.05)t=texture2D(traced,at).rgb;
     else{
@@ -291,7 +292,8 @@ export function createPost(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camer
     u.prevViewProj.value.multiplyMatrices(kept.camera.projectionMatrix,kept.camera.matrixWorldInverse);u.prevView.value.copy(kept.camera.matrixWorldInverse);
     u.invProj.value.copy(lensCamera.projectionMatrixInverse);u.camWorld.value.copy(lensCamera.matrixWorld);u.prevDepth.value=kept.depth.texture;
    }
-   u.raster.value=accumulate.latest;u.traced.value=image;u.amount.value=amount;u.radius.value=radius;u.texel.value.set(1/source.width,1/source.height);
+   // A kept image lies over the frame as it was last shown, with the kept light where there was any.
+   u.raster.value=reproject&&kept&&lit&&carriedLight>0?lit.texture:accumulate.latest;u.traced.value=image;u.amount.value=amount;u.radius.value=radius;u.texel.value.set(1/source.width,1/source.height);
    if(demodulated&&(traced.colours?.width!==size.x||traced.colours.height!==size.y)){
     traced.colours?.dispose();traced.colours=new T.WebGLRenderTarget(size.x,size.y,{samples:4,colorSpace:T.SRGBColorSpace});renderAlbedo(renderer,scene,camera,traced.colours);
    }
