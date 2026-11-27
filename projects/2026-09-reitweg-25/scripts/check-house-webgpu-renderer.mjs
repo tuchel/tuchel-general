@@ -6,7 +6,7 @@ const features=fs.readFileSync('lib/house-model/shader-features.ts','utf8'),ligh
 // `?renderer=webgpu` loads three's WebGPU renderer only when asked, and only for the presets it can draw.
 // Every preset is drawn there; Extreme leaves off the parts not ported yet, and `&try=` turns named ones on to test them.
 const tierCode=fs.readFileSync('lib/house-model/device-tier.ts','utf8');
-assert(/export const WEBGPU_PENDING=\[[^\]]*'liveTrace'[^\]]*\] as const;/.test(tierCode)&&!/WEBGPU_PENDING=\[[^\]]*'(lens|temporal|roomProbes|softShadows|steerMotion|lampGlow|wetMirror|living)'/.test(tierCode)&&/WEBGPU_PENDING\.filter\(k=>!tried\.includes\(k\)\)\.map\(k=>\[k,false\]\)/.test(tierCode));
+assert(/export const WEBGPU_PENDING=\[[^\]]*'lightCarry'[^\]]*\] as const;/.test(tierCode)&&!/WEBGPU_PENDING=\[[^\]]*'(liveTrace|lens|temporal|roomProbes|softShadows|steerMotion|lampGlow|wetMirror|living)'/.test(tierCode)&&/WEBGPU_PENDING\.filter\(k=>!tried\.includes\(k\)\)\.map\(k=>\[k,false\]\)/.test(tierCode));
 assert(/const tier=gpu\?forWebGPU\(chosen,new URLSearchParams\(window\.location\.search\)\.get\('try'\)\?\.split\(','\),new URLSearchParams\(window\.location\.search\)\.get\('without'\)\?\.split\(','\)\):lacking\(chosen,new URLSearchParams\(window\.location\.search\)\.get\('without'\)\?\.split\(','\)\)/.test(viewer)&&/without\.filter\(k=>typeof \(tier as unknown as Record<string,unknown>\)\[k\]==='boolean'\)\.map\(k=>\[k,false\]\)/.test(tierCode)&&/const wide=!gpu&&tier\.quality==='extreme'/.test(viewer));
 assert(/const webgpu=new URLSearchParams\(window\.location\.search\)\.get\('renderer'\)==='webgpu'\?await Promise\.all\(\[import\('three\/webgpu'\),import\('three\/tsl'\),import\('three\/addons\/objects\/SkyMesh\.js'\),/.test(page));
 // It has no device until `init` resolves: sky light and the first frame wait for it, and the canvas says which backend
@@ -63,7 +63,7 @@ assert(/\{forward:g,reach,steps,room,outdoors,indoors\}=LENS\.air/.test(chain)&&
 assert(/import \{CONTACT\} from '\.\/contact-shadows';/.test(chain)&&/import \{MIST,AIR_GLOW\} from '\.\/mist';/.test(chain)&&/for\(let i=0;i<CONTACT\.steps;i\+\+\)/.test(chain)&&/CONTACT\.strength\*T\.MathUtils\.smoothstep\(toLight\.y,\.\.\.CONTACT\.low\)/.test(chain)&&/mist\.value\.set\(colour\.r,colour\.g,colour\.b,amount\/MIST\.reach\)/.test(chain)&&/const lit=\(frame:any\)=>shafted\(bloomed\(misted\(mirrored\(touched\(frame\)\)\)\)\);/.test(chain),'contact shadows and mist');
 // Its focus: at eye level the kept image is blurred by distance from what the meter found in the middle of the frame,
 // with the WebGL pass's spiral and its rule that a sharp edge does not spill over what is nearer.
-assert(/import \{LENS,meterCorrection,focalLength\} from '\.\/lens';/.test(chain)&&/radius<LENS\.maxBlur;i\+\+,radius\+=\.6\/radius/.test(chain)&&/d\.greaterThan\(centre\),min\(s,centreSize\.mul\(2\)\),s\)/.test(chain)&&/f\*f\/\(LENS\.fNumber\*Math\.max\(d-f,1e-3\)\)\/LENS\.sensor\*image\.height/.test(chain)&&/showing=view\?\.eyeLevel&&focus\?focus\.render\(out\):out;/.test(chain),'depth of field');
+assert(/import \{LENS,meterCorrection,focalLength\} from '\.\/lens';/.test(chain)&&/radius<LENS\.maxBlur;i\+\+,radius\+=\.6\/radius/.test(chain)&&/d\.greaterThan\(centre\),min\(s,centreSize\.mul\(2\)\),s\)/.test(chain)&&/f\*f\/\(LENS\.fNumber\*Math\.max\(d-f,1e-3\)\)\/LENS\.sensor\*image\.height/.test(chain)&&/near=!!view\?\.eyeLevel;showing=near&&focus\?focus\.render\(out\):out;/.test(chain),'depth of field');
 // It draws no line loops.
 assert(!/T\.LineLoop/.test(lib),'no line loop in the model');
 // Bounced sunlight is read from the same two atlases and added to the light from all round; the sky light bounced
@@ -179,4 +179,6 @@ assert(/present:\(image:T\.Texture,amount:number,/.test(chain)&&/renderAlbedo\(r
 // The tracer's sky comes from the renderer in use: the WebGPU renderer cannot read a target back at once.
 const liveCode=fs.readFileSync('lib/house-model/live-trace.ts','utf8');
 assert(/isWebGPURenderer\?lighting\.equirectGPU\(\):lighting\.equirect\(\)/.test(liveCode)&&!/=lighting\.equirect\(\);/.test(liveCode),'the tracer\'s sky on WebGPU');
+// The traced picture goes through the lens's focus at eye level, as the live one does.
+assert(chain.includes('showing=near&&focus?focus.render(traced.out):traced.out;')&&chain.includes('near=!!view?.eyeLevel;'),'the traced picture is focused at eye level');
 console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, lying snow with its packed layer on the roofs, falling snow and rain, averaged still frames and colour finish there.');
