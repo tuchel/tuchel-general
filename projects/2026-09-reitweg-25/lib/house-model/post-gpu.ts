@@ -357,13 +357,13 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
  // where it arrives divided by its own, under the live view's fog, mist, lamp glow and sun shafts, which the traced
  // scene has not; where no surface is hit the live view's sky shows. A data texture's rows run bottom up. `moved`: the
  // image was traced for the kept view; each point is looked up where that view saw it, and the live image shows where
- // it did not. `ratio`: what the traced image changed instead, for moving frames to keep.
+ // it did not and toward the border of what it saw. `ratio`: what the traced image changed instead, for moving frames to keep.
  const traced=(()=>{
   const {Fn,uv,vec2,select,smoothstep}=gpu.tsl,image=texture(settled[0].texture),live=texture(settled[0].texture),surfaces=texture(settled[0].texture);
   const amount=uniform(0),divided=uniform(0),moved=uniform(0),fogColour=uniform(new T.Color()),fogRange=uniform(new T.Vector2(1e9,1e9));
   const drawn=(ratio:boolean)=>quadOf(Fn(()=>{
    const at=uv(),was=live.sample(at).rgb.toVar(),d=distanceAt(at).toVar(),{to,seen}=keptAt(at),from=select(moved.greaterThan(.5),to,at);
-   const valid=select(moved.lessThan(.5).or(seen.and(to.x.greaterThan(0)).and(to.y.greaterThan(0)).and(to.x.lessThan(1)).and(to.y.lessThan(1))),1,0);
+   const valid=select(moved.lessThan(.5),1,select(seen,smoothstep(0,LIGHT_CARRY.edge,min(min(to.x,to.y),min(to.x.oneMinus(),to.y.oneMinus()))),0));
    const light=image.sample(vec2(from.x,from.y.oneMinus())).rgb.mul(mix(vec3(1),max(surfaces.sample(at).rgb,vec3(SHARP.floor)),divided));
    const aired=select(d.greaterThanEqual(farthest.mul(.999)),was,shafted(misted(vec4(mix(light,fogColour,smoothstep(fogRange.x,fogRange.y,d)),1))).rgb).toVar();
    return ratio?vec4(clamp(aired.add(.004).div(was.add(.004)),LIGHT_CARRY.least,LIGHT_CARRY.most),1):vec4(mix(was,aired,amount.mul(valid)),1);
@@ -392,7 +392,8 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   if(demodulated&&(traced.colours?.width!==size.x||traced.colours.height!==size.y)){
    traced.colours?.dispose();traced.colours=new T.RenderTarget(size.x,size.y,{samples:4,colorSpace:T.SRGBColorSpace}) as unknown as T.WebGLRenderTarget;renderAlbedo(renderer,scene,camera,traced.colours);
   }
-  traced.image.value=image;traced.live.value=settled[0].texture;traced.amount.value=amount;traced.moved.value=reproject?1:0;traced.divided.value=demodulated&&traced.colours?1:0;
+  // A kept image lies over the frame as it was last shown, with the kept light where there was any.
+  traced.image.value=image;traced.live.value=(reproject&&light&&carriedLight>0?light.lit:settled[0]).texture;traced.amount.value=amount;traced.moved.value=reproject?1:0;traced.divided.value=demodulated&&traced.colours?1:0;
   if(traced.colours)traced.surfaces.value=traced.colours.texture;
   if(scene.fog instanceof T.Fog){traced.fogColour.value.copy(scene.fog.color);traced.fogRange.value.set(scene.fog.near,scene.fog.far);}
   renderer.setRenderTarget(traced.out);traced.quad.render(renderer);
