@@ -189,4 +189,10 @@ assert(chain.includes('carries:(camera:T.Camera,generation:number)=>!!light&&lig
 // A 360-degree panorama is traced there too: the tracer's equirectangular camera stands at the eye.
 {const captures=fs.readFileSync('lib/house-model/experience.ts','utf8');
  assert(!captures.includes('Panoramas are not yet made')&&captures.includes('gpuTracer.setScene(local.scene,renderCamera);')&&captures.includes('await webgl.setSceneAsync(local.scene,renderCamera);'),'panoramas on WebGPU');}
+// A screen that shows above white (hdr.ts): the WebGPU canvas itself is floating point with the extended range, and the
+// finish lifts the scene's light above the knee as the WebGL finish does.
+{const view=fs.readFileSync('lib/house-model/viewer.ts','utf8'),hdr=fs.readFileSync('lib/house-model/hdr.ts','utf8');
+ assert(view.includes("...(gpu&&bright?{outputType:T.HalfFloatType}:{})")&&view.includes('const bright=tier.hdr&&hdrWanted(!!gpu);')&&view.includes('if(bright&&!gpu)void createHdrScreen('),'the WebGPU canvas takes the extended range');
+ assert(hdr.includes("&&(own||'gpu' in navigator&&'drawingBufferStorage' in WebGL2RenderingContext.prototype)"),'no copy needed there');
+ assert(chain.includes('graded0.mul(clamp(pow(dot(shown.rgb.mul(balance),luma).mul(exposure).div(HDR.knee),HDR.curve),1,max(bright,1)))')&&chain.includes('bright.value=options.hdr?.()??0;'),'light above the knee is shown brighter');}
 console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, lying snow with its packed layer on the roofs, falling snow and rain, averaged still frames and colour finish there.');
