@@ -23,8 +23,6 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
  // That renderer draws into plain render targets through the calls the WebGL renderer has for its own.
  const half=()=>new T.RenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false}) as unknown as T.WebGLRenderTarget;
  const target=new T.RenderTarget(1,1,{type:T.HalfFloatType,samples:options.samples,depthTexture:new T.DepthTexture(1,1)}) as unknown as T.WebGLRenderTarget;
- // Its samples are resolved at the end of the scene pass and not read again: keeping them costs memory traffic.
- target.storeMultisampledColorBuffer=false;
  let settled=[half(),half()],frames=0;
  const quadOf=(node:any)=>{const m=new gpu.NodeMaterial() as any;m.fragmentNode=node;m.depthTest=false;m.depthWrite=false;return new gpu.QuadMesh(m);};
  // A still frame joins the average of those before it.
