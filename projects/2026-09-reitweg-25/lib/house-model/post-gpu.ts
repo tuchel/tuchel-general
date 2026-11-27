@@ -9,6 +9,7 @@ import {WET_MIRROR} from './wet-reflections';
 import {wet} from './surface-materials';
 import {renderAlbedo,SHARP} from './albedo-pass';
 import {CARRY,LIGHT_CARRY,carryApplies,lightCarried} from './carry';
+import {MOVING} from './move-trace';
 import {HDR} from './hdr';
 import type {Post,PostOptions,PostView} from './post';
 
@@ -20,7 +21,7 @@ export type PostGPU={tsl:any;/** three's corner shading pass (GTAONode.js). */ao
  * the S-curve with its shadow lift, saturation, and the screen's transfer; moving frames blended into the kept image,
  * with the shutter's smear, and the lens (meter, grain, sun shafts, focus), mist, contact shadows and the wet mirror; a
  * path-traced image over a resting view, and its light kept for the frames that follow. */
-export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions,gpu:PostGPU):Post&{over(object:T.Object3D,camera:T.Camera):void}{
+export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions,gpu:PostGPU):Post&{over(object:T.Object3D,camera:T.Camera):void;traceFrom(width:number,height:number):void;traceDone(image:T.Texture):void}{
  const {positionGeometry,screenCoordinate,ivec2,texture,uniform,vec3,vec4,float,mix,max,min,pow,dot,clamp,agxToneMapping,sRGBTransferOETF}=gpu.tsl;
  // That renderer draws into plain render targets through the calls the WebGL renderer has for its own.
  const half=()=>new T.RenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false}) as unknown as T.WebGLRenderTarget;
@@ -382,12 +383,57 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    const at=uv(),c=frame.sample(at),{to,seen}=keptAt(at),valid=select(seen,smoothstep(0,LIGHT_CARRY.edge,min(min(to.x,to.y),min(to.x.oneMinus(),to.y.oneMinus()))),0);
    return vec4(c.rgb.mul(mix(vec3(1),mix(broad.sample(clamp(to,0,1)).level(LIGHT_CARRY.coarse-1).rgb,broad.sample(to).level(LIGHT_CARRY.fine-1).rgb,valid),amount)),c.a);
   })());
-  return {quad,render(image:T.WebGLRenderTarget){
+  return {quad,broad,render(image:T.WebGLRenderTarget){
    if(light.lit.width!==image.width||light.lit.height!==image.height)light.lit.setSize(image.width,image.height);
    frame.value=image.texture;amount.value=carriedLight;renderer.setRenderTarget(light.lit);quad.render(renderer);return light.lit;
   }};
  })():undefined;
  const copied=texture(settled[0].texture),copy=quadOf(copied),depthCopy=quadOf(vec4(distanceAt(gpu.tsl.uv()),0,0,1));
+ // A prototype (move-trace.ts): light traced while the view moves. A sample is traced over several frames for the
+ // view it started from (`from`: that view's frame, depth and place); when it is in, what it changed against that frame
+ // becomes the kept ratio, both read broadly (`MOVING.level`) since one sample a pixel is grain, and blended with the
+ // ratio before it where that one saw the same place. Moving frames then take it as they take a resting trace's.
+ const motion=light&&relight?(()=>{
+  const {Fn,uv,vec2,select,smoothstep}=gpu.tsl;
+  const broadly=()=>new T.RenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter}) as unknown as T.WebGLRenderTarget;
+  const from={frame:broadly(),depth:half(),camera:new T.PerspectiveCamera(),placed:uniform(new T.Matrix4()),optics:uniform(new T.Vector4(1,1,0,1))};
+  const sample=texture(from.frame.texture),frame=texture(from.frame.texture),depth=texture(from.depth.texture),before=texture(light.ratio.texture),share=uniform(0),fogColour=uniform(new T.Color()),fogRange=uniform(new T.Vector2(1e9,1e9));
+  let spare=broadly(),have=false;
+  const quad=quadOf(Fn(()=>{
+   const at=uv(),d=depth.sample(at).r.toVar(),o=from.optics;
+   const world=from.placed.mul(vec4(at.x.mul(2).sub(1).mul(d).div(o.x),at.y.mul(-2).add(1).mul(d).div(o.y),d.negate(),1)).toVar(),clip=keptViewProj.mul(world).toVar();
+   const to=vec2(clip.x.div(clip.w).mul(.5).add(.5),clip.y.div(clip.w).mul(-.5).add(.5)).toVar();
+   const inside=select(clip.w.greaterThan(0),smoothstep(0,LIGHT_CARRY.edge,min(min(to.x,to.y),min(to.x.oneMinus(),to.y.oneMinus()))),0);
+   const was=frame.sample(at).level(MOVING.level).rgb,traced=mix(sample.sample(at).level(MOVING.level).rgb,fogColour,smoothstep(fogRange.x,fogRange.y,d));
+   const changed=select(d.greaterThanEqual(farthest.mul(.999)),vec3(1),clamp(traced.add(.004).div(was.add(.004)),LIGHT_CARRY.least,LIGHT_CARRY.most));
+   return vec4(mix(changed,before.sample(clamp(to,0,1)).rgb,share.mul(inside)),1);
+  })());
+  return {
+   /** A sample starts from the view as just drawn; `width`, `height`: the traced image's. */
+   start(width:number,height:number){
+    const previous=renderer.getRenderTarget();
+    from.frame.setSize(width,height);from.depth.setSize(target.width,target.height);
+    copied.value=settled[0].texture;renderer.setRenderTarget(from.frame);copy.render(renderer);
+    renderer.setRenderTarget(from.depth);depthCopy.render(renderer);renderer.setRenderTarget(previous);
+    from.camera.copy(camera as T.PerspectiveCamera);from.camera.updateMatrixWorld();from.placed.value.copy(from.camera.matrixWorld);
+    const e=from.camera.projectionMatrix.elements;from.optics.value.set(e[0],e[5],e[10],e[14]);
+   },
+   /** The sample is in: `image`, linear and with its smaller levels. */
+   done(image:T.Texture){
+    const previous=renderer.getRenderTarget(),w=Math.ceil(target.width/2),h=Math.ceil(target.height/2);
+    if(spare.width!==w||spare.height!==h){spare.setSize(w,h);have=false;}
+    sample.value=image;frame.value=from.frame.texture;depth.value=from.depth.texture;before.value=light.ratio.texture;share.value=have&&light.generation===MOVING.generation?MOVING.keep:0;
+    if(scene.fog instanceof T.Fog){fogColour.value.copy(scene.fog.color);fogRange.value.set(scene.fog.near,scene.fog.far);}
+    renderer.setRenderTarget(spare);quad.render(renderer);renderer.setRenderTarget(previous);
+    [light.ratio,spare]=[spare,light.ratio];[light.depth,from.depth]=[from.depth,light.depth];have=true;
+    relight.broad.value=light.ratio.texture;keptDepth.value=light.depth.texture;
+    light.camera.copy(from.camera);light.camera.updateMatrixWorld();
+    keptViewProj.value.multiplyMatrices(light.camera.projectionMatrix,light.camera.matrixWorldInverse);keptView.value.copy(light.camera.matrixWorldInverse);
+    light.generation=MOVING.generation;light.version=-1;light.reach=meter&&Number.isFinite(meter.focus)?meter.focus:0;
+   },
+   dispose(){from.frame.dispose();from.depth.dispose();spare.dispose();quad.material.dispose();},
+  };
+ })():undefined;
  /** Draws `image` over the settled live image through the finish; `reproject`: it is the kept image. */
  const show=(image:T.Texture,amount:number,demodulated:boolean,reproject:boolean)=>{
   const size=renderer.getDrawingBufferSize(new T.Vector2());
@@ -494,12 +540,15 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    keptViewProj.value.multiplyMatrices(light.camera.projectionMatrix,light.camera.matrixWorldInverse);keptView.value.copy(light.camera.matrixWorldInverse);
    light.demodulated=demodulated;light.generation=generation;light.version=image.version;light.reach=meter&&Number.isFinite(meter.focus)?meter.focus:0;
   },
+  /** The moving trace's sample starts and ends (move-trace.ts). */
+  traceFrom:(width:number,height:number)=>motion?.start(width,height),
+  traceDone:(image:T.Texture)=>motion?.done(image),
   /** Whether the kept image can stand in for `camera`'s view: the same scene and sun, and a small move (carry.ts). */
   carries:(camera:T.Camera,generation:number)=>!!light&&light.generation===generation&&carryApplies(light.camera,camera),
   /** Shows the kept image moved into the current view; the live image where the move uncovered something. */
   carry:()=>{if(light)show(light.image.texture,1,light.demodulated,true);},
   reset:()=>{frames=0;kept?.reset();shafts?.reset();traced.colours?.dispose();traced.colours=undefined;},
-  dispose:()=>{traced.out.dispose();traced.colours?.dispose();traced.quad.material.dispose();traced.ratio.material.dispose();if(light)for(const t of [light.image,light.depth,light.lit,light.ratio])t.dispose();relight?.quad.material.dispose();copy.material.dispose();depthCopy.material.dispose();kept?.dispose();meter?.dispose();focus?.dispose();shafts?.dispose();target.dispose();level?.dispose();levelled?.material.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();glow?.dispose();output.material.dispose();},
+  dispose:()=>{motion?.dispose();traced.out.dispose();traced.colours?.dispose();traced.quad.material.dispose();traced.ratio.material.dispose();if(light)for(const t of [light.image,light.depth,light.lit,light.ratio])t.dispose();relight?.quad.material.dispose();copy.material.dispose();depthCopy.material.dispose();kept?.dispose();meter?.dispose();focus?.dispose();shafts?.dispose();target.dispose();level?.dispose();levelled?.material.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();glow?.dispose();output.material.dispose();},
  };
- return api as unknown as Post&{over:typeof api.over};
+ return api as unknown as Post&{over:typeof api.over;traceFrom:typeof api.traceFrom;traceDone:typeof api.traceDone};
 }
