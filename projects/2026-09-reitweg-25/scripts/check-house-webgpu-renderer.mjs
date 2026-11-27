@@ -171,4 +171,9 @@ assert(/equirectGPU:async\(width=1024\)=>/.test(lighting)&&/requiredLimits:gpu\.
 assert(/object\.traverse\(o=>\{if\(o\.frustumCulled\)\{culled\.push\(o\);o\.frustumCulled=false;\}\}\);\s*const done=renderer\.compileAsync\(object,camera,scene\);renderer\.setRenderTarget\(previous\);for\(const o of culled\)o\.frustumCulled=true;/.test(chain));
 // Where the image chain draws the picture, the canvas keeps one sample to a pixel, as with WebGL.
 assert(/new gpu\.WebGPURenderer\(\{antialias:!realistic,/.test(viewer));
+// A traced image at rest (try=liveTrace): the surfaces' plain colours as nodes for it to be multiplied by, and the blend
+// over the settled live image with the live view's sky, fog, mist and sun shafts, through the same finish.
+const albedoCode=fs.readFileSync('lib/house-model/albedo-pass.ts','utf8');
+assert(/nodes:slots=>\{/.test(albedoCode)&&/slots\.output=\(colour:any\)=>select\(on\.greaterThan\(\.5\),vec4\(diffuseColor\.rgb,1\),before\?before\(colour\):colour\);/.test(albedoCode),'surface colours as nodes');
+assert(/present:\(image:T\.Texture,amount:number,/.test(chain)&&/renderAlbedo\(renderer,scene,camera,traced\.colours\)/.test(chain)&&/shafted\(misted\(vec4\(/.test(chain)&&!/present:\(\)=>\{\},/.test(chain),'traced image shown on WebGPU');
 console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, lying snow with its packed layer on the roofs, falling snow and rain, averaged still frames and colour finish there.');
