@@ -269,7 +269,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  let shows:ReturnType<typeof createPostGPU>|undefined;
  const falls=gpu?.tsl&&gpu.NodeMaterial?{tsl:gpu.tsl,NodeMaterial:gpu.NodeMaterial,over:(o:T.Object3D,c:T.Camera)=>shows?.over(o,c)}:undefined;
  const makePost=(...a:Parameters<typeof createPost>)=>gpu?.tsl&&gpu.NodeMaterial&&gpu.QuadMesh?shows=createPostGPU(...a,{tsl:gpu.tsl,ao:gpu.ao,bloom:gpu.bloom,NodeMaterial:gpu.NodeMaterial,QuadMesh:gpu.QuadMesh}):createPost(...a);
- const post=realistic?makePost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,mist:tier.weathered,wetMirror:tier.wetMirror,glowLamps:tier.lampGlow?lampsOutdoors():undefined,temporal:tier.temporal&&new URLSearchParams(location.search).get('taa')!=='off',hdr:()=>(gpu?bright:screen)&&renderer.outputColorSpace===DisplayP3ColorSpace?HDR.peak:0,afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
+ const post=realistic?makePost(renderer,scene,camera,{lamps:()=>lighting?.reading?.dusk??0,samples:tier.samples,ao:tier.ao,bloom:tier.bloom,lens:tier.lens&&lighting?{sun:lighting.sun}:undefined,contact:tier.weathered,mist:tier.weathered,wetMirror:tier.wetMirror,glowLamps:tier.lampGlow?lampsOutdoors():undefined,temporal:tier.temporal&&new URLSearchParams(location.search).get('taa')!=='off',hdr:()=>(gpu?bright&&!plain&&!captures?.active&&!captures?.recording:screen&&renderer.outputColorSpace===DisplayP3ColorSpace)?HDR.peak:0,afterScene:occlusion?(r,c)=>occlusion.test(r,c):undefined}):undefined;
  if(post){mistFor=r=>{if(scene.fog){
   const outdoors=study.enabled&&level==='exterior',lies=outdoors&&!snowing&&!raining?mistAmount(r.apparentElevation,study.minutes,study.day):0;
   // The lamps' glow hangs in mist, rain and falling snow, and faintly in any night's air (mist.ts).
@@ -297,7 +297,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // When this rest's first cleaned traced image was shown (0: not yet), and whether a carried one stood in before it.
  let fadeFrom=0,carried=false;
  // The screen brighter than white, once the graphics card grants it, and the last frame it was shown.
- let screen:HdrScreen|undefined,shown=-1;
+ // `plain`: a still image is being drawn for a file, which holds no light above white.
+ let screen:HdrScreen|undefined,shown=-1,plain=false;
  // Moving frames drawn in a row, for their jitter.
  let moved=0;
  // Another app in front: tracing and the background bakes wait, so the rest of the computer keeps the processor and
@@ -658,13 +659,13 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   const w=Math.round(cssSize.x*scale),h=Math.round(cssSize.y*scale);
   const name='reitweg-25-'+(realistic?'detailed':'model');let saving:Promise<{blob:Blob|null;file:string}>|undefined;
   try{
-   renderer.outputColorSpace=T.SRGBColorSpace;renderer.setPixelRatio(1);renderer.setSize(w,h,false);post?.setSize(w,h,1);
+   plain=true;renderer.outputColorSpace=T.SRGBColorSpace;renderer.setPixelRatio(1);renderer.setSize(w,h,false);post?.setSize(w,h,1);
    cullTrees(false);
    if(post){for(let i=0;i<Math.max(8,tier.refineFrames);i++){if(i)camera.setViewOffset(w,h,halton(i,2)-.5,halton(i,3)-.5,w,h);mirror?.render();post.render(true,lighting?lighting.exposure:.9,indoorOf(room),{eyeLevel:rig.eyeLevel});camera.clearViewOffset();}}
    else renderer.render(scene,rig.camera);
    // Both encoders copy the canvas at once, so the view returns to its own size while they work.
    saving=limit?fitPng(canvas,limit).then(f=>({blob:f.blob,file:`${name}-${f.width}x${f.height}.png`})):new Promise(resolve=>canvas.toBlob(blob=>resolve({blob,file:name+'.png'}),'image/png'));
-  }finally{renderer.setPixelRatio(ratio);renderer.setSize(cssSize.x,cssSize.y,false);post?.setSize(cssSize.x,cssSize.y,ratio);changed();}
+  }finally{plain=false;renderer.setPixelRatio(ratio);renderer.setSize(cssSize.x,cssSize.y,false);post?.setSize(cssSize.x,cssSize.y,ratio);changed();}
   const saved=await saving;
   if(saved?.blob){const url=URL.createObjectURL(saved.blob),link=document.createElement('a');link.href=url;link.download=saved.file;link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
  };

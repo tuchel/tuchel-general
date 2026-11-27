@@ -14,7 +14,7 @@ assert.equal(gain(HDR.knee*.5),1);assert.equal(gain(HDR.knee),1);assert(gain(HDR
 assert(post.includes('if(uHdr>1.0)gl_FragColor.rgb*=clamp(pow(sceneLight/${HDR.knee.toFixed(2)},${HDR.curve.toFixed(2)}),1.0,uHdr);'),'the finish applies that gain');
 assert(/float sceneLight=dot\(gl_FragColor\.rgb,vec3\(0\.2126,0\.7152,0\.0722\)\)\*toneMappingExposure;/.test(post),'from the exposed scene, before the finish presses it under white');
 // Only while the screen is being given it, and never into a photograph or a recording (those leave in sRGB).
-assert(/hdr:\(\)=>\(gpu\?bright:screen\)&&renderer\.outputColorSpace===DisplayP3ColorSpace\?HDR\.peak:0/.test(viewer),'live view only');
+assert(/hdr:\(\)=>\(gpu\?bright&&!plain&&!captures\?\.active&&!captures\?\.recording:screen&&renderer\.outputColorSpace===DisplayP3ColorSpace\)\?HDR\.peak:0/.test(viewer),'live view only');
 // Tried only where the screen shows above white and the browser can copy a floating-point canvas to WebGPU; the
 // anything refused leaves the view as it was.
 assert(/\(dynamic-range: high\)/.test(hdr)&&/'drawingBufferStorage' in WebGL2RenderingContext\.prototype/.test(hdr)&&/'gpu' in navigator/.test(hdr));
