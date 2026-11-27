@@ -184,7 +184,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   // The shutter (motion-blur.ts): the kept image smeared along the path each point took since the last frame, for the
   // screen only. (Smeared before it joined the kept image, the frame's jittered samples were scattered and the whole
   // moving picture went soft.) Every look-up is taken; a path too short to see is given no length.
-  const streaks=options.mist&&options.shutter?(()=>{
+  const streaks=options.mist?(()=>{
    const {length,fract}=gpu.tsl,raw=texture(mixed.texture),smeared=half();
    return {smeared,raw,quad:quadOf(Fn(()=>{
     const at=uv(),d=min(far(depth.sample(at.sub(jitter)).r),farthest).toVar(),ndc=vec2(at.x.mul(2).sub(1),at.y.mul(-2).add(1));
