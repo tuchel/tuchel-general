@@ -87,4 +87,10 @@ const third=await photographicScene(source,new T.Texture(),new AbortController()
 const fresh=thirdMeshes.filter(m=>!firstMeshes.includes(m));
 assert.equal(thirdMeshes.length,firstMeshes.length-1,'the hidden mesh is let go');assert.equal(fresh.length,1,`only the moved instances are converted again (${fresh.map(m=>m.name).join(', ')})`);assert.equal(fresh[0].name,grass.name);
 hidden.visible=true;first.dispose();again.dispose();third.dispose();cache.dispose();
+// Weathered and relief surfaces (Extreme) keep their textures in the traced scene as plain ones do.
+{const mapped=meshes=>new Set(meshes.flatMap(o=>[o.material].flat()).filter(m=>m.map)).size,plain=mapped(flat.meshes);
+ const worn=buildHouseModel(true,landscapeContext({foliage,density:1}).group,foliage);worn.setLevel('exterior');finishSurfaces(worn.root,textures,{value:0},true,true);
+ const scene=new T.Scene();scene.add(worn.root);const local=await photographicScene(scene,new T.Texture(),new AbortController().signal,()=>{},options),meshes=[];
+ local.scene.traverse(o=>{if(o.isMesh)meshes.push(o);});
+ assert(plain>3&&mapped(meshes)===plain,`weathered surfaces keep their textures in the trace (${mapped(meshes)} of ${plain})`);local.dispose();}
 console.log(`Passed: ${(flat.traced/1e6).toFixed(2)} M traced triangles; a kept conversion reuses every mesh (${secondMs.toFixed(0)} ms) and converts only what changed; longest hold ${flat.longest.toFixed(0)} ms (${(flat.total/1000).toFixed(1)} s in all), instanced ${kept.longest.toFixed(0)} ms (${(kept.total/1000).toFixed(1)} s) converting ${(kept.unique/1e6).toFixed(2)} M; tangents unit, square to normals, along the texture on ${checked} projected faces.`);
