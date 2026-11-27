@@ -132,6 +132,7 @@ const ROWS = `
 2026-11-20 18.6 25028.98 35.89
 2026-11-23 14.9 26746.10 26.62
 2026-11-24 11.0 26214.17 26.36
+2026-11-25 15.6 26046.90 28.29
 `;
 
 export type MarketDay = { date: string; mood: number; ndx: number; vix: number };
