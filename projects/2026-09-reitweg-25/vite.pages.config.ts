@@ -1,6 +1,7 @@
 import {defineConfig} from 'vite';
 import react from '@vitejs/plugin-react';
 import {fileURLToPath} from 'node:url';
+import {packGeometry} from './build/pack-geometry-plugin';
 
 const base='/tuchel-general/reitweg-25/';
 const studio='https://reitweg-25-design-studio.tuchel.chatgpt.site';
@@ -18,7 +19,7 @@ export default defineConfig({
    if(!id.startsWith(root)||id.includes('/node_modules/')||! /\.(?:[cm]?[jt]sx?|json)(?:\?|$)/.test(id))return;
    return {code:code.replace(/(["'`])\/assets\//g,`$1${base}assets/`).replace(new RegExp(`${base}assets/(expose|operating-costs|kitchen-footprint-review)\\.pdf`,'g'),`${studio}/assets/$1.pdf`),map:null};
   },
- },react()],
+ },packGeometry(),react()],
  build:{outDir:'dist-pages',emptyOutDir:true},
  // The path-tracing worker loads its renderer, tracer and denoiser on demand, which needs module workers.
  worker:{format:'es'},
