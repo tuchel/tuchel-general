@@ -195,10 +195,10 @@ assert(chain.includes('carries:(camera:T.Camera,generation:number)=>!!light&&lig
  assert(view.includes("...(gpu&&bright?{outputType:T.HalfFloatType}:{})")&&view.includes('const bright=tier.hdr&&hdrWanted(!!gpu);')&&view.includes('if(bright&&!gpu)void createHdrScreen(')&&view.includes('hdr:()=>(gpu?bright&&!plain&&!captures?.active&&!captures?.recording:screen&&renderer.outputColorSpace===DisplayP3ColorSpace)?HDR.peak:0')&&view.includes('plain=true;renderer.outputColorSpace=T.SRGBColorSpace;')&&view.includes('}finally{plain=false;'),'the WebGPU canvas takes the extended range');
  assert(hdr.includes("&&(own||'gpu' in navigator&&'drawingBufferStorage' in WebGL2RenderingContext.prototype)"),'no copy needed there');
  assert(chain.includes('graded0.mul(clamp(pow(dot(shown.rgb.mul(balance),luma).mul(exposure).div(HDR.knee),HDR.curve),1,max(bright,1)))')&&chain.includes('bright.value=options.hdr?.()??0;'),'light above the knee is shown brighter');}
-// The moving trace is a part of Extreme that only the WebGPU renderer has, and still one to ask for there
-// (`&try=moveTrace`); `&moveTrace=WxHxBOUNCESxFRAMES` sets its size for a test.
+// The moving trace is a part of Extreme that only the WebGPU renderer has.
+// `&moveTrace=WxHxBOUNCESxFRAMES` sets its size for a test.
 {const view=fs.readFileSync('lib/house-model/viewer.ts','utf8'),move=fs.readFileSync('lib/house-model/move-trace.ts','utf8');
- assert(/extreme:\{[^\n]*moveTrace:true/.test(tierCode)&&/detailed:\{[^\n]*moveTrace:false/.test(tierCode)&&/PHONE_EXTREME=\{[^\n]*moveTrace:false/.test(tierCode)&&/export const WEBGPU_PENDING=\['treeOcclusion','moveTrace'\] as const;/.test(tierCode),'a part of Extreme, to ask for');
+ assert(/extreme:\{[^\n]*moveTrace:true/.test(tierCode)&&/detailed:\{[^\n]*moveTrace:false/.test(tierCode)&&/PHONE_EXTREME=\{[^\n]*moveTrace:false/.test(tierCode)&&/export const WEBGPU_PENDING=\['treeOcclusion'\] as const;/.test(tierCode),'a part of Extreme');
  assert(view.includes('const tracing=gpu&&lighting&&camera instanceof T.PerspectiveCamera?moveTraceAsked(tier.moveTrace):undefined;')&&view.includes('if(motionTrace&&shows){const sample=motionTrace.step(shows.traceFrom);if(sample)shows.traceDone(sample);}')&&view.includes('?live.generation:undefined,moving:!!motionTrace});')&&view.includes('motionTrace?.dispose();'),'only where asked for');
  assert(move.includes(".get('moveTrace')")&&move.includes('new WebGPUPathTracer(options.renderer as never)')&&!/^import .*(pathtracer|live-trace-webgpu|photographic-scene)/m.test(move),'on the renderer\'s own device, loaded only when asked for');
  // A sample is traced over several frames for the view it started from; what it changed against that view's frame,
