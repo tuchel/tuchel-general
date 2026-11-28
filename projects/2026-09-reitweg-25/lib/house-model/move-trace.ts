@@ -21,7 +21,7 @@ export function createMoveTrace(options:{renderer:unknown;scene:T.Scene;camera:T
  type Made={scene:T.Scene;dispose():void};
  let tracer:{renderSample():void;updateCamera():void;updateLights():void;updateEnvironment():void;dispose():void}|undefined,local:Made|undefined,environment:T.Texture|undefined;
  let disposed=false,age=0,preparing=false,turn=0;
- // The scene and its sky are taken once the view has been drawn (the first step), not while it is still being set
+ // The scene and its sky are taken once the view has been drawn and rests, not while it is still being set
  // up: a sky read before the sun is placed is dark, and everything in shade traced black.
  const prepare=async()=>{
   const mine=turn;preparing=true;
@@ -38,9 +38,11 @@ export function createMoveTrace(options:{renderer:unknown;scene:T.Scene;camera:T
  };
  const release=()=>{tracer?.dispose();local?.dispose();environment?.dispose();tracer=local=environment=undefined;};
  return {
-  /** One step of the sample; `started`: it starts from the camera as it is now. The image once the sample is in. */
-  step(started:(width:number,height:number)=>void){
-   if(!tracer){if(!preparing&&!disposed)void prepare().catch(error=>{disposed=true;console.warn('Moving trace unavailable',error);});return;}
+  /** One step of the sample; `started`: it starts from the camera as it is now. The image once the sample is in.
+   * `rested`: the view is at rest with nothing else being prepared, so the scene may be converted now (it holds
+   * frames up for some seconds, which must not fall into motion). */
+  step(started:(width:number,height:number)=>void,rested:boolean){
+   if(!tracer){if(rested&&!preparing&&!disposed)void prepare().catch(error=>{disposed=true;console.warn('Moving trace unavailable',error);});return;}
    if(!age){view.copy(camera);view.clearViewOffset();tracer.updateCamera();started(asked.width,asked.height);}
    renderer.setRenderTarget(target);tracer.renderSample();renderer.setRenderTarget(null);
    if(++age<asked.frames)return;
