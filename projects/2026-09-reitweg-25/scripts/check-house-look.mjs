@@ -27,8 +27,11 @@ const post=fs.readFileSync('lib/house-model/post.ts','utf8');assert(/finish\(/.t
 // Leaf edges anti-aliased by alpha-to-coverage leave alpha below one; the finished image is opaque, or the page shows
 // through them as grey specks.
 assert(/gl_FragColor = texture2D\( tDiffuse, vUv \);gl_FragColor\.a=1\.0;/.test(post),'the output pass writes an opaque image');
-// Indoors the shadow lift raises the side of a room the sun misses; black and the sunlit tones stay, and outdoors none.
-assert.equal(out.lift,0,'no shadow lift outdoors');
+// The shadow lift raises what the sun misses: the far side of a room, and outdoors by day the house's shaded side (dark
+// slate and stained wood under the sky alone take about a fiftieth of the sunlit lawn's light and showed near black).
+// Black and the sunlit tones stay; as the lamps come on outdoors it fades, so the night stays dark.
+assert.equal(out.lift,inside.lift,'by day the shaded side is raised outdoors as indoors');assert.equal(finish(0,1).lift,0,'not at night');assert(finish(0,.5).lift>0&&finish(0,.5).lift<out.lift);assert.equal(finish(1,1).lift,inside.lift);
+{const roof=12/255,raised=shadowLift(roof,out.lift);assert(raised>roof*1.5&&raised<roof*2,`a shaded roof at 12 of 255 shows at ${(raised*255).toFixed(0)}`);assert(shadowLift(.6,out.lift)-.6<.015,'the sunlit lawn stays');}
 assert(shadowLift(0,inside.lift)===0&&shadowLift(.25,inside.lift)>.3&&shadowLift(.9,inside.lift)-.9<.001,`the shadow lift raises dark tones only (0.25 → ${shadowLift(.25,inside.lift).toFixed(3)})`);
 for(let m=0;m<1;m+=.01)assert(shadowLift(m+.01,inside.lift)>shadowLift(m,inside.lift),'the shadow lift keeps tones in order');
 assert(/float m=dot\(e,vec3\(0\.2126,0\.7152,0\.0722\)\),f=1\.0-m;e=min\(e\*\(1\.0\+uLook\.z\*f\*f\*f\*f\),vec3\(1\.0\)\);/.test(post),'the output pass lifts luminance, keeping hue');
