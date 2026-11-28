@@ -225,7 +225,11 @@ assert(chain.includes('carries:(camera:T.Camera,generation:number)=>!!light&&lig
  // none is traced, and the kept ratio is dropped rather than blended on.
  assert(/const relight=\(\)=>\{\s*motionTrace\?\.hold\(\);/.test(view)&&/hold\(\)\{changes\+\+;stale=true;valid=false;age=0;\}/.test(move)&&/invalidate\(\)\{turn\+\+;release\(\);age=0;valid=false;\}/.test(move)&&move.includes('if(stale){if(rested)void this.relight();return;}')&&move.includes('if(mine===changes)stale=false;')&&move.includes('age=0;valid=true;return target.texture;'),'held from a change of light until traced anew');
  assert(chain.includes('if(light&&!view?.moving&&light.generation===MOVING.generation)light.generation=-1;'),'a ratio from before is dropped');
- assert(move.includes("if(!tracer){if(rested&&!preparing&&!disposed)void prepare()")&&move.includes('t.updateLights();t.updateEnvironment();')&&['relight','invalidate'].every(k=>view.split('motionTrace?.'+k+'();').length===view.split('live?.'+k+'();').length),'the sky as the view has it');}
+ assert(move.includes("if(!tracer){if(rested&&!preparing&&!disposed)void prepare()")&&move.includes('t.updateLights();t.updateEnvironment();')&&view.split('motionTrace?.relight();').length===view.split('live?.relight();').length&&view.split('motionTrace?.invalidate();').length===view.split('live?.invalidate();').length-1,'the sky as the view has it');
+ // Not when the far landscape is moved under a camera that has travelled 4 m: that happens after every orbit, and
+ // converting the scene again for it stalled frames for a second and then froze the page for 2.8 s (M3 Max). The
+ // backdrop a few metres off changes nothing in the light a moving frame takes.
+ assert(view.includes('panorama.userData.anchor(p.y);panoramaAt.copy(p);live?.invalidate();}'),'the moving trace keeps its scene when the far landscape is re-anchored');}
 // Moving frames are drawn smaller and gathered into the kept image, which leaves them soft: with `crisp` the screen's
 // copy is sharpened by how much smaller they were drawn, never past its four neighbours' colours (no halo), and not at
 // rest. Still one to ask for (`&try=crisp`) until it has been judged by eye.
