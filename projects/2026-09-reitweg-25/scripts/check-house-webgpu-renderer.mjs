@@ -225,11 +225,16 @@ assert(chain.includes('carries:(camera:T.Camera,generation:number)=>!!light&&lig
  // none is traced, and the kept ratio is dropped rather than blended on.
  assert(/const relight=\(\)=>\{\s*motionTrace\?\.hold\(\);/.test(view)&&/hold\(\)\{changes\+\+;stale=true;valid=false;age=0;\}/.test(move)&&/invalidate\(\)\{turn\+\+;release\(\);age=0;valid=false;\}/.test(move)&&move.includes('if(stale){if(rested)void this.relight();return;}')&&move.includes('if(mine===changes)stale=false;')&&move.includes('age=0;valid=true;return target.texture;'),'held from a change of light until traced anew');
  assert(chain.includes('if(light&&!view?.moving&&light.generation===MOVING.generation)light.generation=-1;'),'a ratio from before is dropped');
- assert(move.includes("if(!tracer){if(rested&&!preparing&&!disposed)void prepare()")&&move.includes('t.updateLights();t.updateEnvironment();')&&view.split('motionTrace?.relight();').length===view.split('live?.relight();').length&&view.split('motionTrace?.invalidate();').length===view.split('live?.invalidate();').length-1,'the sky as the view has it');
+ assert(move.includes("if(!tracer){if(rested&&!preparing&&!disposed)void prepare()")&&move.includes('t.updateLights();t.updateEnvironment();')&&view.split('motionTrace?.relight();').length===view.split('live?.relight();').length&&view.split('motionTrace?.invalidate();').length===view.split('live?.invalidate();').length-4,'the sky as the view has it');
  // Not when the far landscape is moved under a camera that has travelled 4 m: that happens after every orbit, and
  // converting the scene again for it stalled frames for a second and then froze the page for 2.8 s (M3 Max). The
  // backdrop a few metres off changes nothing in the light a moving frame takes.
- assert(view.includes('panorama.userData.anchor(p.y);panoramaAt.copy(p);live?.invalidate();}'),'the moving trace keeps its scene when the far landscape is re-anchored');}
+ assert(view.includes('panorama.userData.anchor(p.y);panoramaAt.copy(p);live?.invalidate();}'),'the moving trace keeps its scene when the far landscape is re-anchored');
+ // Nor for the close grass, which comes and goes with every eye-level view: its scene leaves the blades out (the lawn
+ // under them gives the same broad light), so changing view no longer converts it again, 0.9 s with the page held at
+ // each change (M3 Max).
+ assert(move.includes("leave:o=>o.name==='eye-level-grass'")&&fs.readFileSync('lib/house-model/grass.ts','utf8').includes("mesh.name='eye-level-grass'")&&/!options\.leave\?\.\(o\)/.test(fs.readFileSync('lib/house-model/photographic-scene.ts','utf8')),'the close grass is left out of the moving trace');
+ assert(!/grass[^;]*;?[^;]*motionTrace\?\.invalidate\(\)|motionTrace\?\.invalidate\(\);grass/.test(view)&&view.includes('if(grass?.step()){live?.invalidate();changed();}'),'and does not start it over');}
 // The resting trace's surface colours (albedo-pass.ts) are drawn into a target of their own kind, for which three
 // prepares every material again: left to the first traced image, that was 49 materials in one frame, 4.9 s with the
 // page held (M3 Max, about 35 s after loading). They are made ready in the background instead (three yields between

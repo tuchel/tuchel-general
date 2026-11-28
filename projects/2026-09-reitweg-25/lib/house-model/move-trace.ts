@@ -30,7 +30,9 @@ export function createMoveTrace(options:{renderer:unknown;scene:T.Scene;camera:T
   const mine=turn;preparing=true;
   try{
    const [{photographicScene},{WebGPUPathTracer},{treesInBackground}]=await Promise.all([import('./photographic-scene'),import('three-gpu-pathtracer/webgpu'),import('./live-trace-webgpu')]);
-   const sky=await lighting.equirectGPU(),made=await photographicScene(scene,sky,new AbortController().signal,()=>{},{maxDistance:120,origin:new T.Vector3(-5,0,8),sunScale:lighting.sunThroughClouds,instances:true});
+   // Without the close grass, which comes and goes with every eye-level view: the lawn under it gives the same broad
+   // light, and the scene need not be converted again at each change of view (0.9 s with the page held, M3 Max).
+   const sky=await lighting.equirectGPU(),made=await photographicScene(scene,sky,new AbortController().signal,()=>{},{maxDistance:120,origin:new T.Vector3(-5,0,8),sunScale:lighting.sunThroughClouds,instances:true,leave:o=>o.name==='eye-level-grass'});
    await treesInBackground(made.scene);
    if(disposed||mine!==turn){made.dispose();sky.dispose();return;}
    const t=new WebGPUPathTracer(options.renderer as never);
