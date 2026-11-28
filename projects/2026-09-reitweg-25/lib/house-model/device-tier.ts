@@ -44,6 +44,8 @@ export type TierSettings={
  living:boolean;
  /** A traced view's light stays on its surfaces while the camera moves (carry.ts, LIGHT_CARRY). */
  lightCarry:boolean;
+ /** Light is path-traced while the view moves too, on the WebGPU renderer only (move-trace.ts). */
+ moveTrace:boolean;
  /** The sun's shadows soften with distance (soft-shadows.ts). */
  softShadows:boolean;
  /** Light above white on a screen that shows it (hdr.ts). */
@@ -55,24 +57,24 @@ export type TierSettings={
  cars:'modelled'|'none';
 };
 export const tiers:Record<Quality,TierSettings>={
- extreme:{quality:'extreme',bounces:4,treeOcclusion:true,steerMotion:true,roomProbes:true,pixelRatio:3,samples:4,shadowSize:4096,ao:true,bloom:true,refineFrames:32,textureSize:1024,farWoodland:1,grass:true,skyBake:true,photographic:true,sunBounce:32,trees:'leaves',liveTrace:true,lens:true,clouds:true,poolMirror:true,scanned:true,weathered:true,wetMirror:true,temporal:true,lampGlow:true,relief:true,leafDetail:true,living:true,lightCarry:true,softShadows:true,hdr:true,motionScale:.7,cars:'modelled'},
- detailed:{quality:'detailed',bounces:4,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:2,samples:4,shadowSize:4096,ao:true,bloom:true,refineFrames:24,textureSize:1024,farWoodland:1,grass:true,skyBake:true,photographic:true,sunBounce:32,trees:'leaves',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,weathered:false,wetMirror:false,temporal:false,lampGlow:false,relief:false,leafDetail:false,living:false,lightCarry:false,softShadows:false,hdr:false,motionScale:.7,cars:'modelled'},
- balanced:{quality:'balanced',bounces:4,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:1.5,samples:2,shadowSize:2048,ao:true,bloom:false,refineFrames:8,textureSize:512,farWoodland:.45,grass:false,skyBake:true,photographic:false,sunBounce:24,trees:'hybrid',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,weathered:false,wetMirror:false,temporal:false,lampGlow:false,relief:false,leafDetail:false,living:false,lightCarry:false,softShadows:false,hdr:false,motionScale:1,cars:'none'},
- model:{quality:'model',bounces:1,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:1.75,samples:4,shadowSize:2048,ao:false,bloom:false,refineFrames:0,textureSize:512,farWoodland:0,grass:false,skyBake:false,photographic:false,sunBounce:0,trees:'hybrid',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,weathered:false,wetMirror:false,temporal:false,lampGlow:false,relief:false,leafDetail:false,living:false,lightCarry:false,softShadows:false,hdr:false,motionScale:1,cars:'none'},
+ extreme:{quality:'extreme',bounces:4,treeOcclusion:true,steerMotion:true,roomProbes:true,pixelRatio:3,samples:4,shadowSize:4096,ao:true,bloom:true,refineFrames:32,textureSize:1024,farWoodland:1,grass:true,skyBake:true,photographic:true,sunBounce:32,trees:'leaves',liveTrace:true,lens:true,clouds:true,poolMirror:true,scanned:true,weathered:true,wetMirror:true,temporal:true,lampGlow:true,relief:true,leafDetail:true,living:true,lightCarry:true,moveTrace:true,softShadows:true,hdr:true,motionScale:.7,cars:'modelled'},
+ detailed:{quality:'detailed',bounces:4,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:2,samples:4,shadowSize:4096,ao:true,bloom:true,refineFrames:24,textureSize:1024,farWoodland:1,grass:true,skyBake:true,photographic:true,sunBounce:32,trees:'leaves',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,weathered:false,wetMirror:false,temporal:false,lampGlow:false,relief:false,leafDetail:false,living:false,lightCarry:false,moveTrace:false,softShadows:false,hdr:false,motionScale:.7,cars:'modelled'},
+ balanced:{quality:'balanced',bounces:4,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:1.5,samples:2,shadowSize:2048,ao:true,bloom:false,refineFrames:8,textureSize:512,farWoodland:.45,grass:false,skyBake:true,photographic:false,sunBounce:24,trees:'hybrid',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,weathered:false,wetMirror:false,temporal:false,lampGlow:false,relief:false,leafDetail:false,living:false,lightCarry:false,moveTrace:false,softShadows:false,hdr:false,motionScale:1,cars:'none'},
+ model:{quality:'model',bounces:1,treeOcclusion:false,steerMotion:false,roomProbes:false,pixelRatio:1.75,samples:4,shadowSize:2048,ao:false,bloom:false,refineFrames:0,textureSize:512,farWoodland:0,grass:false,skyBake:false,photographic:false,sunBounce:0,trees:'hybrid',liveTrace:false,lens:false,clouds:false,poolMirror:false,scanned:false,weathered:false,wetMirror:false,temporal:false,lampGlow:false,relief:false,leafDetail:false,living:false,lightCarry:false,moveTrace:false,softShadows:false,hdr:false,motionScale:1,cars:'none'},
 };
 /** Extreme on a phone, for someone who asked for it past the menu's warning: Extreme's scene, lens, weather and
  * surfaces, at what a phone's graphics memory holds. No path tracing, room reflections or mirroring wet ground, twice the screen's points at
  * most, Detailed-on-a-phone's shadow map and multisampling, and half the refining frames. */
-export const PHONE_EXTREME={pixelRatio:2,shadowSize:2048,samples:2,refineFrames:16,liveTrace:false,roomProbes:false,wetMirror:false,temporal:false,lampGlow:false,relief:false,leafDetail:false,living:false,lightCarry:false,softShadows:false,hdr:false,motionScale:.6} as const;
+export const PHONE_EXTREME={pixelRatio:2,shadowSize:2048,samples:2,refineFrames:16,liveTrace:false,roomProbes:false,wetMirror:false,temporal:false,lampGlow:false,relief:false,leafDetail:false,living:false,lightCarry:false,moveTrace:false,softShadows:false,hdr:false,motionScale:.6} as const;
 /** The settings a viewer runs with. Detailed on a phone keeps the scene, materials and light, but fits a phone
  * browser's graphics memory: a 2048 shadow map and 2× multisampling need about 160 MB less at phone size. Extreme is
  * for a computer's graphics card; a phone given it runs Detailed, unless its user chose it past the warning
  * (`extremeOnPhone`, PHONE_EXTREME). */
 /** Extreme's parts that the WebGPU renderer does not draw yet. With `?renderer=webgpu` they are left off, so Extreme is
- * Detailed at Extreme's resolution plus what has been ported; `&try=treeOcclusion` turns named parts on there, to test
+ * Detailed at Extreme's resolution plus what has been ported; `&try=treeOcclusion,moveTrace` turns named parts on there, to test
  * one on a real graphics card before it comes off this list, and `&without=softShadows,roomProbes` turns named on-off
  * parts off on either renderer, to find what one costs or adds. */
-export const WEBGPU_PENDING=['treeOcclusion'] as const;
+export const WEBGPU_PENDING=['treeOcclusion','moveTrace'] as const;
 /** `tier` with the named on-off parts off (`&without=`, on either renderer). */
 export const lacking=(tier:TierSettings,without:string[]=[]):TierSettings=>({...tier,...Object.fromEntries(without.filter(k=>typeof (tier as unknown as Record<string,unknown>)[k]==='boolean').map(k=>[k,false]))});
 export const forWebGPU=(tier:TierSettings,tried:string[]=[],without:string[]=[]):TierSettings=>lacking({...tier,...Object.fromEntries(WEBGPU_PENDING.filter(k=>!tried.includes(k)).map(k=>[k,false]))},without);
