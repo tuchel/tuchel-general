@@ -14,7 +14,7 @@ export type ToWorker=
  {kind:'scene';id:number;scene:SceneData}|
  {kind:'lights';scene:Pick<SceneData,'lights'|'environment'>}|
  {kind:'reset';camera:CameraData;width:number;height:number;view:number}|
- {kind:'tick'}|{kind:'dispose'};
+ {kind:'tick'}|{kind:'pause'}|{kind:'dispose'};
 export type FromWorker=
  {kind:'ready'}|{kind:'unavailable'}|{kind:'failed'}|{kind:'scened';id:number;ok:boolean}|
  {kind:'image';view:number;data:Uint16Array;width:number;height:number;samples:number;denoised:number;demodulated:boolean;done:boolean};
@@ -38,7 +38,9 @@ const loop=(now:number)=>{
   sent=result.texture.version;const image=result.texture.image as {data:Uint16Array;width:number;height:number},data=image.data.slice();
   post({kind:'image',view,data,width:image.width,height:image.height,samples:result.samples,denoised:result.denoised,demodulated:result.demodulated,done:tracer.done},[data.buffer]);
  }
- frame(loop);
+ // The next round waits for the card to finish this one: rounds queued up there hold up the page's own frames, and
+ // most of all the first ones of a move.
+ if(tracer.settled)void tracer.settled().then(()=>frame(loop));else frame(loop);
 };
 worker.onmessage=async({data}:MessageEvent<ToWorker>)=>{
  try{
@@ -58,6 +60,7 @@ worker.onmessage=async({data}:MessageEvent<ToWorker>)=>{
    }
    case 'lights':if(scene){store.lights(scene,data.scene);tracer?.relight();}break;
    case 'reset':applyCamera(camera,data.camera);view=data.view;tracer?.reset(data.width,data.height);sent=-1;break;
+   case 'pause':lastTick=0;break;
    case 'tick':lastTick=performance.now();if(!running&&tracer){running=true;frame(loop);}break;
    case 'dispose':closed=true;building?.abort();tracer?.dispose();worker.close();break;
   }
