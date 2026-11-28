@@ -52,4 +52,10 @@ for(const [i,room] of rooms.entries()){
  assert(/createRoomProbes\(/.test(viewer)&&/level==='exterior'/.test(viewer)&&/probes\??\.step\(/.test(viewer),'baked in the whole-house view');
  assert(/before\(shader\.fragmentShader,'lights_fragment_end'/.test(probes)&&/uRoomActive/.test(probes),'replaces sky reflections before lighting is summed, only while active');
  assert(/textureLod\(/.test(probes)&&/roughness/.test(probes),'blurred with roughness');}
+// Under the WebGPU renderer a cube face is another kind of target than the view's, for which three prepares every
+// material again: at the first face that was one frame of 2 s, 5 to 9 s after loading (M3 Max). The scene is made
+// ready for it in the background first (three yields between materials there), with nothing culled, and no face is
+// drawn until then.
+{const probes=fs.readFileSync('lib/house-model/room-probes.ts','utf8');
+ assert(/if\(gpu&&!ready\)\{[^]*?renderer\.setRenderTarget\(cube,0\);[^]*?renderer\.compileAsync\(scene,eye\.children\[0\] as T\.Camera\)[^]*?return false;\}/.test(probes)&&/frustumCulled=false/.test(probes),'made ready before the first face');}
 console.log(`Passed: ${rooms.length} rooms boxed by their walls (${rooms.map((r,i)=>{const s=boxes[i].box.getSize(new T.Vector3());return `${r.id} ${s.x.toFixed(1)}×${s.z.toFixed(1)}×${s.y.toFixed(1)}`;}).join(', ')} m); reflections line up with the wall they meet and survive the map's layout.`);

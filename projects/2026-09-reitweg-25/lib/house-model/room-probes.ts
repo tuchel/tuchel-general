@@ -140,7 +140,7 @@ export function createRoomProbes(renderer:T.WebGLRenderer,scene:T.Scene,receiver
   }});
  }});
  for(const root of receivers)receive(root);
- let boxes:ReturnType<typeof roomBoxes>|undefined,dirty=true,room=-1,face=0;const done=new Set<number>();
+ let boxes:ReturnType<typeof roomBoxes>|undefined,dirty=true,room=-1,face=0;let ready:boolean|undefined;const done=new Set<number>();
  const from=new T.Vector3();
  return {
   /** Bakes again: a new sun, or renovations changed what is in the rooms. */
@@ -159,6 +159,15 @@ export function createRoomProbes(renderer:T.WebGLRenderer,scene:T.Scene,receiver
     if(eye.coordinateSystem!==renderer.coordinateSystem){eye.coordinateSystem=renderer.coordinateSystem;eye.updateCoordinateSystem();}
    }
    const target=renderer.getRenderTarget(),active=uniforms.uRoomActive.value,shadows=renderer.shadowMap.autoUpdate;
+   // A cube face is another kind of target than the view's, for which three's WebGPU renderer prepares every material
+   // again: at the first face that held the page 2 s (M3 Max). In the background first, with nothing culled.
+   if(gpu&&!ready){
+    if(ready===undefined){
+     ready=false;const culled:T.Object3D[]=[];scene.traverse(o=>{if(o.frustumCulled){culled.push(o);o.frustumCulled=false;}});
+     renderer.setRenderTarget(cube,0);const made=renderer.compileAsync(scene,eye.children[0] as T.Camera);renderer.setRenderTarget(target);
+     for(const o of culled)o.frustumCulled=true;void made.catch(()=>{}).then(()=>{ready=true;});
+    }
+    return false;}
    uniforms.uRoomActive.value=0;renderer.shadowMap.autoUpdate=false;
    try{
     const lens=eye.children[face] as T.PerspectiveCamera;beforeFace?.(lens);
