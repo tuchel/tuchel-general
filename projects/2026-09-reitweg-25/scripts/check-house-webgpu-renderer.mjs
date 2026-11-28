@@ -202,7 +202,7 @@ assert(chain.includes('carries:(camera:T.Camera,generation:number)=>!!light&&lig
 // `&moveTrace=WxHxBOUNCESxFRAMES` sets its size for a test.
 {const view=fs.readFileSync('lib/house-model/viewer.ts','utf8'),move=fs.readFileSync('lib/house-model/move-trace.ts','utf8');
  assert(/extreme:\{[^\n]*moveTrace:true/.test(tierCode)&&/detailed:\{[^\n]*moveTrace:false/.test(tierCode)&&/PHONE_EXTREME=\{[^\n]*moveTrace:false/.test(tierCode)&&/export const WEBGPU_PENDING=\['treeOcclusion','crisp'\] as const;/.test(tierCode),'a part of Extreme');
- assert(view.includes('const tracing=gpu&&lighting&&camera instanceof T.PerspectiveCamera?moveTraceAsked(tier.moveTrace):undefined;')&&view.includes('if(motionTrace&&shows){const sample=motionTrace.step(shows.traceFrom,still&&!probes?.baking);if(sample)shows.traceDone(sample);}')&&view.includes('?live.generation:undefined,moving:!!motionTrace});')&&view.includes('motionTrace?.dispose();'),'only where asked for');
+ assert(view.includes('const tracing=gpu&&lighting&&camera instanceof T.PerspectiveCamera?moveTraceAsked(tier.moveTrace):undefined;')&&view.includes('if(traced&&shows){const sample=traced.step(shows.traceFrom,still&&!probes?.baking);if(sample)shows.traceDone(sample);}')&&view.includes('?live.generation:undefined,moving:!!traced});')&&view.includes('motionTrace?.dispose();'),'only where asked for');
  assert(move.includes(".get('moveTrace')")&&move.includes('new WebGPUPathTracer(options.renderer as never)')&&!/^import .*(pathtracer|live-trace-webgpu|photographic-scene)/m.test(move),'on the renderer\'s own device, loaded only when asked for');
  // A sample is traced over several frames for the view it started from; what it changed against that view's frame,
  // both read broadly, becomes the kept ratio, blended with the one before where that saw the same place.
@@ -216,7 +216,10 @@ assert(chain.includes('carries:(camera:T.Camera,generation:number)=>!!light&&lig
  // The traced scene and its sky are taken once the view has been drawn, and follow the sun and the scene after that:
  // a sky read while the view was still being set up was dark, and all that stood in shade traced black.
   // Its scene is prepared only while the view rests and the room maps are done, so motion after loading is not held up.
- assert(view.includes('motionTrace.step(shows.traceFrom,still&&!probes?.baking)'),'prepared at rest');
+ assert(view.includes('traced.step(shows.traceFrom,still&&!probes?.baking)'),'prepared at rest');
+ // The traced scene knows no snow, rain or wet ground (as the resting trace, which stays off then): its light there
+ // would tint white snow with the lawn's green and the roof's slate, in blotches.
+ assert(view.includes('const traced=snow.amount||raining||wet.value?undefined:motionTrace;')&&view.includes('moving:!!traced})'),'no moving trace over snow or rain');
  assert(move.includes("if(!tracer){if(rested&&!preparing&&!disposed)void prepare()")&&move.includes('t.updateLights();t.updateEnvironment();')&&['relight','invalidate'].every(k=>view.split('motionTrace?.'+k+'();').length===view.split('live?.'+k+'();').length),'the sky as the view has it');}
 // Moving frames are drawn smaller and gathered into the kept image, which leaves them soft: with `crisp` the screen's
 // copy is sharpened by how much smaller they were drawn, never past its four neighbours' colours (no halo), and not at

@@ -525,8 +525,10 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    if(motion&&captures?.breezeOn&&tier.photographic)renderer.shadowMap.needsUpdate=true;
    probes?.setCamera(rig.camera);
    cullTrees(low);
-   if(mirror)timed('mirror',()=>mirror.render(low&&!!gpu));post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel,carry:carrying&&live&&level!=='upper'&&!snow.amount&&!raining&&!wet.value?live.generation:undefined,moving:!!motionTrace});
-   if(motionTrace&&shows){const sample=motionTrace.step(shows.traceFrom,still&&!probes?.baking);if(sample)shows.traceDone(sample);}
+   // The moving trace's scene knows no snow, rain or wet ground either: its light is left out while they last.
+   const traced=snow.amount||raining||wet.value?undefined:motionTrace;
+   if(mirror)timed('mirror',()=>mirror.render(low&&!!gpu));post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel,carry:carrying&&live&&level!=='upper'&&!snow.amount&&!raining&&!wet.value?live.generation:undefined,moving:!!traced});
+   if(traced&&shows){const sample=traced.step(shows.traceFrom,still&&!probes?.baking);if(sample)shows.traceDone(sample);}
    if(low)steer?.finish(performance.now());
    if(jitter)camera.clearViewOffset();
    fall();
