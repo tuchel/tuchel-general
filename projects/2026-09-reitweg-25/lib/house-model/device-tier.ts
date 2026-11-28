@@ -77,7 +77,9 @@ export const PHONE_EXTREME={pixelRatio:2,shadowSize:2048,samples:2,refineFrames:
 export const WEBGPU_PENDING=['treeOcclusion'] as const;
 /** `tier` with the named on-off parts off (`&without=`, on either renderer). */
 export const lacking=(tier:TierSettings,without:string[]=[]):TierSettings=>({...tier,...Object.fromEntries(without.filter(k=>typeof (tier as unknown as Record<string,unknown>)[k]==='boolean').map(k=>[k,false]))});
-export const forWebGPU=(tier:TierSettings,tried:string[]=[],without:string[]=[]):TierSettings=>lacking({...tier,...Object.fromEntries(WEBGPU_PENDING.filter(k=>!tried.includes(k)).map(k=>[k,false]))},without);
+/** The preset as the WebGPU renderer draws it. Extreme there has 2 samples a pixel, not 4: on an M3 Max 4 cost 9 ms a frame
+ * more at 1792 px, and the kept image smooths edges over frames too (`&samples=4` brings them back for a test). */
+export const forWebGPU=(tier:TierSettings,tried:string[]=[],without:string[]=[]):TierSettings=>lacking({...tier,...Object.fromEntries(WEBGPU_PENDING.filter(k=>!tried.includes(k)).map(k=>[k,false])),...(tier.quality==='extreme'?{samples:Math.min(tier.samples,2)}:{})},without);
 export function tierFor(quality:Quality,phone=isPhone(),extremeOnPhone=false):TierSettings{
  if(phone&&quality==='extreme'&&extremeOnPhone)return {...tiers.extreme,...PHONE_EXTREME};
  if(phone&&(quality==='detailed'||quality==='extreme'))return {...tiers.detailed,shadowSize:2048,samples:2};

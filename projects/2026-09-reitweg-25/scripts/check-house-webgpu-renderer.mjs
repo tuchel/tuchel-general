@@ -218,6 +218,9 @@ assert(chain.includes('carries:(camera:T.Camera,generation:number)=>!!light&&lig
   // Its scene is prepared only while the view rests and the room maps are done, so motion after loading is not held up.
  assert(view.includes('motionTrace.step(shows.traceFrom,still&&!probes?.baking)'),'prepared at rest');
  assert(move.includes("if(!tracer){if(rested&&!preparing&&!disposed)void prepare()")&&move.includes('t.updateLights();t.updateEnvironment();')&&['relight','invalidate'].every(k=>view.split('motionTrace?.'+k+'();').length===view.split('live?.'+k+'();').length),'the sky as the view has it');}
+// Extreme there draws the scene with 2 samples a pixel, not 4: on an M3 Max 4 cost 9 ms a frame more (37 to 39 ms against
+// 27 to 29 at 1792 px), and the kept image smooths edges over frames as well.
+assert(tierCode.includes("...(tier.quality==='extreme'?{samples:Math.min(tier.samples,2)}:{})"),'two samples in Extreme');
 // For a test, `&samples=1` (2, 4) sets how many samples a pixel of the scene is drawn with, whatever the preset says.
 {const chain=fs.readFileSync('lib/house-model/post-gpu.ts','utf8');
  assert(chain.includes("const samples=Number(/^[124]$/.exec(new URLSearchParams(location.search).get('samples')??'')?.[0]??options.samples);")&&!/options\.samples[,>]/.test(chain),'samples to ask for');}
