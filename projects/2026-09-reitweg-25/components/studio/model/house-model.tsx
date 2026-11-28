@@ -36,7 +36,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
   const q=qualityFromParam(new URLSearchParams(window.location.search).get('quality'))??detected;
   return q==='extreme'&&isPhone()?'detailed':q;
  });
- const [ready,setReady]=useState(false),[failed,setFailed]=useState(false),[materials,setMaterials]=useState<'loading'|'ready'>('ready');
+ const [ready,setReady]=useState(false),[failed,setFailed]=useState(false),[plain,setPlain]=useState(false),[materials,setMaterials]=useState<'loading'|'ready'>('ready');
  // The preset that could not run here, when the model dropped to a lighter one.
  const [fellBack,setFellBack]=useState<Quality|false>(false);
  const [level,setLevel]=useState<Level>('exterior'),[view,setView]=useState<ViewKey|null>('courtyard'),levelRef=useRef<Level>('exterior');
@@ -81,7 +81,13 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
   let cancelled=false;
   // Detailed can ask more of the graphics memory than a phone browser gives a page; Balanced is the same scene, lighter.
   // Extreme drops to Detailed the same way.
+  // Extreme on a computer is drawn by three's WebGPU renderer where the browser has an adapter for it; `?renderer=webgl`
+  // keeps WebGL, `?renderer=webgpu` asks for WebGPU at any preset. A WebGPU viewer chosen here that fails starts again
+  // on WebGL at the same preset (`plain`) before anything lighter is tried.
+  const asked=new URLSearchParams(window.location.search).get('renderer'),own=asked!=='webgpu'&&asked!=='webgl'&&quality==='extreme'&&computer&&!plain;
+  let drawn=false;
   const fail=()=>{
+   if(drawn&&own){setPlain(true);setReady(false);return;}
    const lighter:Quality|undefined=quality==='extreme'?'detailed':quality==='detailed'?'balanced':undefined;
    if(!lighter){setFailed(true);return;}
    setFellBack(quality);setReady(false);setQuality(lighter);
@@ -92,9 +98,10 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
   const cars=tiers[quality].cars==='modelled'?import('@/lib/house-model/car-models').then(m=>m.loadCarModels()).catch(error=>{console.warn('Car models',error);return undefined;}):undefined;
   import('@/lib/house-model/viewer').then(async({createHouseViewer})=>{
    type WebGPUKit=NonNullable<Parameters<typeof createHouseViewer>[1]['webgpu']>;
-   // `?renderer=webgpu`: three's WebGPU renderer. Extreme there leaves out what is not ported yet (device-tier.ts, WEBGPU_PENDING).
-   const webgpu=new URLSearchParams(window.location.search).get('renderer')==='webgpu'?await Promise.all([import('three/webgpu'),import('three/tsl'),import('three/addons/objects/SkyMesh.js'),import('three/addons/tsl/display/GTAONode.js'),import('three/addons/tsl/display/BloomNode.js'),(navigator as Navigator&{gpu?:{requestAdapter(options:object):Promise<{limits:Record<string,number>}|null>}}).gpu?.requestAdapter({powerPreference:'high-performance'}).catch(()=>null)]).then(([gpu,tsl,{SkyMesh},{ao},{bloom},adapter])=>({ao,bloom,limits:adapter?{maxStorageBufferBindingSize:adapter.limits.maxStorageBufferBindingSize,maxBufferSize:adapter.limits.maxBufferSize}:undefined,WebGPURenderer:gpu.WebGPURenderer,PMREMGenerator:gpu.PMREMGenerator,CubeRenderTarget:gpu.CubeRenderTarget,PhysicalLightingModel:gpu.PhysicalLightingModel,NodeMaterial:gpu.NodeMaterial,QuadMesh:gpu.QuadMesh,SkyMesh,tsl}) as unknown as WebGPUKit).catch(()=>undefined):undefined;
+   // Extreme there leaves out what is not ported yet (device-tier.ts, WEBGPU_PENDING).
+   const webgpu=asked==='webgpu'||own?await Promise.all([import('three/webgpu'),import('three/tsl'),import('three/addons/objects/SkyMesh.js'),import('three/addons/tsl/display/GTAONode.js'),import('three/addons/tsl/display/BloomNode.js'),(navigator as Navigator&{gpu?:{requestAdapter(options:object):Promise<{limits:Record<string,number>}|null>}}).gpu?.requestAdapter({powerPreference:'high-performance'}).catch(()=>null)]).then(([gpu,tsl,{SkyMesh},{ao},{bloom},adapter])=>own&&!adapter?undefined:({ao,bloom,limits:adapter?{maxStorageBufferBindingSize:adapter.limits.maxStorageBufferBindingSize,maxBufferSize:adapter.limits.maxBufferSize}:undefined,WebGPURenderer:gpu.WebGPURenderer,PMREMGenerator:gpu.PMREMGenerator,CubeRenderTarget:gpu.CubeRenderTarget,PhysicalLightingModel:gpu.PhysicalLightingModel,NodeMaterial:gpu.NodeMaterial,QuadMesh:gpu.QuadMesh,SkyMesh,tsl}) as unknown as WebGPUKit).catch(()=>undefined):undefined;
    if(cancelled||!host.current)return;
+   drawn=!!webgpu;
    try{
     api.current=createHouseViewer(host.current,{
      quality,extremeOnPhone:quality==='extreme'&&!computer,cars,webgpu,onSelect:r=>{setRegion(r);setPanel(null);},onReady:()=>setReady(true),onError:fail,onCapture:setCapture,onMaterials:setMaterials,
@@ -106,7 +113,7 @@ export default function HouseModel({onNavigate}:{onNavigate?:(id:string)=>void})
   }).catch(()=>{if(!cancelled)setFailed(true);});
   return()=>{cancelled=true;api.current?.dispose();api.current=null;};
   // The viewer is rebuilt only for a new preset.
- },[quality]);
+ },[quality,plain,computer]);
  // Keep the viewer in step with React state once it is ready (also after a rebuild).
  useEffect(()=>{if(!ready)return;const v=api.current;if(!v)return;v.setLevel(level);v.setRenovations(changes);v.setSun({enabled:true,...sun});if(view)apply(view,true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
