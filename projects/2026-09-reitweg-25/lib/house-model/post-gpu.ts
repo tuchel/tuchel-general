@@ -391,12 +391,12 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
  const copied=texture(settled[0].texture),copy=quadOf(copied),depthCopy=quadOf(vec4(distanceAt(gpu.tsl.uv()),0,0,1));
  // A prototype (move-trace.ts): light traced while the view moves. A sample is traced over several frames for the
  // view it started from (`from`: that view's frame, depth and place); when it is in, what it changed against that frame
- // becomes the kept ratio, both read broadly (`MOVING.level`) since one sample a pixel is grain, and blended with the
+ // becomes the kept ratio, both read broadly (`MOVING.spread`) since one sample a pixel is grain, and blended with the
  // ratio before it, a resting trace's too, where that one saw the same place. Moving frames then take it as they take a resting trace's.
  const motion=light&&relight?(()=>{
-  const {Fn,uv,vec2,select,smoothstep}=gpu.tsl;
+  const {Fn,uv,vec2,select,smoothstep,step}=gpu.tsl,texel=uniform(new T.Vector2(1,1));
   const broadly=()=>new T.RenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter}) as unknown as T.WebGLRenderTarget;
-  const from={frame:broadly(),depth:half(),camera:new T.PerspectiveCamera(),placed:uniform(new T.Matrix4()),optics:uniform(new T.Vector4(1,1,0,1))};
+  const from={frame:half(),depth:half(),camera:new T.PerspectiveCamera(),placed:uniform(new T.Matrix4()),optics:uniform(new T.Vector4(1,1,0,1))};
   const sample=texture(from.frame.texture),frame=texture(from.frame.texture),depth=texture(from.depth.texture),before=texture(light.ratio.texture),share=uniform(0),fogColour=uniform(new T.Color()),fogRange=uniform(new T.Vector2(1e9,1e9));
   let spare=broadly();
   const quad=quadOf(Fn(()=>{
@@ -404,15 +404,18 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    const world=from.placed.mul(vec4(at.x.mul(2).sub(1).mul(d).div(o.x),at.y.mul(-2).add(1).mul(d).div(o.y),d.negate(),1)).toVar(),clip=keptViewProj.mul(world).toVar();
    const to=vec2(clip.x.div(clip.w).mul(.5).add(.5),clip.y.div(clip.w).mul(-.5).add(.5)).toVar();
    const inside=select(clip.w.greaterThan(0),smoothstep(0,LIGHT_CARRY.edge,min(min(to.x,to.y),min(to.x.oneMinus(),to.y.oneMinus()))),0);
-   const was=frame.sample(at).level(MOVING.level).rgb,traced=mix(sample.sample(at).level(MOVING.level).rgb,fogColour,smoothstep(fogRange.x,fogRange.y,d));
-   const changed=select(d.greaterThanEqual(farthest.mul(.999)),vec3(1),clamp(traced.add(.004).div(was.add(.004)),LIGHT_CARRY.least,LIGHT_CARRY.most));
+   // 16 taps over 8 by 8 pixels of each. A pixel whose path has not ended yet is black and does not count; where
+   // few have ended the frame keeps its own light.
+   const spreadOf=(image:any)=>{let sum:any=vec4(0);for(let y=0;y<4;y++)for(let x=0;x<4;x++){const c=image.sample(at.add(vec2((x-1.5)*MOVING.spread,(y-1.5)*MOVING.spread).mul(texel))).rgb;sum=sum.add(vec4(c,step(1e-6,max(c.r,max(c.g,c.b)))));}return sum;};
+   const ended=spreadOf(sample).toVar(),was=spreadOf(frame).rgb.div(16),traced=mix(ended.rgb.div(max(ended.a,1)),fogColour,smoothstep(fogRange.x,fogRange.y,d));
+   const changed=select(d.greaterThanEqual(farthest.mul(.999)),vec3(1),mix(vec3(1),clamp(traced.add(.004).div(was.add(.004)),LIGHT_CARRY.least,LIGHT_CARRY.most),smoothstep(0,4,ended.a)));
    return vec4(mix(changed,before.sample(clamp(to,0,1)).rgb,share.mul(inside)),1);
   })());
   return {
    /** A sample starts from the view as just drawn; `width`, `height`: the traced image's. */
    start(width:number,height:number){
     const previous=renderer.getRenderTarget();
-    from.frame.setSize(width,height);from.depth.setSize(target.width,target.height);
+    from.frame.setSize(width,height);from.depth.setSize(target.width,target.height);texel.value.set(1/width,1/height);
     copied.value=settled[0].texture;renderer.setRenderTarget(from.frame);copy.render(renderer);
     renderer.setRenderTarget(from.depth);depthCopy.render(renderer);renderer.setRenderTarget(previous);
     from.camera.copy(camera as T.PerspectiveCamera);from.camera.updateMatrixWorld();from.placed.value.copy(from.camera.matrixWorld);

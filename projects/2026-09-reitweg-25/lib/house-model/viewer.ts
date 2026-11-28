@@ -280,8 +280,8 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  if(post)perf?.watch(post.passes);
  // Extreme: path tracing takes over the view while the camera rests.
  live=tier.liveTrace&&lighting&&post&&camera instanceof T.PerspectiveCamera?createLiveTrace({renderer,scene,camera,lighting}):undefined;
- // A prototype behind `?moveTrace=` (move-trace.ts): a path-traced sample every frame, on the renderer's own device.
- const tracing=gpu&&lighting&&camera instanceof T.PerspectiveCamera?moveTraceAsked():undefined;
+ // Light traced while the view moves (move-trace.ts), on the renderer's own device.
+ const tracing=gpu&&lighting&&camera instanceof T.PerspectiveCamera?moveTraceAsked(tier.moveTrace):undefined;
  const motionTrace=tracing&&lighting&&camera instanceof T.PerspectiveCamera?createMoveTrace({renderer,scene,camera,lighting,asked:tracing,ready:()=>{canvas.dataset.moveTrace='ready';changed();}}):undefined;
  // Its surface colours sharpen the traced image (albedo-pass.ts); added before the shaders are compiled ahead.
  if(live)addAlbedoOutput(scene);
