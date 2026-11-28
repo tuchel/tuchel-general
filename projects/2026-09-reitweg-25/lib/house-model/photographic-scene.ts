@@ -81,7 +81,10 @@ export async function photographicScene(source:T.Scene,environment:T.Texture,sig
  const material=(m:T.Material)=>{
   const known=materials.get(m);if(known&&(known.ready||!ready(m)))return known.material;
   known?.material.dispose();
-  const c=(hasShaderFeature(m,'leaf-translucency')?leafForTracer(m as T.MeshStandardMaterial):m.clone()) as T.MeshPhysicalMaterial;c.onBeforeCompile=()=>{};c.customProgramCacheKey=()=>'';c.userData={};
+  // Copied without its own data: three copies that by writing it out as text, and a surface holds its textures there,
+  // so every image was encoded as a data URL on the page's thread (60 to 130 ms each, M3 Max).
+  const leaf=hasShaderFeature(m,'leaf-translucency'),held=m.userData;m.userData={};
+  const c=(leaf?leafForTracer(m as T.MeshStandardMaterial):m.clone()) as T.MeshPhysicalMaterial;m.userData=held;c.onBeforeCompile=()=>{};c.customProgramCacheKey=()=>'';
   const surface=surfaceOf(m);
   if(surface&&c instanceof T.MeshStandardMaterial){
    c.map=surface.map;c.roughnessMap=surface.roughness;c.normalMap=surface.normal;c.roughness=1;

@@ -23,6 +23,12 @@ const foliage=foliageMaterials('leaves'),setting=landscapeContext({foliage,densi
  const lift=1/(1-LEAF.transmission);assert(['r','g','b'].every(c=>Math.abs(m.color[c]-foliage.leaves.color[c]*lift)<1e-6),'reflecting as before');
  assert(m.alphaTest===foliage.leaves.alphaTest&&m.side===foliage.leaves.side&&m.vertexColors,'with their cut-outs, both faces and colours');
  traced.dispose();}
+// A material's own data is not copied with it: three copies it by writing it out as text, which for a material that
+// holds its textures there (the weathered surfaces) encoded every image as a data URL, 60 to 130 ms each on the page's
+// thread (M3 Max), a second of stutter whenever a trace took its scene.
+{const one=new T.Scene(),m=new T.MeshStandardMaterial();let written=0;m.userData.held={toJSON(){written++;return {};}};one.add(new T.Mesh(new T.PlaneGeometry(1,1),m));
+ const traced=await photographicScene(one,new T.Texture(),new AbortController().signal,()=>{});
+ assert(written===0&&m.userData.held,'a material is copied without writing out what it holds');traced.dispose();}
 const model=buildHouseModel(true,setting.group,foliage);model.setLevel('exterior');
 finishSurfaces(model.root,textures,{value:0});finishFoliage(model.root,set,set);
 const source=new T.Scene();source.add(model.root);
