@@ -392,13 +392,13 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
  // A prototype (move-trace.ts): light traced while the view moves. A sample is traced over several frames for the
  // view it started from (`from`: that view's frame, depth and place); when it is in, what it changed against that frame
  // becomes the kept ratio, both read broadly (`MOVING.level`) since one sample a pixel is grain, and blended with the
- // ratio before it where that one saw the same place. Moving frames then take it as they take a resting trace's.
+ // ratio before it, a resting trace's too, where that one saw the same place. Moving frames then take it as they take a resting trace's.
  const motion=light&&relight?(()=>{
   const {Fn,uv,vec2,select,smoothstep}=gpu.tsl;
   const broadly=()=>new T.RenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter}) as unknown as T.WebGLRenderTarget;
   const from={frame:broadly(),depth:half(),camera:new T.PerspectiveCamera(),placed:uniform(new T.Matrix4()),optics:uniform(new T.Vector4(1,1,0,1))};
   const sample=texture(from.frame.texture),frame=texture(from.frame.texture),depth=texture(from.depth.texture),before=texture(light.ratio.texture),share=uniform(0),fogColour=uniform(new T.Color()),fogRange=uniform(new T.Vector2(1e9,1e9));
-  let spare=broadly(),have=false;
+  let spare=broadly();
   const quad=quadOf(Fn(()=>{
    const at=uv(),d=depth.sample(at).r.toVar(),o=from.optics;
    const world=from.placed.mul(vec4(at.x.mul(2).sub(1).mul(d).div(o.x),at.y.mul(-2).add(1).mul(d).div(o.y),d.negate(),1)).toVar(),clip=keptViewProj.mul(world).toVar();
@@ -421,11 +421,11 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    /** The sample is in: `image`, linear and with its smaller levels. */
    done(image:T.Texture){
     const previous=renderer.getRenderTarget(),w=Math.ceil(target.width/2),h=Math.ceil(target.height/2);
-    if(spare.width!==w||spare.height!==h){spare.setSize(w,h);have=false;}
-    sample.value=image;frame.value=from.frame.texture;depth.value=from.depth.texture;before.value=light.ratio.texture;share.value=have&&light.generation===MOVING.generation?MOVING.keep:0;
+    if(spare.width!==w||spare.height!==h)spare.setSize(w,h);
+    sample.value=image;frame.value=from.frame.texture;depth.value=from.depth.texture;before.value=light.ratio.texture;share.value=light.generation===-1?0:MOVING.keep;
     if(scene.fog instanceof T.Fog){fogColour.value.copy(scene.fog.color);fogRange.value.set(scene.fog.near,scene.fog.far);}
     renderer.setRenderTarget(spare);quad.render(renderer);renderer.setRenderTarget(previous);
-    [light.ratio,spare]=[spare,light.ratio];[light.depth,from.depth]=[from.depth,light.depth];have=true;
+    [light.ratio,spare]=[spare,light.ratio];[light.depth,from.depth]=[from.depth,light.depth];
     relight.broad.value=light.ratio.texture;keptDepth.value=light.depth.texture;
     light.camera.copy(from.camera);light.camera.updateMatrixWorld();
     keptViewProj.value.multiplyMatrices(light.camera.projectionMatrix,light.camera.matrixWorldInverse);keptView.value.copy(light.camera.matrixWorldInverse);
@@ -503,7 +503,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    settled=[next,was];if(rest||!kept)frames++;
    kept?.remember();
    // The screen's frame takes the last traced view's light while it applies; the kept image stays as it was drawn.
-   carriedLight=light&&relight&&view?.carry!==undefined&&light.generation===view.carry?lightCarried(light.camera,camera,light.reach):0;
+   carriedLight=light&&relight&&(light.generation===MOVING.generation?view?.moving:view?.carry!==undefined&&light.generation===view.carry)?lightCarried(light.camera,camera,light.reach):0;
    const lit=relight&&carriedLight>0?relight.render(out):out;
    near=!!view?.eyeLevel;showing=near&&focus?focus.render(lit):lit;
    toScreen();

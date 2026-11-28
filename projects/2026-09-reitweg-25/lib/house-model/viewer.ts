@@ -16,7 +16,7 @@ import {createCameraRig,type Framing} from './camera-rig';
 import {createCaptures} from './experience';
 import {STIR} from './atmosphere';
 import {createLiveTrace,traceFade,LIVE_TRACE} from './live-trace';
-import {createMoveTrace,moveTraceAsked,MOVING} from './move-trace';
+import {createMoveTrace,moveTraceAsked} from './move-trace';
 import {addAlbedoOutput} from './albedo-pass';
 import {createPoolReflection} from './pool-reflection';
 import {hasShaderFeature,materialsOf,drawWithNodes} from './shader-features';
@@ -524,7 +524,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    if(motion&&captures?.breezeOn&&tier.photographic)renderer.shadowMap.needsUpdate=true;
    probes?.setCamera(rig.camera);
    cullTrees(low);
-   if(mirror)timed('mirror',()=>mirror.render(low&&!!gpu));post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel,carry:motionTrace?MOVING.generation:carrying&&live&&level!=='upper'&&!snow.amount&&!raining&&!wet.value?live.generation:undefined});
+   if(mirror)timed('mirror',()=>mirror.render(low&&!!gpu));post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel,carry:carrying&&live&&level!=='upper'&&!snow.amount&&!raining&&!wet.value?live.generation:undefined,moving:!!motionTrace});
    if(motionTrace&&shows){const sample=motionTrace.step(shows.traceFrom);if(sample)shows.traceDone(sample);}
    if(low)steer?.finish(performance.now());
    if(jitter)camera.clearViewOffset();
