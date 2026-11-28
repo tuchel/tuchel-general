@@ -230,6 +230,14 @@ assert(chain.includes('carries:(camera:T.Camera,generation:number)=>!!light&&lig
  // converting the scene again for it stalled frames for a second and then froze the page for 2.8 s (M3 Max). The
  // backdrop a few metres off changes nothing in the light a moving frame takes.
  assert(view.includes('panorama.userData.anchor(p.y);panoramaAt.copy(p);live?.invalidate();}'),'the moving trace keeps its scene when the far landscape is re-anchored');}
+// The resting trace's surface colours (albedo-pass.ts) are drawn into a target of their own kind, for which three
+// prepares every material again: left to the first traced image, that was 49 materials in one frame, 4.9 s with the
+// page held (M3 Max, about 35 s after loading). They are made ready in the background instead (three yields between
+// materials there): the scene once the first frame is out, and each part added later with it.
+{const chain=fs.readFileSync('lib/house-model/post-gpu.ts','utf8'),view=fs.readFileSync('lib/house-model/viewer.ts','utf8');
+ assert(chain.includes('const COLOURS={samples:4,colorSpace:T.SRGBColorSpace};')&&chain.includes('traced.colours=new T.RenderTarget(size.x,size.y,COLOURS)')&&chain.includes('new T.RenderTarget(1,1,COLOURS)'),'a target of the same kind as the colour pass draws into');
+ assert(/const ready=\(object:T\.Object3D,into:T\.RenderTarget\)=>\{[^}]*renderer\.setRenderTarget\(into[^]*?renderer\.compileAsync\(object,camera,scene\)/.test(chain)&&chain.includes('compileAsync:(object:T.Object3D)=>Promise.all([ready(object,target),api.compileColours(object)])')&&chain.includes('compileColours:(object:T.Object3D=scene)=>'),'made ready for it as for the scene pass');
+ assert(/begin\(\);if\(live\)void shows\?\.compileColours\(\)\.catch\(\(\)=>\{\}\);/.test(view),'from the start, where a trace will show');}
 // Moving frames are drawn smaller and gathered into the kept image, which leaves them soft: with `crisp` the screen's
 // copy is sharpened by how much smaller they were drawn, never past its four neighbours' colours (no halo), and not at
 // rest. Still one to ask for (`&try=crisp`) until it has been judged by eye.

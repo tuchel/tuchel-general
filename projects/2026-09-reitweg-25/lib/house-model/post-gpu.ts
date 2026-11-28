@@ -22,7 +22,9 @@ export type PostGPU={tsl:any;/** three's corner shading pass (GTAONode.js). */ao
  * the S-curve with its shadow lift, saturation, and the screen's transfer; moving frames blended into the kept image,
  * with the shutter's smear, and the lens (meter, grain, sun shafts, focus), mist, contact shadows and the wet mirror; a
  * path-traced image over a resting view, and its light kept for the frames that follow. */
-export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions,gpu:PostGPU):Post&{over(object:T.Object3D,camera:T.Camera):void;traceFrom(width:number,height:number):void;traceDone(image:T.Texture):void}{
+/** The kind of target the traced image's surface colours are drawn into. */
+const COLOURS={samples:4,colorSpace:T.SRGBColorSpace};
+export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Camera,options:PostOptions,gpu:PostGPU):Post&{compileColours(object?:T.Object3D):Promise<unknown>;over(object:T.Object3D,camera:T.Camera):void;traceFrom(width:number,height:number):void;traceDone(image:T.Texture):void}{
  const {positionGeometry,screenCoordinate,ivec2,texture,uniform,vec3,vec4,float,mix,max,min,pow,dot,clamp,agxToneMapping,sRGBTransferOETF}=gpu.tsl;
  // That renderer draws into plain render targets through the calls the WebGL renderer has for its own.
  const half=()=>new T.RenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false}) as unknown as T.WebGLRenderTarget;
@@ -458,7 +460,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   const size=renderer.getDrawingBufferSize(new T.Vector2());
   if(traced.out.width!==size.x||traced.out.height!==size.y)traced.out.setSize(size.x,size.y);
   if(demodulated&&(traced.colours?.width!==size.x||traced.colours.height!==size.y)){
-   traced.colours?.dispose();traced.colours=new T.RenderTarget(size.x,size.y,{samples:4,colorSpace:T.SRGBColorSpace}) as unknown as T.WebGLRenderTarget;renderAlbedo(renderer,scene,camera,traced.colours);
+   traced.colours?.dispose();traced.colours=new T.RenderTarget(size.x,size.y,COLOURS) as unknown as T.WebGLRenderTarget;renderAlbedo(renderer,scene,camera,traced.colours);
   }
   // A kept image lies over the frame as it was last shown, with the kept light where there was any.
   traced.image.value=image;traced.live.value=(reproject&&light&&carriedLight>0?light.lit:settled[0]).texture;traced.amount.value=amount;traced.moved.value=reproject?1:0;traced.divided.value=demodulated&&traced.colours?1:0;
@@ -481,6 +483,14 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   renderer.toneMapping=mapping;renderer.outputColorSpace=space;
  };
  const toScreen=()=>{for(const o of stage.children.slice())if(o!==finished)stage.remove(o);draw(camera);};
+ let like:T.RenderTarget|undefined;
+ const ready=(object:T.Object3D,into:T.RenderTarget)=>{
+  const previous=renderer.getRenderTarget();renderer.setRenderTarget(into as unknown as T.WebGLRenderTarget);
+  // three makes ready only what the camera sees, and the rest held the first turn of the view for half a second:
+  // everything counts as seen for the moment the list is drawn up.
+  const culled:T.Object3D[]=[];object.traverse(o=>{if(o.frustumCulled){culled.push(o);o.frustumCulled=false;}});
+  const done=renderer.compileAsync(object,camera,scene);renderer.setRenderTarget(previous);for(const o of culled)o.frustumCulled=true;return done;
+ };
  const api={
   passes:[],
   setSize:(width:number,height:number,ratio:number)=>{
@@ -489,13 +499,11 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    if(kept){if(kept.resize(w,h))frames=0;}else{for(const t of settled)t.setSize(w,h);frames=0;}
    shafts?.setSize(w,h);
   },
-  compileAsync:(object:T.Object3D)=>{
-   const previous=renderer.getRenderTarget();renderer.setRenderTarget(target);
-   // three makes ready only what the camera sees, and the rest held the first turn of the view for half a second:
-   // everything counts as seen for the moment the list is drawn up.
-   const culled:T.Object3D[]=[];object.traverse(o=>{if(o.frustumCulled){culled.push(o);o.frustumCulled=false;}});
-   const done=renderer.compileAsync(object,camera,scene);renderer.setRenderTarget(previous);for(const o of culled)o.frustumCulled=true;return done;
-  },
+  compileAsync:(object:T.Object3D)=>Promise.all([ready(object,target),api.compileColours(object)]),
+  /** Makes `object` ready for the traced image's colour pass (albedo-pass.ts) in the background. That pass draws
+   * into a target of another kind than the scene pass, for which three prepares each material again: left to the
+   * first traced image, 49 materials in one frame held the page 4.9 s (M3 Max). */
+  compileColours:(object:T.Object3D=scene)=>ready(object,like??=new T.RenderTarget(1,1,COLOURS)),
   compilePasses:()=>Promise.resolve(),
   warm:()=>{},
   render:(refining:boolean,exposed:number,indoor=0,view?:PostView)=>{
@@ -569,7 +577,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   /** Shows the kept image moved into the current view; the live image where the move uncovered something. */
   carry:()=>{if(light)show(light.image.texture,1,light.demodulated,true);},
   reset:()=>{frames=0;kept?.reset();shafts?.reset();traced.colours?.dispose();traced.colours=undefined;},
-  dispose:()=>{motion?.dispose();traced.out.dispose();traced.colours?.dispose();traced.quad.material.dispose();traced.ratio.material.dispose();if(light)for(const t of [light.image,light.depth,light.lit,light.ratio])t.dispose();relight?.quad.material.dispose();copy.material.dispose();depthCopy.material.dispose();kept?.dispose();meter?.dispose();focus?.dispose();shafts?.dispose();target.dispose();level?.dispose();levelled?.material.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();glow?.dispose();output.material.dispose();},
+  dispose:()=>{like?.dispose();motion?.dispose();traced.out.dispose();traced.colours?.dispose();traced.quad.material.dispose();traced.ratio.material.dispose();if(light)for(const t of [light.image,light.depth,light.lit,light.ratio])t.dispose();relight?.quad.material.dispose();copy.material.dispose();depthCopy.material.dispose();kept?.dispose();meter?.dispose();focus?.dispose();shafts?.dispose();target.dispose();level?.dispose();levelled?.material.dispose();for(const t of settled)t.dispose();blend.material.dispose();shaded?.material.dispose();shade?.dispose();glow?.dispose();output.material.dispose();},
  };
- return api as unknown as Post&{over:typeof api.over;traceFrom:typeof api.traceFrom;traceDone:typeof api.traceDone};
+ return api as unknown as Post&{compileColours:typeof api.compileColours;over:typeof api.over;traceFrom:typeof api.traceFrom;traceDone:typeof api.traceDone};
 }

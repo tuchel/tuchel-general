@@ -641,7 +641,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  // The WebGPU renderer has no device until `init` resolves; sky light and the first frame wait for it.
  const device=gpu?(renderer as unknown as {init():Promise<unknown>}).init().then(()=>{canvas.dataset.renderer=(renderer as unknown as {backend:{isWebGPUBackend?:boolean}}).backend.isWebGPUBackend?'webgpu':'webgpu-on-webgl2';}):undefined;
  if(gpu){sunShadow=sun.shadow;sunShadow.autoUpdate=false;}
- if(lighting&&device)void device.then(()=>{if(disposed)return;bake?.prepare();lighting.update(camera,performance.now());cullTrees(false);renderer.shadowMap.needsUpdate=true;begin();},error=>{console.warn('WebGPU renderer',error);options.onError();});
+ if(lighting&&device)void device.then(()=>{if(disposed)return;bake?.prepare();lighting.update(camera,performance.now());cullTrees(false);renderer.shadowMap.needsUpdate=true;begin();if(live)void shows?.compileColours().catch(()=>{});},error=>{console.warn('WebGPU renderer',error);options.onError();});
  else if(lighting){
   // The image chain's own shaders and the sky bake's go first: they need nothing from the scene, and compile while the
   // sky is being set up.
