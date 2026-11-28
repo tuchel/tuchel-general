@@ -69,10 +69,10 @@ export const PHONE_EXTREME={pixelRatio:2,shadowSize:2048,samples:2,refineFrames:
  * for a computer's graphics card; a phone given it runs Detailed, unless its user chose it past the warning
  * (`extremeOnPhone`, PHONE_EXTREME). */
 /** Extreme's parts that the WebGPU renderer does not draw yet. With `?renderer=webgpu` they are left off, so Extreme is
- * Detailed at Extreme's resolution plus what has been ported; `&try=treeOcclusion,hdr` turns named parts on there, to test
+ * Detailed at Extreme's resolution plus what has been ported; `&try=treeOcclusion` turns named parts on there, to test
  * one on a real graphics card before it comes off this list, and `&without=softShadows,roomProbes` turns named on-off
  * parts off on either renderer, to find what one costs or adds. */
-export const WEBGPU_PENDING=['treeOcclusion','hdr'] as const;
+export const WEBGPU_PENDING=['treeOcclusion'] as const;
 /** `tier` with the named on-off parts off (`&without=`, on either renderer). */
 export const lacking=(tier:TierSettings,without:string[]=[]):TierSettings=>({...tier,...Object.fromEntries(without.filter(k=>typeof (tier as unknown as Record<string,unknown>)[k]==='boolean').map(k=>[k,false]))});
 export const forWebGPU=(tier:TierSettings,tried:string[]=[],without:string[]=[]):TierSettings=>lacking({...tier,...Object.fromEntries(WEBGPU_PENDING.filter(k=>!tried.includes(k)).map(k=>[k,false]))},without);
