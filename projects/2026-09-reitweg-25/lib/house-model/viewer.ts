@@ -202,6 +202,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  const probes=realistic&&tier.roomProbes?createRoomProbes(renderer,scene,[model.root],()=>batches.meshes.filter(b=>{for(let a:T.Object3D|null=b;a;a=a.parent)if(!a.visible)return false;return true;}),
   lens=>drawTrees(scene,[lens],2/ROOM_PROBES.size,lens),gpu?.tsl&&gpu.NodeMaterial&&gpu.QuadMesh&&gpu.CubeRenderTarget?{tsl:gpu.tsl,NodeMaterial:gpu.NodeMaterial,QuadMesh:gpu.QuadMesh,CubeRenderTarget:gpu.CubeRenderTarget}:undefined):undefined;
  let live:ReturnType<typeof createLiveTrace>|undefined=undefined;
+ let motionTrace:ReturnType<typeof createMoveTrace>|undefined=undefined;
  // The neighbors' buildings (neighbors.ts), built the first time they are shown; with the setting, outside only.
  let neighbors:T.Mesh|undefined,neighborsOn=false;
  const showNeighbors=()=>{if(neighbors)neighbors.visible=neighborsOn&&level==='exterior';};
@@ -249,7 +250,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   {const covers=snowCovers(renovations);drifts?.build((x,z)=>!model.footprints.indoors(x,z)&&!(renovations.kitchen&&insideEntrancePolygon(x,z,winterGardenOutline))&&!underCover(covers,x,.5,z));}
   if(lighting&&!settling&&snowNow()!==snow.amount)relight();slabs?.show(snow.amount>0);drifts?.show(snow.amount);
   stage.visible=level!=='basement';showNeighbors();showSims();renderer.shadowMap.needsUpdate=true;
-  bake?.request();bounce?.request();probes?.request();live?.invalidate();invalidate();
+  bake?.request();bounce?.request();probes?.request();motionTrace?.invalidate();live?.invalidate();invalidate();
  };
  applyState();
  const grass=realistic&&tier.grass?eyeLevelGrass(scene,[...batches.meshes,stage]):undefined;
@@ -282,7 +283,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  live=tier.liveTrace&&lighting&&post&&camera instanceof T.PerspectiveCamera?createLiveTrace({renderer,scene,camera,lighting}):undefined;
  // Light traced while the view moves (move-trace.ts), on the renderer's own device.
  const tracing=gpu&&lighting&&camera instanceof T.PerspectiveCamera?moveTraceAsked(tier.moveTrace):undefined;
- const motionTrace=tracing&&lighting&&camera instanceof T.PerspectiveCamera?createMoveTrace({renderer,scene,camera,lighting,asked:tracing,ready:()=>{canvas.dataset.moveTrace='ready';changed();}}):undefined;
+ motionTrace=tracing&&lighting&&camera instanceof T.PerspectiveCamera?createMoveTrace({renderer,scene,camera,lighting,asked:tracing,ready:()=>{canvas.dataset.moveTrace='ready';changed();}}):undefined;
  // Its surface colours sharpen the traced image (albedo-pass.ts); added before the shaders are compiled ahead.
  if(live)addAlbedoOutput(scene);
  const captures=lighting?createCaptures({
@@ -342,13 +343,13 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(level==='basement')target.y=-2;
   return {target,direction:position.sub(target),span:v.span,exterior:level==='exterior',reach:'reach' in v?v.reach:undefined};
  };
- const leaveEyeLevel=()=>{if(!place)return;place=undefined;if(woods)woods.visible=false;pressed.clear();Object.assign(walkInput,{forward:0,strafe:0,run:false});lookRate.x=lookRate.y=0;room=roomTarget=1;lighting?.setRoom(1);if(grass){grass.hide();live?.invalidate();}fitShadowToView();};
+ const leaveEyeLevel=()=>{if(!place)return;place=undefined;if(woods)woods.visible=false;pressed.clear();Object.assign(walkInput,{forward:0,strafe:0,run:false});lookRate.x=lookRate.y=0;room=roomTarget=1;lighting?.setRoom(1);if(grass){motionTrace?.invalidate();grass.hide();live?.invalidate();}fitShadowToView();};
  const view=(key:Viewpoint|Place,instant=false)=>{
   captures?.stop();
   if(key in places){
    const p=places[key as Place];place=key as Place;if(woods)woods.visible=true;
    rig.enterEyeLevel(new T.Vector3(...p.position),new T.Vector3(...p.target));walker.reset();walkAnchor.copy(rig.lens.position);placeStart.copy(rig.lens.position);wandered=false;options.onWander?.(false);
-   room=roomTarget=roomExposure(walker.openness());skyAnchor.copy(rig.lens.position);lighting?.setRoom(room);fitShadowToView();if(grass){grass.showAround(rig.lens.position);live?.invalidate();}fadeIn();
+   room=roomTarget=roomExposure(walker.openness());skyAnchor.copy(rig.lens.position);lighting?.setRoom(room);fitShadowToView();if(grass){motionTrace?.invalidate();grass.showAround(rig.lens.position);live?.invalidate();}fadeIn();
    canvas.setAttribute('aria-label','Eye-level view. W, A, S and D walk; Shift runs. Drag or use arrow keys to look around. Pinch or scroll to zoom. Escape returns to the overview.');
   }else{
    const wasEye=!!place;leaveEyeLevel();
@@ -426,7 +427,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
     if(rig.lens.position.distanceTo(walkAnchor)>4){walkAnchor.copy(rig.lens.position);fitShadowToView();grass?.moveTo(rig.lens.position);}
     if(rig.lens.position.distanceTo(skyAnchor)>.5){skyAnchor.copy(rig.lens.position);roomTarget=roomExposure(walker.openness());}}
    // The grass moves with the walker a few milliseconds a frame; the traced scene is rebuilt with it.
-   if(grass?.step()){live?.invalidate();changed();}
+   if(grass?.step()){live?.invalidate();motionTrace?.invalidate();changed();}
    // Exposure eases to the new surroundings over about a second, as eyes adjust walking in or out.
    if(Math.abs(roomTarget-room)>.005){room+=(roomTarget-room)*Math.min(1,delta*3);lighting?.setRoom(room);moving=true;}
   }
@@ -465,7 +466,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(probes&&post&&level==='exterior'&&!captures?.active&&probes.baking){const landed=probes.step(rig.camera);if(probes.active||(landed&&rig.eyeLevel)){if(landed)post.reset();needsFrame=true;}}
   if(panorama&&still&&!captures?.active){
    const p=rig.camera.position;
-   if(Math.abs(p.y-panorama.userData.anchorHeight())>.5||Math.hypot(p.x-panoramaAt.x,p.z-panoramaAt.z)>4){panorama.userData.anchor(p.y);panoramaAt.copy(p);live?.invalidate();}
+   if(Math.abs(p.y-panorama.userData.anchorHeight())>.5||Math.hypot(p.x-panoramaAt.x,p.z-panoramaAt.z)>4){panorama.userData.anchor(p.y);panoramaAt.copy(p);motionTrace?.invalidate();live?.invalidate();}
   }
   // A settled view hands over to path tracing; the floor-plan section of the upper floor cuts roofs with clipping
   // planes, which the tracer cannot, so it stays live.
@@ -681,29 +682,29 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   setLevel:(l:Level)=>{captures?.stop();leaveEyeLevel();const floorChanged=l!==level;level=l;applyState();if(floorChanged)controls.target.y=l==='basement'?-2:l==='upper'?3.1:1;rig.project();changed();},
   setRenovations:(state:RenovationState)=>{captures?.stop();renovations={...state};applyState();},
   // The trees and the snow follow the date (seasonTrees, relight); with the sun study off the trees stand in midsummer leaf.
-  setSun:(next:SunStudy):LightReading|undefined=>{if(!lighting)return;study=next;const r=relight(),day=study.enabled?study.day:initialSunStudy.day;if(foliage&&day!==season){season=day;seasonTrees(scene,foliage,day);renderer.shadowMap.needsUpdate=true;live?.invalidate();}fitShadowToView();clearTimeout(sunSettle);sunSettle=setTimeout(()=>{bounce?.request();probes?.request();live?.relight();changed();},SUN_SETTLE);changed();return r;},
+  setSun:(next:SunStudy):LightReading|undefined=>{if(!lighting)return;study=next;const r=relight(),day=study.enabled?study.day:initialSunStudy.day;if(foliage&&day!==season){season=day;seasonTrees(scene,foliage,day);renderer.shadowMap.needsUpdate=true;motionTrace?.invalidate();live?.invalidate();}fitShadowToView();clearTimeout(sunSettle);sunSettle=setTimeout(()=>{void motionTrace?.relight();bounce?.request();probes?.request();live?.relight();changed();},SUN_SETTLE);changed();return r;},
   /** Snow mode on or off: snow falls, lies whatever the date, and the sky closes (snowfall.ts). The flakes are built and
    * their shader compiled, in the background, the first time. */
   setSnowing:(on:boolean)=>{
    if(!lighting||on===snowing)return;
    snowing=on;settling=true;settledAt=performance.now();post?.keepDepth(on||raining);relight();
    if(on&&!snowfall){const made=snowfall=createSnowfall(bake?.cover,lampsOutdoors(),falls);void renderer.compileAsync(made.points,camera).catch(()=>{}).then(()=>{flakesReady=true;changed();});}
-   clearTimeout(sunSettle);sunSettle=setTimeout(()=>{bounce?.request();probes?.request();live?.relight();changed();},SUN_SETTLE);changed();
+   clearTimeout(sunSettle);sunSettle=setTimeout(()=>{void motionTrace?.relight();bounce?.request();probes?.request();live?.relight();changed();},SUN_SETTLE);changed();
   },
   /** Rain mode on or off: rain falls, the sky closes and the ground wets (rainfall.ts). */
   setRaining:(on:boolean)=>{
    if(!lighting||on===raining)return;
    raining=on;wetAt=performance.now();post?.keepDepth(on||snowing);relight();
    if(on&&!rainfall){const made=rainfall=createRainfall(bake?.cover,falls);void renderer.compileAsync(made.points,camera).catch(()=>{}).then(()=>{dropsReady=true;changed();});}
-   clearTimeout(sunSettle);sunSettle=setTimeout(()=>{bounce?.request();probes?.request();live?.relight();changed();},SUN_SETTLE);changed();
+   clearTimeout(sunSettle);sunSettle=setTimeout(()=>{void motionTrace?.relight();bounce?.request();probes?.request();live?.relight();changed();},SUN_SETTLE);changed();
   },
   /** Clouds and their shadows on or off (Extreme); room reflections and the traced image follow the re-baked sky. */
-  setClouds:(on:boolean)=>{if(!lighting?.setClouds(on))return;clearTimeout(cloudSettle);cloudSettle=setTimeout(()=>{probes?.request();live?.relight();changed();},SUN_SETTLE);changed();},
+  setClouds:(on:boolean)=>{if(!lighting?.setClouds(on))return;clearTimeout(cloudSettle);cloudSettle=setTimeout(()=>{void motionTrace?.relight();probes?.request();live?.relight();changed();},SUN_SETTLE);changed();},
   /** The neighbors' buildings on or off; their shadows and the traced image follow. */
   setNeighbors:(on:boolean)=>{
    if(on===neighborsOn)return;neighborsOn=on;
    if(on&&!neighbors){neighbors=neighborHouses(x=>stage.position.y+terrain(x));scene.add(neighbors);clouds?.shade([neighbors]);snowSurfaces([neighbors]);}
-   showNeighbors();renderer.shadowMap.needsUpdate=true;live?.invalidate();changed();
+   showNeighbors();renderer.shadowMap.needsUpdate=true;motionTrace?.invalidate();live?.invalidate();changed();
   },
   /** Sims Mode on or off: the two figures go about their routines in the house and garden, from the start (sims.ts). */
   setSims:(on:boolean)=>{
