@@ -11,14 +11,16 @@ function pixels(texture:T.Texture){
  const ctx=canvas.getContext('2d',{willReadFrequently:true})!;ctx.drawImage(image,0,0);
  return ctx.getImageData(0,0,canvas.width,canvas.height);
 }
-function standardMaps(color:T.Texture,normal:T.Texture):Omit<Standard,'metres'|'slope'>{
+export function standardMaps(color:T.Texture,normal:T.Texture):Omit<Standard,'metres'|'slope'>{
  const c=pixels(color),n=pixels(normal),w=c.width,h=c.height,size=w*h;
  const rgb=new Uint8Array(size*4),rough=new Uint8Array(size*4),nrm=new Uint8Array(size*4);
- for(let i=0;i<size;i++){
-  rgb.set([c.data[i*4],c.data[i*4+1],c.data[i*4+2],255],i*4);
-  const r=c.data[i*4+3];rough.set([r,r,r,255],i*4);
-  const x=n.data[i*4]/127.5-1,y=n.data[i*4+1]/127.5-1,z=Math.sqrt(Math.max(0,1-x*x-y*y));
-  nrm.set([n.data[i*4],n.data[i*4+1],Math.round((z*.5+.5)*255),255],i*4);
+ // Written number by number: an array made per pixel per map held the page's thread 60 to 140 ms a set (M3 Max).
+ const cd=c.data,nd=n.data;
+ for(let j=0;j<size*4;j+=4){
+  rgb[j]=cd[j];rgb[j+1]=cd[j+1];rgb[j+2]=cd[j+2];rgb[j+3]=255;
+  rough[j]=rough[j+1]=rough[j+2]=cd[j+3];rough[j+3]=255;
+  const x=nd[j]/127.5-1,y=nd[j+1]/127.5-1,z=Math.sqrt(Math.max(0,1-x*x-y*y));
+  nrm[j]=nd[j];nrm[j+1]=nd[j+1];nrm[j+2]=Math.round((z*.5+.5)*255);nrm[j+3]=255;
  }
  // Canvas pixel rows run top-down, as the loaded images do; keep three's default flip.
  const make=(data:Uint8Array,srgb:boolean)=>{const t=new T.DataTexture(data,w,h);t.flipY=true;t.wrapS=t.wrapT=T.RepeatWrapping;t.magFilter=T.LinearFilter;t.minFilter=T.LinearMipmapLinearFilter;t.generateMipmaps=true;if(srgb)t.colorSpace=T.SRGBColorSpace;t.needsUpdate=true;return t;};
