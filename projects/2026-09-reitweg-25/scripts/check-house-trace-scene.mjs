@@ -7,11 +7,20 @@ import {build} from 'esbuild';
 // indexed and given a ray-tracing tree once rather than once per tree.
 await build({entryPoints:['lib/house-model/build-model.ts','lib/house-model/landscape-context.ts','lib/house-model/foliage.ts','lib/house-model/photographic-scene.ts','lib/house-model/surface-materials.ts'],outdir:'tmp/trace-scene-check',outExtension:{'.js':'.mjs'},bundle:true,platform:'node',format:'esm',packages:'external',logLevel:'error'});
 const load=name=>import(`../tmp/trace-scene-check/${name}.mjs`);
-const [{buildHouseModel},{landscapeContext},{foliageMaterials,finishFoliage},{photographicScene,LEAF},{finishSurfaces}]=await Promise.all(['build-model','landscape-context','foliage','photographic-scene','surface-materials'].map(load));
+const [{buildHouseModel},{landscapeContext},{foliageMaterials,finishFoliage},{photographicScene,standardMaps,LEAF},{finishSurfaces}]=await Promise.all(['build-model','landscape-context','foliage','photographic-scene','surface-materials'].map(load));
 // Texture sets as a browser would have them: a small grey image read back through a canvas.
 globalThis.document={createElement:()=>({width:0,height:0,getContext:()=>({drawImage(){},getImageData:(x,y,w,h)=>({width:w,height:h,data:new Uint8ClampedArray(w*h*4).fill(128)})})})};
 const texture=()=>new T.Texture({width:4,height:4}),set={color:texture(),normal:texture()};
 const textures={size:512,get:()=>set,water:texture(),ready:Promise.resolve(),dispose(){}};
+// A texture set is converted on the page's thread, so quickly: a 2048 px set took 60 to 140 ms a set there (M3 Max,
+// an array made per pixel per map) and now takes a fraction of that. Here: 1024 px, the best of three, with the
+// roughness from the colour's alpha and the normal's third part worked out from its first two.
+{const side=1024,image={width:side,height:side},was=globalThis.document,data=new Uint8ClampedArray(side*side*4).map((_,i)=>[100,120,30,40][i%4]);
+ globalThis.document={createElement:()=>({getContext:()=>({drawImage(){},getImageData:()=>({width:side,height:side,data})})})};
+ let best=Infinity,maps;for(let i=0;i<3;i++){const t=performance.now();maps=standardMaps(new T.Texture(image),new T.Texture(image));best=Math.min(best,performance.now()-t);}
+ globalThis.document=was;const at=4*777,part=m=>[...m.image.data.slice(at,at+4)],z=Math.round((Math.sqrt(1-(100/127.5-1)**2-(120/127.5-1)**2)*.5+.5)*255);
+ assert.deepEqual([part(maps.map),part(maps.roughness),part(maps.normal)],[[100,120,30,255],[40,40,40,255],[100,120,z,255]],'colour, roughness and normal as before');
+ assert(best<40,`a 1024 px texture set converts in under 40 ms (${best.toFixed(0)} ms)`);}
 const foliage=foliageMaterials('leaves'),setting=landscapeContext({foliage,density:1});
 // Sunlight passes through leaves in the traced scene as in the live view: each leaf material becomes a thin-walled
 // transmissive one, passing a share LEAF.transmission of the light it scatters, tinted by its colour, with the colour
