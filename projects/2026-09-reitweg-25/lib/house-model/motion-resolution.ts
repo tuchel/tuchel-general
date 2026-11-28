@@ -1,7 +1,9 @@
 /** Moving frames' resolution, steered by how long they take (Extreme). `steps`: the scales a moving frame may draw at;
  * `budget`: 60 frames a second; `headroom`: the share of it a frame may fill as measured by the graphics card; `period`:
- * how long a scale is kept, at least, before the next step. */
-export const MOTION_RESOLUTION={steps:[.5,.6,.7,.85,1],budget:1000/60,headroom:.85,period:500};
+ * how long a scale is kept, at least, before the next step. By frame intervals alone: `late`, the mean interval over
+ * the budget that counts as dropping frames (one late frame in sixteen); `held`, the one that counts as holding 60;
+ * `settle`, the frames after a step that are not counted, while the new scale's buffers are made. */
+export const MOTION_RESOLUTION={steps:[.5,.6,.7,.85,1],budget:1000/60,headroom:.85,period:500,late:1.06,held:1.03,settle:6};
 type Timer={TIME_ELAPSED_EXT:number;GPU_DISJOINT_EXT:number};
 type Queries=Pick<WebGL2RenderingContext,'createQuery'|'deleteQuery'|'beginQuery'|'endQuery'|'getQueryParameter'|'getParameter'|'QUERY_RESULT_AVAILABLE'|'QUERY_RESULT'>;
 
@@ -12,7 +14,7 @@ type Queries=Pick<WebGL2RenderingContext,'createQuery'|'deleteQuery'|'beginQuery
  * frames a second tries the step above, and a try that drops frames is taken back and not made again for a while
  * (twice as long each time). Frames the processor holds up are left alone: fewer pixels would not help them. */
 export function createMotionResolution(options:{gl:Queries|undefined;timer:Timer|null;initial:number}){
- const {steps,budget,headroom,period}=MOTION_RESOLUTION,{gl,timer}=options;
+ const {steps,budget,headroom,period,late,held:holds,settle}=MOTION_RESOLUTION,{gl,timer}=options;
  let step=steps.reduce((best,s,i)=>Math.abs(s-options.initial)<Math.abs(steps[best]-options.initial)?i:best,0);
  // Measurements at the current step since it was taken: graphics-card ms, intervals between moving frames, and how many
  // of those the processor filled.
@@ -42,14 +44,14 @@ export function createMotionResolution(options:{gl:Queries|undefined;timer:Timer
    else{since=now;gpu=[];}
    return;
   }
-  if(intervals.length<8)return;
-  const interval=mean(intervals),bound=busy/intervals.length>.5;
-  if(interval>budget*1.25&&!bound){
+  if(intervals.length<8+settle)return;
+  const interval=mean(intervals.slice(settle)),bound=busy/intervals.length>.5;
+  if(interval>budget*late&&!bound){
    // A try that dropped frames: back, and not again for a while.
    if(step===tried){blockedUntil=now+block;block*=2;tried=-1;}
    take(step-1,now);held=0;return;
   }
-  if(interval<=budget*1.1){held++;if(held>=2&&step<steps.length-1&&now>=blockedUntil){tried=step+1;take(step+1,now);held=0;return;}}
+  if(interval<=budget*holds){held++;if(held>=2&&step<steps.length-1&&now>=blockedUntil){tried=step+1;take(step+1,now);held=0;return;}}
   else held=0;
   since=now;intervals=[];busy=0;
  };

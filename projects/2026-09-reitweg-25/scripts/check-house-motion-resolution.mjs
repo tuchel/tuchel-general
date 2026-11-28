@@ -56,6 +56,20 @@ const move=(steer,seconds,gl,cost)=>{const drawn=[];let now=steer.clock??0;
  for(let i=0;i<300;i++){cpuBound.start(now);cpuBound.finish(now+30);now+=33.3;}
  assert.equal(cpuBound.scale,.85,'frames held up by the processor keep their resolution');
 }
+// Script and graphics card work in parallel, so a frame that costs a little over a refresh does not halve the frame rate:
+// every so often one frame is late. A scale that drops one frame in twelve does not hold 60 and is not kept; one late
+// frame as a new scale's buffers are made is not a reason to leave it.
+{
+ const T=1000/60,late=(steer,seconds,cost,hitch=()=>0)=>{const drawn=[];let now=0,debt=0,before=NaN;
+  for(let i=0;i<seconds*60;i++){const s=steer.start(now);drawn.push(s);debt+=Math.max(0,cost(s)-T)+(s!==before?hitch(s):0);before=s;
+   steer.finish(now+5);const whole=Math.floor(debt/T);debt-=whole*T;now+=(1+whole)*T;}
+  return drawn;};
+ const cost=s=>6+12*s*s,drawn=late(createMotionResolution({gl:undefined,timer:null,initial:.5}),20,cost);
+ assert.equal(cost(1),18);assert(drawn.includes(1),'full resolution is tried');
+ assert(drawn.slice(-600).filter(s=>s===.85).length>=500,'18 ms a frame is not 60 frames a second: it stays at the scale below');
+ const light=late(createMotionResolution({gl:undefined,timer:null,initial:.5}),8,s=>4+8*s*s,()=>120);
+ assert.equal(light.at(-1),1,'a stall as each scale starts does not count against it');
+}
 // A rest between moves: the interval across it is not a slow frame.
 {
  const steer=createMotionResolution({gl:undefined,timer:null,initial:.7});let now=0;
