@@ -64,8 +64,8 @@ export function sceneCache(){
 }
 /** `instances`: instanced meshes without a projected surface stay instanced (the WebGPU tracer traces instances; the
  * WebGL tracer and GLB export need them flattened). `cache`: keep conversions for the next call (sceneCache); the
- * returned dispose then frees only the scene, and the cache its contents. */
-export async function photographicScene(source:T.Scene,environment:T.Texture,signal:AbortSignal,progress:(text:string)=>void,options:{maxDistance?:number;origin?:T.Vector3;sunScale?:number;instances?:boolean;cache?:SceneCache}={}){
+ * returned dispose then frees only the scene, and the cache its contents. `leave`: meshes to leave out. */
+export async function photographicScene(source:T.Scene,environment:T.Texture,signal:AbortSignal,progress:(text:string)=>void,options:{maxDistance?:number;origin?:T.Vector3;sunScale?:number;instances?:boolean;cache?:SceneCache;leave?:(mesh:T.Mesh)=>boolean}={}){
  const cache=options.cache,scene=new T.Scene(),geometries:T.BufferGeometry[]=[],textures:T.Texture[]=[];
  const materials=cache?.materials??new Map<T.Material,{material:T.Material;ready:boolean}>(),converted=cache?.textures??new Map<T.Texture,Maps>();
  scene.environment=environment;scene.background=environment;
@@ -99,7 +99,7 @@ export async function photographicScene(source:T.Scene,environment:T.Texture,sig
  };
  source.updateMatrixWorld(true);
  const meshes:T.Mesh[]=[];
- source.traverseVisible(o=>{if(o.layers.isEnabled(0)&&!o.userData.skipPhotographic&&o instanceof T.Mesh)meshes.push(o);});
+ source.traverseVisible(o=>{if(o.layers.isEnabled(0)&&!o.userData.skipPhotographic&&o instanceof T.Mesh&&!options.leave?.(o))meshes.push(o);});
  copyLights(source,scene,options.sunScale);
  const v=new T.Vector3(),n=new T.Vector3(),nm=new T.Matrix3(),color=new T.Color(),matrix=new T.Matrix4(),instance=new T.Matrix4(),tu=new T.Vector3(),tv=new T.Vector3(),up=new T.Vector3(0,1,0);
  const e1=new T.Vector3(),e2=new T.Vector3(),t=new T.Vector3(),b=new T.Vector3(),a0=new T.Vector3(),a1=new T.Vector3(),a2=new T.Vector3();

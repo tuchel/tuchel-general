@@ -344,13 +344,13 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(level==='basement')target.y=-2;
   return {target,direction:position.sub(target),span:v.span,exterior:level==='exterior',reach:'reach' in v?v.reach:undefined};
  };
- const leaveEyeLevel=()=>{if(!place)return;place=undefined;if(woods)woods.visible=false;pressed.clear();Object.assign(walkInput,{forward:0,strafe:0,run:false});lookRate.x=lookRate.y=0;room=roomTarget=1;lighting?.setRoom(1);if(grass){motionTrace?.invalidate();grass.hide();live?.invalidate();}fitShadowToView();};
+ const leaveEyeLevel=()=>{if(!place)return;place=undefined;if(woods)woods.visible=false;pressed.clear();Object.assign(walkInput,{forward:0,strafe:0,run:false});lookRate.x=lookRate.y=0;room=roomTarget=1;lighting?.setRoom(1);if(grass){grass.hide();live?.invalidate();}fitShadowToView();};
  const view=(key:Viewpoint|Place,instant=false)=>{
   captures?.stop();
   if(key in places){
    const p=places[key as Place];place=key as Place;if(woods)woods.visible=true;
    rig.enterEyeLevel(new T.Vector3(...p.position),new T.Vector3(...p.target));walker.reset();walkAnchor.copy(rig.lens.position);placeStart.copy(rig.lens.position);wandered=false;options.onWander?.(false);
-   room=roomTarget=roomExposure(walker.openness());skyAnchor.copy(rig.lens.position);lighting?.setRoom(room);fitShadowToView();if(grass){motionTrace?.invalidate();grass.showAround(rig.lens.position);live?.invalidate();}fadeIn();
+   room=roomTarget=roomExposure(walker.openness());skyAnchor.copy(rig.lens.position);lighting?.setRoom(room);fitShadowToView();if(grass){grass.showAround(rig.lens.position);live?.invalidate();}fadeIn();
    canvas.setAttribute('aria-label','Eye-level view. W, A, S and D walk; Shift runs. Drag or use arrow keys to look around. Pinch or scroll to zoom. Escape returns to the overview.');
   }else{
    const wasEye=!!place;leaveEyeLevel();
@@ -428,7 +428,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
     if(rig.lens.position.distanceTo(walkAnchor)>4){walkAnchor.copy(rig.lens.position);fitShadowToView();grass?.moveTo(rig.lens.position);}
     if(rig.lens.position.distanceTo(skyAnchor)>.5){skyAnchor.copy(rig.lens.position);roomTarget=roomExposure(walker.openness());}}
    // The grass moves with the walker a few milliseconds a frame; the traced scene is rebuilt with it.
-   if(grass?.step()){live?.invalidate();motionTrace?.invalidate();changed();}
+   if(grass?.step()){live?.invalidate();changed();}
    // Exposure eases to the new surroundings over about a second, as eyes adjust walking in or out.
    if(Math.abs(roomTarget-room)>.005){room+=(roomTarget-room)*Math.min(1,delta*3);lighting?.setRoom(room);moving=true;}
   }
