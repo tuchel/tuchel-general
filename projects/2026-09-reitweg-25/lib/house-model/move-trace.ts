@@ -21,6 +21,9 @@ export function createMoveTrace(options:{renderer:unknown;scene:T.Scene;camera:T
  type Made={scene:T.Scene;dispose():void};
  let tracer:{renderSample():void;updateCamera():void;updateLights():void;updateEnvironment():void;dispose():void}|undefined,local:Made|undefined,environment:T.Texture|undefined;
  let disposed=false,age=0,preparing=false,turn=0;
+ // From a change of light until the traced scene has taken it, nothing is traced; `valid`: a sample traced under the
+ // light and scene as they are now is in.
+ let stale=false,valid=false,changes=0,relighting=false;
  // The scene and its sky are taken once the view has been drawn and rests, not while it is still being set
  // up: a sky read before the sun is placed is dark, and everything in shade traced black.
  const prepare=async()=>{
@@ -43,21 +46,30 @@ export function createMoveTrace(options:{renderer:unknown;scene:T.Scene;camera:T
    * frames up for some seconds, which must not fall into motion). */
   step(started:(width:number,height:number)=>void,rested:boolean){
    if(!tracer){if(rested&&!preparing&&!disposed)void prepare().catch(error=>{disposed=true;console.warn('Moving trace unavailable',error);});return;}
+   if(stale){if(rested)void this.relight();return;}
    if(!age){view.copy(camera);view.clearViewOffset();tracer.updateCamera();started(asked.width,asked.height);}
    renderer.setRenderTarget(target);tracer.renderSample();renderer.setRenderTarget(null);
    if(++age<asked.frames)return;
-   age=0;return target.texture;
+   age=0;valid=true;return target.texture;
   },
   /** The sun or the clouds changed: the traced scene takes the new sky and sun. */
   async relight(){
-   const t=tracer,made=local;if(!t||!made)return;
+   if(relighting)return;
+   const t=tracer,made=local,mine=changes;if(!t||!made){stale=false;return;}
+   relighting=true;
+   try{
    const [{copyLights},sky]=await Promise.all([import('./photographic-scene'),lighting.equirectGPU()]);
    if(t!==tracer){sky.dispose();return;}
    copyLights(scene,made.scene,lighting.sunThroughClouds);made.scene.environment=made.scene.background=sky;
    t.updateLights();t.updateEnvironment();environment?.dispose();environment=sky;age=0;
+   if(mine===changes)stale=false;
+   }finally{relighting=false;}
   },
   /** What is shown changed (floor, renovations): the next step converts the scene again. */
-  invalidate(){turn++;release();age=0;},
+  invalidate(){turn++;release();age=0;valid=false;},
+  /** The light is changing (sun, sky, season, snow): what was traced no longer holds. */
+  hold(){changes++;stale=true;valid=false;age=0;},
+  get valid(){return valid;},
   dispose(){disposed=true;release();target.dispose();},
  };
 }
