@@ -2,8 +2,9 @@
  * `budget`: 60 frames a second; `headroom`: the share of it a frame may fill as measured by the graphics card; `period`:
  * how long a scale is kept, at least, before the next step. By frame intervals alone: `late`, the mean interval over
  * the budget that counts as dropping frames (one late frame in sixteen); `held`, the one that counts as holding 60;
- * `settle`, the frames after a step that are not counted, while the new scale's buffers are made. */
-export const MOTION_RESOLUTION={steps:[.5,.6,.7,.85,1],budget:1000/60,headroom:.85,period:500,late:1.06,held:1.03,settle:6};
+ * `settle`, the frames after a step or at the start of a move that are not counted, while buffers are made and the
+ * moving parts start. */
+export const MOTION_RESOLUTION={steps:[.5,.6,.7,.85,1],budget:1000/60,headroom:.85,period:500,late:1.06,held:1.03,settle:16};
 type Timer={TIME_ELAPSED_EXT:number;GPU_DISJOINT_EXT:number};
 type Queries=Pick<WebGL2RenderingContext,'createQuery'|'deleteQuery'|'beginQuery'|'endQuery'|'getQueryParameter'|'getParameter'|'QUERY_RESULT_AVAILABLE'|'QUERY_RESULT'>;
 
@@ -48,7 +49,7 @@ export function createMotionResolution(options:{gl:Queries|undefined;timer:Timer
   const interval=mean(intervals.slice(settle)),bound=busy/intervals.length>.5;
   if(interval>budget*late&&!bound){
    // A try that dropped frames: back, and not again for a while.
-   if(step===tried){blockedUntil=now+block;block*=2;tried=-1;}
+   if(step===tried){blockedUntil=now+block;block=Math.min(block*2,16000);tried=-1;}
    take(step-1,now);held=0;return;
   }
   if(interval<=budget*holds){held++;if(held>=2&&step<steps.length-1&&now>=blockedUntil){tried=step+1;take(step+1,now);held=0;return;}}
@@ -72,7 +73,7 @@ export function createMotionResolution(options:{gl:Queries|undefined;timer:Timer
    const last=intervals.at(-1);if(last!==undefined&&now-started>.8*last)busy++;
   },
   /** The view came to rest: the next moving frame starts a new run, so the pause is not a slow frame. */
-  rest(){lastStart=NaN;},
+  rest(){lastStart=NaN;intervals=[];busy=0;},
   dispose(){if(gl)for(const {query} of pending)gl.deleteQuery(query);pending.length=0;},
  };
 }

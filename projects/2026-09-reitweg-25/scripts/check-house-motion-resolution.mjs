@@ -76,6 +76,14 @@ const move=(steer,seconds,gl,cost)=>{const drawn=[];let now=steer.clock??0;
  for(let r=0;r<10;r++){for(let i=0;i<20;i++){steer.start(now);steer.finish(now+2);now+=16.7;}steer.rest();now+=2000;}
  assert(steer.scale>=.7,'rests do not count as slow frames');
 }
+// Each move starts with slow frames whatever the scale (the buffers change size, the moving parts start): they are not
+// counted, and a failed step up is tried again within 16 s however often it failed.
+{
+ const steer=createMotionResolution({gl:undefined,timer:null,initial:.85});let now=0;
+ for(let r=0;r<10;r++){for(let i=0;i<60;i++){steer.start(now);steer.finish(now+5);now+=i<14?20:1000/60;}steer.rest();now+=2000;}
+ assert(steer.scale>=.85,'the slow start of each move does not lower the resolution');
+ assert(M.settle>=14&&/block=Math\.min\(block\*2,16000\)/.test(fs.readFileSync('lib/house-model/motion-resolution.ts','utf8')));
+}
 // The wiring: Extreme steers; moving frames use the steered scale; resting frames full resolution; the readout shows it.
 {
  const read=f=>fs.readFileSync(`lib/house-model/${f}`,'utf8'),viewer=read('viewer.ts'),tiers=read('device-tier.ts');
