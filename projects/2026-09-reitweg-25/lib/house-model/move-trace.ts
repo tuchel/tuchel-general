@@ -18,27 +18,44 @@ export function moveTraceAsked(on:boolean){
 export function createMoveTrace(options:{renderer:unknown;scene:T.Scene;camera:T.PerspectiveCamera;lighting:Lighting;asked:NonNullable<ReturnType<typeof moveTraceAsked>>;ready:()=>void}){
  const {scene,camera,lighting,asked}=options,renderer=options.renderer as {setRenderTarget(target:T.RenderTarget|null):void};
  const view=new T.PerspectiveCamera(),target=new T.RenderTarget(asked.width,asked.height,{type:T.HalfFloatType,depthBuffer:false});
- let tracer:{renderSample():void;updateCamera():void;dispose():void}|undefined,local:{dispose():void}|undefined,disposed=false,age=0;
- void (async()=>{
-  const [{photographicScene},{WebGPUPathTracer},{treesInBackground}]=await Promise.all([import('./photographic-scene'),import('three-gpu-pathtracer/webgpu'),import('./live-trace-webgpu')]);
-  await (options.renderer as {init():Promise<unknown>}).init();
-  const environment=await lighting.equirectGPU(),made=await photographicScene(scene,environment,new AbortController().signal,()=>{},{maxDistance:120,origin:new T.Vector3(-5,0,8),sunScale:lighting.sunThroughClouds,instances:true});
-  await treesInBackground(made.scene);
-  if(disposed){made.dispose();return;}
-  const t=new WebGPUPathTracer(options.renderer as never);
-  Object.assign(t,{maxBounces:asked.bounces,maxTransparentBounces:4,renderDelay:0,minSamples:0,fadeDuration:0,dynamicLowRes:false,synchronizeRenderSize:false,maxSamples:0,filterGlossyFactor:.5});
-  t.setSize(asked.width,asked.height);view.copy(camera);t.setScene(made.scene,view);
-  local=made;tracer=t as unknown as typeof tracer;options.ready();
- })().catch(error=>console.warn('Moving trace unavailable',error));
+ type Made={scene:T.Scene;dispose():void};
+ let tracer:{renderSample():void;updateCamera():void;updateLights():void;updateEnvironment():void;dispose():void}|undefined,local:Made|undefined,environment:T.Texture|undefined;
+ let disposed=false,age=0,preparing=false,turn=0;
+ // The scene and its sky are taken once the view has been drawn (the first step), not while it is still being set
+ // up: a sky read before the sun is placed is dark, and everything in shade traced black.
+ const prepare=async()=>{
+  const mine=turn;preparing=true;
+  try{
+   const [{photographicScene},{WebGPUPathTracer},{treesInBackground}]=await Promise.all([import('./photographic-scene'),import('three-gpu-pathtracer/webgpu'),import('./live-trace-webgpu')]);
+   const sky=await lighting.equirectGPU(),made=await photographicScene(scene,sky,new AbortController().signal,()=>{},{maxDistance:120,origin:new T.Vector3(-5,0,8),sunScale:lighting.sunThroughClouds,instances:true});
+   await treesInBackground(made.scene);
+   if(disposed||mine!==turn){made.dispose();sky.dispose();return;}
+   const t=new WebGPUPathTracer(options.renderer as never);
+   Object.assign(t,{maxBounces:asked.bounces,maxTransparentBounces:4,renderDelay:0,minSamples:0,fadeDuration:0,dynamicLowRes:false,synchronizeRenderSize:false,maxSamples:0,filterGlossyFactor:.5});
+   t.setSize(asked.width,asked.height);view.copy(camera);t.setScene(made.scene,view);
+   local=made;environment=sky;tracer=t as unknown as typeof tracer;age=0;options.ready();
+  }finally{preparing=false;}
+ };
+ const release=()=>{tracer?.dispose();local?.dispose();environment?.dispose();tracer=local=environment=undefined;};
  return {
   /** One step of the sample; `started`: it starts from the camera as it is now. The image once the sample is in. */
   step(started:(width:number,height:number)=>void){
-   if(!tracer)return;
+   if(!tracer){if(!preparing&&!disposed)void prepare().catch(error=>{disposed=true;console.warn('Moving trace unavailable',error);});return;}
    if(!age){view.copy(camera);view.clearViewOffset();tracer.updateCamera();started(asked.width,asked.height);}
    renderer.setRenderTarget(target);tracer.renderSample();renderer.setRenderTarget(null);
    if(++age<asked.frames)return;
    age=0;return target.texture;
   },
-  dispose(){disposed=true;tracer?.dispose();local?.dispose();target.dispose();},
+  /** The sun or the clouds changed: the traced scene takes the new sky and sun. */
+  async relight(){
+   const t=tracer,made=local;if(!t||!made)return;
+   const [{copyLights},sky]=await Promise.all([import('./photographic-scene'),lighting.equirectGPU()]);
+   if(t!==tracer){sky.dispose();return;}
+   copyLights(scene,made.scene,lighting.sunThroughClouds);made.scene.environment=made.scene.background=sky;
+   t.updateLights();t.updateEnvironment();environment?.dispose();environment=sky;age=0;
+  },
+  /** What is shown changed (floor, renovations): the next step converts the scene again. */
+  invalidate(){turn++;release();age=0;},
+  dispose(){disposed=true;release();target.dispose();},
  };
 }

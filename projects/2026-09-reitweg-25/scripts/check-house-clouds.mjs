@@ -72,7 +72,7 @@ assert(/intensity\*=sunScale/.test(scene),'the traced sun is dimmed by cloud ove
  assert.equal(c.setEnabled(false),true,'and off again re-bakes');assert(c.baking&&c.atHouse()===1,'to a clear sky');c.dispose();
  assert(/float cloudDensity\(vec3 p,bool detail\)\{\n if\(uCloudsOn<0\.5\)return 0\.0;/.test(source),'off, the field is empty: no cloud in the sky and no shadow on the ground');
  assert(/setClouds:\(on:boolean\)=>\{if\(!clouds\?\.setEnabled\(on\)\)return false;cloudsAll=true;return true;\}/.test(lighting),'the sky light follows once the sky is re-baked');
- assert(/setClouds:\(on:boolean\)=>\{if\(!lighting\?\.setClouds\(on\)\)return;clearTimeout\(cloudSettle\);cloudSettle=setTimeout\(\(\)=>\{probes\?\.request\(\);live\?\.relight\(\);changed\(\);\},SUN_SETTLE\);changed\(\);\}/.test(viewer),'room reflections and the traced image follow');
+ assert(/setClouds:\(on:boolean\)=>\{if\(!lighting\?\.setClouds\(on\)\)return;clearTimeout\(cloudSettle\);cloudSettle=setTimeout\(\(\)=>\{void motionTrace\?\.relight\(\);probes\?\.request\(\);live\?\.relight\(\);changed\(\);\},SUN_SETTLE\);changed\(\);\}/.test(viewer),'room reflections and the traced image follow');
  const page=fs.readFileSync('components/studio/model/house-model.tsx','utf8'),panels=fs.readFileSync('components/studio/model/model-panels.tsx','utf8');
  assert(/\[clouds,setClouds\]=useState\(false\)/.test(page)&&/api\.current\?\.setClouds\(clouds\)/.test(page),'off by default, kept across a change of detail');
  assert(/clouds=\{tiers\[quality\]\.clouds\?clouds:undefined\}/.test(page)&&/p\.clouds!==undefined&&<button aria-pressed=\{p\.clouds\}[^\n]*>Clouds<\/button>/.test(panels),'a Clouds toggle in More, where the detail setting has clouds');}
