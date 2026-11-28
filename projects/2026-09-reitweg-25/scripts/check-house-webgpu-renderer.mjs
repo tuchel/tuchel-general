@@ -218,6 +218,12 @@ assert(chain.includes('carries:(camera:T.Camera,generation:number)=>!!light&&lig
   // Its scene is prepared only while the view rests and the room maps are done, so motion after loading is not held up.
  assert(view.includes('motionTrace.step(shows.traceFrom,still&&!probes?.baking)'),'prepared at rest');
  assert(move.includes("if(!tracer){if(rested&&!preparing&&!disposed)void prepare()")&&move.includes('t.updateLights();t.updateEnvironment();')&&['relight','invalidate'].every(k=>view.split('motionTrace?.'+k+'();').length===view.split('live?.'+k+'();').length),'the sky as the view has it');}
+// The moving trace is 224 by 140: its light is read broadly, so more paths added little, and on an M3 Max it then costs
+// 2.5 ms a frame, not 5. Its 16 taps shift by a pixel from row to row and column to column, so that neighbouring
+// pixels do not read separate sets of the sample (a grid showed).
+{const chain=fs.readFileSync('lib/house-model/post-gpu.ts','utf8'),move=fs.readFileSync('lib/house-model/move-trace.ts','utf8');
+ assert(move.includes('export const MOVING={width:224,height:140,bounces:2,frames:8,spread:2,keep:.7,generation:-2};'),'a smaller trace');
+ assert(chain.includes('vec2((x-1.5)*MOVING.spread+(y&1),(y-1.5)*MOVING.spread+(x&1))'),'taps of both parities');}
 // The sky bake draws 27 passes a direction, and a pass costs this renderer's script about three times WebGL's (6
 // directions a moving frame took 22 ms on an M3 Max): there it takes a third as many directions a frame.
 assert(fs.readFileSync('lib/house-model/sky-visibility.ts','utf8').includes('run(gpu?Math.max(1,Math.round(count/3)):count);'),'fewer directions a frame');
