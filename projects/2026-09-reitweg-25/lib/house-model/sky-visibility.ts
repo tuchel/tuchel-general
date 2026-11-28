@@ -271,7 +271,8 @@ export function bakeSkyVisibility(renderer:T.WebGLRenderer,occluders:T.Mesh[],re
   /** Advances a bake `count` directions; true when a finished result was swapped in. */
   update:(count=SKY_BAKE.moving)=>{
    if(step<0)return false;
-   run(count);
+   // A pass costs the WebGPU renderer's script about three times WebGL's, and a direction is 27 of them.
+   run(gpu?Math.max(1,Math.round(count/3)):count);
    if(step<DIRECTIONS)return false;
    uniforms.uSkyVolume.value=volumes[write].texture;uniforms.uSkyReady.value=1;write=1-write;step=-1;return true;
   },
