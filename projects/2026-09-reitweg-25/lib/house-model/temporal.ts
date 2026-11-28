@@ -11,6 +11,8 @@ import {Pass,FullScreenQuad} from 'three/addons/postprocessing/Pass.js';
  * from it (in its pixels); `carry`: the frames a view that comes to rest counts its moving image as, so the first still frame refines it rather
  * than replacing it; `tolerance`: how far (a share of the distance, plus 5 cm) the kept depth may differ; `slack`: how
  * far past the new frame's neighbouring colours a kept colour may stand, as a share of their range. */
+/** A moving frame's sharpening for the screen: `amount` where it was drawn at half size or less, none at full size. */
+export const CRISP={amount:.5};
 export const TEMPORAL={blend:.14,falloff:3,carry:2,tolerance:.03,slack:.2};
 
 const vertex='varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}';
