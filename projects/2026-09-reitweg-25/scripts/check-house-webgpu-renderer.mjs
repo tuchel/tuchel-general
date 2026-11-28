@@ -3,12 +3,15 @@ import fs from 'node:fs';
 const viewer=fs.readFileSync('lib/house-model/viewer.ts','utf8'),page=fs.readFileSync('components/studio/model/house-model.tsx','utf8');
 const lib=fs.readdirSync('lib/house-model').filter(f=>f.endsWith('.ts')).map(f=>fs.readFileSync(`lib/house-model/${f}`,'utf8')).join('\n');
 const features=fs.readFileSync('lib/house-model/shader-features.ts','utf8'),lighting=fs.readFileSync('lib/house-model/lighting.ts','utf8'),surfaces=fs.readFileSync('lib/house-model/surface-materials.ts','utf8');
-// `?renderer=webgpu` loads three's WebGPU renderer only when asked, and only for the presets it can draw.
+// `?renderer=webgpu` loads three's WebGPU renderer at any preset.
 // Every preset is drawn there; Extreme leaves off the parts not ported yet, and `&try=` turns named ones on to test them.
 const tierCode=fs.readFileSync('lib/house-model/device-tier.ts','utf8');
 assert(!/WEBGPU_PENDING=\[[^\]]*'(hdr|liveTrace|lightCarry|lens|temporal|roomProbes|softShadows|steerMotion|lampGlow|wetMirror|living)'/.test(tierCode)&&/WEBGPU_PENDING\.filter\(k=>!tried\.includes\(k\)\)\.map\(k=>\[k,false\]\)/.test(tierCode));
 assert(/const tier=gpu\?forWebGPU\(chosen,new URLSearchParams\(window\.location\.search\)\.get\('try'\)\?\.split\(','\),new URLSearchParams\(window\.location\.search\)\.get\('without'\)\?\.split\(','\)\):lacking\(chosen,new URLSearchParams\(window\.location\.search\)\.get\('without'\)\?\.split\(','\)\)/.test(viewer)&&/without\.filter\(k=>typeof \(tier as unknown as Record<string,unknown>\)\[k\]==='boolean'\)\.map\(k=>\[k,false\]\)/.test(tierCode)&&/const wide=!gpu&&tier\.quality==='extreme'/.test(viewer));
-assert(/const webgpu=new URLSearchParams\(window\.location\.search\)\.get\('renderer'\)==='webgpu'\?await Promise\.all\(\[import\('three\/webgpu'\),import\('three\/tsl'\),import\('three\/addons\/objects\/SkyMesh\.js'\),/.test(page));
+// Extreme on a computer is drawn by it wherever the browser gives a WebGPU adapter; `?renderer=webgl` keeps WebGL there,
+// a browser without an adapter gets WebGL, and a WebGPU viewer that fails starts again on WebGL at the same preset.
+assert(page.includes("const asked=new URLSearchParams(window.location.search).get('renderer'),own=asked!=='webgpu'&&asked!=='webgl'&&quality==='extreme'&&computer&&!plain;")&&/const webgpu=asked==='webgpu'\|\|own\?await Promise\.all\(\[import\('three\/webgpu'\),import\('three\/tsl'\),import\('three\/addons\/objects\/SkyMesh\.js'\),/.test(page),'chosen for Extreme');
+assert(page.includes('.then(([gpu,tsl,{SkyMesh},{ao},{bloom},adapter])=>own&&!adapter?undefined:({')&&page.includes('if(drawn&&own){setPlain(true);setReady(false);return;}')&&page.includes('},[quality,plain,computer]);'),'with WebGL to fall back on');
 // It has no device until `init` resolves: sky light and the first frame wait for it, and the canvas says which backend
 // it runs on.
 assert(/const device=gpu\?\(renderer as unknown as \{init\(\):Promise<unknown>\}\)\.init\(\)\.then\(\(\)=>\{canvas\.dataset\.renderer=/.test(viewer));
