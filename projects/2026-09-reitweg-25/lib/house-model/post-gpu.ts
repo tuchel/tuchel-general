@@ -408,7 +408,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    const inside=select(clip.w.greaterThan(0),smoothstep(0,LIGHT_CARRY.edge,min(min(to.x,to.y),min(to.x.oneMinus(),to.y.oneMinus()))),0);
    // 16 taps over 8 by 8 pixels of each. A pixel whose path has not ended yet is black and does not count; where
    // few have ended the frame keeps its own light.
-   const spreadOf=(image:any)=>{let sum:any=vec4(0);for(let y=0;y<4;y++)for(let x=0;x<4;x++){const c=image.sample(at.add(vec2((x-1.5)*MOVING.spread,(y-1.5)*MOVING.spread).mul(texel))).rgb;sum=sum.add(vec4(c,step(1e-6,max(c.r,max(c.g,c.b)))));}return sum;};
+   const spreadOf=(image:any)=>{let sum:any=vec4(0);for(let y=0;y<4;y++)for(let x=0;x<4;x++){const c=image.sample(at.add(vec2((x-1.5)*MOVING.spread+(y&1),(y-1.5)*MOVING.spread+(x&1)).mul(texel))).rgb;sum=sum.add(vec4(c,step(1e-6,max(c.r,max(c.g,c.b)))));}return sum;};
    const ended=spreadOf(sample).toVar(),was=spreadOf(frame).rgb.div(16),traced=mix(ended.rgb.div(max(ended.a,1)),fogColour,smoothstep(fogRange.x,fogRange.y,d));
    const changed=select(d.greaterThanEqual(farthest.mul(.999)),vec3(1),mix(vec3(1),clamp(traced.add(.004).div(was.add(.004)),LIGHT_CARRY.least,LIGHT_CARRY.most),smoothstep(0,4,ended.a)));
    return vec4(mix(changed,before.sample(clamp(to,0,1)).rgb,share.mul(inside)),1);
