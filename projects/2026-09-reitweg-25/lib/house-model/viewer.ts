@@ -240,6 +240,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
  let mistFor:((r:LightReading)=>void)|undefined;
  const snowNow=()=>study.enabled&&level==='exterior'?snowing?1:snowOn(study.day):0;
  const relight=()=>{
+  motionTrace?.hold();
   const lies=lighting?snowNow():0;if(!settling){snow.amount=lies;slabs?.show(lies>0);drifts?.show(snow.amount);}
   const r=lighting?.apply(study,lies,snowing||raining?1:0);if(r)mistFor?.(r);if(r)festive?.show(study.enabled&&(snowing||snowOn(study.day)===1),r.exposure,r.dusk);
   return r;
@@ -527,7 +528,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
    cullTrees(low);
    // The moving trace's scene knows no snow, rain or wet ground either: its light is left out while they last.
    const traced=snow.amount||raining||wet.value?undefined:motionTrace;
-   if(mirror)timed('mirror',()=>mirror.render(low&&!!gpu));post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel,carry:carrying&&live&&level!=='upper'&&!snow.amount&&!raining&&!wet.value?live.generation:undefined,moving:!!traced});
+   if(mirror)timed('mirror',()=>mirror.render(low&&!!gpu));post.render(still,renderer.toneMappingExposure,indoorOf(room),{eyeLevel:rig.eyeLevel,carry:carrying&&live&&level!=='upper'&&!snow.amount&&!raining&&!wet.value?live.generation:undefined,moving:!!traced?.valid});
    if(traced&&shows){const sample=traced.step(shows.traceFrom,still&&!probes?.baking);if(sample)shows.traceDone(sample);}
    if(low)steer?.finish(performance.now());
    if(jitter)camera.clearViewOffset();

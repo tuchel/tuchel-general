@@ -523,6 +523,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    settled=[next,was];if(rest||!kept)frames++;
    kept?.remember();
    // The screen's frame takes the last traced view's light while it applies; the kept image stays as it was drawn.
+   if(light&&!view?.moving&&light.generation===MOVING.generation)light.generation=-1;
    carriedLight=light&&relight&&(light.generation===MOVING.generation?view?.moving:view?.carry!==undefined&&light.generation===view.carry)?lightCarried(light.camera,camera,light.reach):0;
    const lit=motion?.shown()??(relight&&carriedLight>0?relight.render(out):out);
    near=!!view?.eyeLevel;showing=near&&focus?focus.render(lit):lit;
