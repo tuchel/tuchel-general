@@ -81,6 +81,10 @@ export type Tracer={
   * `demodulated`: the image is divided by the surface colours (demodulate). */
  step:(now:number)=>{texture:T.DataTexture;samples:number;denoised:number;demodulated:boolean}|undefined;
  readonly failed:boolean;readonly done:boolean;
+ /** The camera moved: no more samples until the next step (a worker would trace on for a moment otherwise). */
+ pause?:()=>void;
+ /** Resolves when the graphics card has done the rounds of samples sent so far. */
+ settled?:()=>Promise<unknown>;
  dispose:()=>void;
 };
 /** `weights`: where the denoiser's weights are (a worker is handed the page's address). */
@@ -140,7 +144,7 @@ export async function createWebGPUTracer(scene:T.Scene,camera:T.PerspectiveCamer
  let copying=false,lastCopy=0,samples=0,shown=0,lost=false,final=false,gathered=0,stage=0,denoised=0,previous:Uint16Array|undefined,demodulated=false;
  // Any validation error, a lost device, a throw or an image with no light in it counts as failure; the WebGL tracer
  // takes over (live-trace.ts).
- const device=(renderer.backend as {device?:{lost?:Promise<unknown>;addEventListener?:(type:string,listener:()=>void)=>void}}).device;
+ const device=(renderer.backend as {device?:{queue?:{onSubmittedWorkDone():Promise<unknown>};lost?:Promise<unknown>;addEventListener?:(type:string,listener:()=>void)=>void}}).device;
  void device?.lost?.then(()=>{lost=true;});
  device?.addEventListener?.('uncapturederror',()=>{lost=true;});
  const copy=async()=>{
@@ -193,6 +197,7 @@ export async function createWebGPUTracer(scene:T.Scene,camera:T.PerspectiveCamer
   },
   get failed(){return lost;},
   get done(){return final;},
+  settled:()=>device?.queue?.onSubmittedWorkDone()??Promise.resolve(),
   dispose:()=>{tracer.dispose?.();target.dispose();colours.dispose();texture.dispose();renderer.dispose();},
  };
 }
@@ -242,6 +247,7 @@ export async function createWorkerTracer(scene:T.Scene,camera:T.PerspectiveCamer
    });
   },
   relight:()=>send({kind:'lights',scene:sender.lights(current)}),
+  pause:()=>send({kind:'pause'}),
   step:()=>{send({kind:'tick'});return have?{texture,samples:shown,denoised,demodulated}:undefined;},
   get failed(){return failed;},
   get done(){return done;},

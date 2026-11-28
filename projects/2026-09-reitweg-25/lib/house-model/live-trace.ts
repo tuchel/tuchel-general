@@ -72,7 +72,7 @@ export function createLiveTrace(options:{renderer:T.WebGLRenderer;scene:T.Scene;
   copyLights(scene,p.local.scene,lighting.sunThroughClouds);p.local.scene.environment=p.local.scene.background=environment;
   p.gpu.relight();p.environment.dispose();p.environment=environment;
  };
- let relighting=false;
+ let relighting=false,stepping=false;
  return {
   /** One round of samples while the camera rests; undefined while the scene is prepared. Starts preparing on the first
    * call, and again after a change of floor, renovation or walk. */
@@ -85,7 +85,7 @@ export function createLiveTrace(options:{renderer:T.WebGLRenderer;scene:T.Scene;
    // A failed device ends tracing for this visit; the live view stays.
    if(gpu.failed){unavailable=true;release();return;}
    if(cameraStale){const size=renderer.getSize(new T.Vector2());gpu.reset(Math.max(1,Math.round(size.x)),Math.max(1,Math.round(size.y)));cameraStale=false;}
-   return gpu.step(performance.now());
+   stepping=true;return gpu.step(performance.now());
   },
   /** True while resting should keep drawing: preparing, or still gathering samples. */
   get wanted(){return !unavailable&&(!prepared||sceneStale||lightStale||relighting||!prepared.gpu.done);},
@@ -93,7 +93,7 @@ export function createLiveTrace(options:{renderer:T.WebGLRenderer;scene:T.Scene;
   /** Counts new scenes and suns: an image traced under another generation shows a different house or light. */
   get generation(){return generation;},
   /** The camera moved: the next rest starts afresh. */
-  reset:()=>{cameraStale=true;},
+  reset:()=>{cameraStale=true;if(stepping){stepping=false;prepared?.gpu.pause?.();}},
   /** The sun moved. */
   relight:()=>{lightStale=true;cameraStale=true;generation++;},
   /** What is shown changed (floor, renovations, grass around the walker): the next rest converts what changed. */

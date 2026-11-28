@@ -88,6 +88,10 @@ for(const f of ['vite.pages.config.ts','vite.config.ts'])assert(/worker:\s*\{\s*
 // the scene the tracer takes decides what the worker lets go.
 const workerSource=fs.readFileSync('lib/house-model/live-trace-worker.ts','utf8');
 assert(/now-lastTick>QUIET/.test(workerSource),'the worker rests when the page stops asking');
+// The camera moved: the worker stops at once instead of tracing on for QUIET ms beside the first moving frames, and it
+// never has more than one round of samples waiting on the graphics card, which those frames would wait behind.
+assert(/case 'pause':lastTick=0;break;/.test(workerSource)&&/reset:\(\)=>\{cameraStale=true;if\(stepping\)\{stepping=false;prepared\?\.gpu\.pause\?\.\(\);\}\}/.test(live)&&/pause:\(\)=>send\(\{kind:'pause'\}\)/.test(fs.readFileSync('lib/house-model/live-trace-webgpu.ts','utf8')),'a move stops the worker at once');
+assert(/void tracer\.settled\(\)\.then\(\(\)=>frame\(loop\)\);/.test(workerSource)&&/settled:\(\)=>device\?\.queue\?\.onSubmittedWorkDone\(\)\?\?Promise\.resolve\(\)/.test(fs.readFileSync('lib/house-model/live-trace-webgpu.ts','utf8')),'one round on the card at a time');
 assert(/building\?\.abort\(\)/.test(workerSource)&&/tracer\.rescene\(next,controller\.signal\)/.test(workerSource),'a newer scene cancels an older one');
 // Images from before a reset are not shown after it.
 const webgpu=fs.readFileSync('lib/house-model/live-trace-webgpu.ts','utf8');
