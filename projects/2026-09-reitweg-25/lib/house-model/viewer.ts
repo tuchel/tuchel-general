@@ -467,7 +467,7 @@ export function createHouseViewer(host:HTMLDivElement,options:ViewerOptions){
   if(probes&&post&&level==='exterior'&&!captures?.active&&probes.baking){const landed=probes.step(rig.camera);if(probes.active||(landed&&rig.eyeLevel)){if(landed)post.reset();needsFrame=true;}}
   if(panorama&&still&&!captures?.active){
    const p=rig.camera.position;
-   if(Math.abs(p.y-panorama.userData.anchorHeight())>.5||Math.hypot(p.x-panoramaAt.x,p.z-panoramaAt.z)>4){panorama.userData.anchor(p.y);panoramaAt.copy(p);motionTrace?.invalidate();live?.invalidate();}
+   if(Math.abs(p.y-panorama.userData.anchorHeight())>.5||Math.hypot(p.x-panoramaAt.x,p.z-panoramaAt.z)>4){panorama.userData.anchor(p.y);panoramaAt.copy(p);live?.invalidate();}
   }
   // A settled view hands over to path tracing; the floor-plan section of the upper floor cuts roofs with clipping
   // planes, which the tracer cannot, so it stays live.
