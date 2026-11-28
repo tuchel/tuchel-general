@@ -128,7 +128,7 @@ assert(/if\(gpu\)\(renderer as unknown as \{backend:\{capabilities:\{getUniformB
 // Materials whose features hold nothing of their own share what three builds from their nodes.
 assert(/\(list\.every\(f=>f\.variant!==undefined\)\?list\.map\(f=>f\.variant\)\.join\('\|'\):material\.uuid\)/.test(features)&&/key:'sky-visibility',variant:''/.test(skyCode)&&/key:'sun-bounce',variant:''/.test(bounce)&&/key:'snow-'\+kind,last:true,variant:\[\.\.\.how\.toArray\(\),\.\.\.most\.value\.toArray\(\)\]\.join\(\)/.test(snowCode));
 // With four samples to a pixel the depth that corner shading and the falling snow read is a plain copy of the scene's.
-assert(/const level=options\.samples>=4\?new T\.RenderTarget\(/.test(chain)&&/depthNode:texture\(target\.depthTexture!\)\.load\(ivec2\(screenCoordinate\)\)\.r/.test(chain)&&/gpu\.ao\(texture\(depthOf\),null,camera\)/.test(chain)&&/get depth\(\)\{return depthOf;\}/.test(chain));
+assert(/const level=samples>=4\?new T\.RenderTarget\(/.test(chain)&&/depthNode:texture\(target\.depthTexture!\)\.load\(ivec2\(screenCoordinate\)\)\.r/.test(chain)&&/gpu\.ao\(texture\(depthOf\),null,camera\)/.test(chain)&&/get depth\(\)\{return depthOf;\}/.test(chain));
 // Detailed's bloom there: three's, at the WebGL chain's strength, radius and threshold.
 assert(/const glow=options\.bloom&&gpu\.bloom\?gpu\.bloom\(current,\.06,\.1,1\):undefined/.test(chain)&&/if\(glow\)glow\.threshold\.value=2\.5\/Math\.max\(exposed,1e-4\);/.test(chain)&&/import\('three\/addons\/tsl\/display\/BloomNode\.js'\)/.test(page));
 // The sky's clouds stand where the WebGL sky has them.
@@ -218,4 +218,7 @@ assert(chain.includes('carries:(camera:T.Camera,generation:number)=>!!light&&lig
   // Its scene is prepared only while the view rests and the room maps are done, so motion after loading is not held up.
  assert(view.includes('motionTrace.step(shows.traceFrom,still&&!probes?.baking)'),'prepared at rest');
  assert(move.includes("if(!tracer){if(rested&&!preparing&&!disposed)void prepare()")&&move.includes('t.updateLights();t.updateEnvironment();')&&['relight','invalidate'].every(k=>view.split('motionTrace?.'+k+'();').length===view.split('live?.'+k+'();').length),'the sky as the view has it');}
+// For a test, `&samples=1` (2, 4) sets how many samples a pixel of the scene is drawn with, whatever the preset says.
+{const chain=fs.readFileSync('lib/house-model/post-gpu.ts','utf8');
+ assert(chain.includes("const samples=Number(/^[124]$/.exec(new URLSearchParams(location.search).get('samples')??'')?.[0]??options.samples);")&&!/options\.samples[,>]/.test(chain),'samples to ask for');}
 console.log('Passed: with ?renderer=webgpu the Model and Balanced presets are drawn by three\'s WebGPU renderer, started once its device is ready, with shadows redrawn only on change; Balanced has its sky with stars and moon, sun, textured surfaces, indoor sky light, bounced sunlight, corner shading, lying snow with its packed layer on the roofs, falling snow and rain, averaged still frames and colour finish there.');
