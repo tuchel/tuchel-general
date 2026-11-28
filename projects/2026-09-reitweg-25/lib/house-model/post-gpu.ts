@@ -1,6 +1,7 @@
 import * as T from 'three';
 import {finish} from './look';
 import {TEMPORAL} from './temporal';
+import {CRISP} from './temporal';
 import {MOTION_BLUR} from './motion-blur';
 import {LENS,meterCorrection,focalLength} from './lens';
 import {CONTACT} from './contact-shadows';
@@ -235,12 +236,17 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
  })():undefined;
  const shown=texture(settled[0].texture),balance=uniform(new T.Vector3(1,1,1)),look=uniform(new T.Vector3(1,1,0)),exposure=uniform(1);
  const luma=vec3(.2126,.7152,.0722);
- const mapped=agxToneMapping(shown.rgb.mul(balance),exposure);
+ // A moving frame for the screen (temporal.ts, CRISP): each pixel moved away from its four neighbours' mean, and held
+ // within their colours so that no edge gains a halo. Built only where asked for: its look-ups cost at every pixel.
+ const crisp=options.crisp?uniform(0):undefined,pixel=uniform(new T.Vector2(1,1));let drawnAt=1;
+ const seen=crisp?(()=>{const {uv,vec2}=gpu.tsl,at=uv(),c=shown.rgb,n=shown.sample(at.sub(vec2(0,pixel.y))).rgb,s=shown.sample(at.add(vec2(0,pixel.y))).rgb,w=shown.sample(at.sub(vec2(pixel.x,0))).rgb,e=shown.sample(at.add(vec2(pixel.x,0))).rgb;
+  return clamp(c.add(c.mul(4).sub(n).sub(s).sub(w).sub(e).mul(crisp)),min(c,min(min(n,s),min(w,e))),max(c,max(max(n,s),max(w,e))));})():shown.rgb;
+ const mapped=agxToneMapping(seen.mul(balance),exposure);
  const e0=pow(clamp(mapped,0,1),vec3(1/2.2)),m=dot(e0,luma),f=float(1).sub(m),e=min(e0.mul(look.z.mul(f.mul(f).mul(f).mul(f)).add(1)),vec3(1));
  const p=pow(e,vec3(look.x)),q=pow(vec3(1).sub(e),vec3(look.x)),c=pow(p.div(max(p.add(q),vec3(1e-5))),vec3(2.2)),l=dot(c,luma);
  const graded0=max(vec3(0),vec3(l).add(c.sub(l).mul(look.y)));
  // A canvas that shows above white (hdr.ts): light the scene holds above the knee is shown brighter, up to `bright` times.
- const bright=uniform(0),graded=graded0.mul(clamp(pow(dot(shown.rgb.mul(balance),luma).mul(exposure).div(HDR.knee),HDR.curve),1,max(bright,1)));
+ const bright=uniform(0),graded=graded0.mul(clamp(pow(dot(seen.mul(balance),luma).mul(exposure).div(HDR.knee),HDR.curve),1,max(bright,1)));
  // The lens's grain on the finished image (lens.ts), new each frame: two hashes summed, triangular noise in -1..1.
  const seed=uniform(0),grained=options.lens?(()=>{
   const {fract}=gpu.tsl,at=screenCoordinate.xy,hash=(v:any)=>{const f=fract(v.mul(.1031)),h=f.add(dot(f,f.yzx.add(33.33)));return fract(h.x.add(h.y).mul(h.z));};
@@ -471,14 +477,14 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   // The finish tone-maps and encodes itself, so the renderer is asked for neither while it is drawn.
   const mapping=renderer.toneMapping,space=renderer.outputColorSpace;
   renderer.toneMapping=T.NoToneMapping;renderer.outputColorSpace=T.LinearSRGBColorSpace;
-  shown.value=showing.texture;renderer.setRenderTarget(null);renderer.render(stage,through);
+  shown.value=showing.texture;pixel.value.set(1/showing.width,1/showing.height);renderer.setRenderTarget(null);renderer.render(stage,through);
   renderer.toneMapping=mapping;renderer.outputColorSpace=space;
  };
  const toScreen=()=>{for(const o of stage.children.slice())if(o!==finished)stage.remove(o);draw(camera);};
  const api={
   passes:[],
   setSize:(width:number,height:number,ratio:number)=>{
-   const w=Math.max(1,Math.floor(width*ratio)),h=Math.max(1,Math.floor(height*ratio));target.setSize(w,h);level?.setSize(w,h);
+   const w=Math.max(1,Math.floor(width*ratio)),h=Math.max(1,Math.floor(height*ratio));target.setSize(w,h);level?.setSize(w,h);drawnAt=w/Math.max(1,renderer.getDrawingBufferSize(new T.Vector2()).x);
    // The kept image stays at full size whatever size the moving frames are drawn at.
    if(kept){if(kept.resize(w,h))frames=0;}else{for(const t of settled)t.setSize(w,h);frames=0;}
    shafts?.setSize(w,h);
@@ -497,6 +503,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    // Only highlights two and a half times brighter than white bloom.
    if(glow)glow.threshold.value=2.5/Math.max(exposed,1e-4);
    const moved=kept?.moved()??false,rest=refining&&!moved;
+   if(crisp)crisp.value=rest?0:CRISP.amount*Math.min(1,2*(1-drawnAt));
    if(!rest)frames=0;else if(kept&&frames===0&&kept.rested())frames=TEMPORAL.carry;
    renderer.setRenderTarget(target);renderer.render(scene,camera);
    if(level&&levelled){renderer.setRenderTarget(level);levelled.render(renderer);}

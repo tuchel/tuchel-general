@@ -44,7 +44,7 @@ assert(/if\(gpu\)links\.needsUpdate=true;/.test(sky)&&/for\(const v of volumes\)
 // chain's finish, which tone-maps and encodes itself, so the renderer is asked for neither while it is drawn.
 const chain=fs.readFileSync('lib/house-model/post-gpu.ts','utf8');
 assert(/createPostGPU\(\.\.\.a,\{tsl:gpu\.tsl,ao:gpu\.ao,bloom:gpu\.bloom,NodeMaterial:gpu\.NodeMaterial,QuadMesh:gpu\.QuadMesh\}\):createPost\(\.\.\.a\)/.test(viewer));
-assert(/weight\.value=1\/\(frames\+1\);/.test(chain)&&/const mapped=agxToneMapping\(shown\.rgb\.mul\(balance\),exposure\);/.test(chain)&&/quadOf\(vec4\(sRGBTransferOETF\(grained\),1\)\)/.test(chain));
+assert(/weight\.value=1\/\(frames\+1\);/.test(chain)&&/const mapped=agxToneMapping\(seen\.mul\(balance\),exposure\);/.test(chain)&&/quadOf\(vec4\(sRGBTransferOETF\(grained\),1\)\)/.test(chain));
 assert(/renderer\.toneMapping=T\.NoToneMapping;renderer\.outputColorSpace=T\.LinearSRGBColorSpace;[\s\S]*?renderer\.toneMapping=mapping;renderer\.outputColorSpace=space;/.test(chain));
 // The kept moving image (temporal.ts) with the WebGL pass's settings: looked up where the last frame saw the point,
 // held to the new frame's neighbouring colours, at full size whatever size the moving frames are drawn at.
@@ -197,11 +197,11 @@ assert(chain.includes('carries:(camera:T.Camera,generation:number)=>!!light&&lig
 {const view=fs.readFileSync('lib/house-model/viewer.ts','utf8'),hdr=fs.readFileSync('lib/house-model/hdr.ts','utf8');
  assert(view.includes("...(gpu&&bright?{outputType:T.HalfFloatType}:{})")&&view.includes('const bright=tier.hdr&&hdrWanted(!!gpu);')&&view.includes('if(bright&&!gpu)void createHdrScreen(')&&view.includes('hdr:()=>(gpu?bright&&!plain&&!captures?.active&&!captures?.recording:screen&&renderer.outputColorSpace===DisplayP3ColorSpace)?HDR.peak:0')&&view.includes('plain=true;renderer.outputColorSpace=T.SRGBColorSpace;')&&view.includes('}finally{plain=false;'),'the WebGPU canvas takes the extended range');
  assert(hdr.includes("&&(own||'gpu' in navigator&&'drawingBufferStorage' in WebGL2RenderingContext.prototype)"),'no copy needed there');
- assert(chain.includes('graded0.mul(clamp(pow(dot(shown.rgb.mul(balance),luma).mul(exposure).div(HDR.knee),HDR.curve),1,max(bright,1)))')&&chain.includes('bright.value=options.hdr?.()??0;'),'light above the knee is shown brighter');}
+ assert(chain.includes('graded0.mul(clamp(pow(dot(seen.mul(balance),luma).mul(exposure).div(HDR.knee),HDR.curve),1,max(bright,1)))')&&chain.includes('bright.value=options.hdr?.()??0;'),'light above the knee is shown brighter');}
 // The moving trace is a part of Extreme that only the WebGPU renderer has.
 // `&moveTrace=WxHxBOUNCESxFRAMES` sets its size for a test.
 {const view=fs.readFileSync('lib/house-model/viewer.ts','utf8'),move=fs.readFileSync('lib/house-model/move-trace.ts','utf8');
- assert(/extreme:\{[^\n]*moveTrace:true/.test(tierCode)&&/detailed:\{[^\n]*moveTrace:false/.test(tierCode)&&/PHONE_EXTREME=\{[^\n]*moveTrace:false/.test(tierCode)&&/export const WEBGPU_PENDING=\['treeOcclusion'\] as const;/.test(tierCode),'a part of Extreme');
+ assert(/extreme:\{[^\n]*moveTrace:true/.test(tierCode)&&/detailed:\{[^\n]*moveTrace:false/.test(tierCode)&&/PHONE_EXTREME=\{[^\n]*moveTrace:false/.test(tierCode)&&/export const WEBGPU_PENDING=\['treeOcclusion','crisp'\] as const;/.test(tierCode),'a part of Extreme');
  assert(view.includes('const tracing=gpu&&lighting&&camera instanceof T.PerspectiveCamera?moveTraceAsked(tier.moveTrace):undefined;')&&view.includes('if(motionTrace&&shows){const sample=motionTrace.step(shows.traceFrom,still&&!probes?.baking);if(sample)shows.traceDone(sample);}')&&view.includes('?live.generation:undefined,moving:!!motionTrace});')&&view.includes('motionTrace?.dispose();'),'only where asked for');
  assert(move.includes(".get('moveTrace')")&&move.includes('new WebGPUPathTracer(options.renderer as never)')&&!/^import .*(pathtracer|live-trace-webgpu|photographic-scene)/m.test(move),'on the renderer\'s own device, loaded only when asked for');
  // A sample is traced over several frames for the view it started from; what it changed against that view's frame,
@@ -218,6 +218,12 @@ assert(chain.includes('carries:(camera:T.Camera,generation:number)=>!!light&&lig
   // Its scene is prepared only while the view rests and the room maps are done, so motion after loading is not held up.
  assert(view.includes('motionTrace.step(shows.traceFrom,still&&!probes?.baking)'),'prepared at rest');
  assert(move.includes("if(!tracer){if(rested&&!preparing&&!disposed)void prepare()")&&move.includes('t.updateLights();t.updateEnvironment();')&&['relight','invalidate'].every(k=>view.split('motionTrace?.'+k+'();').length===view.split('live?.'+k+'();').length),'the sky as the view has it');}
+// Moving frames are drawn smaller and gathered into the kept image, which leaves them soft: with `crisp` the screen's
+// copy is sharpened by how much smaller they were drawn, never past its four neighbours' colours (no halo), and not at
+// rest. Still one to ask for (`&try=crisp`) until it has been judged by eye.
+{const chain=fs.readFileSync('lib/house-model/post-gpu.ts','utf8'),view=fs.readFileSync('lib/house-model/viewer.ts','utf8'),temporal=fs.readFileSync('lib/house-model/temporal.ts','utf8');
+ assert(/extreme:\{[^\n]*crisp:true/.test(tierCode)&&/detailed:\{[^\n]*crisp:false/.test(tierCode)&&/PHONE_EXTREME=\{[^\n]*crisp:false/.test(tierCode)&&/WEBGPU_PENDING=\[[^\]]*'crisp'/.test(tierCode),'a part of Extreme, to ask for');
+ assert(/export const CRISP=\{amount:[\d.]+\}/.test(temporal)&&view.includes('crisp:tier.crisp')&&chain.includes('clamp(c.add(c.mul(4).sub(n).sub(s).sub(w).sub(e).mul(crisp)),min(c,min(min(n,s),min(w,e))),max(c,max(max(n,s),max(w,e))))')&&chain.includes('if(crisp)crisp.value=rest?0:CRISP.amount*Math.min(1,2*(1-drawnAt));'),'sharpened within its neighbours, in motion only');}
 // The moving trace is 224 by 140: its light is read broadly, so more paths added little, and on an M3 Max it then costs
 // 2.5 ms a frame, not 5. Its 16 taps shift by a pixel from row to row and column to column, so that neighbouring
 // pixels do not read separate sets of the sample (a grid showed).
