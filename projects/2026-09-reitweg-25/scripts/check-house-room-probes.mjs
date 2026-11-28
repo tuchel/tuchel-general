@@ -57,5 +57,8 @@ for(const [i,room] of rooms.entries()){
 // ready for it in the background first (three yields between materials there), with nothing culled, and no face is
 // drawn until then.
 {const probes=fs.readFileSync('lib/house-model/room-probes.ts','utf8');
- assert(/if\(gpu&&!ready\)\{[^]*?renderer\.setRenderTarget\(cube,0\);[^]*?renderer\.compileAsync\(scene,eye\.children\[0\] as T\.Camera\)[^]*?return false;\}/.test(probes)&&/frustumCulled=false/.test(probes),'made ready before the first face');}
+ assert(/if\(gpu&&\(stale\|\|making\)\)\{[^]*?renderer\.setRenderTarget\(cube,0\);[^]*?renderer\.compileAsync\(scene,eye\.children\[0\] as T\.Camera\)[^]*?return false;\}/.test(probes)&&/frustumCulled=false/.test(probes),'made ready before the first face');
+ // What arrives after the house (furniture, the garage's cars) was not there to be made ready, and the next face
+ // built it in one frame all the same (1.7 s): each arrival is made ready too.
+ assert(/add:\(root:T\.Object3D\)=>\{receive\(root\);dirty=true;stale=true;\}/.test(probes),'and again for what arrives later');}
 console.log(`Passed: ${rooms.length} rooms boxed by their walls (${rooms.map((r,i)=>{const s=boxes[i].box.getSize(new T.Vector3());return `${r.id} ${s.x.toFixed(1)}×${s.z.toFixed(1)}×${s.y.toFixed(1)}`;}).join(', ')} m); reflections line up with the wall they meet and survive the map's layout.`);
