@@ -25,7 +25,9 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
  const {positionGeometry,screenCoordinate,ivec2,texture,uniform,vec3,vec4,float,mix,max,min,pow,dot,clamp,agxToneMapping,sRGBTransferOETF}=gpu.tsl;
  // That renderer draws into plain render targets through the calls the WebGL renderer has for its own.
  const half=()=>new T.RenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false}) as unknown as T.WebGLRenderTarget;
- const target=new T.RenderTarget(1,1,{type:T.HalfFloatType,samples:options.samples,depthTexture:new T.DepthTexture(1,1)}) as unknown as T.WebGLRenderTarget;
+ // `&samples=1` (2, 4): for a test, how many samples a pixel of the scene is drawn with.
+ const samples=Number(/^[124]$/.exec(new URLSearchParams(location.search).get('samples')??'')?.[0]??options.samples);
+ const target=new T.RenderTarget(1,1,{type:T.HalfFloatType,samples,depthTexture:new T.DepthTexture(1,1)}) as unknown as T.WebGLRenderTarget;
  let settled=[half(),half()],frames=0;
  const quadOf=(node:any)=>{const m=new gpu.NodeMaterial() as any;m.fragmentNode=node;m.depthTest=false;m.depthWrite=false;return new gpu.QuadMesh(m);};
  // A still frame joins the average of those before it.
@@ -41,7 +43,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
  };
  // With four samples to a pixel the scene's depth cannot be read as one value, which corner shading and what falls over
  // the frame need: its first sample is copied to a plain depth buffer after the scene is drawn.
- const level=options.samples>=4?new T.RenderTarget(1,1,{depthTexture:new T.DepthTexture(1,1)}) as unknown as T.WebGLRenderTarget:undefined,depthOf=(level??target).depthTexture!;
+ const level=samples>=4?new T.RenderTarget(1,1,{depthTexture:new T.DepthTexture(1,1)}) as unknown as T.WebGLRenderTarget:undefined,depthOf=(level??target).depthTexture!;
  const levelled=level&&quadOf(vec4(0));
  if(levelled)Object.assign(levelled.material,{depthNode:texture(target.depthTexture!).load(ivec2(screenCoordinate)).r,depthTest:true,depthWrite:true,depthFunc:T.AlwaysDepth});
  // Where each pixel's point lies, from the scene's depth: `optics` holds the projection's terms; rows run top down.
