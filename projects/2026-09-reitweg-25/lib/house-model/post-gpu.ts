@@ -398,7 +398,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
   const broadly=()=>new T.RenderTarget(1,1,{type:T.HalfFloatType,depthBuffer:false,generateMipmaps:true,minFilter:T.LinearMipmapLinearFilter}) as unknown as T.WebGLRenderTarget;
   const from={frame:half(),depth:half(),camera:new T.PerspectiveCamera(),placed:uniform(new T.Matrix4()),optics:uniform(new T.Vector4(1,1,0,1))};
   const sample=texture(from.frame.texture),frame=texture(from.frame.texture),depth=texture(from.depth.texture),before=texture(light.ratio.texture),share=uniform(0),fogColour=uniform(new T.Color()),fogRange=uniform(new T.Vector2(1e9,1e9));
-  let spare=broadly();
+  let spare=broadly();const showing=new URLSearchParams(location.search).get('moveTraceShow');
   const quad=quadOf(Fn(()=>{
    const at=uv(),d=depth.sample(at).r.toVar(),o=from.optics;
    const world=from.placed.mul(vec4(at.x.mul(2).sub(1).mul(d).div(o.x),at.y.mul(-2).add(1).mul(d).div(o.y),d.negate(),1)).toVar(),clip=keptViewProj.mul(world).toVar();
@@ -433,6 +433,14 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
     light.camera.copy(from.camera);light.camera.updateMatrixWorld();
     keptViewProj.value.multiplyMatrices(light.camera.projectionMatrix,light.camera.matrixWorldInverse);keptView.value.copy(light.camera.matrixWorldInverse);
     light.generation=MOVING.generation;light.version=-1;light.reach=meter&&Number.isFinite(meter.focus)?meter.focus:0;
+   },
+   /** For a test (`&moveTraceShow=sample|frame|ratio`): the last sample, the frame it started from or the kept
+    * ratio, drawn through the finish in place of the view. */
+   shown(){
+    if(!showing||light.generation!==MOVING.generation)return;
+    copied.value=showing==='sample'?sample.value:showing==='frame'?frame.value:light.ratio.texture;
+    if(light.lit.width!==target.width||light.lit.height!==target.height)light.lit.setSize(target.width,target.height);
+    renderer.setRenderTarget(light.lit);copy.render(renderer);return light.lit;
    },
    dispose(){from.frame.dispose();from.depth.dispose();spare.dispose();quad.material.dispose();},
   };
@@ -507,7 +515,7 @@ export function createPostGPU(renderer:T.WebGLRenderer,scene:T.Scene,camera:T.Ca
    kept?.remember();
    // The screen's frame takes the last traced view's light while it applies; the kept image stays as it was drawn.
    carriedLight=light&&relight&&(light.generation===MOVING.generation?view?.moving:view?.carry!==undefined&&light.generation===view.carry)?lightCarried(light.camera,camera,light.reach):0;
-   const lit=relight&&carriedLight>0?relight.render(out):out;
+   const lit=motion?.shown()??(relight&&carriedLight>0?relight.render(out):out);
    near=!!view?.eyeLevel;showing=near&&focus?focus.render(lit):lit;
    toScreen();
   },
